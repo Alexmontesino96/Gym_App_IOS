@@ -6,6 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FDB0AFF72E27A3FF0029E82C /* StreamChat in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0AFF62E27A3FF0029E82C /* StreamChat */; };
+		FDB0AFFD2E27A3FF0029E82C /* StreamChatUI in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0AFFC2E27A3FF0029E82C /* StreamChatUI */; };
+		FDB0B0002E27A7EB0029E82C /* Auth0 in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0AFFF2E27A7EB0029E82C /* Auth0 */; };
+		FDB0B0032E27A80E0029E82C /* JWTDecode in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0B0022E27A80E0029E82C /* JWTDecode */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		FDDBA1212E257F9B00E6034C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +59,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDB0AFF72E27A3FF0029E82C /* StreamChat in Frameworks */,
+				FDB0B0032E27A80E0029E82C /* JWTDecode in Frameworks */,
+				FDB0AFFD2E27A3FF0029E82C /* StreamChatUI in Frameworks */,
+				FDB0B0002E27A7EB0029E82C /* Auth0 in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +123,10 @@
 			);
 			name = Gym_API;
 			packageProductDependencies = (
+				FDB0AFF62E27A3FF0029E82C /* StreamChat */,
+				FDB0AFFC2E27A3FF0029E82C /* StreamChatUI */,
+				FDB0AFFF2E27A7EB0029E82C /* Auth0 */,
+				FDB0B0022E27A80E0029E82C /* JWTDecode */,
 			);
 			productName = Gym_API;
 			productReference = FDDBA1112E257F9900E6034C /* Gym_API.app */;
@@ -195,6 +210,11 @@
 			);
 			mainGroup = FDDBA1082E257F9900E6034C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FDB0AFF52E27A3FF0029E82C /* XCRemoteSwiftPackageReference "stream-chat-swift" */,
+				FDB0AFFE2E27A7EB0029E82C /* XCRemoteSwiftPackageReference "Auth0" */,
+				FDB0B0012E27A80E0029E82C /* XCRemoteSwiftPackageReference "JWTDecode" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FDDBA1122E257F9900E6034C /* Products */;
 			projectDirPath = "";
@@ -321,7 +341,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -378,7 +398,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -395,6 +415,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3N4T4H2H2F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -422,6 +443,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3N4T4H2H2F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -449,7 +471,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Alex.Gym-APITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -467,7 +489,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "Alex.Gym-APITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -550,6 +572,56 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FDB0AFF52E27A3FF0029E82C /* XCRemoteSwiftPackageReference "stream-chat-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/GetStream/stream-chat-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.81.0;
+			};
+		};
+		FDB0AFFE2E27A7EB0029E82C /* XCRemoteSwiftPackageReference "Auth0" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/Auth0.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.13.0;
+			};
+		};
+		FDB0B0012E27A80E0029E82C /* XCRemoteSwiftPackageReference "JWTDecode" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/JWTDecode.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FDB0AFF62E27A3FF0029E82C /* StreamChat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDB0AFF52E27A3FF0029E82C /* XCRemoteSwiftPackageReference "stream-chat-swift" */;
+			productName = StreamChat;
+		};
+		FDB0AFFC2E27A3FF0029E82C /* StreamChatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDB0AFF52E27A3FF0029E82C /* XCRemoteSwiftPackageReference "stream-chat-swift" */;
+			productName = StreamChatUI;
+		};
+		FDB0AFFF2E27A7EB0029E82C /* Auth0 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDB0AFFE2E27A7EB0029E82C /* XCRemoteSwiftPackageReference "Auth0" */;
+			productName = Auth0;
+		};
+		FDB0B0022E27A80E0029E82C /* JWTDecode */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDB0B0012E27A80E0029E82C /* XCRemoteSwiftPackageReference "JWTDecode" */;
+			productName = JWTDecode;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FDDBA1092E257F9900E6034C /* Project object */;
 }
