@@ -54,13 +54,13 @@ struct Gym_APIApp: App {
                 eventService.authService = authService
                 classService.authService = authService
             }
-            .onChange(of: authService.isAuthenticated) { isAuthenticated in
-                if isAuthenticated {
+            .onChange(of: authService.isAuthenticated) {
+                if authService.isAuthenticated {
                     // Configurar OneSignal con el usuario autenticado
                     if let user = authService.user {
-                        oneSignalService.setExternalUserId(user.id ?? "unknown_user")
+                        oneSignalService.setExternalUserId(user.id)
                         oneSignalService.sendTag(key: "user_type", value: "authenticated")
-                        oneSignalService.sendTag(key: "user_email", value: user.email ?? "no_email")
+                        oneSignalService.sendTag(key: "user_email", value: user.email)
                     }
                     
                     // Cargar trainers solo después de la autenticación

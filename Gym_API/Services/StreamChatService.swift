@@ -113,7 +113,7 @@ class StreamChatService: ObservableObject {
         
         // Conectar usuario con tokenProvider para tokens que expiran
         do {
-            let streamToken = try Token(rawValue: token)
+            let _ = try Token(rawValue: token)
             print("🔧 Token de Stream creado")
             
             print("🔧 Iniciando connectUser con tokenProvider...")

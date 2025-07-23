@@ -132,9 +132,9 @@ struct EventDetailContent: View {
                 currentRegistrationState = initialRegistrationState
             }
         }
-        .onChange(of: eventService.userRegistrationStatus[eventDetail.id]) { newValue in
+        .onChange(of: eventService.userRegistrationStatus[eventDetail.id]) {
             // Actualizar el estado cuando cambie en el servicio
-            if let newRegistrationState = newValue {
+            if let newRegistrationState = eventService.userRegistrationStatus[eventDetail.id] {
                 currentRegistrationState = newRegistrationState
             }
         }

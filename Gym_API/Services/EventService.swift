@@ -71,32 +71,14 @@ class EventService: ObservableObject {
         
         // Crear una nueva task para el fetch
         let fetchTask = Task {
-            do {
-                print("🔄 Starting fresh fetch [\(refreshID)]")
-                await fetchEvents()
-                print("✅ Fresh fetch completed successfully [\(refreshID)]")
-            } catch is CancellationError {
-                print("⚠️ Fresh fetch cancelled [\(refreshID)]")
-                throw CancellationError()
-            } catch {
-                print("❌ Fresh fetch failed [\(refreshID)]: \(error)")
-                throw error
-            }
+            print("🔄 Starting fresh fetch [\(refreshID)]")
+            await fetchEvents()
+            print("✅ Fresh fetch completed successfully [\(refreshID)]")
         }
         
-        do {
-            try await fetchTask.value
-        } catch is CancellationError {
-            print("⚠️ Force refresh cancelled [\(refreshID)]")
-            _ = await MainActor.run {
-                self.isLoading = false
-            }
-        } catch {
-            print("❌ Force refresh failed [\(refreshID)]: \(error)")
-            _ = await MainActor.run {
-                self.isLoading = false
-                self.errorMessage = "Error actualizando eventos: \(error.localizedDescription)"
-            }
+        await fetchTask.value
+        _ = await MainActor.run {
+            self.isLoading = false
         }
     }
     
@@ -382,8 +364,6 @@ class EventService: ObservableObject {
             }
             throw error
         }
-        
-        return nil
     }
     
     // MARK: - Fetch User Participations Data (Private)

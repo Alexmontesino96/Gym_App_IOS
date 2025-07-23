@@ -59,7 +59,7 @@ struct EventChatView: View {
             // Reset del flag y desconectar del chat cuando se cierre la vista
             hasLoadedChat = false
             Task {
-                await streamChatService.disconnect()
+                streamChatService.disconnect()
             }
         }
     }
@@ -117,10 +117,6 @@ struct EventChatView: View {
                     isLoading = false
                 }
                 
-            } catch {
-                isLoading = false
-                errorMessage = "Error al cargar el chat: \(error.localizedDescription)"
-                print("❌ Error cargando chat: \(error)")
             }
         }
     }

@@ -616,9 +616,9 @@ struct ClassesView: View {
                 await myClassesTask
             }
         }
-        .onChange(of: selectedDate) { newDate in
+        .onChange(of: selectedDate) {
             Task {
-                await classService.loadSessionsForDateIfNeeded(date: newDate)
+                await classService.loadSessionsForDateIfNeeded(date: selectedDate)
             }
         }
     }
@@ -977,7 +977,7 @@ struct EventsView: View {
         ]
         
         // Crear secciones solo para las que tienen eventos y ordenarlas
-        var sections = sectionDefinitions
+        let sections = sectionDefinitions
             .filter { !$0.1.isEmpty }
             .map { EventSection(title: $0.0, events: $0.1) }
             .sorted { (section1, section2) in
