@@ -797,20 +797,24 @@ struct EventsView: View {
             .refreshable {
                 await eventService.forceRefresh()
             }
-            .background(
-                NavigationLink(
-                    destination: selectedChatEventFromCard.map { event in
+            .fullScreenCover(isPresented: $showingEventChatFromCard) {
+                if let event = selectedChatEventFromCard {
+                    NavigationView {
                         EventChatView(
                             eventId: String(event.id),
                             eventTitle: event.title,
                             authService: authService
                         )
-                    },
-                    isActive: $showingEventChatFromCard,
-                    label: { EmptyView() }
-                )
-                .hidden()
-            )
+                        .environmentObject(authService)
+                        .environmentObject(eventService)
+                        .environmentObject(streamChatService)
+                        .environmentObject(themeManager)
+                        .navigationBarItems(leading: Button("Cerrar") {
+                            showingEventChatFromCard = false
+                        })
+                    }
+                }
+            }
             .sheet(isPresented: $showingFilterSheet) {
                 EventFilterSheet(selectedFilter: $selectedFilter)
             }
