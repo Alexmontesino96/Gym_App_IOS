@@ -73,7 +73,7 @@ class EventService: ObservableObject {
         let fetchTask = Task {
             do {
                 print("🔄 Starting fresh fetch [\(refreshID)]")
-                try await fetchEvents()
+                await fetchEvents()
                 print("✅ Fresh fetch completed successfully [\(refreshID)]")
             } catch is CancellationError {
                 print("⚠️ Fresh fetch cancelled [\(refreshID)]")
@@ -192,7 +192,7 @@ class EventService: ObservableObject {
             // Crear una task dedicada para las participaciones
             let participationsTask = Task {
                 print("📡 [\(taskID)] Fetching user participations...")
-                return try await fetchUserParticipationsData()
+                return await fetchUserParticipationsData()
             }
             
             // Esperar por las participaciones con manejo de cancelación
