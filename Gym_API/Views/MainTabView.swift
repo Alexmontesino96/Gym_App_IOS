@@ -609,8 +609,8 @@ struct ClassesView: View {
                 }
                 
                 // Cargar datos para la fecha seleccionada (inicialmente hoy)
-                async let sessionsTask = classService.loadSessionsForDateIfNeeded(date: selectedDate)
-                async let myClassesTask = classService.fetchMyClasses()
+                async let sessionsTask: () = classService.loadSessionsForDateIfNeeded(date: selectedDate)
+                async let myClassesTask: () = classService.fetchMyClasses()
                 
                 await sessionsTask
                 await myClassesTask
@@ -1252,7 +1252,7 @@ struct MessagesView: View {
     }
     
     private func handleChatSelection(_ chatRoom: ChatRoom) {
-        print("📱 Chat seleccionado: \(chatRoom.name) - Tipo: \(chatRoom.chatType)")
+        print("📱 Chat seleccionado: \(chatRoom.name ?? "Sin nombre") - Tipo: \(chatRoom.chatType)")
         selectedChatRoom = chatRoom
         showingChat = true
     }
@@ -1262,6 +1262,8 @@ struct MessagesView: View {
 struct ProfileView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var oneSignalService: OneSignalService
+    @State private var refreshID = UUID()
     let onThemeChangeRequest: () -> Void
     
     var body: some View {
@@ -1329,6 +1331,70 @@ struct ProfileView: View {
                     .padding(.horizontal, 20)
                     
                     Spacer()
+                    
+                    // Sección de Notificaciones de Prueba
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Image(systemName: "bell.fill")
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .font(.system(size: 20))
+                            Text("Push Notifications")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            Spacer()
+                        }
+                        
+                        // Estado de suscripción
+                        HStack {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(oneSignalService.isSubscribed() ? .green : .red)
+                                    .frame(width: 8, height: 8)
+                                Text(oneSignalService.isSubscribed() ? "Activado" : "Desactivado")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            }
+                            
+                            Spacer()
+                            
+                            // Botón de re-suscripción si no está suscrito
+                            if !oneSignalService.isSubscribed() {
+                                Button(action: {
+                                    oneSignalService.manuallyOptIn()
+                                    // Forzar actualización de la vista
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                        refreshID = UUID()
+                                    }
+                                }) {
+                                    Text("Activar")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                            }
+                        }
+                        
+                        // Player ID
+                        if let playerId = oneSignalService.getPlayerId() {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Player ID:")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                Text(playerId.prefix(16) + "...")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 20)
+                    .id(refreshID)
                     
                     // Botón de logout
                     Button(action: {
@@ -1561,6 +1627,8 @@ struct ModernEventCardContent: View {
                             }
                             
                             // Coach con ícono
+
+                            
                             HStack(spacing: 12) {
                                 Image(systemName: "person.crop.circle.fill")
                                     .font(.system(size: 16))
@@ -1912,7 +1980,7 @@ struct ClassesContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header fijo - No participa en el refresh
             VStack(alignment: .leading, spacing: 20) {
                 // Title
                 HStack {
@@ -1930,22 +1998,41 @@ struct ClassesContentView: View {
             }
             .background(Color.dynamicBackground(theme: themeManager.currentTheme))
             
-            // Classes List
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(filteredSessions) { session in
-                        ClassCardView(session: session)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
-            }
-            .refreshable {
-                // Solo refrescar las sesiones de la fecha seleccionada
-                await classService.forceRefreshSessions(date: selectedDate)
-            }
-            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+            // Classes List - Solo esta parte se refresca
+            RefreshableClassesList(selectedDate: $selectedDate)
         }
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+    }
+    
+    private var filteredSessions: [SessionWithClass] {
+        let calendar = Calendar.current
+        return classService.sessions.filter { session in
+            calendar.isDate(session.session.startTime, inSameDayAs: selectedDate)
+        }.sorted { $0.session.startTime < $1.session.startTime }
+    }
+}
+
+// MARK: - Refreshable Classes List
+struct RefreshableClassesList: View {
+    @EnvironmentObject var classService: ClassService
+    @EnvironmentObject var themeManager: ThemeManager
+    @Binding var selectedDate: Date
+    
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(filteredSessions) { session in
+                    ClassCardView(session: session)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
+        }
+        .refreshable {
+            // Solo refrescar las sesiones de la fecha seleccionada
+            await classService.forceRefreshSessions(date: selectedDate)
+        }
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
     }
     
     private var filteredSessions: [SessionWithClass] {

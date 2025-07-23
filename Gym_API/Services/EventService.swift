@@ -57,7 +57,7 @@ class EventService: ObservableObject {
         }
         
         // Limpiar datos en el main thread
-        await MainActor.run {
+        _ = await MainActor.run {
             print("🧹 Clearing cached data [\(refreshID)]")
             self.events.removeAll()
             self.eventDetail = nil
@@ -88,12 +88,12 @@ class EventService: ObservableObject {
             try await fetchTask.value
         } catch is CancellationError {
             print("⚠️ Force refresh cancelled [\(refreshID)]")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.isLoading = false
             }
         } catch {
             print("❌ Force refresh failed [\(refreshID)]: \(error)")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.isLoading = false
                 self.errorMessage = "Error actualizando eventos: \(error.localizedDescription)"
             }

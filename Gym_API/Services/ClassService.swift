@@ -229,7 +229,7 @@ class ClassService: ObservableObject {
     
     // MARK: - Fetch Sessions by Date Range
     func fetchSessionsByDateRange(startDate: Date, endDate: Date, skip: Int = 0, limit: Int = 100) async {
-        await MainActor.run {
+        _ = await MainActor.run {
             self.isLoading = true
             self.errorMessage = nil
         }
@@ -258,7 +258,7 @@ class ClassService: ObservableObject {
                 print("🔑 Token incluido en petición de sesiones por rango de fecha")
             } else {
                 print("⚠️ No se encontró token de autorización válido para sesiones")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.errorMessage = "No se encontró token de autorización válido"
                     self.isLoading = false
                 }
@@ -284,7 +284,7 @@ class ClassService: ObservableObject {
                 
                 print("✅ Successfully fetched \(sessions.count) sessions for date range")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.sessions = sessions
                     // Actualizar el rango cargado
                     self.loadedStartDate = startDate
@@ -293,7 +293,7 @@ class ClassService: ObservableObject {
             } else {
                 let errorMessage = "Error del servidor: \(httpResponse.statusCode)"
                 print("❌ \(errorMessage)")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.errorMessage = errorMessage
                 }
             }
@@ -306,19 +306,19 @@ class ClassService: ObservableObject {
             }
             
             print("❌ Error fetching sessions by date range: \(error)")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.errorMessage = "Error cargando clases: \(error.localizedDescription)"
             }
         }
         
-        await MainActor.run {
+        _ = await MainActor.run {
             self.isLoading = false
         }
     }
     
     // MARK: - Fetch Sessions (Legacy - keeping for compatibility)
     func fetchSessions(skip: Int = 0, limit: Int = 100) async {
-        await MainActor.run {
+        _ = await MainActor.run {
             self.isLoading = true
             self.errorMessage = nil
         }
@@ -343,7 +343,7 @@ class ClassService: ObservableObject {
                 print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
             } else {
                 print("⚠️ No se encontró token de autorización válido para sesiones")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.errorMessage = "No se encontró token de autorización válido"
                     self.isLoading = false
                 }
@@ -365,32 +365,32 @@ class ClassService: ObservableObject {
                 
                 print("✅ Successfully fetched \(sessions.count) sessions")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.sessions = sessions
                 }
             } else {
                 let errorMessage = "Error del servidor: \(httpResponse.statusCode)"
                 print("❌ \(errorMessage)")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.errorMessage = errorMessage
                 }
             }
             
         } catch {
             print("❌ Error fetching sessions: \(error)")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.errorMessage = "Error cargando clases: \(error.localizedDescription)"
             }
         }
         
-        await MainActor.run {
+        _ = await MainActor.run {
             self.isLoading = false
         }
     }
     
     // MARK: - Join Class
     func joinClass(sessionId: Int) async {
-        await MainActor.run {
+        _ = await MainActor.run {
             self.joiningClassIds.insert(sessionId)
             self.joinClassErrorMessages[sessionId] = nil
         }
@@ -413,7 +413,7 @@ class ClassService: ObservableObject {
                 print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
             } else {
                 print("⚠️ No se encontró token de autorización válido para registro")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.joinClassErrorMessages[sessionId] = "No se encontró token de autorización válido"
                     self.joiningClassIds.remove(sessionId)
                 }
@@ -434,7 +434,7 @@ class ClassService: ObservableObject {
                 _ = try configuredJSONDecoder().decode(ClassParticipation.self, from: data)
                 print("✅ Successfully registered for class session \(sessionId)")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.userRegistrationStatus[sessionId] = true
                     print("🔄 Estado de registro actualizado para sesión \(sessionId)")
                 }
@@ -445,12 +445,12 @@ class ClassService: ObservableObject {
                 
                 // Si el error es que ya está registrado, actualizar el estado
                 if httpResponse.statusCode == 400 && message.contains("Ya estás registrado") {
-                    await MainActor.run {
+                    _ = await MainActor.run {
                         self.userRegistrationStatus[sessionId] = true
                         print("🔄 Usuario ya registrado en sesión \(sessionId), actualizando estado")
                     }
                 } else {
-                    await MainActor.run {
+                    _ = await MainActor.run {
                         self.joinClassErrorMessages[sessionId] = message
                     }
                 }
@@ -458,19 +458,19 @@ class ClassService: ObservableObject {
             
         } catch {
             print("❌ Error registering for class: \(error)")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.joinClassErrorMessages[sessionId] = "Error registrándose para la clase: \(error.localizedDescription)"
             }
         }
         
-        await MainActor.run {
+        _ = await MainActor.run {
             self.joiningClassIds.remove(sessionId)
         }
     }
     
     // MARK: - Cancel Class Registration
     func cancelClassRegistration(sessionId: Int, reason: String? = nil) async {
-        await MainActor.run {
+        _ = await MainActor.run {
             self.cancellingClassIds.insert(sessionId)
             self.cancelClassErrorMessages[sessionId] = nil
         }
@@ -500,7 +500,7 @@ class ClassService: ObservableObject {
                 print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
             } else {
                 print("⚠️ No se encontró token de autorización válido para cancelación")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.cancelClassErrorMessages[sessionId] = "No se encontró token de autorización válido"
                     self.cancellingClassIds.remove(sessionId)
                 }
@@ -524,7 +524,7 @@ class ClassService: ObservableObject {
                 _ = try configuredJSONDecoder().decode(ClassParticipation.self, from: data)
                 print("✅ Successfully cancelled registration for class session \(sessionId)")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.userRegistrationStatus[sessionId] = false
                     print("🔄 Estado de registro actualizado para sesión \(sessionId) - Cancelado")
                 }
@@ -533,26 +533,26 @@ class ClassService: ObservableObject {
                 let message = errorMessage?.detail ?? "Error del servidor: \(httpResponse.statusCode)"
                 print("❌ \(message)")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.cancelClassErrorMessages[sessionId] = message
                 }
             }
             
         } catch {
             print("❌ Error cancelling class registration: \(error)")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.cancelClassErrorMessages[sessionId] = "Error cancelando registro: \(error.localizedDescription)"
             }
         }
         
-        await MainActor.run {
+        _ = await MainActor.run {
             self.cancellingClassIds.remove(sessionId)
         }
     }
     
     // MARK: - Fetch My Classes
     func fetchMyClasses(skip: Int = 0, limit: Int = 100) async {
-        await MainActor.run {
+        _ = await MainActor.run {
             self.isLoadingMyClasses = true
             self.myClassesErrorMessage = nil
         }
@@ -577,7 +577,7 @@ class ClassService: ObservableObject {
                 print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
             } else {
                 print("⚠️ No se encontró token de autorización válido para mis clases")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.myClassesErrorMessage = "No se encontró token de autorización válido"
                     self.isLoadingMyClasses = false
                 }
@@ -602,7 +602,7 @@ class ClassService: ObservableObject {
                 
                 print("✅ Successfully fetched \(myClassesResponse.count) registered classes")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     // Actualizar el estado de registro basado en la respuesta simple
                     for myClass in myClassesResponse {
                         self.userRegistrationStatus[myClass.sessionId] = (myClass.participationStatus == "registered")
@@ -613,7 +613,7 @@ class ClassService: ObservableObject {
             } else {
                 let errorMessage = "Error del servidor: \(httpResponse.statusCode)"
                 print("❌ \(errorMessage)")
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.myClassesErrorMessage = errorMessage
                 }
             }
@@ -626,12 +626,12 @@ class ClassService: ObservableObject {
             }
             
             print("❌ Error fetching my classes: \(error)")
-            await MainActor.run {
+            _ = await MainActor.run {
                 self.myClassesErrorMessage = "Error cargando mis clases: \(error.localizedDescription)"
             }
         }
         
-        await MainActor.run {
+        _ = await MainActor.run {
             self.isLoadingMyClasses = false
         }
     }
@@ -674,7 +674,7 @@ class ClassService: ObservableObject {
                 
                 print("✅ Successfully loaded \(loadedTrainers.count) trainers")
                 
-                await MainActor.run {
+                _ = await MainActor.run {
                     self.trainers = loadedTrainers
                     // Crear mapeo de ID a trainer
                     self.trainerMap = Dictionary(uniqueKeysWithValues: loadedTrainers.map { ($0.id, $0) })

@@ -572,7 +572,7 @@ class AuthServiceAPI: NSObject, ObservableObject {
     
     /// Simular respuesta de API para testing local
     func simulateLogin() async {
-        await MainActor.run {
+        _ = await MainActor.run {
             isLoading = true
             errorMessage = nil
         }
@@ -591,7 +591,7 @@ class AuthServiceAPI: NSObject, ObservableObject {
             isCoach: true
         )
         
-        await MainActor.run {
+        _ = await MainActor.run {
             self.user = mockUser
             self.isAuthenticated = true
         }
@@ -601,7 +601,7 @@ class AuthServiceAPI: NSObject, ObservableObject {
         
         print("✅ MODO DESARROLLO: Login simulado exitoso")
         
-        await MainActor.run {
+        _ = await MainActor.run {
             isLoading = false
         }
     }

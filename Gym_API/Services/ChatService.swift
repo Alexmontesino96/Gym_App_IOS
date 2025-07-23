@@ -4,7 +4,7 @@ import Combine
 // MARK: - Chat Room Model
 struct ChatRoom: Codable, Identifiable {
     let id: Int
-    let name: String
+    let name: String?
     let isDirect: Bool
     let eventId: Int?
     let streamChannelId: String
@@ -32,13 +32,14 @@ struct ChatRoom: Codable, Identifiable {
     }
     
     var displayName: String {
+        let safeName = name ?? "Chat directo"
         switch chatType {
         case .direct:
-            return name.replacingOccurrences(of: "Chat con ", with: "")
+            return safeName.replacingOccurrences(of: "Chat con ", with: "")
         case .event:
-            return name.replacingOccurrences(of: "Evento ", with: "")
+            return safeName.replacingOccurrences(of: "Evento ", with: "")
         case .general:
-            return name
+            return safeName
         }
     }
     
@@ -377,12 +378,19 @@ class ChatService: ObservableObject {
     
     // MARK: - Get Direct Chat (1:1) - Para miembros
     func getDirectChat(withUserId userId: Int) async -> ChatRoom? {
+        print("🔗 ChatService: Iniciando getDirectChat con userId: \(userId)")
+        print("🔗 ChatService: BaseURL: \(baseURL)")
+        
         updateOnMainThread {
             self.isLoadingRooms = true
             self.roomsErrorMessage = nil
         }
         
-        guard let url = URL(string: "\(baseURL)/chat/rooms/direct/\(userId)") else {
+        let urlString = "\(baseURL)/chat/rooms/direct/\(userId)"
+        print("🌐 ChatService: URL completa: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            print("❌ ChatService: URL inválida: \(urlString)")
             updateOnMainThread {
                 self.roomsErrorMessage = "URL inválida para chat directo"
                 self.isLoadingRooms = false
@@ -391,12 +399,15 @@ class ChatService: ObservableObject {
         }
         
         guard let request = await createAuthenticatedRequest(url: url) else {
+            print("❌ ChatService: No se pudo crear request autenticado")
             updateOnMainThread {
                 self.roomsErrorMessage = "No se pudo crear request autenticado"
                 self.isLoadingRooms = false
             }
             return nil
         }
+        
+        print("🔄 ChatService: Enviando request a: \(request.url?.absoluteString ?? "URL desconocida")")
         
         do {
             let (data, response) = try await session.data(for: request)

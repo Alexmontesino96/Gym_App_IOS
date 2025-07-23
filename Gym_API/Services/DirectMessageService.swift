@@ -43,17 +43,30 @@ class DirectMessageService: ObservableObject {
     // MARK: - Direct Chat Room Creation/Retrieval
     
     func getOrCreateDirectChat(with otherUserId: Int, gymId: Int) async -> ChatRoomResponse? {
+        print("🔗 DirectMessageService: Obteniendo/creando chat directo con usuario \(otherUserId)")
+        
         guard let authService = authService,
               let accessToken = await authService.getValidAccessToken() else {
-            errorMessage = "No se pudo obtener token de acceso"
+            print("❌ DirectMessageService: No se pudo obtener token de acceso")
+            await MainActor.run {
+                errorMessage = "No se pudo obtener token de acceso"
+            }
             return nil
         }
         
-        isLoadingRoom = true
-        errorMessage = nil
+        await MainActor.run {
+            isLoadingRoom = true
+            errorMessage = nil
+        }
+        
+        print("🔗 DirectMessageService: Token obtenido, realizando petición...")
         
         do {
-            guard let url = URL(string: "https://api.gymsocial.app/api/v1/chat/rooms/direct/\(otherUserId)") else {
+            let urlString = "\(baseURL)/chat/rooms/direct/\(otherUserId)"
+            print("🌐 DirectMessageService: URL: \(urlString)")
+            
+            guard let url = URL(string: urlString) else {
+                print("❌ DirectMessageService: URL inválida: \(urlString)")
                 throw DirectMessageError.invalidURL
             }
             
@@ -63,6 +76,7 @@ class DirectMessageService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
+            print("🔄 DirectMessageService: Enviando petición GET...")
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -80,20 +94,26 @@ class DirectMessageService: ObservableObject {
                 
                 let chatRoom = try decoder.decode(ChatRoomResponse.self, from: data)
                 
-                print("✅ Direct chat room: \(chatRoom.streamChannelId)")
-                isLoadingRoom = false
+                print("✅ DirectMessageService: Chat room creado/obtenido: \(chatRoom.streamChannelId)")
+                await MainActor.run {
+                    isLoadingRoom = false
+                }
                 return chatRoom
             } else {
                 let errorData = String(data: data, encoding: .utf8) ?? "Error desconocido"
-                print("❌ Error getting direct chat: \(httpResponse.statusCode) - \(errorData)")
-                errorMessage = "Error al obtener chat directo: \(httpResponse.statusCode)"
-                isLoadingRoom = false
+                print("❌ DirectMessageService: Error HTTP \(httpResponse.statusCode) - \(errorData)")
+                await MainActor.run {
+                    errorMessage = "Error al obtener chat directo: \(httpResponse.statusCode)"
+                    isLoadingRoom = false
+                }
                 return nil
             }
         } catch {
-            print("❌ Error getting direct chat: \(error)")
-            errorMessage = "Error de conexión: \(error.localizedDescription)"
-            isLoadingRoom = false
+            print("❌ DirectMessageService: Error de conexión: \(error)")
+            await MainActor.run {
+                errorMessage = "Error de conexión: \(error.localizedDescription)"
+                isLoadingRoom = false
+            }
             return nil
         }
     }

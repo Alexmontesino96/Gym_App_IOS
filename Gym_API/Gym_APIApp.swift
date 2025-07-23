@@ -14,6 +14,7 @@ struct Gym_APIApp: App {
     @StateObject private var eventService = EventService()
     @StateObject private var classService = ClassService()
     @StateObject private var themeManager = ThemeManager()
+    @StateObject private var oneSignalService = OneSignalService.shared
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -37,6 +38,7 @@ struct Gym_APIApp: App {
                         .environmentObject(eventService)
                         .environmentObject(classService)
                         .environmentObject(themeManager)
+                        .environmentObject(oneSignalService)
                 } else {
                     LoginViewDirect()
                         .environmentObject(authService)
@@ -45,16 +47,29 @@ struct Gym_APIApp: App {
             }
             .preferredColorScheme(themeManager.currentTheme == .dark ? .dark : .light)
             .onAppear {
+                // Inicializar OneSignal primero
+                oneSignalService.initialize()
+                
                 authService.checkAuthStatus()
                 eventService.authService = authService
                 classService.authService = authService
             }
             .onChange(of: authService.isAuthenticated) { isAuthenticated in
                 if isAuthenticated {
+                    // Configurar OneSignal con el usuario autenticado
+                    if let user = authService.user {
+                        oneSignalService.setExternalUserId(user.id ?? "unknown_user")
+                        oneSignalService.sendTag(key: "user_type", value: "authenticated")
+                        oneSignalService.sendTag(key: "user_email", value: user.email ?? "no_email")
+                    }
+                    
                     // Cargar trainers solo después de la autenticación
                     Task {
                         await classService.loadTrainers()
                     }
+                } else {
+                    // Logout de OneSignal cuando el usuario cierra sesión
+                    oneSignalService.logout()
                 }
             }
         }

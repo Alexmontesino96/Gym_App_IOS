@@ -12,10 +12,14 @@ struct DirectMessagesView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var directMessageService = DirectMessageService()
     @StateObject private var eventService = EventService() // Usar EventService para obtener perfiles de usuario
+    
+    private var chatService: ChatService {
+        ChatService.shared
+    }
     @State private var showingNewMessageSheet = false
     @State private var selectedUserId: Int?
     @State private var showingChat = false
-    @State private var chatRoomResponse: ChatRoomResponse?
+    @State private var chatRoom: ChatRoom?
     @State private var searchText = ""
     
     var filteredUsers: [UserProfile] {
@@ -81,23 +85,14 @@ struct DirectMessagesView: View {
         }
         .onAppear {
             directMessageService.authService = authService
+            chatService.authService = authService
             eventService.authService = authService
             Task {
                 await directMessageService.loadAllUsers()
             }
         }
         .fullScreenCover(isPresented: $showingChat) {
-            if let chatRoomResponse = chatRoomResponse {
-                let chatRoom = ChatRoom(
-                    id: chatRoomResponse.id,
-                    name: chatRoomResponse.name,
-                    isDirect: chatRoomResponse.isDirect,
-                    eventId: chatRoomResponse.eventId,
-                    streamChannelId: chatRoomResponse.streamChannelId,
-                    streamChannelType: chatRoomResponse.streamChannelType,
-                    createdAt: chatRoomResponse.createdAt
-                )
-                
+            if let chatRoom = chatRoom {
                 UniversalChatView(
                     chatRoom: chatRoom,
                     authService: authService
@@ -107,16 +102,68 @@ struct DirectMessagesView: View {
     }
     
     private func startDirectChat(with user: UserProfile) {
+        print("🧪 === PROBANDO CHAT DIRECTO ===")
+        print("🚀 Iniciando chat directo con usuario: \(user.fullName) (ID: \(user.id))")
+        print("🔧 Usando ChatService.shared")
+        
+        // Forzar recompilación limpiando todo el cache
         Task {
-            let chatRoom = await directMessageService.getOrCreateDirectChat(
-                with: user.id,
-                gymId: 4 // Usar gymId por defecto
-            )
+            // Intentar con una petición simple primero
+            print("🔄 Limpiando estado previo del ChatService...")
             
-            if let chatRoom = chatRoom {
-                chatRoomResponse = chatRoom
-                showingChat = true
+            let directChatRoom = await chatService.getDirectChat(withUserId: user.id)
+            
+            if let directChatRoom = directChatRoom {
+                print("✅ Chat room creado/obtenido: \(directChatRoom.streamChannelId)")
+                await MainActor.run {
+                    chatRoom = directChatRoom
+                    showingChat = true
+                    print("🔄 Estado actualizado - showingChat: \(showingChat)")
+                }
+            } else {
+                print("❌ No se pudo crear/obtener el chat room")
+                if let errorMessage = chatService.roomsErrorMessage {
+                    print("❌ Error ChatService: \(errorMessage)")
+                }
+                
+                // Fallback: intentar crear directamente con URLSession
+                print("🔄 Intentando fallback con URLSession directo...")
+                await testDirectChatFallback(userId: user.id)
             }
+        }
+    }
+    
+    // Método fallback para debuggear
+    private func testDirectChatFallback(userId: Int) async {
+        let urlString = "https://gymapi-eh6m.onrender.com/api/v1/chat/rooms/direct/\(userId)"
+        print("🧪 Fallback URL: \(urlString)")
+        
+        guard let url = URL(string: urlString),
+              let accessToken = await authService.getValidAccessToken() else {
+            print("❌ No se pudo crear URL o token para fallback")
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🧪 Fallback response: \(httpResponse.statusCode)")
+                if httpResponse.statusCode == 200 {
+                    print("✅ Fallback funcionó - el endpoint existe")
+                    let responseString = String(data: data, encoding: .utf8) ?? "No data"
+                    print("📄 Response data: \(responseString)")
+                } else {
+                    print("❌ Fallback falló con status: \(httpResponse.statusCode)")
+                }
+            }
+        } catch {
+            print("❌ Fallback error: \(error)")
         }
     }
     
@@ -190,45 +237,63 @@ struct UserRow: View {
     let user: UserProfile
     let onTap: () -> Void
     @EnvironmentObject var themeManager: ThemeManager
+    @State private var isPressed = false
     
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 16) {
-                // Avatar
-                AsyncImage(url: URL(string: user.picture)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.gray)
-                }
-                .frame(width: 56, height: 56)
-                .clipShape(Circle())
-                
-                // Content
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(user.fullName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .lineLimit(1)
-                    
-                    Text(user.displayRole)
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-                
-                Spacer()
-                
-                Image(systemName: "message.circle")
-                    .font(.system(size: 24))
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+        HStack(spacing: 16) {
+            // Avatar
+            AsyncImage(url: URL(string: user.picture)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Image(systemName: "person.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.gray)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .frame(width: 56, height: 56)
+            .clipShape(Circle())
+            
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.fullName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+                
+                Text(user.displayRole)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            }
+            
+            Spacer()
+            
+            Image(systemName: "message.circle")
+                .font(.system(size: 24))
+                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Color.dynamicSurface(theme: themeManager.currentTheme)
+                .opacity(isPressed ? 0.1 : 0.001)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            print("👆 UserRow: Tap detectado en \(user.fullName)")
+            onTap()
+        }
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .onLongPressGesture(
+            minimumDuration: 0,
+            maximumDistance: .infinity,
+            pressing: { pressing in
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = pressing
+                }
+            },
+            perform: {}
+        )
     }
 }
 
