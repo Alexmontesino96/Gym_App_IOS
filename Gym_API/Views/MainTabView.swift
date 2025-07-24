@@ -1486,12 +1486,33 @@ struct MessagesView: View {
                             
                             Spacer()
                             
-                            Button(action: {
-                                showingUserSelector = true
-                            }) {
-                                Image(systemName: "person.crop.circle.badge.plus")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            HStack(spacing: 16) {
+                                // Botón de refresh
+                                Button(action: {
+                                    Task {
+                                        await refreshLastMessages()
+                                    }
+                                }) {
+                                    if chatService.isRefreshingMessages {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 18))
+                                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                    }
+                                }
+                                .disabled(chatService.isRefreshingMessages)
+                                
+                                // Botón de nuevo chat
+                                Button(action: {
+                                    showingUserSelector = true
+                                }) {
+                                    Image(systemName: "person.crop.circle.badge.plus")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                }
                             }
                         }
                         .padding(.horizontal, 20)
@@ -1499,6 +1520,23 @@ struct MessagesView: View {
                         
                         // Header con filtros
                         ChatFilterHeader(selectedChatType: $selectedChatType, themeManager: themeManager)
+                        
+                        // Indicador de estado de refresh
+                        if chatService.isRefreshingMessages {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                                    .scaleEffect(0.7)
+                                
+                                Text("Actualizando mensajes...")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+                        }
                     }
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
                     
@@ -1527,6 +1565,10 @@ struct MessagesView: View {
                 setupChatService()
                 loadChatRooms()
                 directMessageService.authService = authService
+            }
+            .refreshable {
+                // Pull-to-refresh gesture
+                await refreshLastMessages()
             }
             .background(
                 NavigationLink(
@@ -1582,7 +1624,31 @@ struct MessagesView: View {
     
     private func loadChatRooms() {
         Task {
+            // Cargar chat rooms desde el backend
             await chatService.getMyRooms()
+            
+            // Una vez cargados, refrescar con datos de Stream.io
+            await refreshLastMessages()
+        }
+    }
+    
+    private func refreshLastMessages() async {
+        // Solo refrescar si hay chat rooms cargados
+        guard !chatService.chatRooms.isEmpty else {
+            print("🔍 No hay chat rooms para refrescar últimos mensajes")
+            return
+        }
+        
+        print("🔍 Refreshing last messages for chat rooms...")
+        await chatService.refreshLastMessages()
+    }
+    
+    /// Refresca los últimos mensajes de forma automática después de enviar un mensaje
+    func autoRefreshAfterMessage() {
+        Task {
+            // Esperar un poco para que el mensaje se procese
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 segundos
+            await refreshLastMessages()
         }
     }
     

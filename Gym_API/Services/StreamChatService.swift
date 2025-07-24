@@ -293,6 +293,101 @@ class StreamChatService: ObservableObject {
         channelController?.sendStopTypingEvent()
     }
     
+    // MARK: - Get Last Messages for Multiple Channels (Optimized)
+    func getLastMessagesForChannels(_ channelIds: [String]) async -> [ChannelLastMessage] {
+        guard let chatClient = chatClient else {
+            print("❌ No hay cliente de chat disponible para obtener últimos mensajes")
+            return []
+        }
+        
+        print("🔍 Obteniendo últimos mensajes para \(channelIds.count) canales...")
+        
+        return await withTaskGroup(of: ChannelLastMessage?.self, returning: [ChannelLastMessage].self) { group in
+            for channelId in channelIds {
+                group.addTask {
+                    await self.getLastMessageForChannel(channelId: channelId, chatClient: chatClient)
+                }
+            }
+            
+            var results: [ChannelLastMessage] = []
+            for await result in group {
+                if let result = result {
+                    results.append(result)
+                }
+            }
+            
+            print("✅ Obtenidos últimos mensajes para \(results.count)/\(channelIds.count) canales")
+            return results
+        }
+    }
+    
+    // MARK: - Get Last Message for Single Channel
+    private func getLastMessageForChannel(channelId: String, chatClient: ChatClient) async -> ChannelLastMessage? {
+        do {
+            print("🔍 Procesando canal: \(channelId)")
+            
+            // Crear referencia al canal
+            let streamChannelId = ChannelId(type: .messaging, id: channelId)
+            let controller = chatClient.channelController(for: streamChannelId)
+            
+            // Si ya tiene mensajes cargados, usar esos datos
+            if !controller.messages.isEmpty {
+                let lastMessage = controller.messages.last
+                print("✅ Canal \(channelId): usando datos en cache (\(controller.messages.count) mensajes)")
+                
+                return ChannelLastMessage(
+                    channelId: channelId,
+                    lastMessageAt: lastMessage?.createdAt,
+                    lastMessageText: lastMessage?.text
+                )
+            }
+            
+            // Si no hay datos, hacer query ligero para obtener solo el último mensaje
+            print("🔄 Canal \(channelId): haciendo query ligero...")
+            
+            return await withCheckedContinuation { continuation in
+                // Timeout para evitar esperas infinitas
+                let timeoutTask = Task {
+                    try await Task.sleep(nanoseconds: 10_000_000_000) // 10 segundos
+                    continuation.resume(returning: ChannelLastMessage(channelId: channelId))
+                }
+                
+                controller.synchronize { error in
+                    timeoutTask.cancel()
+                    
+                    if let error = error {
+                        print("⚠️ Canal \(channelId): error en synchronize - \(error.localizedDescription)")
+                        continuation.resume(returning: ChannelLastMessage(channelId: channelId))
+                        return
+                    }
+                    
+                    // Obtener último mensaje después de synchronize
+                    let lastMessage = controller.messages.last
+                    print("✅ Canal \(channelId): query completado (\(controller.messages.count) mensajes)")
+                    
+                    let result = ChannelLastMessage(
+                        channelId: channelId,
+                        lastMessageAt: lastMessage?.createdAt,
+                        lastMessageText: lastMessage?.text
+                    )
+                    
+                    continuation.resume(returning: result)
+                }
+            }
+            
+        } catch {
+            print("❌ Error procesando canal \(channelId): \(error.localizedDescription)")
+            return ChannelLastMessage(channelId: channelId)
+        }
+    }
+    
+    // MARK: - Get Channel Controller (Helper)
+    func getChannelController(for channelId: String) -> ChatChannelController? {
+        guard let chatClient = chatClient else { return nil }
+        let streamChannelId = ChannelId(type: .messaging, id: channelId)
+        return chatClient.channelController(for: streamChannelId)
+    }
+    
     // MARK: - Disconnect
     func disconnect() {
         print("🔌 Desconectando de Stream.io")
@@ -381,4 +476,19 @@ struct MessageUser {
     let id: String
     let name: String
     let avatarURL: URL?
+}
+
+// MARK: - Channel Last Message Model
+struct ChannelLastMessage {
+    let channelId: String
+    let lastMessageAt: Date?
+    let lastMessageText: String?
+    let hasMessages: Bool
+    
+    init(channelId: String, lastMessageAt: Date? = nil, lastMessageText: String? = nil) {
+        self.channelId = channelId
+        self.lastMessageAt = lastMessageAt
+        self.lastMessageText = lastMessageText
+        self.hasMessages = lastMessageAt != nil && lastMessageText != nil && !lastMessageText!.isEmpty
+    }
 } 

@@ -154,6 +154,12 @@ class ChatService: ObservableObject {
     @Published var isLoadingRooms = false
     @Published var roomsErrorMessage: String?
     
+    // MARK: - Last Messages Cache Properties
+    @Published var isRefreshingMessages = false
+    private var lastMessagesRefresh: Date?
+    private let refreshInterval: TimeInterval = 300 // 5 minutos
+    private var lastMessagesCache: [String: ChannelLastMessage] = [:]
+    
     // MARK: - Helper for Main Thread Updates
     private func updateOnMainThread(_ updates: @escaping () -> Void) {
         if Thread.isMainThread {
@@ -595,5 +601,102 @@ class ChatService: ObservableObject {
         }
         
         return nil
+    }
+    
+    // MARK: - Last Messages Management
+    
+    /// Verifica si es necesario refrescar los últimos mensajes
+    private func shouldRefreshMessages() -> Bool {
+        guard let lastRefresh = lastMessagesRefresh else { return true }
+        let timeSinceLastRefresh = Date().timeIntervalSince(lastRefresh)
+        return timeSinceLastRefresh > refreshInterval
+    }
+    
+    /// Refresca los últimos mensajes de todos los canales desde Stream.io
+    func refreshLastMessages(force: Bool = false) async {
+        // Solo refrescar si es necesario o si se fuerza
+        guard force || shouldRefreshMessages() else {
+            print("🕐 Últimos mensajes ya están actualizados, saltando refresh")
+            return
+        }
+        
+        // Evitar múltiples refreshes simultáneos
+        guard !isRefreshingMessages else {
+            print("🔄 Ya hay un refresh en progreso, saltando")
+            return
+        }
+        
+        updateOnMainThread {
+            self.isRefreshingMessages = true
+        }
+        
+        print("🔍 Iniciando refresh de últimos mensajes para \(chatRooms.count) canales...")
+        
+        // Extraer los channel IDs de los chat rooms
+        let channelIds = chatRooms.map { $0.streamChannelId }
+        
+        // Obtener los últimos mensajes desde Stream.io
+        let lastMessages = await StreamChatService.shared.getLastMessagesForChannels(channelIds)
+        
+        // Actualizar cache local
+        for lastMessage in lastMessages {
+            lastMessagesCache[lastMessage.channelId] = lastMessage
+        }
+        
+        // Actualizar chat rooms con nuevos datos
+        await updateChatRoomsWithLastMessages(lastMessages)
+        
+        updateOnMainThread {
+            self.isRefreshingMessages = false
+            self.lastMessagesRefresh = Date()
+        }
+        
+        print("✅ Refresh de últimos mensajes completado")
+    }
+    
+    /// Actualiza los ChatRooms con los datos de últimos mensajes obtenidos
+    private func updateChatRoomsWithLastMessages(_ lastMessages: [ChannelLastMessage]) async {
+        updateOnMainThread {
+            var updatedRooms: [ChatRoom] = []
+            
+            for chatRoom in self.chatRooms {
+                // Buscar datos actualizados para este canal
+                if let lastMessageData = lastMessages.first(where: { $0.channelId == chatRoom.streamChannelId }) {
+                    // Crear nuevo ChatRoom con datos actualizados
+                    let updatedRoom = ChatRoom(
+                        id: chatRoom.id,
+                        name: chatRoom.name,
+                        isDirect: chatRoom.isDirect,
+                        eventId: chatRoom.eventId,
+                        streamChannelId: chatRoom.streamChannelId,
+                        streamChannelType: chatRoom.streamChannelType,
+                        createdAt: chatRoom.createdAt,
+                        lastMessageAt: lastMessageData.lastMessageAt,
+                        lastMessageText: lastMessageData.lastMessageText
+                    )
+                    updatedRooms.append(updatedRoom)
+                    
+                    print("🔄 Actualizado canal \(chatRoom.streamChannelId): \(lastMessageData.hasMessages ? "con mensaje" : "sin mensajes")")
+                } else {
+                    // Mantener el ChatRoom original si no hay datos nuevos
+                    updatedRooms.append(chatRoom)
+                }
+            }
+            
+            self.chatRooms = updatedRooms
+            print("✅ ChatRooms actualizados: \(updatedRooms.count) canales")
+        }
+    }
+    
+    /// Obtiene un último mensaje desde el cache local
+    func getCachedLastMessage(for channelId: String) -> ChannelLastMessage? {
+        return lastMessagesCache[channelId]
+    }
+    
+    /// Limpia el cache de últimos mensajes
+    func clearLastMessagesCache() {
+        lastMessagesCache.removeAll()
+        lastMessagesRefresh = nil
+        print("🗑️ Cache de últimos mensajes limpiado")
     }
 } 

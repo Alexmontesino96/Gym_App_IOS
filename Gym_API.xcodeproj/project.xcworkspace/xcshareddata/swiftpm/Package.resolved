@@ -1,5 +1,5 @@
 {
-  "originHash" : "f04fbee303e677e948839c2ad6a6ab035007f1f5e6a152ef707a4eb0ed1bd5d2",
+  "originHash" : "89f7257a230895f98dc0a49788dc8abfef979572320f1360d927507f570d3a0e",
   "pins" : [
     {
       "identity" : "auth0.swift",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "36a5ce735a61c4bc119593f43ce2c027b4ca7392",
         "version" : "3.3.0"
+      }
+    },
+    {
+      "identity" : "onesignal-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OneSignal/OneSignal-iOS-SDK",
+      "state" : {
+        "revision" : "2c3b878c32b0adc8349dc1bf2509ca7decd3b27c",
+        "version" : "5.2.14"
       }
     },
     {
