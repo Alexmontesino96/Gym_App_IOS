@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+    </dict>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    
+    <!-- Permisos de Privacidad para Multimedia -->
+    
+    <!-- Permiso para Cámara -->
+    <key>NSCameraUsageDescription</key>
+    <string>Gym App necesita acceso a tu cámara para tomar fotos y compartirlas en el chat con tu entrenador y otros miembros del gimnasio.</string>
+    
+    <!-- Permiso para Galería de Fotos -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Gym App necesita acceso a tu galería para seleccionar fotos y videos de tu progreso y compartirlos en el chat.</string>
+    
+    <!-- Permiso para Añadir a Galería -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Gym App guardará las fotos que tomes en tu galería para que puedas conservar tu progreso.</string>
+    
+    <!-- Permiso para Micrófono -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Gym App necesita acceso a tu micrófono para grabar mensajes de voz y enviarlos a tu entrenador o compañeros de gym.</string>
+    
+    <!-- Permiso para Ubicación (para futuras funciones) -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Gym App necesita acceso a tu ubicación para compartir el punto de encuentro para clases al aire libre o eventos del gimnasio.</string>
+    
+    <!-- Configuración de Seguridad de Red -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <!-- Stream.io CDN -->
+            <key>stream-io-cdn.com</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+            <!-- Tu Backend API -->
+            <key>gymapi-eh6m.onrender.com</key>
+            <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
+    
+    <!-- Configuración para Auth0 -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.yourdomain.gymapi</string>
+            </array>
+        </dict>
+    </array>
+    
+    <!-- Soporte para Background Modes (si necesitas notificaciones) -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>fetch</string>
+        <string>remote-notification</string>
+    </array>
+</dict>
+</plist>
