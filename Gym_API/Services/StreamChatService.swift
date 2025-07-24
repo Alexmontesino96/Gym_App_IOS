@@ -295,8 +295,14 @@ class StreamChatService: ObservableObject {
     
     // MARK: - Get Last Messages for Multiple Channels (Optimized)
     func getLastMessagesForChannels(_ channelIds: [String]) async -> [ChannelLastMessage] {
+        // Si no hay cliente, intentar inicializar uno básico
+        if chatClient == nil {
+            print("🔧 Inicializando cliente básico de Stream para obtener mensajes...")
+            await initializeBasicChatClient()
+        }
+        
         guard let chatClient = chatClient else {
-            print("❌ No hay cliente de chat disponible para obtener últimos mensajes")
+            print("❌ No se pudo inicializar cliente de chat para obtener últimos mensajes")
             return []
         }
         
@@ -378,6 +384,51 @@ class StreamChatService: ObservableObject {
         } catch {
             print("❌ Error procesando canal \(channelId): \(error.localizedDescription)")
             return ChannelLastMessage(channelId: channelId)
+        }
+    }
+    
+    // MARK: - Initialize Basic Chat Client (For Last Messages)
+    private func initializeBasicChatClient() async {
+        print("🔧 Obteniendo token de Stream para cliente básico...")
+        
+        // Obtener token desde ChatService
+        guard let streamToken = await ChatService.shared.getStreamToken() else {
+            print("❌ No se pudo obtener token para cliente básico")
+            return
+        }
+        
+        print("✅ Token obtenido, inicializando cliente básico...")
+        
+        // Configurar cliente básico
+        let config = ChatClientConfig(apiKey: APIKey(streamToken.apiKey))
+        chatClient = ChatClient(config: config)
+        
+        // Conectar usuario de forma básica
+        do {
+            let token = try Token(rawValue: streamToken.token)
+            let userId = "user_\(streamToken.internalUserId)"
+            
+            print("🔧 Conectando usuario \(userId) para obtener mensajes...")
+            
+            await withCheckedContinuation { continuation in
+                chatClient?.connectUser(
+                    userInfo: StreamChat.UserInfo(
+                        id: userId,
+                        name: "Usuario \(streamToken.internalUserId)",
+                        imageURL: nil
+                    ),
+                    token: token
+                ) { error in
+                    if let error = error {
+                        print("⚠️ Error conectando usuario básico: \(error.localizedDescription)")
+                    } else {
+                        print("✅ Usuario básico conectado exitosamente")
+                    }
+                    continuation.resume()
+                }
+            }
+        } catch {
+            print("❌ Error inicializando cliente básico: \(error.localizedDescription)")
         }
     }
     

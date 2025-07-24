@@ -3110,10 +3110,13 @@ struct ChatRoomRow: View {
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .lineLimit(1)
                     
-                    Text(chatRoom.truncatedLastMessage)
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        .lineLimit(2)
+                    Group {
+                        let _ = print("🔍 ChatRoomRow: \(chatRoom.displayName) - lastMessageText: \"\(chatRoom.lastMessageText ?? "nil")\" - truncated: \"\(chatRoom.truncatedLastMessage)\"")
+                        Text(chatRoom.truncatedLastMessage)
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .lineLimit(2)
+                    }
                 }
                 
                 Spacer()
