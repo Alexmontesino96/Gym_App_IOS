@@ -96,6 +96,12 @@ class StreamChatService: ObservableObject {
     
     private func performConnection(token: String, apiKey: String, userId: String, channelId: String) {
         print("🔧 Iniciando performConnection...")
+        print("📋 Parametros recibidos:")
+        print("   - Token: \(String(token.prefix(20)))...")
+        print("   - API Key: \(apiKey)")
+        print("   - User ID: \(userId)")
+        print("   - Channel ID: \(channelId)")
+        
         isLoading = true
         errorMessage = nil
         
@@ -111,10 +117,22 @@ class StreamChatService: ObservableObject {
         chatClient = ChatClient(config: config)
         print("🔧 ChatClient creado")
         
+        // Agregar timeout para connectUser
+        let timeoutWorkItem = DispatchWorkItem {
+            self.updateOnMainThread {
+                if self.isLoading {
+                    print("⏱️ Timeout en connectUser después de 20 segundos")
+                    self.errorMessage = "Timeout al conectar usuario"
+                    self.isLoading = false
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: timeoutWorkItem)
+        
         // Conectar usuario con tokenProvider para tokens que expiran
         do {
             let _ = try Token(rawValue: token)
-            print("🔧 Token de Stream creado")
+            print("🔧 Token de Stream creado y validado")
             
             print("🔧 Iniciando connectUser con tokenProvider...")
             chatClient?.connectUser(
@@ -125,20 +143,25 @@ class StreamChatService: ObservableObject {
                 ),
                 tokenProvider: createTokenProvider()
             ) { [weak self] (error: Error?) in
+                timeoutWorkItem.cancel() // Cancelar timeout si terminamos
                 print("🔧 Callback de connectUser ejecutado")
                 self?.updateOnMainThread {
                     if let error = error {
                         print("❌ Error conectando usuario: \(error.localizedDescription)")
+                        print("❌ Detalles del error: \(error)")
                         self?.errorMessage = "Error conectando usuario: \(error.localizedDescription)"
                         self?.isLoading = false
                     } else {
                         print("✅ Usuario conectado exitosamente")
+                        print("🔧 Procediendo a conectar al canal...")
                         self?.connectToChannel(channelId: channelId)
                     }
                 }
             }
         } catch {
+            timeoutWorkItem.cancel()
             print("❌ Error creando token: \(error.localizedDescription)")
+            print("❌ Detalles del error: \(error)")
             updateOnMainThread {
                 self.errorMessage = "Error creando token: \(error.localizedDescription)"
                 self.isLoading = false
@@ -169,12 +192,30 @@ class StreamChatService: ObservableObject {
         channelController?.delegate = self
         print("🔧 Delegate configurado")
         
+        // Agregar timeout para synchronize
+        let timeoutWorkItem = DispatchWorkItem {
+            self.updateOnMainThread {
+                if self.isLoading {
+                    print("⏱️ Timeout en synchronize después de 15 segundos")
+                    self.errorMessage = "Timeout al conectar al canal"
+                    self.isLoading = false
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeoutWorkItem)
+        
         // Cargar el canal
         print("🔧 Iniciando synchronize...")
         channelController?.synchronize { [weak self] error in
+            timeoutWorkItem.cancel() // Cancelar timeout si terminamos
             print("🔧 Callback de synchronize ejecutado")
             self?.updateOnMainThread {
-                if error == nil {
+                if let error = error {
+                    print("❌ Error conectando al canal: \(error.localizedDescription)")
+                    print("❌ Detalles del error: \(error)")
+                    self?.errorMessage = "Error conectando al canal: \(error.localizedDescription)"
+                    self?.isLoading = false
+                } else {
                     print("✅ Canal conectado exitosamente")
                     self?.currentChannel = self?.channelController?.channel
                     self?.isConnected = true
@@ -182,10 +223,6 @@ class StreamChatService: ObservableObject {
                     Task {
                         await self?.loadMessages()
                     }
-                } else {
-                    print("❌ Error conectando al canal: \(error?.localizedDescription ?? "Error desconocido")")
-                    self?.errorMessage = "Error conectando al canal: \(error?.localizedDescription ?? "Error desconocido")"
-                    self?.isLoading = false
                 }
             }
         }
@@ -260,6 +297,16 @@ class StreamChatService: ObservableObject {
     func disconnect() {
         print("🔌 Desconectando de Stream.io")
         
+        // Reset UI state primero en main thread
+        updateOnMainThread {
+            self.isConnected = false
+            self.isLoading = false
+            self.errorMessage = nil
+            self.messages.removeAll()
+            self.typingUsers.removeAll()
+        }
+        
+        // Limpiar delegate y controladores
         channelController?.delegate = nil
         channelController = nil
         currentChannel = nil
@@ -277,11 +324,10 @@ class StreamChatService: ObservableObject {
         }
         chatClient = nil
         
-        updateOnMainThread {
-            self.isConnected = false
-            self.messages.removeAll()
-            self.cancellables.removeAll()
-        }
+        // Limpiar cancellables
+        cancellables.removeAll()
+        
+        print("✅ Desconexión completada")
     }
     
     // MARK: - Cleanup

@@ -10,6 +10,8 @@ struct ChatRoom: Codable, Identifiable {
     let streamChannelId: String
     let streamChannelType: String
     let createdAt: Date
+    let lastMessageAt: Date?
+    let lastMessageText: String?
     
     enum CodingKeys: String, CodingKey {
         case id, name
@@ -18,6 +20,8 @@ struct ChatRoom: Codable, Identifiable {
         case streamChannelId = "stream_channel_id"
         case streamChannelType = "stream_channel_type"
         case createdAt = "created_at"
+        case lastMessageAt = "last_message_at"
+        case lastMessageText = "last_message_text"
     }
     
     // MARK: - Computed Properties
@@ -59,6 +63,41 @@ struct ChatRoom: Codable, Identifiable {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: createdAt)
+    }
+    
+    // Fecha efectiva para ordenamiento (último mensaje o creación)
+    var effectiveDate: Date {
+        return lastMessageAt ?? createdAt
+    }
+    
+    // Formato de fecha del último mensaje para UI
+    var lastMessageFormattedDate: String {
+        let date = effectiveDate
+        let formatter = DateFormatter()
+        
+        let calendar = Calendar.current
+        let now = Date()
+        
+        if calendar.isDateInToday(date) {
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        } else if calendar.isDateInYesterday(date) {
+            return "Ayer"
+        } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
+            formatter.dateFormat = "EEEE" // Día de la semana
+            return formatter.string(from: date)
+        } else {
+            formatter.dateStyle = .short
+            return formatter.string(from: date)
+        }
+    }
+    
+    // Texto del último mensaje truncado
+    var truncatedLastMessage: String {
+        guard let text = lastMessageText, !text.isEmpty else {
+            return "Nuevo chat"
+        }
+        return text.count > 50 ? String(text.prefix(50)) + "..." : text
     }
 }
 

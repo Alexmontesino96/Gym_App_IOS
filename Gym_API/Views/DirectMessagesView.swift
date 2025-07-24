@@ -7,19 +7,50 @@
 
 import SwiftUI
 
+// MARK: - Chat ViewModel
+@MainActor
+class ChatViewModel: ObservableObject {
+    @Published var showingChat = false {
+        didSet {
+            print("📱 ChatViewModel.showingChat cambió a: \(showingChat)")
+        }
+    }
+    @Published var chatRoom: ChatRoom? {
+        didSet {
+            print("📱 ChatViewModel.chatRoom cambió a: \(chatRoom?.streamChannelId ?? "nil")")
+        }
+    }
+    @Published var isProcessingTap = false
+    
+    func setChatData(room: ChatRoom) {
+        print("🔧 ChatViewModel: Estableciendo datos del chat")
+        chatRoom = room
+        showingChat = true
+        isProcessingTap = false
+    }
+    
+    func resetChat() {
+        print("🔧 ChatViewModel: Reseteando chat")
+        showingChat = false
+        isProcessingTap = false
+        // No resetear chatRoom para debugging
+    }
+}
+
 struct DirectMessagesView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var directMessageService = DirectMessageService()
     @StateObject private var eventService = EventService() // Usar EventService para obtener perfiles de usuario
     
+    // Crear ViewModel para manejar el estado del chat persistentemente
+    @StateObject private var chatViewModel = ChatViewModel()
+    
     private var chatService: ChatService {
         ChatService.shared
     }
     @State private var showingNewMessageSheet = false
     @State private var selectedUserId: Int?
-    @State private var showingChat = false
-    @State private var chatRoom: ChatRoom?
     @State private var searchText = ""
     
     var filteredUsers: [UserProfile] {
@@ -84,6 +115,8 @@ struct DirectMessagesView: View {
             )
         }
         .onAppear {
+            print("📱 DirectMessagesView onAppear")
+            print("📱 Estado inicial: showingChat=\(chatViewModel.showingChat), chatRoom=\(chatViewModel.chatRoom?.streamChannelId ?? "nil")")
             directMessageService.authService = authService
             chatService.authService = authService
             eventService.authService = authService
@@ -91,27 +124,44 @@ struct DirectMessagesView: View {
                 await directMessageService.loadAllUsers()
             }
         }
-        .fullScreenCover(isPresented: $showingChat) {
-            if let chatRoom = chatRoom {
-                NavigationView {
+        .onDisappear {
+            print("📱 DirectMessagesView onDisappear")
+        }
+        .background(
+            NavigationLink(
+                destination: chatViewModel.chatRoom.map { chatRoom in
                     UniversalChatView(
                         chatRoom: chatRoom,
                         authService: authService
                     )
                     .environmentObject(authService)
                     .environmentObject(themeManager)
-                    .navigationBarItems(leading: Button("Cerrar") {
-                        showingChat = false
-                    })
-                }
-            }
-        }
+                },
+                isActive: $chatViewModel.showingChat,
+                label: { EmptyView() }
+            )
+        )
     }
     
     private func startDirectChat(with user: UserProfile) {
         print("🧪 === PROBANDO CHAT DIRECTO ===")
         print("🚀 Iniciando chat directo con usuario: \(user.fullName) (ID: \(user.id))")
         print("🔧 Usando ChatService.shared")
+        print("🔧 Estado actual antes de iniciar: showingChat=\(chatViewModel.showingChat), chatRoom=\(chatViewModel.chatRoom?.streamChannelId ?? "nil")")
+        
+        // Prevenir múltiples taps consecutivos
+        guard !chatViewModel.isProcessingTap else {
+            print("⚠️ Ya procesando un tap, ignorando solicitud duplicada")
+            return
+        }
+        
+        // Asegurar que no hay estados conflictivos
+        guard !chatViewModel.showingChat else {
+            print("⚠️ Ya hay un chat abierto, ignorando nueva solicitud")
+            return
+        }
+        
+        chatViewModel.isProcessingTap = true
         
         // Forzar recompilación limpiando todo el cache
         Task {
@@ -123,14 +173,19 @@ struct DirectMessagesView: View {
             if let directChatRoom = directChatRoom {
                 print("✅ Chat room creado/obtenido: \(directChatRoom.streamChannelId)")
                 await MainActor.run {
-                    chatRoom = directChatRoom
-                    showingChat = true
-                    print("🔄 Estado actualizado - showingChat: \(showingChat)")
+                    // Usar el ViewModel para establecer los datos
+                    chatViewModel.setChatData(room: directChatRoom)
+                    print("🔄 ChatRoom asignado: \(chatViewModel.chatRoom?.streamChannelId ?? "nil")")
+                    print("🔄 Estado actualizado - showingChat: \(chatViewModel.showingChat)")
                 }
             } else {
                 print("❌ No se pudo crear/obtener el chat room")
                 if let errorMessage = chatService.roomsErrorMessage {
                     print("❌ Error ChatService: \(errorMessage)")
+                }
+                
+                await MainActor.run {
+                    chatViewModel.isProcessingTap = false
                 }
                 
                 // Fallback: intentar crear directamente con URLSession

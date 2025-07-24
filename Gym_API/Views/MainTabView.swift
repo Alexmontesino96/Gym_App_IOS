@@ -7,6 +7,317 @@
 
 import SwiftUI
 
+// MARK: - User Selector View (Modal para seleccionar usuarios)
+struct UserSelectorView: View {
+    let onUserSelected: (UserProfile) -> Void
+    let onCancel: () -> Void
+    
+    @EnvironmentObject var authService: AuthServiceDirect
+    @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var directMessageService = DirectMessageService()
+    @State private var searchText = ""
+    
+    var filteredUsers: [UserProfile] {
+        if searchText.isEmpty {
+            return directMessageService.allUsers
+        } else {
+            return directMessageService.allUsers.filter { user in
+                user.fullName.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.dynamicBackground(theme: themeManager.currentTheme)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Search Bar
+                    UserSelectorSearchBar(text: $searchText)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    
+                    if directMessageService.isLoadingUsers {
+                        UserSelectorLoadingView()
+                    } else if let errorMessage = directMessageService.usersErrorMessage {
+                        UserSelectorErrorView(
+                            message: errorMessage,
+                            onRetry: {
+                                Task {
+                                    await directMessageService.loadAllUsers()
+                                }
+                            }
+                        )
+                    } else if filteredUsers.isEmpty && !searchText.isEmpty {
+                        UserSelectorEmptySearchView()
+                    } else if directMessageService.allUsers.isEmpty {
+                        UserSelectorEmptyView()
+                    } else {
+                        UserSelectorUsersList(
+                            users: filteredUsers,
+                            onUserTap: { user in
+                                onUserSelected(user)
+                            }
+                        )
+                    }
+                }
+            }
+            .navigationTitle("Nuevo Chat")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancelar") {
+                    onCancel()
+                },
+                trailing: Button(action: {
+                    Task {
+                        await directMessageService.loadAllUsers()
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                }
+            )
+        }
+        .onAppear {
+            print("📱 UserSelectorView onAppear")
+            directMessageService.authService = authService
+            Task {
+                await directMessageService.loadAllUsers()
+            }
+        }
+    }
+}
+
+// MARK: - Helper Views for UserSelectorView
+struct UserSelectorSearchBar: View {
+    @Binding var text: String
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            
+            TextField("Buscar usuarios...", text: $text)
+                .textFieldStyle(PlainTextFieldStyle())
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            
+            if !text.isEmpty {
+                Button(action: { text = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct UserSelectorUsersList: View {
+    let users: [UserProfile]
+    let onUserTap: (UserProfile) -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(users) { user in
+                    UserSelectorUserRow(
+                        user: user,
+                        onTap: { onUserTap(user) }
+                    )
+                    
+                    if user.id != users.last?.id {
+                        Divider()
+                            .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2))
+                            .padding(.leading, 72)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct UserSelectorUserRow: View {
+    let user: UserProfile
+    let onTap: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+    @State private var isPressed = false
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Avatar
+            AsyncImage(url: URL(string: user.picture)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Image(systemName: "person.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.gray)
+            }
+            .frame(width: 56, height: 56)
+            .clipShape(Circle())
+            
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.fullName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+                
+                Text(user.displayRole)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            }
+            
+            Spacer()
+            
+            Image(systemName: "message.circle")
+                .font(.system(size: 24))
+                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Color.dynamicSurface(theme: themeManager.currentTheme)
+                .opacity(isPressed ? 0.1 : 0.001)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            print("👆 UserSelectorUserRow: Tap detectado en \(user.fullName)")
+            onTap()
+        }
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .onLongPressGesture(
+            minimumDuration: 0,
+            maximumDistance: .infinity,
+            pressing: { pressing in
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = pressing
+                }
+            },
+            perform: {}
+        )
+    }
+}
+
+struct UserSelectorLoadingView: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                .scaleEffect(1.2)
+            
+            Text("Cargando usuarios...")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct UserSelectorErrorView: View {
+    let message: String
+    let onRetry: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(.red)
+            
+            VStack(spacing: 8) {
+                Text("Error")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                
+                Text(message)
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button(action: onRetry) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Reintentar")
+                }
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Color.dynamicAccent(theme: themeManager.currentTheme))
+                .clipShape(Capsule())
+            }
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct UserSelectorEmptyView: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "person.3")
+                .font(.system(size: 64))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
+            
+            VStack(spacing: 8) {
+                Text("No hay usuarios disponibles")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                
+                Text("Vuelve a intentar más tarde")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct UserSelectorEmptySearchView: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 48))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
+            
+            Text("No se encontraron usuarios")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            
+            Text("Prueba con otros términos de búsqueda")
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 struct MainTabView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
@@ -1156,7 +1467,8 @@ struct MessagesView: View {
     @State private var selectedChatType: ChatType? = nil
     @State private var showingChat = false
     @State private var selectedChatRoom: ChatRoom? = nil
-    @State private var showingDirectMessageSheet = false
+    @State private var showingUserSelector = false
+    
     
     var body: some View {
         NavigationView {
@@ -1175,7 +1487,7 @@ struct MessagesView: View {
                             Spacer()
                             
                             Button(action: {
-                                showingDirectMessageSheet = true
+                                showingUserSelector = true
                             }) {
                                 Image(systemName: "person.crop.circle.badge.plus")
                                     .font(.system(size: 18))
@@ -1228,19 +1540,37 @@ struct MessagesView: View {
                     label: { EmptyView() }
                 )
             )
-            .sheet(isPresented: $showingDirectMessageSheet) {
-                DirectMessagesView()
-                    .environmentObject(authService)
-                    .environmentObject(themeManager)
+            .sheet(isPresented: $showingUserSelector) {
+                UserSelectorView(
+                    onUserSelected: { selectedUser in
+                        showingUserSelector = false
+                        // Navegar al chat directo como página completa
+                        startDirectChatWithUser(selectedUser)
+                    },
+                    onCancel: {
+                        showingUserSelector = false
+                    }
+                )
+                .environmentObject(authService)
+                .environmentObject(themeManager)
             }
         }
     }
     
     private var filteredChatRooms: [ChatRoom] {
-        guard let selectedType = selectedChatType else {
-            return chatService.chatRooms
+        let rooms: [ChatRoom]
+        
+        // Filtrar por tipo si está seleccionado
+        if let selectedType = selectedChatType {
+            rooms = chatService.chatRooms.filter { $0.chatType == selectedType }
+        } else {
+            rooms = chatService.chatRooms
         }
-        return chatService.chatRooms.filter { $0.chatType == selectedType }
+        
+        // Ordenar por fecha del último mensaje (más reciente primero)
+        return rooms.sorted { room1, room2 in
+            room1.effectiveDate > room2.effectiveDate
+        }
     }
     
     private func setupChatService() {
@@ -1253,6 +1583,24 @@ struct MessagesView: View {
     private func loadChatRooms() {
         Task {
             await chatService.getMyRooms()
+        }
+    }
+    
+    private func startDirectChatWithUser(_ user: UserProfile) {
+        print("🚀 MessagesView: Iniciando chat directo con \(user.fullName)")
+        
+        Task {
+            let directChatRoom = await chatService.getDirectChat(withUserId: user.id)
+            
+            if let directChatRoom = directChatRoom {
+                await MainActor.run {
+                    selectedChatRoom = directChatRoom
+                    showingChat = true
+                    print("✅ MessagesView: Chat room configurado para navegación")
+                }
+            } else {
+                print("❌ MessagesView: Error obteniendo chat room")
+            }
         }
     }
     
@@ -2696,25 +3044,24 @@ struct ChatRoomRow: View {
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .lineLimit(1)
                     
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(chatRoom.chatType.displayName)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        
-                        if chatRoom.chatType == .event {
-                            Text(chatRoom.formattedDate)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        }
-                    }
+                    Text(chatRoom.truncatedLastMessage)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .lineLimit(2)
                 }
                 
                 Spacer()
                 
-                // Indicador de navegación
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                // Fecha y indicador
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(chatRoom.lastMessageFormattedDate)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.6))
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

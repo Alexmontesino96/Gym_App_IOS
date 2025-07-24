@@ -15,6 +15,9 @@ struct UniversalChatView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
+        let _ = print("🎨 UniversalChatView body rendering - Chat: \(chatRoom.streamChannelId)")
+        let _ = print("🎨 Estado actual: isLoading=\(isLoading), streamService.isLoading=\(streamChatService.isLoading), streamService.isConnected=\(streamChatService.isConnected)")
+        let _ = print("🎨 Errores: local=\(errorMessage ?? "nil"), stream=\(streamChatService.errorMessage ?? "nil")")
         VStack(spacing: 0) {
             // Universal Chat Header
             UniversalChatHeaderView(
@@ -30,7 +33,14 @@ struct UniversalChatView: View {
             if isLoading || streamChatService.isLoading {
                 LoadingChatView(themeManager: themeManager)
             } else if let errorMessage = errorMessage ?? streamChatService.errorMessage {
-                ErrorChatView(message: errorMessage, themeManager: themeManager, onRetry: loadChatRoom)
+                ErrorChatView(message: errorMessage, themeManager: themeManager, onRetry: {
+                    // Reset states para permitir retry
+                    self.errorMessage = nil
+                    self.streamChatService.errorMessage = nil
+                    self.streamChatService.isConnected = false
+                    self.hasLoadedChat = false
+                    loadChatRoom()
+                })
             } else if streamChatService.isConnected {
                 // Stream.io Chat Interface
                 StreamChatInterface(
@@ -43,19 +53,60 @@ struct UniversalChatView: View {
                     themeManager: themeManager
                 )
             } else {
-                // Fallback Interface
-                VStack {
-                    Spacer()
-                    Text("Conectando al chat...")
-                        .font(.system(size: 16, weight: .medium))
+                // Fallback Interface con debugging
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                        .scaleEffect(1.2)
+                    
+                    VStack(spacing: 8) {
+                        Text("Conectando al chat...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        
+                        Text("Estado: \(getConnectionStatus())")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        
+                        // Debugging detallado
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Debug Info:")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("• isLoading: \(isLoading)")
+                                .font(.system(size: 9))
+                            Text("• streamService.isLoading: \(streamChatService.isLoading)")
+                                .font(.system(size: 9))
+                            Text("• streamService.isConnected: \(streamChatService.isConnected)")
+                                .font(.system(size: 9))
+                            Text("• hasLoadedChat: \(hasLoadedChat)")
+                                .font(.system(size: 9))
+                            Text("• streamToken: \(streamToken != nil ? "✓" : "✗")")
+                                .font(.system(size: 9))
+                        }
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    Spacer()
+                        .padding(.top, 8)
+                    }
+                    
+                    Button("Forzar reconexión") {
+                        // Reset completo y reintentar
+                        streamChatService.disconnect()
+                        errorMessage = nil
+                        streamChatService.errorMessage = nil
+                        hasLoadedChat = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            loadChatRoom()
+                        }
+                    }
+                    .padding(.top, 16)
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 }
+                .padding()
             }
         }
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .navigationBarHidden(true)
         .onAppear {
+            print("👀 UniversalChatView onAppear - Chat: \(chatRoom.streamChannelId)")
             loadChatRoom()
         }
         .onDisappear {
@@ -69,21 +120,33 @@ struct UniversalChatView: View {
     
     // MARK: - Functions
     private func loadChatRoom() {
-        // Solo verificar si ya estamos cargando este mismo chat o ya se cargó
-        if isLoading || hasLoadedChat {
-            print("⚠️ Chat ya está cargando o ya fue cargado, saltando loadChatRoom")
+        // Solo verificar si ya estamos cargando este mismo chat
+        if isLoading {
+            print("⚠️ Chat ya está cargando, saltando loadChatRoom")
             return
         }
         
         print("🚀 Iniciando loadChatRoom para chat \(chatRoom.id)")
         isLoading = true
-        hasLoadedChat = true
         errorMessage = nil
         
         // Configurar el authService en el ChatService
         chatService.authService = authService
         
         Task {
+            // Timeout de 30 segundos para toda la operación
+            let timeoutTask = Task {
+                try await Task.sleep(nanoseconds: 30_000_000_000) // 30 segundos
+                if isLoading {
+                    print("⏱️ Timeout alcanzado en loadChatRoom")
+                    await MainActor.run {
+                        errorMessage = "Tiempo de espera agotado. Por favor intenta de nuevo."
+                        isLoading = false
+                        hasLoadedChat = false // Permitir reintentos
+                    }
+                }
+            }
+            
             do {
                 // Obtener token de Stream directamente
                 if let streamTokenResponse = await chatService.getStreamToken() {
@@ -96,6 +159,7 @@ struct UniversalChatView: View {
                     print("🔍 User ID que enviaremos a Stream: \(formattedUserId)")
                     
                     // Conectar a Stream.io usando los datos del ChatRoom
+                    print("🔧 Iniciando conexión a Stream.io...")
                     streamChatService.connectToChat(
                         token: streamTokenResponse.token,
                         apiKey: streamTokenResponse.apiKey,
@@ -103,14 +167,26 @@ struct UniversalChatView: View {
                         channelId: chatRoom.streamChannelId
                     )
                     
+                    // NO marcar como cargado aquí - dejar que StreamChatService maneje el estado
                     isLoading = false
+                    print("🔧 Token procesado, esperando conexión de StreamChatService...")
                     
                 } else {
-                    errorMessage = "No se pudo obtener el token de Stream"
-                    print("⚠️ No se pudo obtener el token de Stream")
+                    errorMessage = chatService.errorMessage ?? "No se pudo obtener el token de Stream"
+                    print("⚠️ No se pudo obtener el token de Stream: \(errorMessage ?? "Error desconocido")")
                     isLoading = false
+                    hasLoadedChat = false // Permitir reintentos
                 }
                 
+                // Cancelar el timeout si terminamos antes
+                timeoutTask.cancel()
+                
+            } catch {
+                print("❌ Error en loadChatRoom: \(error)")
+                errorMessage = "Error al cargar el chat: \(error.localizedDescription)"
+                isLoading = false
+                hasLoadedChat = false // Permitir reintentos
+                timeoutTask.cancel()
             }
         }
     }
@@ -125,6 +201,15 @@ struct UniversalChatView: View {
         
         // Limpiar input
         newMessage = ""
+    }
+    
+    private func getConnectionStatus() -> String {
+        if isLoading { return "Cargando token..." }
+        if streamChatService.isLoading { return "Conectando a Stream..." }
+        if streamChatService.isConnected { return "Conectado" }
+        if streamChatService.errorMessage != nil { return "Error de conexión" }
+        if errorMessage != nil { return "Error de token" }
+        return "Inicializando..."
     }
 }
 
@@ -211,7 +296,9 @@ struct UniversalChatHeaderView: View {
             eventId: nil,
             streamChannelId: "general_123",
             streamChannelType: "messaging",
-            createdAt: Date()
+            createdAt: Date(),
+            lastMessageAt: nil,
+            lastMessageText: nil
         ),
         authService: AuthServiceDirect()
     )
