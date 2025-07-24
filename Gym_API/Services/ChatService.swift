@@ -156,9 +156,15 @@ class ChatService: ObservableObject {
     
     // MARK: - Last Messages Cache Properties
     @Published var isRefreshingMessages = false
+    @Published var isUsingPersistedData = false // Para mostrar indicador en UI
     private var lastMessagesRefresh: Date?
     private let refreshInterval: TimeInterval = 300 // 5 minutos
     private var lastMessagesCache: [String: ChannelLastMessage] = [:]
+    
+    // MARK: - Persistence Properties
+    private let userDefaults = UserDefaults.standard
+    private let persistenceKey = "ChatService_LastMessages"
+    private let lastRefreshKey = "ChatService_LastRefresh"
     
     // MARK: - Helper for Main Thread Updates
     private func updateOnMainThread(_ updates: @escaping () -> Void) {
@@ -401,6 +407,9 @@ class ChatService: ObservableObject {
                     }
                     
                     print("💬 Salas de chat cargadas exitosamente: \(rooms.count)")
+                    
+                    // Cargar mensajes guardados inmediatamente después de cargar rooms
+                    loadLastMessagesFromStorage()
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
                     print("❌ Error getting my rooms: \(errorString)")
@@ -646,12 +655,16 @@ class ChatService: ObservableObject {
         // Actualizar chat rooms con nuevos datos
         await updateChatRoomsWithLastMessages(lastMessages)
         
+        // Guardar en storage para persistencia
+        saveLastMessagesToStorage()
+        
         updateOnMainThread {
             self.isRefreshingMessages = false
+            self.isUsingPersistedData = false // Ya tenemos datos frescos
             self.lastMessagesRefresh = Date()
         }
         
-        print("✅ Refresh de últimos mensajes completado")
+        print("✅ Refresh de últimos mensajes completado y guardado")
     }
     
     /// Actualiza los ChatRooms con los datos de últimos mensajes obtenidos
@@ -697,6 +710,136 @@ class ChatService: ObservableObject {
     func clearLastMessagesCache() {
         lastMessagesCache.removeAll()
         lastMessagesRefresh = nil
+        clearPersistedMessages()
         print("🗑️ Cache de últimos mensajes limpiado")
+    }
+    
+    // MARK: - Persistence Methods
+    
+    /// Guarda los últimos mensajes en UserDefaults para persistencia
+    private func saveLastMessagesToStorage() {
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            
+            let messagesArray = Array(lastMessagesCache.values)
+            let data = try encoder.encode(messagesArray)
+            
+            userDefaults.set(data, forKey: persistenceKey)
+            userDefaults.set(Date(), forKey: lastRefreshKey)
+            
+            print("💾 Guardados \(messagesArray.count) últimos mensajes en storage")
+        } catch {
+            print("❌ Error guardando últimos mensajes: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Carga los últimos mensajes desde UserDefaults
+    private func loadLastMessagesFromStorage() {
+        guard let data = userDefaults.data(forKey: persistenceKey) else {
+            print("📱 No hay mensajes guardados en storage")
+            return
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            
+            let messagesArray = try decoder.decode([ChannelLastMessage].self, from: data)
+            
+            // Convertir array a dictionary
+            for message in messagesArray {
+                lastMessagesCache[message.channelId] = message
+            }
+            
+            // Cargar fecha de último refresh
+            if let savedRefreshDate = userDefaults.object(forKey: lastRefreshKey) as? Date {
+                lastMessagesRefresh = savedRefreshDate
+            }
+            
+            print("📱 Cargados \(messagesArray.count) últimos mensajes desde storage")
+            
+            // Marcar que estamos usando datos guardados
+            updateOnMainThread {
+                self.isUsingPersistedData = true
+            }
+            
+            // Aplicar los datos guardados a los ChatRooms actuales
+            applyPersistedMessagesToChatRooms()
+            
+        } catch {
+            print("❌ Error cargando últimos mensajes: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Aplica los mensajes guardados a los ChatRooms actuales
+    private func applyPersistedMessagesToChatRooms() {
+        guard !chatRooms.isEmpty && !lastMessagesCache.isEmpty else { return }
+        
+        let persistedMessages = Array(lastMessagesCache.values)
+        
+        // Aplicar en background para no bloquear UI
+        Task { @MainActor in
+            await updateChatRoomsWithLastMessages(persistedMessages)
+            print("📱 Aplicados mensajes guardados a \(chatRooms.count) chat rooms")
+        }
+    }
+    
+    /// Limpia los mensajes guardados en storage
+    private func clearPersistedMessages() {
+        userDefaults.removeObject(forKey: persistenceKey)
+        userDefaults.removeObject(forKey: lastRefreshKey)
+        print("🗑️ Mensajes guardados eliminados del storage")
+    }
+    
+    // MARK: - Real-time Updates
+    
+    /// Actualiza un mensaje específico cuando se envía/recibe en tiempo real
+    func updateLastMessageForChannel(_ channelId: String, messageText: String, messageDate: Date = Date()) {
+        // Actualizar cache local
+        let updatedMessage = ChannelLastMessage(
+            channelId: channelId,
+            lastMessageAt: messageDate,
+            lastMessageText: messageText
+        )
+        lastMessagesCache[channelId] = updatedMessage
+        
+        // Actualizar ChatRoom correspondiente
+        updateOnMainThread {
+            if let index = self.chatRooms.firstIndex(where: { $0.streamChannelId == channelId }) {
+                let currentRoom = self.chatRooms[index]
+                let updatedRoom = ChatRoom(
+                    id: currentRoom.id,
+                    name: currentRoom.name,
+                    isDirect: currentRoom.isDirect,
+                    eventId: currentRoom.eventId,
+                    streamChannelId: currentRoom.streamChannelId,
+                    streamChannelType: currentRoom.streamChannelType,
+                    createdAt: currentRoom.createdAt,
+                    lastMessageAt: messageDate,
+                    lastMessageText: messageText
+                )
+                self.chatRooms[index] = updatedRoom
+                
+                // Re-ordenar por fecha efectiva
+                self.chatRooms.sort { $0.effectiveDate > $1.effectiveDate }
+                
+                print("🔄 Actualizado mensaje en tiempo real para canal \(channelId): \"\(messageText)\"")
+            }
+        }
+        
+        // Guardar inmediatamente para persistencia
+        saveLastMessagesToStorage()
+    }
+    
+    /// Método conveniente para llamar cuando se envía un mensaje
+    func notifyMessageSent(in channelId: String, messageText: String) {
+        updateLastMessageForChannel(channelId, messageText: messageText)
+    }
+    
+    /// Inicializa los datos guardados al abrir la app (debe llamarse desde MainTabView)
+    func initializePersistedData() {
+        print("🚀 Inicializando datos guardados de últimos mensajes...")
+        loadLastMessagesFromStorage()
     }
 } 

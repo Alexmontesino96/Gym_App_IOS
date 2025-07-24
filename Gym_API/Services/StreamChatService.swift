@@ -275,6 +275,12 @@ class StreamChatService: ObservableObject {
                 switch result {
                 case .success(let messageId):
                     print("✅ Mensaje enviado exitosamente: \(messageId)")
+                    
+                    // Notificar a ChatService para actualizar la lista inmediatamente
+                    if let channelId = self.currentChannel?.cid.id {
+                        ChatService.shared.notifyMessageSent(in: channelId, messageText: text)
+                    }
+                    
                 case .failure(let error):
                     print("❌ Error enviando mensaje: \(error.localizedDescription)")
                     self.errorMessage = "Error enviando mensaje: \(error.localizedDescription)"
@@ -503,6 +509,16 @@ extension StreamChatService: ChatChannelControllerDelegate {
         Task { @MainActor in
             print("📨 Mensajes actualizados")
             await self.loadMessages()
+            
+            // Notificar a ChatService si hay un nuevo mensaje
+            if let lastMessage = channelController.messages.last,
+               let channelId = self.currentChannel?.cid.id {
+                ChatService.shared.updateLastMessageForChannel(
+                    channelId,
+                    messageText: lastMessage.text,
+                    messageDate: lastMessage.createdAt
+                )
+            }
         }
     }
     
@@ -538,16 +554,18 @@ struct MessageUser {
 }
 
 // MARK: - Channel Last Message Model
-struct ChannelLastMessage {
+struct ChannelLastMessage: Codable {
     let channelId: String
     let lastMessageAt: Date?
     let lastMessageText: String?
     let hasMessages: Bool
+    let fetchedAt: Date // Para saber cuándo se obtuvo este dato
     
     init(channelId: String, lastMessageAt: Date? = nil, lastMessageText: String? = nil) {
         self.channelId = channelId
         self.lastMessageAt = lastMessageAt
         self.lastMessageText = lastMessageText
         self.hasMessages = lastMessageAt != nil && lastMessageText != nil && !lastMessageText!.isEmpty
+        self.fetchedAt = Date()
     }
 } 

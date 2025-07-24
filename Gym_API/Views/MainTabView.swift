@@ -1521,7 +1521,7 @@ struct MessagesView: View {
                         // Header con filtros
                         ChatFilterHeader(selectedChatType: $selectedChatType, themeManager: themeManager)
                         
-                        // Indicador de estado de refresh
+                        // Indicadores de estado
                         if chatService.isRefreshingMessages {
                             HStack(spacing: 8) {
                                 ProgressView()
@@ -1536,6 +1536,21 @@ struct MessagesView: View {
                             }
                             .padding(.horizontal, 20)
                             .padding(.top, 8)
+                        } else if chatService.isUsingPersistedData {
+                            HStack(spacing: 8) {
+                                Image(systemName: "clock.badge")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                
+                                Text("Mostrando datos guardados")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+                            .opacity(0.8)
                         }
                     }
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
@@ -1563,6 +1578,11 @@ struct MessagesView: View {
             .navigationBarHidden(true)
             .onAppear {
                 setupChatService()
+                
+                // Cargar datos guardados inmediatamente para mostrar contenido instantáneo
+                chatService.initializePersistedData()
+                
+                // Luego cargar desde el servidor
                 loadChatRooms()
                 directMessageService.authService = authService
             }
