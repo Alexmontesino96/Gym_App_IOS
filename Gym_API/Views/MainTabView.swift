@@ -628,6 +628,7 @@ struct EventsView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var streamChatService: StreamChatService
     @State private var searchText = ""
     @State private var selectedFilter: EventFilter = .available
     @State private var showingFilterSheet = false
@@ -807,8 +808,8 @@ struct EventsView: View {
                         )
                         .environmentObject(authService)
                         .environmentObject(eventService)
-                        .environmentObject(streamChatService)
                         .environmentObject(themeManager)
+                        .environmentObject(streamChatService)
                         .navigationBarItems(leading: Button("Cerrar") {
                             showingEventChatFromCard = false
                         })

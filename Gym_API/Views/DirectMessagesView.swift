@@ -93,10 +93,17 @@ struct DirectMessagesView: View {
         }
         .fullScreenCover(isPresented: $showingChat) {
             if let chatRoom = chatRoom {
-                UniversalChatView(
-                    chatRoom: chatRoom,
-                    authService: authService
-                )
+                NavigationView {
+                    UniversalChatView(
+                        chatRoom: chatRoom,
+                        authService: authService
+                    )
+                    .environmentObject(authService)
+                    .environmentObject(themeManager)
+                    .navigationBarItems(leading: Button("Cerrar") {
+                        showingChat = false
+                    })
+                }
             }
         }
     }
