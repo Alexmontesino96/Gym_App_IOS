@@ -352,14 +352,22 @@ class StreamChatService: ObservableObject {
             print("🔄 Canal \(channelId): haciendo query ligero...")
             
             return await withCheckedContinuation { continuation in
+                var hasResumed = false
+                
                 // Timeout para evitar esperas infinitas
                 let timeoutTask = Task {
                     try await Task.sleep(nanoseconds: 10_000_000_000) // 10 segundos
-                    continuation.resume(returning: ChannelLastMessage(channelId: channelId))
+                    if !hasResumed {
+                        hasResumed = true
+                        continuation.resume(returning: ChannelLastMessage(channelId: channelId))
+                    }
                 }
                 
                 controller.synchronize { error in
                     timeoutTask.cancel()
+                    
+                    guard !hasResumed else { return }
+                    hasResumed = true
                     
                     if let error = error {
                         print("⚠️ Canal \(channelId): error en synchronize - \(error.localizedDescription)")
