@@ -1,0 +1,38 @@
+{
+  "" : {
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode-master.dia",
+    "emit-module-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode-master-emit-module.dia",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode-master.swiftdeps"
+  },
+  "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/JWTDecode/JWT.swift" : {
+    "const-values" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.d",
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.dia",
+    "index-unit-output-path" : "/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.o",
+    "llvm-bc" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.bc",
+    "object" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.o",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWT~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/JWTDecode/JWTDecode.swift" : {
+    "const-values" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.d",
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.dia",
+    "index-unit-output-path" : "/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.o",
+    "llvm-bc" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.bc",
+    "object" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.o",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecode~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/JWTDecode/JWTDecodeError.swift" : {
+    "const-values" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.d",
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.dia",
+    "index-unit-output-path" : "/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.o",
+    "llvm-bc" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.bc",
+    "object" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.o",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/JWTDecode.swift/build/JWTDecode.build/Debug-iphoneos/JWTDecode.build/Objects-normal/arm64/JWTDecodeError~partial.swiftmodule"
+  }
+}

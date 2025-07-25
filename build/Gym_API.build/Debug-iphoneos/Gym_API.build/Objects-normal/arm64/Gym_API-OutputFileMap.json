@@ -1,0 +1,588 @@
+{
+  "" : {
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_API-master.dia",
+    "emit-module-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_API-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_API-master-emit-module.dia",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_API-master.swiftdeps"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/Auth0Config.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Auth0Config~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/StreamConfig.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamConfig~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/ThemeManager.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeManager~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/ContentView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_APIApp.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Gym_APIApp~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Item.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Item~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Event.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/Event~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClass~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClassSimple.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GymClassSimple~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/User.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/User~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AudioRecorderService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AudioRecorderService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AuthService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AuthServiceAPI.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AuthServiceAPI_Safe.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceAPI_Safe~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AuthServiceDirect.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthServiceDirect~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ChatService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ClassService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/DirectMessageService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessageService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/Encryption/E2EEncryptionService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EEncryptionService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MediaUploadService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaUploadService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MembershipService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MembershipService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/OneSignalService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/OneSignalService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/StreamChatService+E2E_Simple.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+E2E_Simple~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/StreamChatService+MediaWorking.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService+MediaWorking~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/StreamChatService.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/StreamChatService~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/AuthenticatedView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/AuthenticatedView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/E2EInfoView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/E2EInfoView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/EnhancedMessageBubble.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedMessageBubble~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/MediaPickerView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MediaPickerView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/MessageBubbleView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessageBubbleView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/SimpleMediaMessageView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleMediaMessageView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/SimpleiMessageChatView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/SimpleiMessageChatView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventCard.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventCard~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventFilterSheet.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventFilterSheet~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/ClassCard.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCard~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/ClassCardView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassCardView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/RecentActivityCard.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/RecentActivityCard~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Messages/UserSelectorComponents.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UserSelectorComponents~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/QuickAccess/QuickAccessGrid.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/QuickAccessGrid~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/DirectMessagesView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/DirectMessagesView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EnhancedProfileView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EnhancedProfileView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EventChatView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventChatView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EventDetailView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventDetailView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/LoginView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/LoginViewAPI.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/LoginViewAPI_Safe.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewAPI_Safe~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/LoginViewDirect.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/LoginViewDirect~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MainTabView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MainTabView_Original_Backup.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Original_Backup~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MainTabView_Safe.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MainTabView_Safe~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/ClassesView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ClassesView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/EventsView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/EventsView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/HomeView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/HomeView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/MessagesView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/MessagesView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/ThemeSettingsView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/ThemeSettingsView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/UniversalChatView.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/UniversalChatView~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/build/Gym_API.build/Debug-iphoneos/Gym_API.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

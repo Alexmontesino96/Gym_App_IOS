@@ -779,26 +779,21 @@ struct ClassParticipation: Codable {
 
 // MARK: - ClassService Extensions for New UI Components
 extension ClassService {
-    @Published var classes: [GymClass] {
-        get {
-            // Convert SessionWithClass to GymClass for simplified UI
-            return sessions.map { sessionWithClass in
-                GymClass(
-                    id: sessionWithClass.session.id,
-                    name: sessionWithClass.classInfo.name,
-                    description: sessionWithClass.classInfo.description,
-                    instructor: sessionWithClass.trainerName,
-                    startTime: sessionWithClass.session.startTime,
-                    endTime: sessionWithClass.session.endTime,
-                    maxParticipants: sessionWithClass.classInfo.maxCapacity,
-                    currentParticipants: sessionWithClass.session.currentParticipants,
-                    difficulty: mapDifficulty(sessionWithClass.classInfo.difficultyLevel),
-                    status: mapStatus(sessionWithClass.session.status)
-                )
-            }
-        }
-        set {
-            // Not implemented - read-only conversion
+    var classes: [GymClass] {
+        // Convert SessionWithClass to GymClass for simplified UI
+        return sessions.map { sessionWithClass in
+            GymClass(
+                id: sessionWithClass.session.id,
+                name: sessionWithClass.classInfo.name,
+                description: sessionWithClass.classInfo.description,
+                instructor: sessionWithClass.trainerName,
+                startTime: sessionWithClass.session.startTime,
+                endTime: sessionWithClass.session.endTime,
+                maxParticipants: sessionWithClass.classInfo.maxCapacity,
+                currentParticipants: sessionWithClass.session.currentParticipants,
+                difficulty: mapDifficulty(sessionWithClass.classInfo.difficultyLevel),
+                status: mapStatus(sessionWithClass.session.status)
+            )
         }
     }
     
