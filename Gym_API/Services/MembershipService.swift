@@ -15,7 +15,7 @@ struct MembershipStatus: Codable {
     let gymName: String
     let isActive: Bool
     let membershipType: String
-    let expiresAt: Date?
+    let expiresAt: String?
     let daysRemaining: Int?
     let planName: String?
     let canAccess: Bool
@@ -35,20 +35,20 @@ struct MembershipStatus: Codable {
     // MARK: - Computed Properties for UI
     var statusText: String {
         if !isActive {
-            return "Inactiva"
+            return "Inactive"
         }
         
         if membershipType == "free" {
-            return "Membresía Gratuita"
+            return "Free Membership"
         }
         
         if let days = daysRemaining {
             if days <= 0 {
-                return "Expirada"
+                return "Expired"
             } else if days <= 7 {
-                return "Expira en \(days) días"
+                return "Expires in \(days) days"
             } else {
-                return "Activa"
+                return "Active"
             }
         }
         
@@ -74,13 +74,13 @@ struct MembershipStatus: Codable {
         
         switch membershipType.lowercased() {
         case "free":
-            return "Plan Gratuito"
+            return "Free Plan"
         case "basic":
-            return "Plan Básico"
+            return "Basic Plan"
         case "premium":
-            return "Plan Premium"
+            return "Premium Plan"
         case "vip":
-            return "Plan VIP"
+            return "VIP Plan"
         default:
             return membershipType.capitalized
         }
@@ -102,13 +102,24 @@ struct MembershipStatus: Codable {
     }
     
     var expirationText: String {
-        guard let expiresAt = expiresAt else {
-            return "Sin vencimiento"
+        guard let expiresAtString = expiresAt else {
+            return "No expiration"
         }
         
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return "Vence: \(formatter.string(from: expiresAt))"
+        // Si es null string o está vacío
+        if expiresAtString.isEmpty {
+            return "No expiration"
+        }
+        
+        // Intentar parsear la fecha
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: expiresAtString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .medium
+            return "Expires: \(displayFormatter.string(from: date))"
+        }
+        
+        return "Sin vencimiento"
     }
 }
 
@@ -200,33 +211,6 @@ class MembershipService: ObservableObject {
                 
                 if httpResponse.statusCode == 200 {
                     let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .custom { decoder in
-                        let container = try decoder.singleValueContainer()
-                        let dateString = try container.decode(String.self)
-                        
-                        let formatter = DateFormatter()
-                        formatter.locale = Locale(identifier: "en_US_POSIX")
-                        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                        
-                        let dateFormats = [
-                            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
-                            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
-                            "yyyy-MM-dd'T'HH:mm:ss.SSS",
-                            "yyyy-MM-dd'T'HH:mm:ss"
-                        ]
-                        
-                        for format in dateFormats {
-                            formatter.dateFormat = format
-                            if let date = formatter.date(from: dateString) {
-                                return date
-                            }
-                        }
-                        
-                        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string '\(dateString)'")
-                    }
-                    
                     let status = try decoder.decode(MembershipStatus.self, from: data)
                     
                     updateOnMainThread {

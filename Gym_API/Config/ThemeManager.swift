@@ -11,8 +11,8 @@ class ThemeManager: ObservableObject {
         
         var displayName: String {
             switch self {
-            case .light: return "Claro"
-            case .dark: return "Oscuro"
+            case .light: return "Light"
+            case .dark: return "Dark"
             }
         }
     }

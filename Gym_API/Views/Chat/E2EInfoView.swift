@@ -17,7 +17,7 @@ struct E2EInfoView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Encriptación End-to-End")
+                    Text("End-to-End Encryption")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
@@ -47,12 +47,12 @@ struct E2EInfoView: View {
                         .padding(.top, 20)
                         
                         // Descripción principal
-                        Text("Tus mensajes están protegidos")
+                        Text("Your messages are protected")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             .multilineTextAlignment(.center)
                         
-                        Text("La encriptación end-to-end asegura que solo tú y la persona con quien chateas pueden leer los mensajes.")
+                        Text("End-to-end encryption ensures that only you and the person you're chatting with can read the messages.")
                             .font(.system(size: 16))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                             .multilineTextAlignment(.center)
@@ -62,29 +62,29 @@ struct E2EInfoView: View {
                         VStack(spacing: 16) {
                             FeatureRow(
                                 icon: "lock.fill",
-                                title: "Mensajes Privados",
-                                description: "Nadie más puede leer tus mensajes, ni siquiera nosotros",
+                                title: "Private Messages",
+                                description: "Nobody else can read your messages, not even us",
                                 themeManager: themeManager
                             )
                             
                             FeatureRow(
                                 icon: "key.fill",
-                                title: "Claves Únicas",
-                                description: "Cada conversación tiene sus propias claves de encriptación",
+                                title: "Unique Keys",
+                                description: "Each conversation has its own encryption keys",
                                 themeManager: themeManager
                             )
                             
                             FeatureRow(
                                 icon: "checkmark.shield.fill",
-                                title: "Verificación Automática",
-                                description: "Los mensajes se verifican automáticamente para evitar alteraciones",
+                                title: "Automatic Verification",
+                                description: "Messages are automatically verified to prevent tampering",
                                 themeManager: themeManager
                             )
                             
                             FeatureRow(
                                 icon: "iphone.and.arrow.forward",
-                                title: "Multi-dispositivo",
-                                description: "Tus claves se sincronizan de forma segura entre dispositivos",
+                                title: "Multi-device",
+                                description: "Your keys sync securely across devices",
                                 themeManager: themeManager
                             )
                         }
@@ -97,14 +97,14 @@ struct E2EInfoView: View {
                                     .font(.system(size: 16))
                                     .foregroundColor(.blue)
                                 
-                                Text("Información Técnica")
+                                Text("Technical Information")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                 
                                 Spacer()
                             }
                             
-                            Text("Utilizamos el protocolo Signal con cifrado AES-256-GCM y ECDH para el intercambio de claves. Las claves privadas nunca salen de tu dispositivo.")
+                            Text("We use the Signal protocol with AES-256-GCM encryption and ECDH for key exchange. Private keys never leave your device.")
                                 .font(.system(size: 12))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                                 .multilineTextAlignment(.leading)
@@ -123,7 +123,7 @@ struct E2EInfoView: View {
                                     .font(.system(size: 16))
                                     .foregroundColor(.orange)
                                 
-                                Text("Limitaciones Actuales")
+                                Text("Current Limitations")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                 
@@ -131,10 +131,10 @@ struct E2EInfoView: View {
                             }
                             
                             VStack(alignment: .leading, spacing: 8) {
-                                BulletPoint(text: "Solo disponible en chats directos (1 a 1)", themeManager: themeManager)
-                                BulletPoint(text: "Los chats de grupo aún no tienen E2E", themeManager: themeManager)
-                                BulletPoint(text: "Las imágenes y archivos se envían sin encriptar", themeManager: themeManager)
-                                BulletPoint(text: "El historial previo a activar E2E no está encriptado", themeManager: themeManager)
+                                BulletPoint(text: "Only available in direct chats (1-to-1)", themeManager: themeManager)
+                                BulletPoint(text: "Group chats don't have E2E yet", themeManager: themeManager)
+                                BulletPoint(text: "Images and files are sent unencrypted", themeManager: themeManager)
+                                BulletPoint(text: "History prior to enabling E2E is not encrypted", themeManager: themeManager)
                             }
                         }
                         .padding(16)

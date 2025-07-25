@@ -12,6 +12,10 @@ import SwiftUI
 import Auth0
 import JWTDecode
 
+extension Notification.Name {
+    static let userDidLogout = Notification.Name("userDidLogout")
+}
+
 @MainActor
 class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     @Published var isAuthenticated = false
@@ -151,6 +155,9 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             clearCredentials()
             
             print("✅ Logout exitoso")
+            
+            // Notificar a otros servicios sobre el logout
+            NotificationCenter.default.post(name: .userDidLogout, object: nil)
             
         } catch {
             print("🚨 Error en logout: \(error)")

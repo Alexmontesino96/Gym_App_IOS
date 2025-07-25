@@ -787,7 +787,7 @@ struct ModernErrorView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 16, weight: .semibold))
-                    Text("Reintentar")
+                    Text("Retry")
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .foregroundColor(.white)
@@ -931,11 +931,11 @@ struct ParticipantsSection: View {
                         .font(.system(size: 32))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
                     
-                    Text("No hay participantes aún")
+                    Text("No participants yet")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
-                    Text("Sé el primero en unirte a este evento")
+                    Text("Be the first to join this event")
                         .font(.system(size: 14))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
                 }
@@ -1039,7 +1039,7 @@ struct ParticipantRow: View {
             
             // Join date
             VStack(alignment: .trailing, spacing: 2) {
-                Text("Se unió")
+                Text("Joined")
                     .font(.system(size: 9))
                     .foregroundColor(.gray.opacity(0.7))
                 

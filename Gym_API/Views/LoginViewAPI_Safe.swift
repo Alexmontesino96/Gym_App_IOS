@@ -65,7 +65,7 @@ struct LoginViewAPI_Safe: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
-                Text("Simulación de autenticación sin conectividad")
+                Text("Authentication simulation without connectivity")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
@@ -117,10 +117,10 @@ struct LoginViewAPI_Safe: View {
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("• Sin conectividad de red requerida")
-                    Text("• Funcionalidad completa simulada")
-                    Text("• Datos de ejemplo precargados")
-                    Text("• Navegación completa disponible")
+                    Text("• No network connectivity required")
+                    Text("• Full functionality simulated")
+                    Text("• Sample data preloaded")
+                    Text("• Full navigation available")
                 }
                 .font(.system(size: 12))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))

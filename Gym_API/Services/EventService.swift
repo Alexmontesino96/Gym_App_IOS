@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+
 // MARK: - Event Service
 @MainActor
 class EventService: ObservableObject {
@@ -18,6 +19,7 @@ class EventService: ObservableObject {
     @Published var isJoiningEvent = false
     @Published var userRegistrationStatus: [Int: Bool] = [:]
     @Published var userProfiles: [Int: UserProfile] = [:]
+    @Published var userParticipations: [EventParticipation] = []
     
     private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     private let session = URLSession.shared
@@ -39,6 +41,15 @@ class EventService: ObservableObject {
     
     init(authService: AuthServiceDirect? = nil) {
         self.authService = authService
+        
+        // Escuchar notificación de logout para limpiar datos
+        NotificationCenter.default.addObserver(
+            forName: .userDidLogout,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearEventsOnLogout()
+        }
     }
     
     // MARK: - Force Refresh
@@ -295,8 +306,15 @@ class EventService: ObservableObject {
                 print("🔑 - Total length: \(token.count)")
             } else {
                 print("⚠️ No se encontró token de autorización válido")
-                // Si no hay token válido, mostrar datos mock
-                return createMockEvents()
+                // Esperar un poco más por el token después del login
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 segundo
+                if let delayedToken = await getAuthToken() {
+                    request.setValue("Bearer \(delayedToken)", forHTTPHeaderField: "Authorization")
+                    print("🔑 Token obtenido después de espera")
+                } else {
+                    print("❌ Sin token después de espera - mostrando datos mock temporalmente")
+                    return createMockEvents()
+                }
             }
             
             let task = session.dataTask(with: request)
@@ -347,7 +365,28 @@ class EventService: ObservableObject {
                         }
                     } else {
                         print("⚠️ No se pudo renovar token o no hay authService disponible")
-                        // Si no hay authService, mostrar datos mock
+                        // Esperar un poco más e intentar de nuevo después del login
+                        try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 segundos
+                        if let authService = authService,
+                           let retryToken = await authService.getValidAccessToken() {
+                            print("🔄 Token obtenido después de espera en retry")
+                            var finalRetryRequest = request
+                            finalRetryRequest.setValue("Bearer \(retryToken)", forHTTPHeaderField: "Authorization")
+                            
+                            do {
+                                let finalRetryTask = session.dataTask(with: finalRetryRequest)
+                                currentTask = finalRetryTask
+                                let (finalData, finalResponse) = try await session.data(for: finalRetryRequest)
+                                if let finalHttpResponse = finalResponse as? HTTPURLResponse,
+                                   finalHttpResponse.statusCode == 200 {
+                                    let events = try configuredJSONDecoder().decode([Event].self, from: finalData)
+                                    return events
+                                }
+                            } catch {
+                                print("❌ Error en retry final: \(error)")
+                            }
+                        }
+                        print("❌ Sin authService después de espera - mostrando datos mock temporalmente")
                         return createMockEvents()
                     }
                 }
@@ -1089,6 +1128,15 @@ class EventService: ObservableObject {
         
         updateOnMainThread {
             self.isJoiningEvent = false
+        }
+    }
+    
+    // MARK: - Logout & Cleanup
+    func clearEventsOnLogout() {
+        print("🧹 Clearing events data on logout")
+        updateOnMainThread {
+            self.events = []
+            self.userParticipations = []
         }
     }
     

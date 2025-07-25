@@ -61,11 +61,11 @@ struct LoginViewAPI: View {
         VStack(spacing: 24) {
             // Descripción del proceso
             VStack(spacing: 8) {
-                Text("Autenticación Segura")
+                Text("Secure Authentication")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
-                Text("Te redirigiremos a la página de login segura")
+                Text("We will redirect you to the secure login page")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
@@ -85,7 +85,7 @@ struct LoginViewAPI: View {
                     } else {
                         Image(systemName: "lock.shield")
                             .font(.system(size: 16))
-                        Text("Iniciar Sesión con Auth0")
+                        Text("Log In with Auth0")
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }

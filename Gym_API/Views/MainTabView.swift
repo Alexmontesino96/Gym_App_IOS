@@ -67,7 +67,7 @@ struct UserSelectorView: View {
             .navigationTitle("Nuevo Chat")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
-                leading: Button("Cancelar") {
+                leading: Button("Cancel") {
                     onCancel()
                 },
                 trailing: Button(action: {
@@ -256,7 +256,7 @@ struct UserSelectorErrorView: View {
             Button(action: onRetry) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.clockwise")
-                    Text("Reintentar")
+                    Text("Retry")
                 }
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.white)
@@ -285,7 +285,7 @@ struct UserSelectorEmptyView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
-                Text("Vuelve a intentar más tarde")
+                Text("Try again later")
                     .font(.system(size: 16))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
@@ -309,7 +309,7 @@ struct UserSelectorEmptySearchView: View {
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
             
-            Text("Prueba con otros términos de búsqueda")
+            Text("Try different search terms")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }
@@ -360,7 +360,7 @@ struct MainTabView: View {
                 .tag(3)
             
             // Profile Tab
-            ProfileView(onThemeChangeRequest: requestThemeChange)
+            EnhancedProfileView(onThemeChangeRequest: requestThemeChange)
                 .tabItem {
                     Image(systemName: selectedTab == 4 ? "person.fill" : "person")
                     Text("Profile")
@@ -383,7 +383,7 @@ struct MainTabView: View {
             }
         }
         .alert("Cambio de tema", isPresented: $showThemeChangeConfirmation) {
-            Button("Cambiar y reiniciar") {
+            Button("Change and restart") {
                 // Aplicar el cambio de tema y reiniciar
                 if let newTheme = pendingTheme {
                     themeManager.setTheme(newTheme)
@@ -396,7 +396,7 @@ struct MainTabView: View {
                 }
                 pendingTheme = nil
             }
-            Button("Cancelar", role: .cancel) {
+            Button("Cancel", role: .cancel) {
                 // No cambiar nada
                 pendingTheme = nil
             }
@@ -606,7 +606,7 @@ struct HomeView: View {
                                     .font(.system(size: 28, weight: .bold))
                                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                 
-                                Text("¿Listo para tu próxima clase?")
+                                Text("Ready for your next class?")
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                             }
@@ -622,7 +622,7 @@ struct HomeView: View {
                         
                         // Próxima clase
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Próxima Clase")
+                            Text("Next Class")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                 .padding(.horizontal, 20)
@@ -637,7 +637,7 @@ struct HomeView: View {
                         
                         // Accesos rápidos
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Accesos Rápidos")
+                            Text("Quick Access")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                 .padding(.horizontal, 20)
@@ -806,7 +806,7 @@ struct EventCardHome: View {
                 .lineLimit(2)
             
             HStack(spacing: 12) {
-                Button("Unirse") {
+                Button("Join") {
                     // Acción de unirse
                 }
                 .font(.system(size: 14, weight: .semibold))
@@ -828,6 +828,7 @@ struct EventCardHome: View {
                 
                 Spacer()
             }
+            .padding(.leading, 30)
         }
         .padding(16)
         .background(
@@ -962,7 +963,7 @@ struct EventsView: View {
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             
-                            Text("Conéctate con tu comunidad. Entrena juntos.")
+                            Text("Connect with your community. Train together.")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         }
@@ -1049,7 +1050,7 @@ struct EventsView: View {
                                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                                     .multilineTextAlignment(.center)
                                 
-                                Text(searchText.isEmpty ? "Mantente atento a nuevos eventos" : "Prueba con otros términos de búsqueda")
+                                Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
                                     .font(.system(size: 14))
                                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
                                     .multilineTextAlignment(.center)
@@ -1082,7 +1083,7 @@ struct EventsView: View {
                                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                                     .multilineTextAlignment(.center)
                                 
-                                Button("Reintentar") {
+                                Button("Retry") {
                                     Task {
                                         await eventService.fetchEvents()
                                     }
@@ -1121,7 +1122,7 @@ struct EventsView: View {
                         .environmentObject(eventService)
                         .environmentObject(themeManager)
                         .environmentObject(streamChatService)
-                        .navigationBarItems(leading: Button("Cerrar") {
+                        .navigationBarItems(leading: Button("Close") {
                             showingEventChatFromCard = false
                         })
                     }
@@ -1369,7 +1370,7 @@ struct EventFilterSheet: View {
                     
                     Spacer()
                     
-                    Button("Cerrar") {
+                    Button("Close") {
                         dismiss()
                     }
                     .font(.system(size: 16, weight: .medium))
@@ -1844,7 +1845,7 @@ struct ProfileView: View {
                         HStack(spacing: 12) {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                                 .font(.system(size: 18))
-                            Text("Cerrar Sesión")
+                            Text("Log Out")
                                 .font(.system(size: 16, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
@@ -1934,7 +1935,7 @@ struct EventCard: View {
     }
 }
 
-// MARK: - Modern Event Card Content
+// MARK: - Event Card Content (Original Design)
 struct ModernEventCardContent: View {
     @EnvironmentObject var themeManager: ThemeManager
     let event: Event
@@ -1942,35 +1943,6 @@ struct ModernEventCardContent: View {
     let onChatTapped: (Event) -> Void
     @State private var isLoading = false
     @State private var shakeOffset: CGFloat = 0
-    
-    // Función para determinar si un evento está disponible
-    private func isEventAvailable() -> Bool {
-        return (event.status == .scheduled || event.status == .active) && 
-               event.participantsCount < event.maxParticipants
-    }
-    
-    // Función para determinar los colores de la línea según el estado
-    private func getEventStatusColors(_ status: EventStatus) -> [Color] {
-        let accentColor = Color.dynamicAccent(theme: themeManager.currentTheme)
-        
-        // Si el evento está disponible (programado o activo y con espacios), usar color de acento
-        if isEventAvailable() {
-            return [accentColor, accentColor.opacity(0.8)]
-        }
-        
-        // Para eventos no disponibles, usar colores según estado
-        switch status {
-        case .completed:
-            return [Color.gray, Color.gray.opacity(0.8)]
-        case .cancelled:
-            return [Color.orange, Color.orange.opacity(0.8)]
-        default:
-            // Para eventos llenos
-            return [Color.gray, Color.gray.opacity(0.8)]
-        }
-    }
-    
-
     
     // Función para crear el efecto de sacudida
     private func shakeCard() {
@@ -2004,303 +1976,287 @@ struct ModernEventCardContent: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Fondo con gradiente y glassmorphism
-            ZStack {
-                // Gradiente de fondo dinámico
-                LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.dynamicBackground(theme: themeManager.currentTheme),
-                        Color.dynamicSurface(theme: themeManager.currentTheme)
-                    ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+        ZStack {
+            // Fondo de la tarjeta
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            
+            HStack(spacing: 0) {
+                // Línea de acento lateral (diseño original)
+                Rectangle()
+                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .frame(width: 6)
                 
-                // Fondo de la tarjeta
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                
-                HStack(spacing: 0) {
-                    // Indicador de estado (línea colorida)
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: getEventStatusColors(event.status)),
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: 5)
-                        .clipShape(RoundedRectangle(cornerRadius: 2.5))
+                // Contenido principal
+                VStack(alignment: .leading, spacing: 16) {
+                    // Header: Badge + Título
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Badge FITNESS EVENT
+                        Text("FITNESS EVENT")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .tracking(1.2)
+                        
+                        // Título principal
+                        Text(event.title)
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     
-                    // Contenido principal
-                    VStack(alignment: .leading, spacing: 18) {
-                        // Header: Título + Tipo de evento
-                        VStack(alignment: .leading, spacing: 8) {
-                            // Categoría/Tipo
-                            Text("FITNESS EVENT")
-                                .font(.system(size: 11, weight: .semibold))
+                    // Detalles del evento
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Ubicación
+                        HStack(spacing: 12) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 16))
                                 .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                .tracking(1.2)
                             
-                            // Título principal
-                            Text(event.title)
-                                .font(.system(size: 26, weight: .bold))
+                            Text(event.location)
+                                .font(.system(size: 16, weight: .regular))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
                         }
                         
-                        // Información del evento
-                        VStack(alignment: .leading, spacing: 12) {
-                            // Ubicación con ícono elegante
+                        // Coach/Instructor
+                        if !event.description.isEmpty {
                             HStack(spacing: 12) {
-                                Image(systemName: "mappin.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                
-                                Text(event.location)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.9))
-                            }
-                            
-                            // Coach con ícono
-
-                            
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.crop.circle.fill")
+                                Image(systemName: "person.circle.fill")
                                     .font(.system(size: 16))
                                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                                 
                                 Text(getCoachName(from: event.description))
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.9))
+                                    .font(.system(size: 16, weight: .regular))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    // Sección inferior: Fecha/hora + Botones
+                    HStack(alignment: .bottom) {
+                        // Schedule section
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("SCHEDULE")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                .tracking(1.2)
+                            
+                            HStack(spacing: 8) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                
+                                Text(formatEventDateFull(event.startTime))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                             }
                         }
                         
-                        // Footer: Fecha + Acción
-                        HStack(alignment: .center) {
-                            // Fecha con diseño moderno
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("SCHEDULE")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
-                                    .tracking(1)
-                                
-                                HStack(spacing: 8) {
-                                    Image(systemName: "calendar.badge.clock")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    
-                                    Text(formatEventDateFull(event.startTime))
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            // Contenedor fijo para botones
-                            ZStack {
-                                // Área para evitar que los toques pasen a la tarjeta
-                                Color.clear
-                                    .contentShape(Rectangle())
-                                    .allowsHitTesting(true)
-                                    .onTapGesture { }
-                                // Fondo común para ambos botones
-                                Capsule()
-                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.8))
-                                    .overlay(
-                                        Capsule()
-                                            .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 0.5)
-                                    )
-                                
-                                // Estado de loading
-                                if isLoading {
-                                    VStack {
-                                        Spacer()
-                                        // Efecto de puntos desplazándose
-                                        HStack(spacing: 8) {
-                                            ForEach(0..<5) { index in
-                                                Circle()
-                                                    .fill(Color.dynamicText(theme: themeManager.currentTheme))
-                                                    .frame(width: 6, height: 6)
-                                                    .opacity(isLoading ? (getOpacityForDot(index: index)) : 0.3)
-                                                    .scaleEffect(isLoading ? (getScaleForDot(index: index)) : 0.8)
-                                                    .animation(
-                                                        Animation.easeInOut(duration: 0.5)
-                                                            .repeatForever(autoreverses: true)
-                                                            .delay(Double(index) * 0.08),
-                                                        value: isLoading
-                                                    )
-                                            }
-                                        }
-                                        Spacer()
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .transition(.opacity)
-                                } else if event.status == .completed && eventService.isUserRegistered(eventId: event.id) {
-                                    // Evento completado donde el usuario participó: botón doble con Chat + Complete
-                                    HStack(alignment: .center, spacing: 0) {
-                                        // IconButton - Chat
-                                        Button(action: {
-                                            print("💬 Opening chat for completed event: \(event.title)")
-                                            onChatTapped(event)
-                                        }) {
-                                            Image(systemName: "bubble")
-                                                .font(.system(size: 18))
-                                                .foregroundColor(themeManager.currentTheme == .light ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color(red: 0.96, green: 0.96, blue: 0.96))
-                                                .padding(.leading, 8)
-                                        }
-                                        .frame(minWidth: 0, maxWidth: .infinity)
-                                        .layoutPriority(0.40)
-                                        
-                                        // Línea divisoria
-                                        Rectangle()
-                                            .fill(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.5))
-                                            .frame(width: 0.5, height: 24)
-                                        
-                                        // TextButton - Complete (área más grande)
-                                        Button(action: {
-                                            print("✅ Event completed: \(event.title)")
-                                            shakeCard()
-                                        }) {
-                                            Text("Complete")
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(Color(red: 0.96, green: 0.96, blue: 0.96))
-                                        }
-                                        .frame(minWidth: 0, maxWidth: .infinity)
-                                        .layoutPriority(0.60)
-                                        .disabled(false) // Habilitado para permitir el efecto de sacudida
-                                    }
-                                    .frame(height: 44)
-                                    .transition(.opacity)
-                                } else if event.status == .completed {
-                                    // Evento completado donde el usuario NO participó: botón simple Complete
-                                    Button(action: {
-                                        print("✅ Event completed (not participated): \(event.title)")
-                                        shakeCard()
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.system(size: 16))
-                                            
-                                            Text("Complete")
-                                                .font(.system(size: 16, weight: .semibold))
-                                        }
-                                        .foregroundColor(.white.opacity(0.7))
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.gray.opacity(0.5))
-                                    )
-                                    .disabled(false) // Habilitado para permitir el efecto de sacudida
-                                    .transition(.opacity)
-                                } else if eventService.isUserRegistered(eventId: event.id) {
-                                    // Estado registrado en eventos activos/programados: píldora con dos botones
-                                    ZStack {
-                                        // Background
-                                        Capsule()
-                                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                            .overlay(
-                                                Capsule()
-                                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.3), lineWidth: 1)
-                                            )
-                                        
-                                        HStack(spacing: 0) {
-                                            // Chat Button
-                                            Button(action: {
-                                                print("💬 Opening chat for event: \(event.title)")
-                                                onChatTapped(event)
-                                            }) {
-                                                Image(systemName: "bubble.left")
-                                                    .font(.system(size: 16, weight: .medium))
-                                                    .foregroundColor(themeManager.currentTheme == .light ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color(red: 0.96, green: 0.96, blue: 0.96))
-                                                    .frame(width: 40, height: 44)
-                                            }
-                                            
-                                            // Divider
-                                            Rectangle()
-                                                .fill(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.5))
-                                                .frame(width: 0.5, height: 24)
-                                            
-                                            // Cancel Button
-                                            Button(action: {
-                                                if !isLoading {
-                                                    print("🚫 Cancelling event: \(event.title)")
-                                                    isLoading = true
-                                                    Task {
-                                                        await eventService.cancelEvent(eventId: event.id)
-                                                        try? await Task.sleep(nanoseconds: 500_000_000)
-                                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                                            isLoading = false
-                                                        }
-                                                    }
-                                                }
-                                            }) {
-                                                Text("Cancel")
-                                                    .font(.system(size: 15, weight: .semibold))
-                                                    .foregroundColor(themeManager.currentTheme == .light ? .red : Color(red: 0.96, green: 0.96, blue: 0.96))
-                                                    .frame(maxWidth: .infinity, maxHeight: 44)
-                                            }
-                                        }
-                                    }
-                                    .frame(height: 44)
-                                    .transition(.opacity)
-                                } else {
-                                    // Estado no registrado: botón único
-                                    Button(action: {
-                                        if event.participantsCount < event.maxParticipants && !isLoading {
-                                            print("🎯 Joining event: \(event.title)")
-                                            isLoading = true
-                                            Task {
-                                                await eventService.joinEvent(eventId: event.id)
-                                                // Simular espera mínima para mostrar el efecto
-                                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 segundos
-                                                withAnimation(.easeInOut(duration: 0.3)) {
-                                                    isLoading = false
-                                                }
-                                            }
-                                        }
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: event.participantsCount >= event.maxParticipants ? "person.fill.xmark" : "person.fill.checkmark")
-                                                .font(.system(size: 16))
-                                            
-                                            Text(buttonText)
-                                                .font(.system(size: 16, weight: .semibold))
-                                        }
-                                        .foregroundColor(.white)
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .background(
-                                        Capsule()
-                                            .fill(
-                                                event.participantsCount >= event.maxParticipants ?
-                                                Color.gray.opacity(0.7) :
-                                                Color.dynamicAccent(theme: themeManager.currentTheme)
-                                            )
-                                    )
-                                    .disabled(event.participantsCount >= event.maxParticipants)
-                                    .transition(.opacity)
-                                }
-                            }
-                            .frame(width: 120, height: 46)
-                            .animation(.easeInOut(duration: 0.3), value: eventService.isUserRegistered(eventId: event.id))
-                            .animation(.easeInOut(duration: 0.3), value: isLoading)
-                        }
+                        Spacer()
+                        
+                        // Botones de acción
+                        actionButtonsContainer
                     }
-                    .padding(.leading, 24)
-                    .padding(.trailing, 20)
-                    .padding(.vertical, 24)
                 }
+                .padding(.leading, 24)
+                .padding(.trailing, 12)
+                .padding(.vertical, 24)
             }
         }
-        .frame(height: 220)
+        .frame(minHeight: 220)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            // Indicador circular para eventos completados donde el usuario participó
+            Group {
+                if event.status == .completed && eventService.isUserRegistered(eventId: event.id) {
+                    Circle()
+                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                        .frame(width: 12, height: 12)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 2)
+                        )
+                        .padding(.top, 12)
+                        .padding(.trailing, 12)
+                }
+            },
+            alignment: .topTrailing
+        )
         .offset(x: shakeOffset)
+    }
+    
+    @ViewBuilder
+    private var actionButtonsContainer: some View {
+        ZStack {
+            // Área para evitar que los toques pasen a la tarjeta
+            Color.clear
+                .contentShape(Rectangle())
+                .allowsHitTesting(true)
+                .onTapGesture { }
+            
+            if event.status == .completed && eventService.isUserRegistered(eventId: event.id) {
+                // Eventos completados donde el usuario participó: mensajes motivacionales + chat
+                let hoursAfterEvent = Date().timeIntervalSince(event.endTime) / 3600
+                let showChatButton = hoursAfterEvent <= 24
+                
+                if showChatButton {
+                    VStack(spacing: 0) {
+                        Text(getMotivationalMessage())
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(1)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 4)
+                        
+                        Spacer(minLength: 2)
+                        
+                        Button(action: {
+                            print("💬 Opening chat for completed event: \(event.title)")
+                            onChatTapped(event)
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "bubble.left.fill")
+                                    .font(.system(size: 12, weight: .medium))
+                                Text("Chat")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            )
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 3)
+                    }
+                    .frame(width: 110, height: 40)
+                } else {
+                    VStack {
+                        Spacer()
+                        Text(getMotivationalMessage())
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 8)
+                        Spacer()
+                    }
+                    .frame(width: 110, height: 40)
+                }
+            } else {
+                // Botón doble estándar (diseño original)
+                ZStack {
+                    Capsule()
+                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                        )
+                    
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                            .scaleEffect(0.8)
+                    } else if eventService.isUserRegistered(eventId: event.id) {
+                        // Usuario registrado: Chat + Cancel
+                        HStack(spacing: 0) {
+                            // Botón Chat (40%)
+                            Button(action: {
+                                print("💬 Opening chat for event: \(event.title)")
+                                onChatTapped(event)
+                            }) {
+                                Image(systemName: "bubble.left")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            }
+                            .frame(maxWidth: 44, maxHeight: .infinity)
+                            
+                            // Divider
+                            Rectangle()
+                                .fill(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.5))
+                                .frame(width: 0.5, height: 24)
+                            
+                            // Botón Cancel (60%)
+                            Button(action: {
+                                if !isLoading {
+                                    print("🚫 Cancelling event: \(event.title)")
+                                    isLoading = true
+                                    Task {
+                                        await eventService.cancelEvent(eventId: event.id)
+                                        try? await Task.sleep(nanoseconds: 500_000_000)
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            isLoading = false
+                                        }
+                                    }
+                                }
+                            }) {
+                                Text("Cancel")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.red)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    } else {
+                        // Usuario no registrado: botón único
+                        Button(action: {
+                            if event.participantsCount < event.maxParticipants && !isLoading {
+                                print("🎯 Joining event: \(event.title)")
+                                isLoading = true
+                                Task {
+                                    await eventService.joinEvent(eventId: event.id)
+                                    try? await Task.sleep(nanoseconds: 500_000_000)
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        isLoading = false
+                                    }
+                                }
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: event.participantsCount >= event.maxParticipants ? "person.fill.xmark" : "person.fill.checkmark")
+                                    .font(.system(size: 16))
+                                
+                                Text(buttonText)
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    event.participantsCount >= event.maxParticipants ?
+                                    Color.gray.opacity(0.7) :
+                                    Color.dynamicAccent(theme: themeManager.currentTheme)
+                                )
+                        )
+                        .disabled(event.participantsCount >= event.maxParticipants)
+                    }
+                }
+                .frame(width: 110, height: 40)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: eventService.isUserRegistered(eventId: event.id))
+        .animation(.easeInOut(duration: 0.3), value: isLoading)
+    }
+    
+    // Computed properties para el botón
+    private var buttonText: String {
+        if eventService.isUserRegistered(eventId: event.id) {
+            return "Registrado"
+        } else if event.participantsCount >= event.maxParticipants {
+            return "Full"
+        } else {
+            return "Unirse"
+        }
     }
     
     private func getCoachName(from description: String?) -> String {
@@ -2319,39 +2275,32 @@ struct ModernEventCardContent: View {
         return "Coach"
     }
     
+    // Función para obtener mensaje motivacional aleatorio en inglés
+    private func getMotivationalMessage() -> String {
+        let motivationalMessages = [
+            "Keep going and you'll reach the stars!",
+            "Great job! Every step counts towards your goals",
+            "You're stronger than you think - keep pushing!",
+            "Amazing work! Your dedication inspires others",
+            "Well done! Success is built one workout at a time",
+            "Fantastic effort! You're on the path to greatness",
+            "Incredible commitment! Your future self will thank you",
+            "Outstanding! Champions are made in moments like these",
+            "Excellent work! You're becoming unstoppable",
+            "Bravo! Your consistency is your superpower",
+            "Impressive! You're writing your success story",
+            "Wonderful! Every challenge makes you stronger",
+            "Superb dedication! You're leveling up every day",
+            "Awesome progress! Your journey inspires us all",
+            "Magnificent effort! You're building something great"
+        ]
+        return motivationalMessages.randomElement() ?? "Great job participating!"
+    }
+    
     private func formatEventDateFull(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, h:mm a"
         return formatter.string(from: date)
-    }
-    
-    // Computed properties para el botón
-    private var buttonText: String {
-        if eventService.isUserRegistered(eventId: event.id) {
-            // Cuando está registrado, este texto ya no se usa (tiene botones separados)
-            return "Registrado"
-        } else if event.participantsCount >= event.maxParticipants {
-            return "Full"
-        } else {
-            return "Unirse"
-        }
-    }
-    
-    // Funciones para el efecto de loading
-    private func getOpacityForDot(index: Int) -> Double {
-        let cycle = (Date().timeIntervalSince1970 * 4).truncatingRemainder(dividingBy: 5.0)
-        let position = cycle < 2.5 ? cycle : 5.0 - cycle // Ida y vuelta más rápida
-        let dotPosition = Double(index)
-        let distance = abs(position - dotPosition)
-        return max(0.3, 1.0 - (distance * 0.3))
-    }
-    
-    private func getScaleForDot(index: Int) -> Double {
-        let cycle = (Date().timeIntervalSince1970 * 4).truncatingRemainder(dividingBy: 5.0)
-        let position = cycle < 2.5 ? cycle : 5.0 - cycle // Ida y vuelta más rápida
-        let dotPosition = Double(index)
-        let distance = abs(position - dotPosition)
-        return max(0.8, 1.4 - (distance * 0.2))
     }
 }
 
@@ -2381,104 +2330,269 @@ struct EventCardSkeleton: View {
                 .frame(height: 16)
                 .frame(width: 150)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-            
-            // Fecha y botón skeleton
-            HStack {
-                Rectangle()
-                    .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
-                    .frame(height: 16)
-                    .frame(width: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                
-                Spacer()
-                
-                Rectangle()
-                    .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.3))
-                    .frame(width: 100, height: 32)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-        )
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .opacity(isAnimating ? 0.6 : 1.0)
-        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isAnimating)
+        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
         .onAppear {
             isAnimating = true
         }
     }
 }
 
-// MARK: - Classes Content Views
-struct ClassesContentView: View {
-    @EnvironmentObject var classService: ClassService
-    @EnvironmentObject var themeManager: ThemeManager
-    @Binding var selectedDate: Date
+
+// MARK: - Date Components
+struct DateComponentView: View {
+    let date: Date
+    let isSelected: Bool
+    let themeManager: ThemeManager
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header fijo - No participa en el refresh
-            VStack(alignment: .leading, spacing: 20) {
-                // Title
-                HStack {
-                    Text("Session")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-                
-                // Date Selector
-                DateSelectorView(selectedDate: $selectedDate)
-                    .padding(.horizontal, 20)
-            }
-            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+        VStack(spacing: 4) {
+            Text(dayName)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(isSelected ? .white : Color.dynamicText(theme: themeManager.currentTheme))
             
-            // Classes List - Solo esta parte se refresca
-            RefreshableClassesList(selectedDate: $selectedDate)
+            Text(dayNumber)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(isSelected ? .white : Color.dynamicText(theme: themeManager.currentTheme))
         }
-        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+        .frame(width: 50, height: 60)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.clear)
+        )
     }
     
-    private var filteredSessions: [SessionWithClass] {
-        let calendar = Calendar.current
-        return classService.sessions.filter { session in
-            calendar.isDate(session.session.startTime, inSameDayAs: selectedDate)
-        }.sorted { $0.session.startTime < $1.session.startTime }
+    private var dayName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        formatter.locale = Locale(identifier: "en_US")
+        return formatter.string(from: date)
+    }
+    
+    private var dayNumber: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd"
+        return formatter.string(from: date)
     }
 }
 
-// MARK: - Refreshable Classes List
-struct RefreshableClassesList: View {
-    @EnvironmentObject var classService: ClassService
+struct ClassCardView: View {
     @EnvironmentObject var themeManager: ThemeManager
-    @Binding var selectedDate: Date
+    let session: SessionWithClass
+    @EnvironmentObject var classService: ClassService
+    @State private var trainerImage: String = ""
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(filteredSessions) { session in
-                    ClassCardView(session: session)
+        VStack(spacing: 0) {
+            // Fondo de la tarjeta
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            
+            HStack(spacing: 0) {
+                // Indicador de estado (línea colorida)
+                Rectangle()
+                    .fill(classAccentColor)
+                    .frame(width: 5)
+                
+                // Contenido principal
+                VStack(alignment: .leading, spacing: 12) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(session.classInfo.name.uppercased())
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .lineLimit(2)
+                        
+                        Text(session.formattedTime)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                    
+                    // Badges
+                    HStack(spacing: 6) {
+                        Text(difficultyText.uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Color(red: 0.13, green: 0.55, blue: 0.13))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color(red: 0.13, green: 0.55, blue: 0.13), lineWidth: 1)
+                                    )
+                            )
+                        
+                        Text(spotsText.uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(spotsTextColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(spotsTextColor, lineWidth: 1)
+                                    )
+                            )
+                    }
+                    
+                    // Instructor and action button
+                    HStack(spacing: 0) {
+                        HStack(spacing: 10) {
+                            Image("trainer_placeholder")
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 50, height: 50)
+                                .clipShape(Circle())
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Instructor")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                
+                                Text(session.trainerName)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // Action button
+                        Group {
+                            if session.session.status == .completed {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                    Text("Complete")
+                                        .font(.system(size: 16, weight: .bold))
+                                }
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.dynamicTextSecondary(theme: themeManager.currentTheme), lineWidth: 1)
+                                        )
+                                )
+                            } else if session.session.status == .cancelled {
+                                Text("Cancelled")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.red.opacity(0.1))
+                                    )
+                            } else if classService.isUserRegistered(sessionId: session.session.id) {
+                                Button(action: {
+                                    Task {
+                                        await classService.cancelClassRegistration(sessionId: session.session.id, reason: "User cancelled from app")
+                                    }
+                                }) {
+                                    if classService.cancellingClassIds.contains(session.session.id) {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .red))
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Text("Cancel")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                }
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.red, lineWidth: 1)
+                                )
+                            } else {
+                                Button(action: {
+                                    Task {
+                                        await classService.joinClass(sessionId: session.session.id)
+                                    }
+                                }) {
+                                    if classService.joiningClassIds.contains(session.session.id) {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Text("Join")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                )
+                            }
+                        }
+                    }
                 }
+                .padding(.leading, 24)
+                .padding(.trailing, 20)
+                .padding(.top, 12)
+                Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 20)
         }
-        .refreshable {
-            // Solo refrescar las sesiones de la fecha seleccionada
-            await classService.forceRefreshSessions(date: selectedDate)
-        }
-        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
     
-    private var filteredSessions: [SessionWithClass] {
-        let calendar = Calendar.current
-        return classService.sessions.filter { session in
-            calendar.isDate(session.session.startTime, inSameDayAs: selectedDate)
-        }.sorted { $0.session.startTime < $1.session.startTime }
+    // MARK: - Computed Properties
+    private var classAccentColor: Color {
+        return Color.dynamicAccent(theme: themeManager.currentTheme)
+    }
+    
+    private var difficultyText: String {
+        switch session.classInfo.difficultyLevel {
+        case .beginner: return "Beginner"
+        case .intermediate: return "Intermediate"
+        case .advanced: return "Advanced"
+        }
+    }
+    
+    private var spotsText: String {
+        if session.isFullyBooked {
+            return "Full"
+        } else {
+            return "\(session.availableSpots) spots"
+        }
+    }
+    
+    private var spotsTextColor: Color {
+        if session.isFullyBooked {
+            return Color(red: 0.4, green: 0.4, blue: 0.4)
+        } else if session.availableSpots <= 3 {
+            return Color(red: 0.78, green: 0.16, blue: 0.16)
+        } else {
+            return Color(red: 0.90, green: 0.38, blue: 0.0)
+        }
+    }
+    
+    private var spotsBadgeBackground: Color {
+        if session.isFullyBooked {
+            return Color(red: 0.96, green: 0.96, blue: 0.96)
+        } else if session.availableSpots <= 3 {
+            return Color(red: 1.0, green: 0.92, blue: 0.93)
+        } else {
+            return Color(red: 1.0, green: 0.95, blue: 0.88)
+        }
     }
 }
 
@@ -2587,270 +2701,74 @@ struct DateTabView: View {
     }
 }
 
-struct ClassCardView: View {
-    @EnvironmentObject var themeManager: ThemeManager
-    let session: SessionWithClass
+// MARK: - Classes Content Views
+struct ClassesContentView: View {
     @EnvironmentObject var classService: ClassService
-    @State private var trainerImage: String = ""
+    @EnvironmentObject var themeManager: ThemeManager
+    @Binding var selectedDate: Date
     
     var body: some View {
-        ZStack {
-            // Fondo de la tarjeta
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-            
-            HStack(spacing: 0) {
-                // Línea de acento lateral
-                Rectangle()
-                    .fill(classAccentColor)
-                    .frame(width: 6)
-                
-                // Contenido principal
-                VStack(alignment: .leading, spacing: 12) {
-                    // Class Name
-                    Text(session.classInfo.name)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .lineLimit(1)
-                    
-                    // Time and duration
-                    HStack(spacing: 12) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            Text(session.formattedTime)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        }
-                        
-                        Text("• \(formattedDuration)")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    
-                    // Badges
-                    HStack(spacing: 6) {
-                        Text(difficultyText.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Color(red: 0.18, green: 0.35, blue: 0.18))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(red: 0.91, green: 0.96, blue: 0.91))
-                            )
-                        
-                        Text(spotsText.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(spotsTextColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(spotsBadgeBackground)
-                            )
-                    }
-                    
-                    // Instructor and action button
-                    HStack(spacing: 0) {
-                        HStack(spacing: 10) {
-                            Image("trainer_placeholder")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 50, height: 50)
-                                .clipShape(Circle())
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color(red: 0.94, green: 0.94, blue: 0.94), lineWidth: 2)
-                                )
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.trainerName)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .lineLimit(1)
-                                
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        // Action button
-                        Group {
-                            if session.session.status == .completed {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 14, weight: .bold))
-                                    Text("Complete")
-                                        .font(.system(size: 16, weight: .bold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                )
-                            } else if session.session.status == .cancelled {
-                                Text("Cancelled")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.red)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.red.opacity(0.1))
-                                    )
-                            } else if classService.isUserRegistered(sessionId: session.session.id) {
-                                Button(action: {
-                                    Task {
-                                        await classService.cancelClassRegistration(sessionId: session.session.id, reason: "User cancelled from app")
-                                    }
-                                }) {
-                                    if classService.cancellingClassIds.contains(session.session.id) {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .red))
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Text("Cancel")
-                                            .font(.system(size: 16, weight: .bold))
-                                    }
-                                }
-                                .foregroundColor(.red)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.red.opacity(0.1))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(Color.red, lineWidth: 1)
-                                        )
-                                )
-                                .disabled(classService.cancellingClassIds.contains(session.session.id))
-                            } else if session.isFullyBooked {
-                                Text("Full")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(Color(red: 0.59, green: 0.65, blue: 0.65))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color(red: 0.96, green: 0.96, blue: 0.96))
-                                    )
-                            } else {
-                                Button(action: {
-                                    Task {
-                                        await classService.joinClass(sessionId: session.session.id)
-                                    }
-                                }) {
-                                    if classService.joiningClassIds.contains(session.session.id) {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Text("Join")
-                                            .font(.system(size: 16, weight: .bold))
-                                    }
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                )
-                                .disabled(classService.joiningClassIds.contains(session.session.id))
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
-            }
-            
-            // Status indicator
-            VStack {
+        VStack(spacing: 0) {
+            // Header fijo - No participa en el refresh
+            VStack(alignment: .leading, spacing: 20) {
+                // Title
                 HStack {
+                    Text("Session")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     Spacer()
-                    Circle()
-                        .fill(statusIndicatorColor)
-                        .frame(width: 6, height: 6)
                 }
-                .padding(.trailing, 12)
-                .padding(.top, 12)
-                Spacer()
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                
+                // Date Selector
+                DateSelectorView(selectedDate: $selectedDate)
+                    .padding(.horizontal, 20)
             }
+            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+            
+            // Classes List - Solo esta parte se refresca
+            RefreshableClassesList(selectedDate: $selectedDate)
         }
-        .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
     }
     
-    // MARK: - Computed Properties
-    private var classAccentColor: Color {
-        return Color.dynamicAccent(theme: themeManager.currentTheme)
+    private var filteredSessions: [SessionWithClass] {
+        let calendar = Calendar.current
+        return classService.sessions.filter { session in
+            calendar.isDate(session.session.startTime, inSameDayAs: selectedDate)
+        }.sorted { $0.session.startTime < $1.session.startTime }
     }
+}
+
+// MARK: - Refreshable Classes List
+struct RefreshableClassesList: View {
+    @EnvironmentObject var classService: ClassService
+    @EnvironmentObject var themeManager: ThemeManager
+    @Binding var selectedDate: Date
     
-    private var formattedDuration: String {
-        let minutes = session.classInfo.duration
-        if minutes >= 60 {
-            let hours = minutes / 60
-            let remainingMinutes = minutes % 60
-            if remainingMinutes == 0 {
-                return "\(hours)h"
-            } else {
-                return "\(hours)h \(remainingMinutes)m"
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(filteredSessions) { session in
+                    ClassCardView(session: session)
+                }
             }
-        } else {
-            return "\(minutes)m"
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
         }
+        .refreshable {
+            // Solo refrescar las sesiones de la fecha seleccionada
+            await classService.forceRefreshSessions(date: selectedDate)
+        }
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
     }
     
-    private var statusIndicatorColor: Color {
-        if session.isFullyBooked {
-            return .red
-        } else if session.availableSpots <= 3 {
-            return .orange
-        } else {
-            return .green
-        }
-    }
-    
-    private var difficultyText: String {
-        switch session.classInfo.difficultyLevel {
-        case .beginner: return "Beginner"
-        case .intermediate: return "Intermediate"
-        case .advanced: return "Advanced"
-        }
-    }
-    
-    private var spotsText: String {
-        if session.isFullyBooked {
-            return "Full"
-        } else {
-            return "\(session.availableSpots) spots"
-        }
-    }
-    
-    private var spotsTextColor: Color {
-        if session.isFullyBooked {
-            return Color(red: 0.4, green: 0.4, blue: 0.4)
-        } else if session.availableSpots <= 3 {
-            return Color(red: 0.78, green: 0.16, blue: 0.16)
-        } else {
-            return Color(red: 0.90, green: 0.38, blue: 0.0)
-        }
-    }
-    
-    private var spotsBadgeBackground: Color {
-        if session.isFullyBooked {
-            return Color(red: 0.96, green: 0.96, blue: 0.96)
-        } else if session.availableSpots <= 3 {
-            return Color(red: 1.0, green: 0.92, blue: 0.93)
-        } else {
-            return Color(red: 1.0, green: 0.95, blue: 0.88)
-        }
+    private var filteredSessions: [SessionWithClass] {
+        let calendar = Calendar.current
+        return classService.sessions.filter { session in
+            calendar.isDate(session.session.startTime, inSameDayAs: selectedDate)
+        }.sorted { $0.session.startTime < $1.session.startTime }
     }
 }
 
@@ -2891,7 +2809,7 @@ struct ErrorClassesView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             
-            Button("Reintentar") {
+            Button("Retry") {
                 onRetry()
             }
             .font(.system(size: 16, weight: .semibold))
@@ -2904,36 +2822,7 @@ struct ErrorClassesView: View {
     }
 }
 
-// MARK: - Color Extension for Hex Support
-extension Color {
-    init?(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            return nil
-        }
-        
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
-
 // MARK: - Chat Views
-
 struct ChatFilterHeader: View {
     @Binding var selectedChatType: ChatType?
     let themeManager: ThemeManager
@@ -3039,7 +2928,7 @@ struct ErrorChatsView: View {
                 .padding(.horizontal, 20)
             
             Button(action: onRetry) {
-                Text("Reintentar")
+                Text("Retry")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
@@ -3070,7 +2959,7 @@ struct EmptyChatsView: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
-                Text("Únete a eventos para comenzar a chatear")
+                Text("Join events to start chatting")
                     .font(.system(size: 16))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
@@ -3158,10 +3047,3 @@ struct ChatRoomRow: View {
     }
 }
 
-#Preview {
-    MainTabView()
-        .environmentObject(AuthServiceDirect())
-        .environmentObject(EventService())
-        .environmentObject(ClassService())
-        .environmentObject(ThemeManager())
-} 

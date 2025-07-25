@@ -36,12 +36,12 @@ struct ChatRoom: Codable, Identifiable {
     }
     
     var displayName: String {
-        let safeName = name ?? "Chat directo"
+        let safeName = name ?? "Direct chat"
         switch chatType {
         case .direct:
-            return safeName.replacingOccurrences(of: "Chat con ", with: "")
+            return safeName.replacingOccurrences(of: "Chat with ", with: "")
         case .event:
-            return safeName.replacingOccurrences(of: "Evento ", with: "")
+            return safeName.replacingOccurrences(of: "Event ", with: "")
         case .general:
             return safeName
         }
@@ -82,7 +82,7 @@ struct ChatRoom: Codable, Identifiable {
             formatter.timeStyle = .short
             return formatter.string(from: date)
         } else if calendar.isDateInYesterday(date) {
-            return "Ayer"
+            return "Yesterday"
         } else if calendar.dateInterval(of: .weekOfYear, for: now)?.contains(date) == true {
             formatter.dateFormat = "EEEE" // Día de la semana
             return formatter.string(from: date)
@@ -95,7 +95,7 @@ struct ChatRoom: Codable, Identifiable {
     // Texto del último mensaje truncado
     var truncatedLastMessage: String {
         guard let text = lastMessageText, !text.isEmpty else {
-            return "Nuevo chat"
+            return "New chat"
         }
         return text.count > 50 ? String(text.prefix(50)) + "..." : text
     }
@@ -109,8 +109,8 @@ enum ChatType: String, CaseIterable {
     
     var displayName: String {
         switch self {
-        case .direct: return "Directos"
-        case .event: return "Eventos"
+        case .direct: return "Direct"
+        case .event: return "Events"
         case .general: return "General"
         }
     }

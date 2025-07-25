@@ -49,6 +49,7 @@ struct ClassSession: Codable, Identifiable {
 enum SessionStatus: String, Codable {
     case scheduled = "scheduled"
     case active = "active"
+    case inProgress = "in_progress"
     case completed = "completed"
     case cancelled = "cancelled"
 }

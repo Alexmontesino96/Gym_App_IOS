@@ -86,7 +86,7 @@ struct LoginViewDirect: View {
                                 .multilineTextAlignment(.center)
                             
                             if errorMessage.contains("Conexión perdida") || errorMessage.contains("Timeout") {
-                                Text("💡 Se activará modo offline para continuar")
+                                Text("💡 Offline mode will be activated to continue")
                                     .font(.system(size: 12))
                                     .foregroundColor(themeManager.currentTheme == .dark ? .orange : .blue)
                                     .multilineTextAlignment(.center)
@@ -100,15 +100,15 @@ struct LoginViewDirect: View {
                 
                 // Información del flujo
                 VStack(spacing: 12) {
-                    Text("🔐 Autenticación Segura")
+                    Text("🔐 Secure Authentication")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("✅ Sin contraseñas que recordar")
-                        Text("✅ Navegador seguro integrado")
-                        Text("✅ Autenticación con Auth0")
-                        Text("✅ Sesión persistente")
+                        Text("✅ No passwords to remember")
+                        Text("✅ Integrated secure browser")
+                        Text("✅ Authentication with Auth0")
+                        Text("✅ Persistent session")
                     }
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))

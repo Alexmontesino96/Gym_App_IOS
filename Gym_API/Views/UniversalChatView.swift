@@ -42,16 +42,45 @@ struct UniversalChatView: View {
                     loadChatRoom()
                 })
             } else if streamChatService.isConnected {
-                // Stream.io Chat Interface
-                StreamChatInterface(
-                    messages: streamChatService.messages,
-                    newMessage: $newMessage,
-                    onSendMessage: sendStreamMessage,
-                    onTypingStart: streamChatService.startTyping,
-                    onTypingStop: streamChatService.stopTyping,
-                    typingUsers: streamChatService.typingUsers,
-                    themeManager: themeManager
-                )
+                // Nueva interfaz de chat estilo iMessage
+                VStack(spacing: 0) {
+                    // Messages List
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 2) {
+                                ForEach(streamChatService.messages) { message in
+                                    MessageBubbleView(message: message, themeManager: themeManager)
+                                        .id(message.id)
+                                }
+                                
+                                // Typing Indicator
+                                if !streamChatService.typingUsers.isEmpty {
+                                    TypingIndicatorView(typingUsers: streamChatService.typingUsers, themeManager: themeManager)
+                                        .padding(.top, 8)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
+                        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+                        .onChange(of: streamChatService.messages.count) { _, _ in
+                            if let lastMessage = streamChatService.messages.last {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Simple Input View
+                    SimpleInputView(
+                        newMessage: $newMessage,
+                        onSendMessage: sendStreamMessage,
+                        onTypingStart: streamChatService.startTyping,
+                        onTypingStop: streamChatService.stopTyping,
+                        themeManager: themeManager
+                    )
+                }
             } else {
                 // Fallback Interface con debugging
                 VStack(spacing: 16) {
@@ -87,7 +116,7 @@ struct UniversalChatView: View {
                         .padding(.top, 8)
                     }
                     
-                    Button("Forzar reconexión") {
+                    Button("Force reconnection") {
                         // Reset completo y reintentar
                         streamChatService.disconnect()
                         errorMessage = nil

@@ -79,7 +79,7 @@ struct HomeView_Safe: View {
                                 .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             
-                            Text("¿Listo para tu próxima clase?")
+                            Text("Ready for your next class?")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         }
@@ -95,7 +95,7 @@ struct HomeView_Safe: View {
                     
                     // Próxima clase
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Próxima Clase")
+                        Text("Next Class")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             .padding(.horizontal, 20)
@@ -154,7 +154,7 @@ struct ClassesView_Safe: View {
                         .font(.title)
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
-                    Text("Funcionalidad próximamente")
+                    Text("Functionality coming soon")
                         .font(.subheadline)
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 }
@@ -186,7 +186,7 @@ struct EventsView_Safe: View {
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             
-                            Text("Conéctate con tu comunidad. Entrena juntos.")
+                            Text("Connect with your community. Train together.")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         }
@@ -244,7 +244,7 @@ struct EventsView_Safe: View {
                                     .foregroundColor(.gray)
                                     .multilineTextAlignment(.center)
                                 
-                                Button("Reintentar") {
+                                Button("Retry") {
                                     Task {
                                         await eventService.fetchEvents()
                                     }
@@ -305,7 +305,7 @@ struct MessagesView_Safe: View {
                         .font(.title)
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
-                    Text("Funcionalidad próximamente")
+                    Text("Functionality coming soon")
                         .font(.subheadline)
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 }
@@ -364,7 +364,7 @@ struct ProfileView_Safe: View {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                                 .font(.system(size: 16))
-                            Text("Cerrar Sesión")
+                            Text("Log Out")
                                 .font(.system(size: 16, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)

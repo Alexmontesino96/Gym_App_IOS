@@ -55,7 +55,7 @@ struct LoginView: View {
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
             
             // Subtítulo
-            Text("Entrena con los mejores")
+            Text("Train with the best")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
             
@@ -81,7 +81,7 @@ struct LoginView: View {
                 // Password
                 CustomTextField(
                     text: $password,
-                    placeholder: "Contraseña",
+                    placeholder: "Password",
                     icon: "lock",
                     isSecure: !showPassword,
                     isFocused: $isPasswordFocused,
@@ -104,7 +104,7 @@ struct LoginView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(0.8)
                     } else {
-                        Text("Iniciar Sesión")
+                        Text("Log In")
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }
@@ -131,11 +131,11 @@ struct LoginView: View {
             
             // Enlace de registro
             HStack {
-                Text("¿No tienes cuenta?")
+                Text("Don't have an account?")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 
-                Button("Regístrate") {
+                Button("Sign Up") {
                     // Acción de registro
                 }
                 .font(.system(size: 14, weight: .semibold))

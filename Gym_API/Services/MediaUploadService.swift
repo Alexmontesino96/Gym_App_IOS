@@ -10,6 +10,7 @@ import Foundation
 import UIKit
 import StreamChat
 import PhotosUI
+import AVFoundation
 
 // MARK: - Media Upload Service
 @MainActor

@@ -403,7 +403,7 @@ struct ErrorView: View {
             Button(action: onRetry) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.clockwise")
-                    Text("Reintentar")
+                    Text("Retry")
                 }
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.white)
@@ -432,7 +432,7 @@ struct EmptyUsersView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
-                Text("Vuelve a intentar más tarde")
+                Text("Try again later")
                     .font(.system(size: 16))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
@@ -456,7 +456,7 @@ struct EmptySearchView: View {
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
             
-            Text("Prueba con otros términos de búsqueda")
+            Text("Try different search terms")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }

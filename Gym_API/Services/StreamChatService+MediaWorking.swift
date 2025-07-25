@@ -178,11 +178,11 @@ enum MediaContentType {
     var displayText: String {
         switch self {
         case .image(let desc):
-            return desc ?? "Imagen"
+            return desc ?? "Image"
         case .video(let desc):
             return desc ?? "Video"
         case .voice(let duration):
-            return duration.map { "Audio \($0)" } ?? "Mensaje de voz"
+            return duration.map { "Audio \($0)" } ?? "Voice message"
         }
     }
 }

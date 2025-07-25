@@ -21,20 +21,20 @@ struct MediaPickerView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Button("Cancelar") {
+                    Button("Cancel") {
                         isPresented = false
                     }
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                     
                     Spacer()
                     
-                    Text("Seleccionar Multimedia")
+                    Text("Select Media")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
                     Spacer()
                     
-                    Button("Enviar") {
+                    Button("Send") {
                         onMediaSelected(selectedMedia)
                         isPresented = false
                     }

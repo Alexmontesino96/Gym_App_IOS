@@ -69,7 +69,7 @@ struct ThemeSettingsView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cerrar") {
+                    Button("Close") {
                         dismiss()
                     }
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))

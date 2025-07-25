@@ -15,8 +15,8 @@ class StreamChatService: ObservableObject {
     @Published var typingUsers: [String] = []
     
     // MARK: - Private Properties
-    private var chatClient: ChatClient?
-    private var channelController: ChatChannelController?
+    internal var chatClient: ChatClient?
+    internal var channelController: ChatChannelController?
     private var currentChannel: ChatChannel?
     private var cancellables = Set<AnyCancellable>()
     
