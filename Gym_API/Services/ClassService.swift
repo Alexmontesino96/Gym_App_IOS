@@ -775,4 +775,62 @@ struct ClassParticipation: Codable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+}
+
+// MARK: - ClassService Extensions for New UI Components
+extension ClassService {
+    @Published var classes: [GymClass] {
+        get {
+            // Convert SessionWithClass to GymClass for simplified UI
+            return sessions.map { sessionWithClass in
+                GymClass(
+                    id: sessionWithClass.session.id,
+                    name: sessionWithClass.classInfo.name,
+                    description: sessionWithClass.classInfo.description,
+                    instructor: sessionWithClass.trainerName,
+                    startTime: sessionWithClass.session.startTime,
+                    endTime: sessionWithClass.session.endTime,
+                    maxParticipants: sessionWithClass.classInfo.maxCapacity,
+                    currentParticipants: sessionWithClass.session.currentParticipants,
+                    difficulty: mapDifficulty(sessionWithClass.classInfo.difficultyLevel),
+                    status: mapStatus(sessionWithClass.session.status)
+                )
+            }
+        }
+        set {
+            // Not implemented - read-only conversion
+        }
+    }
+    
+    func loadClasses() async {
+        await loadSessions()
+    }
+    
+    func isUserRegistered(classId: Int) -> Bool {
+        return isUserRegistered(sessionId: classId)
+    }
+    
+    func joinClass(classId: Int) async {
+        await joinSession(sessionId: classId)
+    }
+    
+    func cancelClassRegistration(classId: Int, reason: String) async {
+        await cancelSessionRegistration(sessionId: classId, reason: reason)
+    }
+    
+    private func mapDifficulty(_ difficulty: DifficultyLevel) -> ClassDifficulty {
+        switch difficulty {
+        case .beginner: return .beginner
+        case .intermediate: return .intermediate
+        case .advanced: return .advanced
+        }
+    }
+    
+    private func mapStatus(_ status: SessionStatus) -> ClassStatus {
+        switch status {
+        case .scheduled, .active, .inProgress: return .available
+        case .completed: return .completed
+        case .cancelled: return .cancelled
+        }
+    }
 } 
