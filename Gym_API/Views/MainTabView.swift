@@ -731,9 +731,9 @@ struct QuickAccessGrid: View {
     var items: [QuickAccessItem] {
         [
             QuickAccessItem(icon: "message", title: "Chat", color: Color.dynamicAccent(theme: themeManager.currentTheme)),
-            QuickAccessItem(icon: "fork.knife", title: "Nutrición", color: Color.dynamicAccent(theme: themeManager.currentTheme)),
-            QuickAccessItem(icon: "calendar", title: "Calendario", color: Color.dynamicAccent(theme: themeManager.currentTheme)),
-            QuickAccessItem(icon: "chart.line.uptrend.xyaxis", title: "Progreso", color: Color.dynamicAccent(theme: themeManager.currentTheme))
+            QuickAccessItem(icon: "fork.knife", title: "Nutrition", color: Color.dynamicAccent(theme: themeManager.currentTheme)),
+            QuickAccessItem(icon: "calendar", title: "Calendar", color: Color.dynamicAccent(theme: themeManager.currentTheme)),
+            QuickAccessItem(icon: "chart.line.uptrend.xyaxis", title: "Progress", color: Color.dynamicAccent(theme: themeManager.currentTheme))
         ]
     }
     
@@ -1240,13 +1240,13 @@ struct EventsView: View {
             var sections: [EventSection] = []
             
             if !todayAvailable.isEmpty {
-                sections.append(EventSection(title: "Hoy", events: todayAvailable))
+                sections.append(EventSection(title: "Today", events: todayAvailable))
             }
             if !tomorrowAvailable.isEmpty {
-                sections.append(EventSection(title: "Mañana", events: tomorrowAvailable))
+                sections.append(EventSection(title: "Tomorrow", events: tomorrowAvailable))
             }
             if !laterAvailable.isEmpty {
-                sections.append(EventSection(title: "Próximamente", events: laterAvailable))
+                sections.append(EventSection(title: "Upcoming", events: laterAvailable))
             }
             
             return sections
@@ -1284,13 +1284,13 @@ struct EventsView: View {
         
         // Definir el orden de las secciones
         let sectionDefinitions: [(String, [Event], Int)] = [
-            ("Hoy", today, 0),
-            ("Mañana", tomorrow, 1),
-            ("Esta semana", thisWeek, 2),
-            ("Más tarde", later, 3),
-            ("Ayer", yesterday, 4),
-            ("Esta semana pasada", lastWeek, 5),
-            ("Anteriores", earlier, 6)
+            ("Today", today, 0),
+            ("Tomorrow", tomorrow, 1),
+            ("This week", thisWeek, 2),
+            ("Later", later, 3),
+            ("Yesterday", yesterday, 4),
+            ("Last week", lastWeek, 5),
+            ("Previous", earlier, 6)
         ]
         
         // Crear secciones solo para las que tienen eventos y ordenarlas
@@ -2242,6 +2242,7 @@ struct ModernEventCardContent: View {
                     }
                 }
                 .frame(width: 110, height: 40)
+                .offset(x: 20)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: eventService.isUserRegistered(eventId: event.id))
@@ -2251,11 +2252,11 @@ struct ModernEventCardContent: View {
     // Computed properties para el botón
     private var buttonText: String {
         if eventService.isUserRegistered(eventId: event.id) {
-            return "Registrado"
+            return "Registered"
         } else if event.participantsCount >= event.maxParticipants {
             return "Full"
         } else {
-            return "Unirse"
+            return "Join"
         }
     }
     
