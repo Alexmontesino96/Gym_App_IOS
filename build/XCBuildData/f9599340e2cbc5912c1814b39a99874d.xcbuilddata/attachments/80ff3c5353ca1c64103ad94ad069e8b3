@@ -1,0 +1,4 @@
+module JWTDecode {
+header "JWTDecode-Swift.h"
+export *
+}

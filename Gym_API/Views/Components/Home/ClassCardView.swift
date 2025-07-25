@@ -236,7 +236,7 @@ extension GymClass {
         status: .available
     )
     
-    return ClassCardView(gymClass: sampleClass)
+    ClassCardView(gymClass: sampleClass)
         .environmentObject(ThemeManager())
         .environmentObject(ClassService())
         .padding()

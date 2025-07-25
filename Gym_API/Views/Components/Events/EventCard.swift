@@ -489,7 +489,7 @@ struct EventCardSkeleton: View {
         status: .available
     )
     
-    return EventCard(event: sampleEvent)
+    EventCard(event: sampleEvent)
         .environmentObject(ThemeManager())
         .environmentObject(EventService())
         .padding()

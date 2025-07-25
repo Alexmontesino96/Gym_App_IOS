@@ -1,0 +1,38 @@
+{
+  "" : {
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain-master.dia",
+    "emit-module-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain-master-emit-module.dia",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain-master.swiftdeps"
+  },
+  "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/SimpleKeychain/Accessibility.swift" : {
+    "const-values" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.d",
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.dia",
+    "index-unit-output-path" : "/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.o",
+    "llvm-bc" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.bc",
+    "object" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.o",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/Accessibility~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/SimpleKeychain/SimpleKeychain.swift" : {
+    "const-values" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.d",
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.dia",
+    "index-unit-output-path" : "/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.o",
+    "llvm-bc" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.bc",
+    "object" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.o",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychain~partial.swiftmodule"
+  },
+  "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/SimpleKeychain/SimpleKeychainError.swift" : {
+    "const-values" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.swiftconstvalues",
+    "dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.d",
+    "diagnostics" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.dia",
+    "index-unit-output-path" : "/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.o",
+    "llvm-bc" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.bc",
+    "object" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.o",
+    "swift-dependencies" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError.swiftdeps",
+    "swiftmodule" : "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/SimpleKeychain/build/SimpleKeychain.build/Debug-iphoneos/SimpleKeychain.build/Objects-normal/arm64/SimpleKeychainError~partial.swiftmodule"
+  }
+}

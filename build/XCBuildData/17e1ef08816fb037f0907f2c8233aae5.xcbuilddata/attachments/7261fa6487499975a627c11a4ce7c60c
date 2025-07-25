@@ -1,4 +1,0 @@
-module SimpleKeychain {
-header "SimpleKeychain-Swift.h"
-export *
-}
