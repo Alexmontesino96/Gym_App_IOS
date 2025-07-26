@@ -71,10 +71,9 @@ struct ClassCardView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
                             } placeholder: {
-                                Image(systemName: "person.circle.fill")
+                                Image("trainer_placeholder")
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                             }
                             .frame(width: 50, height: 50)
                             .clipShape(Circle())
