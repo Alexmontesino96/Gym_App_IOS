@@ -6,6 +6,17 @@ struct MessagesView: View {
     @StateObject private var directMessageService = DirectMessageService()
     @State private var searchText = ""
     
+    private var filteredUsers: [UserProfile] {
+        if searchText.isEmpty {
+            return directMessageService.allUsers
+        } else {
+            return directMessageService.allUsers.filter { user in
+                user.fullName.localizedCaseInsensitiveContains(searchText) ||
+                user.displayRole.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -17,9 +28,9 @@ struct MessagesView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                     
-                    if directMessageService.isLoading {
+                    if directMessageService.isLoadingUsers {
                         UserSelectorLoadingView()
-                    } else if let errorMessage = directMessageService.errorMessage {
+                    } else if let errorMessage = directMessageService.usersErrorMessage {
                         UserSelectorErrorView(
                             message: errorMessage,
                             onRetry: {
@@ -28,7 +39,7 @@ struct MessagesView: View {
                                 }
                             }
                         )
-                    } else if directMessageService.filteredUsers.isEmpty {
+                    } else if filteredUsers.isEmpty {
                         if searchText.isEmpty {
                             UserSelectorEmptyView()
                         } else {
@@ -36,7 +47,7 @@ struct MessagesView: View {
                         }
                     } else {
                         UserSelectorList(
-                            users: directMessageService.filteredUsers,
+                            users: filteredUsers,
                             onUserTap: { user in
                                 handleUserTap(user)
                             }
@@ -67,7 +78,7 @@ struct MessagesView: View {
             }
         }
         .onChange(of: searchText) { _, newValue in
-            directMessageService.searchUsers(query: newValue)
+            // TODO: Implement local search filtering
         }
     }
     

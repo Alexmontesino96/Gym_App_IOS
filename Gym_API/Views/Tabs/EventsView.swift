@@ -16,15 +16,19 @@ struct EventsView: View {
     @State private var showingChat = false
     
     var filteredEvents: [Event] {
-        let baseEvents = searchText.isEmpty ? eventService.events : eventService.filteredEvents
+        let searchFilteredEvents = searchText.isEmpty ? eventService.events : eventService.events.filter { event in
+            event.title.localizedCaseInsensitiveContains(searchText) ||
+            event.description.localizedCaseInsensitiveContains(searchText) ||
+            event.location.localizedCaseInsensitiveContains(searchText)
+        }
         
         switch selectedFilter {
         case .available:
-            return baseEvents.filter { $0.startTime > Date() }
+            return searchFilteredEvents.filter { $0.startTime > Date() }
         case .past:
-            return baseEvents.filter { $0.startTime <= Date() }
+            return searchFilteredEvents.filter { $0.startTime <= Date() }
         case .joined:
-            return baseEvents.filter { event in
+            return searchFilteredEvents.filter { event in
                 eventService.userParticipations.contains { $0.eventId == event.id }
             }
         }
@@ -64,7 +68,7 @@ struct EventsView: View {
                                         searchTask?.cancel()
                                         searchTask = Task {
                                             try? await Task.sleep(nanoseconds: 300_000_000)
-                                            await eventService.searchEvents(query: newValue)
+                                            // TODO: Implement search functionality
                                         }
                                     }
                                 
@@ -90,7 +94,7 @@ struct EventsView: View {
                             HStack(spacing: 16) {
                                 // Refresh Button
                                 Button(action: {
-                                    Task { await eventService.loadEvents() }
+                                    Task { await eventService.fetchEvents() }
                                 }) {
                                     Image(systemName: eventService.isLoading ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
                                         .font(.system(size: 20))
@@ -153,12 +157,13 @@ struct EventsView: View {
         }
         .onAppear {
             Task {
-                await eventService.loadEvents()
+                await eventService.fetchEvents()
             }
         }
         .fullScreenCover(isPresented: $showingChat) {
             if let event = selectedEventForChat {
-                StreamChatView(event: event)
+                // TODO: Implement StreamChatView
+                Text("Chat for \(event.title)")
             }
         }
     }

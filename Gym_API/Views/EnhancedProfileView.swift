@@ -342,6 +342,49 @@ struct MembershipErrorView: View {
     }
 }
 
+// MARK: - Profile Option Row Component
+struct ProfileOptionRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let themeManager: ThemeManager
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .frame(width: 32, height: 32)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
 // MARK: - Profile Options Section
 struct ProfileOptionsSection: View {
     let themeManager: ThemeManager

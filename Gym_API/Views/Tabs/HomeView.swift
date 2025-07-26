@@ -88,7 +88,7 @@ struct HomeView: View {
                 }
             }
             .refreshable {
-                await eventService.loadEvents()
+                await eventService.fetchEvents()
             }
             .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.large)
@@ -104,7 +104,7 @@ struct HomeView: View {
         }
         .onAppear {
             Task {
-                await eventService.loadEvents()
+                await eventService.fetchEvents()
             }
         }
     }

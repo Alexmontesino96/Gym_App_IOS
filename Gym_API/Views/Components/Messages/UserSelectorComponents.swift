@@ -68,7 +68,7 @@ struct UserSelectorRow: View {
         Button(action: onTap) {
             HStack(spacing: 16) {
                 // Avatar
-                AsyncImage(url: URL(string: user.avatarUrl ?? "")) { image in
+                AsyncImage(url: URL(string: user.picture)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
