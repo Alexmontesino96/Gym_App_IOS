@@ -798,7 +798,7 @@ extension ClassService {
     }
     
     func loadClasses() async {
-        await loadSessions()
+        await fetchSessions()
     }
     
     func isUserRegistered(classId: Int) -> Bool {
@@ -806,11 +806,11 @@ extension ClassService {
     }
     
     func joinClass(classId: Int) async {
-        await joinSession(sessionId: classId)
+        await joinClass(sessionId: classId)
     }
     
     func cancelClassRegistration(classId: Int, reason: String) async {
-        await cancelSessionRegistration(sessionId: classId, reason: reason)
+        await cancelClassRegistration(sessionId: classId, reason: reason)
     }
     
     private func mapDifficulty(_ difficulty: DifficultyLevel) -> ClassDifficulty {

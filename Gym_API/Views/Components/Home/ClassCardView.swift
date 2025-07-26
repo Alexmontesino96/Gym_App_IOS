@@ -213,14 +213,6 @@ struct ClassCardView: View {
     }
 }
 
-// Extension para GymClass con propiedades computadas
-extension GymClass {
-    var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: startTime)
-    }
-}
 
 #Preview {
     let sampleClass = GymClass(

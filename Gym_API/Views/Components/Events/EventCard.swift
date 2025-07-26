@@ -481,12 +481,15 @@ struct EventCardSkeleton: View {
         id: 1,
         title: "Boxing Training",
         description: "High intensity boxing session with Coach John",
-        location: "Main Gym",
         startTime: Date(),
         endTime: Date().addingTimeInterval(3600),
+        location: "Main Gym",
         maxParticipants: 10,
-        participantsCount: 5,
-        status: .available
+        status: .active,
+        creatorId: 1,
+        createdAt: Date(),
+        updatedAt: Date(),
+        participantsCount: 5
     )
     
     EventCard(event: sampleEvent)
