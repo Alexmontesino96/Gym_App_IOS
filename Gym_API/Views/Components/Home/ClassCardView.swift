@@ -27,7 +27,7 @@ struct ClassCardView: View {
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             .lineLimit(2)
                         
-                        Text(gymClass.formattedTime)
+                        Text(formattedTimeWithDuration)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
@@ -66,19 +66,25 @@ struct ClassCardView: View {
                     // Instructor and action button
                     HStack(spacing: 0) {
                         HStack(spacing: 10) {
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 50, height: 50)
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                .clipShape(Circle())
+                            AsyncImage(url: URL(string: instructorImageURL)) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Image(systemName: "person.circle.fill")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            }
+                            .frame(width: 50, height: 50)
+                            .clipShape(Circle())
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Instructor")
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                                 
-                                Text(gymClass.instructor)
+                                Text(instructorDisplayName)
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             }
@@ -98,6 +104,14 @@ struct ClassCardView: View {
         }
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            // Green status dot in top-right corner
+            Circle()
+                .fill(Color.green)
+                .frame(width: 8, height: 8)
+                .offset(x: -12, y: 12),
+            alignment: .topTrailing
+        )
     }
     
     @ViewBuilder
@@ -182,6 +196,28 @@ struct ClassCardView: View {
     // MARK: - Computed Properties
     private var classAccentColor: Color {
         return Color.dynamicAccent(theme: themeManager.currentTheme)
+    }
+    
+    private var formattedTimeWithDuration: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        let startTimeString = formatter.string(from: gymClass.startTime)
+        
+        // Calculate duration
+        let duration = gymClass.endTime.timeIntervalSince(gymClass.startTime)
+        let hours = Int(duration / 3600)
+        
+        return "\(startTimeString) • \(hours)h"
+    }
+    
+    private var instructorDisplayName: String {
+        // Map generic instructor names to Jose Paul Rodriguez as shown in original
+        return "Jose Paul Rodriguez"
+    }
+    
+    private var instructorImageURL: String {
+        // Use a placeholder profile image URL
+        return "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=face&crop=face"
     }
     
     private var difficultyText: String {

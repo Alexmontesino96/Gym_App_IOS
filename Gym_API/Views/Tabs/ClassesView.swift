@@ -21,35 +21,7 @@ struct ClassesView: View {
                 
                 VStack(spacing: 0) {
                     // Weekly Date Selector
-                    VStack(spacing: 16) {
-                        HStack {
-                            Text("Select Date")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                selectedDate = Date()
-                                Task {
-                                    await classService.loadSessionsForDateIfNeeded(date: selectedDate)
-                                }
-                            }) {
-                                Text("Today")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 1)
-                                    )
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        WeeklyDateSelector(selectedDate: $selectedDate)
-                    }
+                    WeeklyDateSelector(selectedDate: $selectedDate)
                     .padding(.top, 10)
                     .padding(.bottom, 16)
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
@@ -94,7 +66,7 @@ struct ClassesView: View {
                     }
                 }
             }
-            .navigationTitle("Classes")
+            .navigationTitle("Session")
             .navigationBarTitleDisplayMode(.large)
         }
         .onAppear {

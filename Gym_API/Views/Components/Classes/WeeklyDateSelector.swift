@@ -30,8 +30,8 @@ struct WeeklyDateSelector: View {
         let today = Date()
         var dates: [Date] = []
         
-        // Generar 14 días: 3 días atrás, hoy, y 10 días adelante
-        for i in -3...10 {
+        // Generar 5 días como en el original: Thu, Fri(Today), Sat, Sun, Mon
+        for i in -1...3 {
             if let date = calendar.date(byAdding: .day, value: i, to: today) {
                 dates.append(date)
             }
