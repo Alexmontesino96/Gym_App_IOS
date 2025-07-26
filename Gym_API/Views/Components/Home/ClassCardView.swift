@@ -66,16 +66,34 @@ struct ClassCardView: View {
                     // Instructor and action button
                     HStack(spacing: 0) {
                         HStack(spacing: 10) {
-                            AsyncImage(url: URL(string: instructorImageURL)) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Image("trainer_placeholder")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                            AsyncImage(url: URL(string: instructorImageURL)) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 50, height: 50)
+                                        .clipped()
+                                case .failure(_), .empty:
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    }
+                                    .frame(width: 50, height: 50)
+                                @unknown default:
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    }
+                                    .frame(width: 50, height: 50)
+                                }
                             }
-                            .frame(width: 50, height: 50)
                             .clipShape(Circle())
                             
                             VStack(alignment: .leading, spacing: 2) {
@@ -215,8 +233,8 @@ struct ClassCardView: View {
     }
     
     private var instructorImageURL: String {
-        // Use a placeholder profile image URL
-        return "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=face&crop=face"
+        // Return empty string to use fallback icon
+        return ""
     }
     
     private var difficultyText: String {

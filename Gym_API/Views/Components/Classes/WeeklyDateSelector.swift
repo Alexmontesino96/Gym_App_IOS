@@ -2,118 +2,113 @@ import SwiftUI
 
 struct WeeklyDateSelector: View {
     @Binding var selectedDate: Date
-    @EnvironmentObject var themeManager: ThemeManager
-    @State private var weekDates: [Date] = []
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(weekDates, id: \.self) { date in
-                    DateButton(
-                        date: date,
-                        isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate),
-                        themeManager: themeManager
-                    ) {
-                        selectedDate = date
+        DateSelectorView(selectedDate: $selectedDate)
+    }
+}
+
+struct DateSelectorView: View {
+    @Binding var selectedDate: Date
+    
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(Array(dateRange.enumerated()), id: \.offset) { index, date in
+                        DateTabView(
+                            date: date,
+                            isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate),
+                            isToday: Calendar.current.isDateInToday(date)
+                        )
+                        .id(index)
+                        .onTapGesture {
+                            selectedDate = date
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .onAppear {
+                // El índice 7 corresponde al día 0 (hoy) en el rango -7...7
+                // Rango: [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7]
+                // Índice:[ 0,  1,  2,  3,  4,  5,  6, 7, 8, 9,10,11,12,13,14]
+                let todayIndex = 7
+                
+                // Primer intento inmediato
+                DispatchQueue.main.async {
+                    proxy.scrollTo(todayIndex, anchor: .center)
+                }
+                
+                // Segundo intento con delay para asegurar el posicionamiento
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        proxy.scrollTo(todayIndex, anchor: .center)
                     }
                 }
             }
-            .padding(.horizontal, 20)
-        }
-        .onAppear {
-            generateWeekDates()
         }
     }
     
-    private func generateWeekDates() {
+    private var dateRange: [Date] {
         let calendar = Calendar.current
         let today = Date()
         var dates: [Date] = []
         
-        // Generar 5 días como en el original: Thu, Fri(Today), Sat, Sun, Mon
-        for i in -1...3 {
+        // Mostrar desde 7 días atrás hasta 7 días adelante (15 días total)
+        for i in -7...7 {
             if let date = calendar.date(byAdding: .day, value: i, to: today) {
                 dates.append(date)
             }
         }
         
-        weekDates = dates
+        return dates
     }
 }
 
-struct DateButton: View {
+struct DateTabView: View {
+    @EnvironmentObject var themeManager: ThemeManager
     let date: Date
     let isSelected: Bool
-    let themeManager: ThemeManager
-    let action: () -> Void
-    
-    private var dayFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter
-    }
-    
-    private var dayNumberFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter
-    }
-    
-    private var isToday: Bool {
-        Calendar.current.isDateInToday(date)
-    }
+    let isToday: Bool
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Text(dayFormatter.string(from: date).uppercased())
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(textColor)
-                
-                Text(dayNumberFormatter.string(from: date))
-                    .font(.system(size: 16, weight: isSelected ? .bold : .medium))
-                    .foregroundColor(textColor)
-                
-                if isToday {
-                    Circle()
-                        .fill(dotColor)
-                        .frame(width: 4, height: 4)
-                } else {
-                    Spacer()
-                        .frame(height: 4)
-                }
-            }
-            .frame(width: 44, height: 64)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(backgroundColor)
-            )
+        VStack(spacing: 4) {
+            Text(dayName)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(isSelected ? .white : Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            
+            Text(dayNumber)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(isSelected ? .white : Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }
-        .buttonStyle(PlainButtonStyle())
+        .frame(width: 60, height: 60)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.clear)
+                .overlay(
+                    // Marco para el día de hoy (siempre visible)
+                    isToday && !isSelected ? 
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 2) : nil
+                )
+        )
     }
     
-    private var backgroundColor: Color {
-        if isSelected {
-            return Color.dynamicAccent(theme: themeManager.currentTheme)
+    private var dayName: String {
+        let formatter = DateFormatter()
+        if Calendar.current.isDateInToday(date) {
+            return "Today"
         } else {
-            return Color.dynamicSurface(theme: themeManager.currentTheme)
+            formatter.dateFormat = "EEE"
+            return formatter.string(from: date)
         }
     }
     
-    private var textColor: Color {
-        if isSelected {
-            return .white
-        } else {
-            return Color.dynamicText(theme: themeManager.currentTheme)
-        }
-    }
-    
-    private var dotColor: Color {
-        if isSelected {
-            return .white
-        } else {
-            return Color.dynamicAccent(theme: themeManager.currentTheme)
-        }
+    private var dayNumber: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd"
+        return formatter.string(from: date)
     }
 }
 
