@@ -12,11 +12,45 @@ struct GymClass: Identifiable {
     let currentParticipants: Int
     let difficulty: ClassDifficulty
     let status: ClassStatus
+    let gymTimezone: String? // Agregado para manejar zona horaria
+    
+    // Inicializador completo
+    init(id: Int, name: String, description: String, instructor: String, startTime: Date, endTime: Date, maxParticipants: Int, currentParticipants: Int, difficulty: ClassDifficulty, status: ClassStatus, gymTimezone: String? = nil) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.instructor = instructor
+        self.startTime = startTime
+        self.endTime = endTime
+        self.maxParticipants = maxParticipants
+        self.currentParticipants = currentParticipants
+        self.difficulty = difficulty
+        self.status = status
+        self.gymTimezone = gymTimezone
+    }
     
     var formattedTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
-        return formatter.string(from: startTime)
+        
+        // Obtener las zonas horarias
+        let userTimezone = TimeZone.current
+        let gymTimezoneString = gymTimezone ?? "America/New_York"
+        let gymTimezone = TimeZone(identifier: gymTimezoneString) ?? TimeZone.current
+        
+        // Si las zonas horarias son iguales, no hacer conversión
+        if userTimezone.identifier == gymTimezone.identifier {
+            formatter.timeZone = TimeZone.current
+            print("🕐 GymClass: Same timezone, no conversion needed")
+        } else {
+            // Si son diferentes, usar la zona horaria del gimnasio
+            formatter.timeZone = gymTimezone
+            print("🕐 GymClass: Different timezone, using gym timezone")
+        }
+        
+        let result = formatter.string(from: startTime)
+        print("🕐 GymClass: Formatted time: \(result)")
+        return result
     }
 }
 

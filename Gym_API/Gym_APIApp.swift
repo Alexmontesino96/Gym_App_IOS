@@ -31,20 +31,12 @@ struct Gym_APIApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if authService.isAuthenticated {
-                    MainTabView()
-                        .environmentObject(authService)
-                        .environmentObject(eventService)
-                        .environmentObject(classService)
-                        .environmentObject(themeManager)
-                        .environmentObject(oneSignalService)
-                } else {
-                    LoginViewDirect()
-                        .environmentObject(authService)
-                        .environmentObject(themeManager)
-                }
-            }
+            AuthenticatedView()
+                .environmentObject(authService)
+                .environmentObject(eventService)
+                .environmentObject(classService)
+                .environmentObject(themeManager)
+                .environmentObject(oneSignalService)
             .preferredColorScheme(themeManager.currentTheme == .dark ? .dark : .light)
             .onAppear {
                 // Inicializar OneSignal primero

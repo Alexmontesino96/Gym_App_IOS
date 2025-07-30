@@ -78,7 +78,7 @@ struct ModernEventCardContent: View {
                     .frame(width: 6)
                 
                 // Contenido principal
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
                     // Header: Badge + Título
                     VStack(alignment: .leading, spacing: 12) {
                         // Badge FITNESS EVENT
@@ -96,7 +96,7 @@ struct ModernEventCardContent: View {
                     }
                     
                     // Detalles del evento
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
                         // Ubicación
                         HStack(spacing: 12) {
                             Image(systemName: "location.fill")
@@ -126,24 +126,17 @@ struct ModernEventCardContent: View {
                     
                     // Sección inferior: Fecha/hora + Botones
                     HStack(alignment: .bottom) {
-                        // Schedule section
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("SCHEDULE")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                .tracking(1.2)
+                        // Time and Date section
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Hora prominente
+                            Text(formatEventTime(event.startTime))
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             
-                            HStack(spacing: 8) {
-                                Image(systemName: "calendar")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                
-                                Text(formatEventDateFull(event.startTime))
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
-                            }
+                            // Fecha debajo
+                            Text(formatEventDate(event.startTime))
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         }
                         
                         Spacer()
@@ -188,59 +181,86 @@ struct ModernEventCardContent: View {
                 .allowsHitTesting(true)
                 .onTapGesture { }
             
-            if event.status == .completed && eventService.isUserRegistered(eventId: event.id) {
-                // Eventos completados donde el usuario participó: mensajes motivacionales + chat
-                let hoursAfterEvent = Date().timeIntervalSince(event.endTime) / 3600
-                let showChatButton = hoursAfterEvent <= 24
-                
-                if showChatButton {
-                    VStack(spacing: 0) {
-                        Text(getMotivationalMessage())
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(1)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 4)
-                            .padding(.top, 4)
-                        
-                        Spacer(minLength: 2)
-                        
+            // Determinar el estado del evento
+            let isEventFinished = event.endTime < Date()
+            let userParticipated = eventService.isUserRegistered(eventId: event.id)
+            let hoursAfterEvent = Date().timeIntervalSince(event.endTime) / 3600
+            let showChatButton = isEventFinished && userParticipated && hoursAfterEvent <= 24
+            
+            if isEventFinished {
+                // EVENTOS TERMINADOS
+                if userParticipated {
+                    if showChatButton {
+                        // Usuario participó + <24h: solo botón chat (sin mensaje)
                         Button(action: {
                             print("💬 Opening chat for completed event: \(event.title)")
                             onChatTapped()
                         }) {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "bubble.left.fill")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.system(size: 14, weight: .medium))
                                 Text("Chat")
                                     .font(.system(size: 13, weight: .semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .layoutPriority(1)
                             }
                             .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            )
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.bottom, 3)
+                        .frame(minWidth: 90, maxWidth: 130, minHeight: 40, maxHeight: 40)
+                        .background(
+                            Capsule()
+                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                        )
+                        .offset(x: 20)
+                    } else {
+                        // Usuario participó + >24h: solo texto motivacional
+                        VStack {
+                            Spacer()
+                            Text(getMotivationalMessage())
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                        }
+                        .frame(width: 110, height: 40)
+                        .offset(x: 20)
                     }
-                    .frame(width: 110, height: 40)
                 } else {
-                    VStack {
-                        Spacer()
-                        Text(getMotivationalMessage())
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 8)
-                        Spacer()
+                    // Usuario NO participó: botón "Completado" con animación
+                    Button(action: {
+                        print("🔒 Event completed (locked): \(event.title)")
+                        shakeCard()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            
+                            Text("Completed")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .layoutPriority(1)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                     }
-                    .frame(width: 110, height: 40)
+                    .frame(minWidth: 90, maxWidth: 130, minHeight: 40, maxHeight: 40)
+                    .background(
+                        Capsule()
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.dynamicTextSecondary(theme: themeManager.currentTheme), lineWidth: 1)
+                            )
+                    )
+                    .offset(x: 20)
                 }
             } else {
                 // Botón doble estándar (diseño original)
@@ -262,7 +282,9 @@ struct ModernEventCardContent: View {
                             // Botón Chat (40%)
                             Button(action: {
                                 print("💬 Opening chat for event: \(event.title)")
+                                print("🔗 Ejecutando onChatTapped callback...")
                                 onChatTapped()
+                                print("✅ onChatTapped callback ejecutado")
                             }) {
                                 Image(systemName: "bubble.left")
                                     .font(.system(size: 16, weight: .medium))
@@ -337,6 +359,7 @@ struct ModernEventCardContent: View {
         }
         .animation(.easeInOut(duration: 0.3), value: eventService.isUserRegistered(eventId: event.id))
         .animation(.easeInOut(duration: 0.3), value: isLoading)
+        .animation(.easeInOut(duration: 0.3), value: event.endTime < Date())
     }
     
     // Computed properties para el botón
@@ -388,9 +411,15 @@ struct ModernEventCardContent: View {
         return motivationalMessages.randomElement() ?? "Great job participating!"
     }
     
-    private func formatEventDateFull(_ date: Date) -> String {
+    private func formatEventTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, MMM d • h:mm a"
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+    
+    private func formatEventDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
         return formatter.string(from: date)
     }
 }

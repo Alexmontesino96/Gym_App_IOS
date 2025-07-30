@@ -72,6 +72,7 @@ struct ClassesView: View {
         .onAppear {
             Task {
                 await classService.loadSessionsForDateIfNeeded(date: selectedDate)
+                await classService.fetchMyClasses() // Cargar estado de registro del usuario
             }
         }
         .onChange(of: selectedDate) { _, newDate in

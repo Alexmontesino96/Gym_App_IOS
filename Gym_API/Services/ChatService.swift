@@ -37,9 +37,18 @@ struct ChatRoom: Codable, Identifiable {
     
     var displayName: String {
         let safeName = name ?? "Direct chat"
+        print("📊 displayName - name: \(name ?? "nil"), safeName: \(safeName), chatType: \(chatType)")
         switch chatType {
         case .direct:
-            return safeName.replacingOccurrences(of: "Chat with ", with: "")
+            let cleanName = safeName.replacingOccurrences(of: "Chat with ", with: "")
+                                    .replacingOccurrences(of: "Chat ", with: "")
+            print("📊 displayName - cleanName after replacement: \(cleanName)")
+            // Si el nombre empieza con "auth0", usar placeholder por ahora
+            // La resolución se maneja en la vista para evitar problemas de concurrencia
+            if cleanName.hasPrefix("auth0") {
+                return "Direct Message" // Placeholder que se actualizará desde la vista
+            }
+            return cleanName
         case .event:
             return safeName.replacingOccurrences(of: "Event ", with: "")
         case .general:
@@ -99,6 +108,24 @@ struct ChatRoom: Codable, Identifiable {
         }
         return text.count > 50 ? String(text.prefix(50)) + "..." : text
     }
+    
+    // Iniciales para el avatar
+    var displayInitials: String {
+        let name = displayName
+        let words = name.split(separator: " ")
+        if words.count >= 2 {
+            return String(words[0].first ?? "?") + String(words[1].first ?? "?")
+        } else if let firstChar = name.first {
+            return String(firstChar).uppercased()
+        } else {
+            return "?"
+        }
+    }
+    
+    // Último mensaje para mostrar en la UI
+    var lastMessage: String? {
+        return lastMessageText
+    }
 }
 
 // MARK: - Chat Type Enum
@@ -135,7 +162,9 @@ class ChatService: ObservableObject {
     weak var authService: AuthServiceProtocol?
     
     // Gym ID dinámico - se puede configurar desde la app
-    var currentGymId: Int = 4 // Default, pero debe ser configurable
+    var currentGymId: Int {
+        return GymService.shared.currentGymId ?? 4 // Fallback to 4 if no gym selected
+    }
     
     // MARK: - Stream.io Configuration
     private let streamAPIKey = StreamConfig.apiKey
@@ -153,6 +182,14 @@ class ChatService: ObservableObject {
     @Published var chatRooms: [ChatRoom] = []
     @Published var isLoadingRooms = false
     @Published var roomsErrorMessage: String?
+    
+    // MARK: - User Name Resolution
+    @Published var userNameCache: [Int: String] = [:] // user_id -> display_name
+    @Published var gymMembersCache: [Int: UserProfile] = [:] // user_id -> UserProfile
+    @Published var isLoadingGymMembers = false
+    
+    // MARK: - Current User ID (hardcoded for now, should come from login)
+    private var currentUserId: Int = 10 // TODO: Get from actual login
     
     // MARK: - Last Messages Cache Properties
     @Published var isRefreshingMessages = false
@@ -402,7 +439,8 @@ class ChatService: ObservableObject {
                     let rooms = try decoder.decode([ChatRoom].self, from: data)
                     
                     updateOnMainThread {
-                        self.chatRooms = rooms
+                        // Ordenar por fecha efectiva al cargar inicialmente
+                        self.chatRooms = rooms.sorted { $0.effectiveDate > $1.effectiveDate }
                         self.isLoadingRooms = false
                     }
                     
@@ -410,6 +448,12 @@ class ChatService: ObservableObject {
                     
                     // Cargar mensajes guardados inmediatamente después de cargar rooms
                     loadLastMessagesFromStorage()
+                    
+                    // Resolver nombres en background
+                    Task {
+                        await resolveUserNames()
+                        await resolveUserNamesFromChannelIds()
+                    }
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
                     print("❌ Error getting my rooms: \(errorString)")
@@ -430,6 +474,218 @@ class ChatService: ObservableObject {
         }
     }
     
+    // MARK: - Get All Gym Members
+    func loadGymMembers() async {
+        guard !isLoadingGymMembers else {
+            print("⚠️ Ya hay una carga de miembros en progreso")
+            return
+        }
+        
+        updateOnMainThread {
+            self.isLoadingGymMembers = true
+        }
+        
+        guard let url = URL(string: "\(baseURL)/users/p/gym-participants?skip=0&limit=200") else {
+            print("❌ URL inválida para obtener miembros del gym")
+            updateOnMainThread {
+                self.isLoadingGymMembers = false
+            }
+            return
+        }
+        
+        guard let request = await createAuthenticatedRequest(url: url) else {
+            print("❌ No se pudo crear request autenticado para miembros")
+            updateOnMainThread {
+                self.isLoadingGymMembers = false
+            }
+            return
+        }
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 Response status for gym members: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 {
+                    let decoder = JSONDecoder()
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"
+                    dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+                    decoder.dateDecodingStrategy = .formatted(dateFormatter)
+                    
+                    let members = try decoder.decode([UserProfile].self, from: data)
+                    
+                    print("🏃‍♂️ Miembros cargados: \(members.count)")
+                    for member in members {
+                        print("👤 Usuario: \(member.fullName) - Role: \(member.role) - ID: \(member.id)")
+                    }
+                    
+                    updateOnMainThread {
+                        // Actualizar cache de miembros
+                        for member in members {
+                            self.gymMembersCache[member.id] = member
+                            self.userNameCache[member.id] = member.fullName
+                        }
+                        self.isLoadingGymMembers = false
+                    }
+                    
+                    print("✅ Cargados \(members.count) miembros del gym en cache")
+                    print("👤 Miembros: \(members.map { "\($0.id): \($0.fullName)" }.joined(separator: ", "))")
+                    
+                } else {
+                    let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
+                    print("❌ Error getting gym members: \(errorString)")
+                    
+                    updateOnMainThread {
+                        self.isLoadingGymMembers = false
+                    }
+                }
+            }
+        } catch {
+            print("❌ Error fetching gym members: \(error)")
+            
+            updateOnMainThread {
+                self.isLoadingGymMembers = false
+            }
+        }
+    }
+
+    // MARK: - Get User By ID
+    func getUserById(_ userId: Int) async -> UserProfile? {
+        // Primero verificar cache
+        if let cachedMember = gymMembersCache[userId] {
+            print("📋 Usuario ya en cache: \(userId) -> \(cachedMember.fullName)")
+            return cachedMember
+        }
+        
+        // Si no está en cache, intentar cargar todos los miembros
+        if !isLoadingGymMembers && gymMembersCache.isEmpty {
+            print("🔄 Cache vacío, cargando todos los miembros del gym...")
+            await loadGymMembers()
+            
+            // Verificar de nuevo después de cargar
+            if let cachedMember = gymMembersCache[userId] {
+                print("📋 Usuario encontrado después de cargar cache: \(userId) -> \(cachedMember.fullName)")
+                return cachedMember
+            }
+        }
+        
+        print("❌ Usuario \(userId) no encontrado en cache de miembros")
+        return nil
+    }
+
+    // MARK: - Resolve User Names
+    func resolveUserNames() async {
+        print("🔍 Iniciando resolución de nombres de usuarios...")
+        
+        // Cargar todos los miembros del gym si no están cargados
+        if gymMembersCache.isEmpty {
+            await loadGymMembers()
+        }
+        
+        print("✅ Resolución de nombres completada - \(gymMembersCache.count) miembros en cache")
+    }
+    
+    // MARK: - Resolve User Names from Channel IDs
+    func resolveUserNamesFromChannelIds() async {
+        print("🔍 Iniciando resolución de nombres desde channel IDs...")
+        
+        // Cargar todos los miembros del gym si no están cargados
+        if gymMembersCache.isEmpty {
+            await loadGymMembers()
+        }
+        
+        // Extraer todos los IDs únicos de usuarios mencionados en los channel IDs
+        var userIds: Set<Int> = []
+        
+        for room in chatRooms {
+            if room.chatType == .direct {
+                let pattern = "direct_user_(\\d+)_user_(\\d+)"
+                if let regex = try? NSRegularExpression(pattern: pattern),
+                   let match = regex.firstMatch(in: room.streamChannelId, range: NSRange(room.streamChannelId.startIndex..., in: room.streamChannelId)) {
+                    
+                    if let range1 = Range(match.range(at: 1), in: room.streamChannelId),
+                       let range2 = Range(match.range(at: 2), in: room.streamChannelId) {
+                        
+                        let userId1String = String(room.streamChannelId[range1])
+                        let userId2String = String(room.streamChannelId[range2])
+                        
+                        if let userId1 = Int(userId1String) {
+                            userIds.insert(userId1)
+                        }
+                        if let userId2 = Int(userId2String) {
+                            userIds.insert(userId2)
+                        }
+                    }
+                }
+            }
+        }
+        
+        print("🔍 IDs de usuarios encontrados en channels: \(Array(userIds).sorted())")
+        print("✅ Resolución de nombres desde channel IDs completada")
+    }
+    
+    // MARK: - Get Resolved Display Name
+    func getResolvedDisplayName(for chatRoom: ChatRoom) -> String {
+        print("🔍 getResolvedDisplayName - ChatRoom info:")
+        print("   - streamChannelId: \(chatRoom.streamChannelId)")
+        print("   - name: \(chatRoom.name ?? "nil")")
+        print("   - chatType: \(chatRoom.chatType)")
+        print("   - isDirect: \(chatRoom.isDirect)")
+        
+        guard chatRoom.chatType == .direct else {
+            return chatRoom.displayName
+        }
+        
+        // Para chats directos, siempre usar los IDs del streamChannelId
+        // El formato es "direct_user_X_user_Y", necesitamos obtener el otro usuario
+        let pattern = "direct_user_(\\d+)_user_(\\d+)"
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: chatRoom.streamChannelId, range: NSRange(chatRoom.streamChannelId.startIndex..., in: chatRoom.streamChannelId)) {
+            
+            if let range1 = Range(match.range(at: 1), in: chatRoom.streamChannelId),
+               let range2 = Range(match.range(at: 2), in: chatRoom.streamChannelId) {
+                
+                let userId1String = String(chatRoom.streamChannelId[range1])
+                let userId2String = String(chatRoom.streamChannelId[range2])
+                
+                print("   - User IDs extraídos: \(userId1String), \(userId2String)")
+                
+                if let userId1 = Int(userId1String),
+                   let userId2 = Int(userId2String) {
+                    
+                    // Determinar cuál es el otro usuario (usar currentUserId hardcodeado)
+                    let otherUserId = (userId1 == currentUserId) ? userId2 : userId1
+                    
+                    print("   - Usuario actual: \(currentUserId), otro usuario: \(otherUserId)")
+                    
+                    // Buscar en el cache de nombres
+                    if let cachedName = userNameCache[otherUserId] {
+                        print("   - ✅ Nombre encontrado en cache para user \(otherUserId): \(cachedName)")
+                        return cachedName
+                    }
+                    
+                    // Si no está en cache, cargar miembros en background
+                    if gymMembersCache.isEmpty && !isLoadingGymMembers {
+                        print("   - 🔄 Cache vacío, iniciando carga de miembros...")
+                        Task {
+                            await loadGymMembers()
+                        }
+                    }
+                    
+                    print("   - ⏳ Nombre no encontrado en cache para user \(otherUserId)")
+                    return "Loading..." // Se resuelve en background
+                }
+                
+                return "Chat \(userId1String)-\(userId2String)"
+            }
+        }
+        
+        print("   - ❌ No se pudo extraer IDs del streamChannelId")
+        return "Direct Message"
+    }
+
     // MARK: - Get Direct Chat (1:1) - Para miembros
     func getDirectChat(withUserId userId: Int) async -> ChatRoom? {
         print("🔗 ChatService: Iniciando getDirectChat con userId: \(userId)")
@@ -696,8 +952,9 @@ class ChatService: ObservableObject {
                 }
             }
             
-            self.chatRooms = updatedRooms
-            print("✅ ChatRooms actualizados: \(updatedRooms.count) canales")
+            // Asignar y ordenar por fecha efectiva (más recientes primero)
+            self.chatRooms = updatedRooms.sorted { $0.effectiveDate > $1.effectiveDate }
+            print("✅ ChatRooms actualizados y ordenados: \(updatedRooms.count) canales")
         }
     }
     
@@ -796,6 +1053,10 @@ class ChatService: ObservableObject {
     
     /// Actualiza un mensaje específico cuando se envía/recibe en tiempo real
     func updateLastMessageForChannel(_ channelId: String, messageText: String, messageDate: Date = Date()) {
+        print("📨 Actualizando último mensaje para canal: \(channelId)")
+        print("💬 Mensaje: \(messageText)")
+        print("📅 Fecha: \(messageDate)")
+        
         // Actualizar cache local
         let updatedMessage = ChannelLastMessage(
             channelId: channelId,
@@ -807,7 +1068,12 @@ class ChatService: ObservableObject {
         // Actualizar ChatRoom correspondiente
         updateOnMainThread {
             if let index = self.chatRooms.firstIndex(where: { $0.streamChannelId == channelId }) {
+                print("🔍 Encontrado ChatRoom en índice \(index): \(self.chatRooms[index].name ?? "Sin nombre")")
+                
                 let currentRoom = self.chatRooms[index]
+                let oldDate = currentRoom.effectiveDate
+                print("📅 Fecha anterior: \(oldDate)")
+                
                 let updatedRoom = ChatRoom(
                     id: currentRoom.id,
                     name: currentRoom.name,
@@ -821,10 +1087,31 @@ class ChatService: ObservableObject {
                 )
                 self.chatRooms[index] = updatedRoom
                 
+                let newDate = updatedRoom.effectiveDate
+                print("📅 Nueva fecha efectiva: \(newDate)")
+                
+                // Log del estado antes del ordenamiento
+                print("🔄 Estado antes del ordenamiento:")
+                for (i, room) in self.chatRooms.enumerated() {
+                    print("   \(i): \(room.name ?? "Sin nombre") - \(room.effectiveDate)")
+                }
+                
                 // Re-ordenar por fecha efectiva
                 self.chatRooms.sort { $0.effectiveDate > $1.effectiveDate }
                 
+                // Log del estado después del ordenamiento
+                print("✅ Estado después del ordenamiento:")
+                for (i, room) in self.chatRooms.enumerated() {
+                    print("   \(i): \(room.name ?? "Sin nombre") - \(room.effectiveDate)")
+                }
+                
                 print("🔄 Actualizado mensaje en tiempo real para canal \(channelId): \"\(messageText)\"")
+            } else {
+                print("⚠️ No se encontró ChatRoom con channelId: \(channelId)")
+                print("🔍 ChatRooms disponibles:")
+                for room in self.chatRooms {
+                    print("   - \(room.streamChannelId): \(room.name ?? "Sin nombre")")
+                }
             }
         }
         
@@ -841,5 +1128,32 @@ class ChatService: ObservableObject {
     func initializePersistedData() {
         print("🚀 Inicializando datos guardados de últimos mensajes...")
         loadLastMessagesFromStorage()
+    }
+    
+    // MARK: - Clear All Data
+    
+    /// Limpia todos los datos del chat
+    func clearAllData() {
+        print("🧹 Limpiando todos los datos de chat...")
+        
+        // Limpiar arrays y cache
+        chatRooms = []
+        gymMembersCache = [:]
+        userNameCache = [:]
+        lastMessagesCache = [:]
+        
+        // Limpiar persistencia
+        clearPersistedMessages()
+        
+        // Resetear estados
+        isLoadingRooms = false
+        isLoadingGymMembers = false
+        isRefreshingMessages = false
+        errorMessage = nil
+        
+        // Desconectar de Stream si está conectado
+        StreamChatService.shared.disconnect()
+        
+        print("✅ Datos de chat limpiados")
     }
 } 

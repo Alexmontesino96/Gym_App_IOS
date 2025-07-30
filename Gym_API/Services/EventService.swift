@@ -295,7 +295,8 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID 
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -425,7 +426,8 @@ class EventService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "accept")
         
         // Agregar header X-Gym-ID
-        request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+        let gymId = GymService.shared.currentGym?.id ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
         
         // Agregar token de autorización
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -527,7 +529,8 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -659,7 +662,8 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -769,7 +773,8 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -901,7 +906,8 @@ class EventService: ObservableObject {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             request.httpBody = jsonData
             
             let (data, response) = try await session.data(for: request)
@@ -1068,7 +1074,8 @@ class EventService: ObservableObject {
             request.httpMethod = "DELETE"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             let (_, response) = try await session.data(for: request)
             
@@ -1137,6 +1144,40 @@ class EventService: ObservableObject {
         updateOnMainThread {
             self.events = []
             self.userParticipations = []
+            self.eventDetail = nil
+            self.eventParticipations = []
+            self.userRegistrationStatus = [:]
+            self.userProfiles = [:]
+            
+            // Resetear estados de loading
+            self.isLoading = false
+            self.isLoadingDetail = false
+            self.isLoadingParticipations = false
+            self.isJoiningEvent = false
+            
+            // Limpiar mensajes de error
+            self.errorMessage = nil
+            self.detailErrorMessage = nil
+            self.participationsErrorMessage = nil
+            self.joinEventErrorMessage = nil
+            
+            // Limpiar cache de UserDefaults
+            self.clearEventsCache()
+        }
+    }
+    
+    /// Alias para mantener consistencia con otros servicios
+    func clearAllData() {
+        clearEventsOnLogout()
+    }
+    
+    /// Limpia el cache de eventos de UserDefaults
+    private func clearEventsCache() {
+        let allKeys = UserDefaults.standard.dictionaryRepresentation().keys
+        for key in allKeys {
+            if key.contains("CachedEvents_") {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
         }
     }
     

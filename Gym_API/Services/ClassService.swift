@@ -112,7 +112,7 @@ class ClassService: ObservableObject {
             // Fallback para versiones anteriores de iOS o si ISO8601FormatStyle falla
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.timeZone = TimeZone(secondsFromGMT: 0) // Las fechas del servidor vienen en UTC
             
             let dateFormats = [
                 "yyyy-MM-dd'T'HH:mm:ss'Z'",
@@ -240,7 +240,7 @@ class ClassService: ObservableObject {
             let startDateString = dateFormatter.string(from: startDate)
             let endDateString = dateFormatter.string(from: endDate)
             
-            guard let url = URL(string: "\(baseURL)/schedule/sessions/date-range?start_date=\(startDateString)&end_date=\(endDateString)&skip=\(skip)&limit=\(limit)") else {
+            guard let url = URL(string: "\(baseURL)/schedule/sessions/date-range-with-timezone?start_date=\(startDateString)&end_date=\(endDateString)&skip=\(skip)&limit=\(limit)") else {
                 throw ClassServiceError.invalidURL
             }
             
@@ -250,7 +250,8 @@ class ClassService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -280,7 +281,14 @@ class ClassService: ObservableObject {
             print("📡 Response status for sessions: \(httpResponse.statusCode)")
             
             if httpResponse.statusCode == 200 {
+                // El nuevo endpoint devuelve la estructura completa SessionWithClass con timezone info
                 let sessions = try configuredJSONDecoder().decode([SessionWithClass].self, from: data)
+                
+                print("✅ Successfully decoded \(sessions.count) sessions with complete class info")
+                for session in sessions.prefix(2) {
+                    print("🔍 Session \(session.session.id): \(session.classInfo.name)")
+                    print("🔍 Timezone info: \(session.session.timeInfo.isoWithTimezone)")
+                }
                 
                 print("✅ Successfully fetched \(sessions.count) sessions for date range")
                 
@@ -334,7 +342,8 @@ class ClassService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -395,6 +404,23 @@ class ClassService: ObservableObject {
             self.joinClassErrorMessages[sessionId] = nil
         }
         
+        // Validar si la sesión está disponible antes de enviar la petición
+        let sessionWithClass = await MainActor.run { 
+            self.sessions.first(where: { $0.session.id == sessionId }) 
+        }
+        
+        if let sessionWithClass = sessionWithClass {
+            if !sessionWithClass.canJoinNow {
+                let errorMessage = "No se puede unir a esta clase en este momento. " + sessionWithClass.timeUntilClass
+                _ = await MainActor.run {
+                    self.joinClassErrorMessages[sessionId] = errorMessage
+                    self.joiningClassIds.remove(sessionId)
+                }
+                print("❌ Validación local falló: \(errorMessage)")
+                return
+            }
+        }
+        
         do {
             guard let url = URL(string: "\(baseURL)/schedule/participation/register/\(sessionId)") else {
                 throw ClassServiceError.invalidURL
@@ -404,7 +430,8 @@ class ClassService: ObservableObject {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -421,6 +448,21 @@ class ClassService: ObservableObject {
             }
             
             print("🔍 Registering for class session: \(sessionId)")
+            
+            // Logging para debuggear zona horaria
+            if let sessionWithClass = sessionWithClass {
+                let now = Date()
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                formatter.timeZone = TimeZone.current
+                
+                print("🕐 Debugging zona horaria:")
+                print("🕐 Hora actual local: \(formatter.string(from: now))")
+                print("🕐 Inicio clase local: \(formatter.string(from: sessionWithClass.session.startTime))")
+                print("🕐 Zona horaria actual: \(TimeZone.current.identifier)")
+                print("🕐 canJoinNow: \(sessionWithClass.canJoinNow)")
+                print("🕐 timeUntilClass: \(sessionWithClass.timeUntilClass)")
+            }
             
             let (data, response) = try await session.data(for: request)
             
@@ -491,7 +533,8 @@ class ClassService: ObservableObject {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -568,7 +611,8 @@ class ClassService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -655,7 +699,8 @@ class ClassService: ObservableObject {
             }
             
             // Agregar header del gym
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             
@@ -699,9 +744,34 @@ class ClassService: ObservableObject {
         }
         return "Coach \(trainerId)"
     }
+    
+    // MARK: - Clear Cache
+    
+    /// Limpia todos los datos de clases en cache
+    func clearCache() {
+        print("🧹 Limpiando cache de clases...")
+        
+        // Limpiar arrays
+        sessions = []
+        trainers = []
+        joiningClassIds = []
+        cancellingClassIds = []
+        userRegistrationStatus = [:]
+        joinClassErrorMessages = [:]
+        cancelClassErrorMessages = [:]
+        
+        // Resetear estados
+        isLoading = false
+        isLoadingMyClasses = false
+        errorMessage = nil
+        myClassesErrorMessage = nil
+        
+        print("✅ Cache de clases limpiado")
+    }
 }
 
 // MARK: - Error Types
+
 enum ClassServiceError: Error {
     case invalidURL
     case invalidResponse
@@ -782,17 +852,39 @@ extension ClassService {
     var classes: [GymClass] {
         // Convert SessionWithClass to GymClass for simplified UI
         return sessions.map { sessionWithClass in
-            GymClass(
+            // Parsear la fecha del campo iso_with_timezone que tiene la información correcta
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime, .withTimeZone]
+            
+            var correctStartTime = sessionWithClass.session.startTime
+            var correctEndTime = sessionWithClass.session.endTime
+            
+            // Usar iso_with_timezone que tiene la fecha con zona horaria correcta
+            if let preciseDate = isoFormatter.date(from: sessionWithClass.session.timeInfo.isoWithTimezone) {
+                correctStartTime = preciseDate
+                // Calcular endTime basándose en la duración original
+                let duration = sessionWithClass.session.endTime.timeIntervalSince(sessionWithClass.session.startTime)
+                correctEndTime = preciseDate.addingTimeInterval(duration)
+                
+                print("🏗️ ClassService: Parsed iso_with_timezone for class \(sessionWithClass.session.id)")
+                print("🏗️ ISO string: \(sessionWithClass.session.timeInfo.isoWithTimezone)")
+                print("🏗️ Parsed date: \(preciseDate)")
+            } else {
+                print("⚠️ ClassService: Failed to parse iso_with_timezone, using original dates")
+            }
+            
+            return GymClass(
                 id: sessionWithClass.session.id,
                 name: sessionWithClass.classInfo.name,
                 description: sessionWithClass.classInfo.description,
                 instructor: sessionWithClass.trainerName,
-                startTime: sessionWithClass.session.startTime,
-                endTime: sessionWithClass.session.endTime,
+                startTime: correctStartTime,
+                endTime: correctEndTime,
                 maxParticipants: sessionWithClass.classInfo.maxCapacity,
                 currentParticipants: sessionWithClass.session.currentParticipants,
                 difficulty: mapDifficulty(sessionWithClass.classInfo.difficultyLevel),
-                status: mapStatus(sessionWithClass.session.status)
+                status: mapStatus(sessionWithClass.session.status),
+                gymTimezone: sessionWithClass.session.timeInfo.gymTimezone
             )
         }
     }

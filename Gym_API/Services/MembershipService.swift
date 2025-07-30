@@ -137,12 +137,17 @@ class MembershipService: ObservableObject {
     weak var authService: AuthServiceProtocol?
     
     // Gym ID dinámico - se puede configurar desde la app
-    var currentGymId: Int = 4 // Default, pero debe ser configurable
+    var currentGymId: Int {
+        return GymService.shared.currentGymId ?? 4 // Fallback to 4 if no gym selected
+    }
     
     // MARK: - Published Properties
     @Published var membershipStatus: MembershipStatus?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    
+    // MARK: - Task Management
+    private var currentTask: Task<Void, Never>?
     
     // MARK: - Helper for Main Thread Updates
     private func updateOnMainThread(_ updates: @escaping () -> Void) {
@@ -182,6 +187,22 @@ class MembershipService: ObservableObject {
     
     // MARK: - Get My Membership Status
     func getMyMembershipStatus() async {
+        // Cancelar tarea anterior si existe
+        currentTask?.cancel()
+        
+        // Crear nueva tarea
+        currentTask = Task {
+            await performGetMembershipStatus()
+        }
+        
+        // Esperar a que termine
+        await currentTask?.value
+    }
+    
+    private func performGetMembershipStatus() async {
+        // Verificar si la tarea fue cancelada
+        if Task.isCancelled { return }
+        
         updateOnMainThread {
             self.isLoading = true
             self.errorMessage = nil
@@ -204,7 +225,23 @@ class MembershipService: ObservableObject {
         }
         
         do {
+            // Verificar cancelación antes de la petición
+            if Task.isCancelled { 
+                updateOnMainThread {
+                    self.isLoading = false
+                }
+                return 
+            }
+            
             let (data, response) = try await session.data(for: request)
+            
+            // Verificar cancelación después de la petición
+            if Task.isCancelled { 
+                updateOnMainThread {
+                    self.isLoading = false
+                }
+                return 
+            }
             
             if let httpResponse = response as? HTTPURLResponse {
                 print("📡 Response status for membership status: \(httpResponse.statusCode)")
@@ -230,11 +267,19 @@ class MembershipService: ObservableObject {
                 }
             }
         } catch {
-            print("❌ Error fetching membership status: \(error)")
-            
-            updateOnMainThread {
-                self.errorMessage = "Error de red: \(error.localizedDescription)"
-                self.isLoading = false
+            // Solo mostrar error si no fue cancelado
+            if !Task.isCancelled {
+                print("❌ Error fetching membership status: \(error)")
+                
+                updateOnMainThread {
+                    self.errorMessage = "Error de conexión: \(error.localizedDescription)"
+                    self.isLoading = false
+                }
+            } else {
+                print("ℹ️ Petición de membresía cancelada")
+                updateOnMainThread {
+                    self.isLoading = false
+                }
             }
         }
     }

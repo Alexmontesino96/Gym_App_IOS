@@ -28,9 +28,9 @@ struct QuickAccessButton: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: item.icon)
-                .font(.system(size: 24))
+                .font(.system(size: 32))
                 .foregroundColor(item.color)
-                .frame(width: 48, height: 48)
+                .frame(width: 60, height: 60)
                 .background(item.color.opacity(0.2))
                 .clipShape(Circle())
             

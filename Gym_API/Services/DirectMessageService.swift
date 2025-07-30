@@ -140,7 +140,8 @@ class DirectMessageService: ObservableObject {
             request.httpMethod = "GET"
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+            let gymId = GymService.shared.currentGymId ?? 4
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             let (data, response) = try await URLSession.shared.data(for: request)
             

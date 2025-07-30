@@ -154,6 +154,9 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             user = nil
             clearCredentials()
             
+            // Limpiar todos los datos del usuario anterior
+            await clearAllUserData()
+            
             print("✅ Logout exitoso")
             
             // Notificar a otros servicios sobre el logout
@@ -275,6 +278,67 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     
     func isUserAuthenticated() -> Bool {
         return isAuthenticated
+    }
+    
+    /// Limpia todos los datos del usuario anterior
+    private func clearAllUserData() async {
+        print("🧹 Limpiando todos los datos del usuario anterior...")
+        
+        await MainActor.run {
+            // Limpiar selección y cache de gym
+            GymService.shared.clearGymSelection()
+            GymService.shared.clearCache()
+            GymService.shared.myGyms = []
+            
+            // Limpiar datos de membresía
+            MembershipService.shared.clearMembershipData()
+            
+            // Limpiar datos de chat
+            ChatService.shared.clearAllData()
+            
+            // Limpiar datos de clases (si existe instancia)
+            ClassService.shared?.clearCache()
+            
+            // Limpiar datos de eventos se hace via NotificationCenter
+            // EventService escucha .userDidLogout y limpia automáticamente
+            
+            // Limpiar OneSignal
+            OneSignalService.shared.logout()
+            
+            // Limpiar UserDefaults específicos de usuario
+            clearUserSpecificDefaults()
+        }
+        
+        print("✅ Datos del usuario anterior limpiados")
+    }
+    
+    /// Limpia UserDefaults específicos del usuario
+    private func clearUserSpecificDefaults() {
+        let userDefaultsKeys = [
+            "selectedGym",
+            "hasSelectedGym",
+            "CachedGyms",
+            "lastChatMessagesUpdate",
+            "lastChatMessagesData",
+            "CachedMembershipStatus",
+            "CachedMembershipDate"
+        ]
+        
+        for key in userDefaultsKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        
+        // Buscar y limpiar claves con patrones específicos
+        let allKeys = UserDefaults.standard.dictionaryRepresentation().keys
+        for key in allKeys {
+            if key.contains("CachedGymHours_") || 
+               key.contains("CachedEvents_") ||
+               key.contains("Chat_") {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        
+        UserDefaults.standard.synchronize()
     }
 }
 

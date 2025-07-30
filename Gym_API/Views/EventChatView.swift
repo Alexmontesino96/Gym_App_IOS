@@ -7,7 +7,6 @@ struct EventChatView: View {
     @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
-        // Usar la nueva implementación iMessage
         SimpleiMessageChatView(
             eventId: eventId,
             eventTitle: eventTitle,

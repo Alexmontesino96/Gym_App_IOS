@@ -25,6 +25,8 @@ struct ClassSession: Codable, Identifiable {
     let createdAt: Date
     let updatedAt: Date?
     let createdBy: Int?
+    let gymTimezone: String
+    let timeInfo: TimeInfo
     
     enum CodingKeys: String, CodingKey {
         case classId = "class_id"
@@ -43,6 +45,8 @@ struct ClassSession: Codable, Identifiable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case createdBy = "created_by"
+        case gymTimezone = "gym_timezone"
+        case timeInfo = "time_info"
     }
 }
 
@@ -52,6 +56,21 @@ enum SessionStatus: String, Codable {
     case inProgress = "in_progress"
     case completed = "completed"
     case cancelled = "cancelled"
+}
+
+// MARK: - Time Info Model
+struct TimeInfo: Codable {
+    let localTime: String
+    let gymTimezone: String
+    let isoWithTimezone: String
+    let utcTime: String
+    
+    enum CodingKeys: String, CodingKey {
+        case localTime = "local_time"
+        case gymTimezone = "gym_timezone"
+        case isoWithTimezone = "iso_with_timezone"
+        case utcTime = "utc_time"
+    }
 }
 
 struct ClassInfo: Codable, Identifiable {
@@ -150,8 +169,29 @@ extension SessionWithClass {
     var formattedTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter.string(from: session.startTime)
+        
+        // Obtener las zonas horarias
+        let userTimezone = TimeZone.current
+        let gymTimezoneString = session.timeInfo.gymTimezone
+        let gymTimezone = TimeZone(identifier: gymTimezoneString) ?? TimeZone.current
+        
+        print("🕐 DEBUG: User timezone: \(userTimezone.identifier)")
+        print("🕐 DEBUG: Gym timezone: \(gymTimezoneString)")
+        print("🕐 DEBUG: StartTime from server: \(session.startTime)")
+        
+        // Si las zonas horarias son iguales, no hacer conversión
+        if userTimezone.identifier == gymTimezone.identifier {
+            formatter.timeZone = TimeZone.current
+            print("🕐 DEBUG: Same timezone, no conversion needed")
+        } else {
+            // Si son diferentes, usar la zona horaria del gimnasio
+            formatter.timeZone = gymTimezone
+            print("🕐 DEBUG: Different timezone, using gym timezone for display")
+        }
+        
+        let result = formatter.string(from: session.startTime)
+        print("🕐 DEBUG: Formatted time: \(result)")
+        return result
     }
     
     var formattedDate: String {
@@ -182,5 +222,49 @@ extension SessionWithClass {
     
     var isFullyBooked: Bool {
         return session.currentParticipants >= classInfo.maxCapacity
+    }
+    
+    // MARK: - Time Validation
+    var canJoinNow: Bool {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // Permitir unirse hasta 5 minutos después de que inicie la clase
+        let joinDeadline = calendar.date(byAdding: .minute, value: 5, to: session.startTime) ?? session.startTime
+        
+        // No permitir unirse más de 30 minutos antes
+        let earliestJoinTime = calendar.date(byAdding: .minute, value: -30, to: session.startTime) ?? session.startTime
+        
+        return now >= earliestJoinTime && now <= joinDeadline && session.status == .scheduled
+    }
+    
+    var timeUntilClass: String {
+        let now = Date()
+        let timeInterval = session.startTime.timeIntervalSince(now)
+        
+        if timeInterval < 0 {
+            return "En progreso"
+        } else if timeInterval < 3600 { // Menos de 1 hora
+            let minutes = Int(timeInterval / 60)
+            return "En \(minutes) min"
+        } else {
+            let hours = Int(timeInterval / 3600)
+            if hours < 24 {
+                return "En \(hours) h"
+            } else {
+                let days = Int(timeInterval / 86400)
+                return "En \(days) días"
+            }
+        }
+    }
+    
+    var localStartTime: Date {
+        // Convertir la hora UTC del servidor a hora local para mostrar
+        return session.startTime
+    }
+    
+    var localEndTime: Date {
+        // Convertir la hora UTC del servidor a hora local para mostrar
+        return session.endTime
     }
 } 

@@ -57,12 +57,14 @@ struct Event: Codable, Identifiable {
     var formattedStartTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM dd, yyyy 'at' h:mm a"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: startTime)
     }
     
     var formattedTimeRange: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return "\(formatter.string(from: startTime)) - \(formatter.string(from: endTime))"
     }
     
@@ -72,6 +74,7 @@ struct Event: Codable, Identifiable {
     
     var dayTimeString: String {
         let formatter = DateFormatter()
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         if isToday {
             formatter.dateFormat = "'Today', h:mm a"
         } else {
@@ -111,12 +114,14 @@ struct EventDetail: Codable, Identifiable {
     var formattedStartTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM dd, yyyy 'at' h:mm a"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: startTime)
     }
     
     var formattedTimeRange: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return "\(formatter.string(from: startTime)) - \(formatter.string(from: endTime))"
     }
     
@@ -127,6 +132,7 @@ struct EventDetail: Codable, Identifiable {
     var dayTimeString: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "es_ES")
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         
         if isToday {
             formatter.dateFormat = "HH:mm"
@@ -143,6 +149,7 @@ struct EventDetail: Codable, Identifiable {
             
             // Fallback
             formatter.dateFormat = "dd MMM, HH:mm"
+            formatter.timeZone = TimeZone.current // Usar zona horaria local
             return formatter.string(from: startTime)
         }
     }
@@ -297,18 +304,21 @@ struct EventInParticipation: Codable {
     var formattedStartTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: startTime)
     }
     
     var formattedEndTime: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: endTime)
     }
     
     var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy"
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: startTime)
     }
     
@@ -316,6 +326,7 @@ struct EventInParticipation: Codable {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, dd/MM/yyyy"
         formatter.locale = Locale(identifier: "es_ES")
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: startTime)
     }
     
@@ -323,6 +334,7 @@ struct EventInParticipation: Codable {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
         formatter.locale = Locale(identifier: "es_ES")
+        formatter.timeZone = TimeZone.current // Usar zona horaria local
         return formatter.string(from: startTime)
     }
 } 

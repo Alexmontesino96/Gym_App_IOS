@@ -507,17 +507,38 @@ class StreamChatService: ObservableObject {
 extension StreamChatService: ChatChannelControllerDelegate {
     nonisolated func channelController(_ channelController: ChatChannelController, didUpdateMessages changes: [ListChange<StreamChat.ChatMessage>]) {
         Task { @MainActor in
-            print("📨 Mensajes actualizados")
+            print("📨 StreamChatService: Mensajes actualizados")
+            print("📊 Cambios recibidos: \(changes.count)")
+            for change in changes {
+                switch change {
+                case .insert(let message, let index):
+                    print("➕ Nuevo mensaje en índice \(index.row): \(message.text)")
+                case .update(let message, let index):
+                    print("✏️ Mensaje actualizado en índice \(index.row): \(message.text)")
+                case .remove(let message, let index):
+                    print("➖ Mensaje eliminado en índice \(index.row): \(message.text)")
+                case .move(let message, let fromIndex, let toIndex):
+                    print("↔️ Mensaje movido de \(fromIndex.row) a \(toIndex.row): \(message.text)")
+                }
+            }
+            
             await self.loadMessages()
             
             // Notificar a ChatService si hay un nuevo mensaje
             if let lastMessage = channelController.messages.last,
                let channelId = self.currentChannel?.cid.id {
+                print("🔄 StreamChatService: Notificando último mensaje a ChatService")
+                print("📱 Canal: \(channelId)")
+                print("💬 Último mensaje: \(lastMessage.text)")
+                print("📅 Fecha: \(lastMessage.createdAt)")
+                
                 ChatService.shared.updateLastMessageForChannel(
                     channelId,
                     messageText: lastMessage.text,
                     messageDate: lastMessage.createdAt
                 )
+            } else {
+                print("⚠️ StreamChatService: No hay último mensaje o canal para notificar")
             }
         }
     }

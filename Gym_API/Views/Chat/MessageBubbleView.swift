@@ -121,70 +121,138 @@ struct SimpleInputView: View {
                 .fill(Color.dynamicBorder(theme: themeManager.currentTheme))
                 .frame(height: 0.5)
             
-            HStack(spacing: 8) {
-                // Camera Button
-                Button(action: {}) {
-                    Image(systemName: "camera.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-                
-                // Text Input Container
+            ZStack {
+                // Barra de chat normal
                 HStack(spacing: 8) {
-                    TextField("Mensaje", text: $newMessage, axis: .vertical)
-                        .font(.system(size: 16))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .lineLimit(1...5)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .onSubmit {
-                            onSendMessage()
+                    // Camera Button
+                    Button(action: {}) {
+                        Image(systemName: "camera.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .frame(width: 36, height: 36)
+                    }
+                    
+                    // Text Input Container
+                    HStack(spacing: 8) {
+                        ZStack(alignment: .leading) {
+                            if newMessage.isEmpty {
+                                Text("Mensaje")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.6))
+                            }
+                            
+                            TextField("", text: $newMessage, axis: .vertical)
+                                .font(.system(size: 16))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                .lineLimit(1...5)
+                                .textFieldStyle(PlainTextFieldStyle())
+                                .frame(minHeight: 20)
+                                .padding(.vertical, 0)
+                                .accentColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .onSubmit {
+                                    onSendMessage()
+                                }
+                                .onChange(of: newMessage) { _, newValue in
+                                    if !newValue.isEmpty {
+                                        onTypingStart()
+                                    } else {
+                                        onTypingStop()
+                                    }
+                                }
                         }
-                        .onChange(of: newMessage) { _, newValue in
-                            if !newValue.isEmpty {
-                                onTypingStart()
-                            } else {
-                                onTypingStop()
+                        
+                        // Emoji/Plus Button
+                        if newMessage.isEmpty {
+                            Button(action: {}) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    .frame(width: 30, height: 30)
                             }
                         }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                            )
+                    )
                     
-                    // Emoji/Plus Button
-                    if newMessage.isEmpty {
-                        Button(action: {}) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 22))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    // Send Button
+                    if !newMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button(action: onSendMessage) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .frame(width: 36, height: 36)
                         }
+                        .transition(.scale.combined(with: .opacity))
+                    } else {
+                        // Voice Recording Button con gestos
+                        VoiceRecordingButtonSimple(
+                            isRecording: $isRecording,
+                            recordingTime: $recordingTime,
+                            onStartRecording: startVoiceRecording,
+                            onStopRecording: stopVoiceRecording,
+                            onCancelRecording: cancelVoiceRecording,
+                            themeManager: themeManager
+                        )
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                        )
-                )
+                .opacity(isRecording ? 0 : 1)
+                .animation(.easeInOut(duration: 0.2), value: isRecording)
                 
-                // Send Button
-                if !newMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Button(action: onSendMessage) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                // Interfaz de grabación estilo WhatsApp
+                if isRecording {
+                    HStack(spacing: 12) {
+                        // Timer de grabación
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                                .opacity(recordingTime.truncatingRemainder(dividingBy: 1.0) < 0.5 ? 1 : 0.3)
+                            
+                            Text(String(format: "%01d:%02d", Int(recordingTime) / 60, Int(recordingTime) % 60))
+                                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        }
+                        
+                        Spacer()
+                        
+                        // Texto "Desliza para cancelar" con flechas
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 12, weight: .medium))
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Desliza para cancelar")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(Color.gray)
+                        .onLongPressGesture(minimumDuration: 0.01, pressing: { _ in }) {
+                            // No hacer nada - esto previene interferencias
+                        }
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 10)
+                                .onEnded { drag in
+                                    if drag.translation.width < -50 {
+                                        cancelVoiceRecording()
+                                    }
+                                }
+                        )
+                        
+                        Spacer()
+                        
+                        // Espacio para mantener proporción
+                        Color.clear
+                            .frame(width: 36, height: 36)
                     }
-                    .transition(.scale.combined(with: .opacity))
-                } else {
-                    // Voice Recording Button con gestos
-                    VoiceRecordingButtonSimple(
-                        isRecording: $isRecording,
-                        recordingTime: $recordingTime,
-                        onStartRecording: startVoiceRecording,
-                        onStopRecording: stopVoiceRecording,
-                        onCancelRecording: cancelVoiceRecording,
-                        themeManager: themeManager
-                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .animation(.easeInOut(duration: 0.2), value: isRecording)
                 }
             }
             .padding(.horizontal, 12)
@@ -198,17 +266,21 @@ struct SimpleInputView: View {
     
     private func startVoiceRecording() {
         print("🎤 Iniciando grabación de voz (SimpleInputView)")
-        isRecording = true
-        recordingTime = 0
         
-        // Vibración de inicio
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
-        
-        // Timer para contar tiempo de grabación en el main thread
-        recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            DispatchQueue.main.async {
-                self.recordingTime += 0.1
+        // Usar async para evitar modificar estado durante actualización de vista
+        DispatchQueue.main.async {
+            self.isRecording = true
+            self.recordingTime = 0
+            
+            // Vibración de inicio
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+            
+            // Timer para contar tiempo de grabación
+            self.recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+                DispatchQueue.main.async {
+                    self.recordingTime += 0.1
+                }
             }
         }
         
@@ -220,13 +292,16 @@ struct SimpleInputView: View {
     
     private func stopVoiceRecording() {
         print("🎤 Deteniendo grabación de voz (duración: \(recordingTime)s)")
-        isRecording = false
-        recordingTimer?.invalidate()
-        recordingTimer = nil
         
-        // Vibración de finalización
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        DispatchQueue.main.async {
+            self.isRecording = false
+            self.recordingTimer?.invalidate()
+            self.recordingTimer = nil
+            
+            // Vibración de finalización
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+        }
         
         if recordingTime > 1.0 {
             print("✅ Grabación enviada")
@@ -240,14 +315,17 @@ struct SimpleInputView: View {
     
     private func cancelVoiceRecording() {
         print("❌ Grabación de voz cancelada")
-        isRecording = false
-        recordingTimer?.invalidate()
-        recordingTimer = nil
-        recordingTime = 0
         
-        // Vibración de cancelación
-        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-        impactFeedback.impactOccurred()
+        DispatchQueue.main.async {
+            self.isRecording = false
+            self.recordingTimer?.invalidate()
+            self.recordingTimer = nil
+            self.recordingTime = 0
+            
+            // Vibración de cancelación
+            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+            impactFeedback.impactOccurred()
+        }
     }
 }
 
@@ -263,96 +341,165 @@ struct VoiceRecordingButtonSimple: View {
     
     @GestureState private var isLongPressed = false
     @State private var dragOffset = CGSize.zero
-    @State private var showCancelText = false
+    @State private var showLockZone = false
+    @State private var isLocked = false
+    @State private var pressingDown = false
     
     var body: some View {
         ZStack {
-            // Botón principal - tamaño fijo y grande
-            Button(action: {}) {
-                Circle()
-                    .fill(isRecording ? Color.red : Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    .frame(width: 44, height: 44) // Tamaño fijo y grande
-                    .overlay(
-                        Image(systemName: "mic.circle.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundColor(.white)
-                    )
-                    .scaleEffect(isLongPressed || isRecording ? 1.2 : 1.0)
-            }
-            .disabled(true) // Deshabilitamos el tap normal
-            
-            // Overlay para grabación activa
-            if isRecording {
+            // Solo indicador de bloqueo (arriba) - simplificado
+            if isRecording && !isLocked {
                 VStack(spacing: 4) {
-                    if showCancelText {
-                        Text("⬅️ Desliza para cancelar")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.red)
-                            .transition(.opacity)
-                    } else {
-                        HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(showLockZone ? .white : Color.gray)
+                        .padding(10)
+                        .background(
                             Circle()
-                                .fill(Color.red)
-                                .frame(width: 8, height: 8)
-                                .opacity(0.8)
-                            Text("Grabando... \(String(format: "%.1fs", recordingTime))")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        }
-                    }
+                                .fill(showLockZone ? Color.blue : Color.gray.opacity(0.3))
+                        )
+                        .scaleEffect(showLockZone ? 1.1 : 1.0)
+                    
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.gray)
                 }
-                .offset(y: -35)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .offset(y: -80)
+                .opacity(isRecording ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2), value: showLockZone)
+            }
+            
+            // Botón principal
+            Circle()
+                .fill(pressingDown || isRecording ? Color.red : Color.dynamicAccent(theme: themeManager.currentTheme))
+                .frame(width: pressingDown || isRecording ? 44 : 36, height: pressingDown || isRecording ? 44 : 36)
+                .overlay(
+                    Image(systemName: isLocked ? "stop.fill" : "mic.fill")
+                        .font(.system(size: pressingDown || isRecording ? 20 : 16, weight: .semibold))
+                        .foregroundColor(.white)
+                )
+                .scaleEffect(pressingDown && !isLocked ? 1.15 : 1.0)
+                .offset(dragOffset)
+                .shadow(color: pressingDown || isRecording ? Color.red.opacity(0.3) : Color.clear, radius: 6, x: 0, y: 3)
+            
+            // Timer de grabación
+            if isRecording {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                        .opacity(recordingTime.truncatingRemainder(dividingBy: 1.0) < 0.5 ? 1 : 0.3)
+                    
+                    Text(String(format: "%02d:%02d", Int(recordingTime) / 60, Int(recordingTime) % 60))
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                )
+                .offset(y: isLocked ? -50 : -45)
+                .transition(.scale.combined(with: .opacity))
             }
         }
-        .frame(width: 60, height: 60) // Área de toque grande
-        .contentShape(Rectangle()) // Toda el área es tocable
+        .frame(width: 60, height: 60) // Área de toque
+        .zIndex(isRecording ? 10 : 1) // Elevar cuando esté grabando
+        .contentShape(Rectangle())
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isLongPressed)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
-        .animation(.easeInOut(duration: 0.2), value: showCancelText)
-        .gesture(
-            // Combinar gesto de presión larga con arrastre
-            LongPressGesture(minimumDuration: 0.3) // Duración mínima para activar
-                .sequenced(before: DragGesture())
-                .updating($isLongPressed) { value, state, transaction in
-                    switch value {
-                    case .first(true):
-                        state = true
-                        if !isRecording {
-                            onStartRecording()
-                        }
-                    case .second(true, let drag):
-                        state = true
-                        if isRecording {
-                            dragOffset = drag?.translation ?? .zero
-                            showCancelText = (drag?.translation.width ?? 0) < -30
-                        }
-                    default:
-                        state = false
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isLocked)
+        .animation(.easeInOut(duration: 0.2), value: dragOffset)
+        .onTapGesture {
+            // Si está bloqueado, detener la grabación
+            if isLocked {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isLocked = false
+                    pressingDown = false
+                }
+                onStopRecording()
+            }
+        }
+        .onLongPressGesture(minimumDuration: 0.1, pressing: { pressing in
+            handlePressChange(pressing)
+        }) {
+            // No hacer nada aquí para evitar llamadas duplicadas
+            print("🎤 Long press completado (sin acción)")
+        }
+        .simultaneousGesture(
+            // Solo aplicar gesture de drag si no está bloqueado
+            !isLocked ? 
+            DragGesture(minimumDistance: 0)
+                .onChanged { drag in
+                    if isRecording && !isLocked {
+                        let translation = drag.translation
+                        
+                        // Actualizar offset con límites
+                        dragOffset = CGSize(
+                            width: max(-100, min(0, translation.width)),
+                            height: max(-100, min(0, translation.height))
+                        )
+                        
+                        // Solo detectar zona de bloqueo
+                        showLockZone = translation.height < -50
                     }
                 }
-                .onEnded { value in
-                    dragOffset = .zero
-                    showCancelText = false
-                    
-                    switch value {
-                    case .first(false):
-                        // Se soltó antes de completar la presión larga - no hacer nada
-                        break
-                    case .second(true, let drag):
-                        if isRecording {
-                            if let dragValue = drag, dragValue.translation.width < -50 {
-                                onCancelRecording()
-                            } else {
-                                onStopRecording()
+                .onEnded { drag in
+                    // Solo procesar si estaba grabando
+                    if isRecording && !isLocked {
+                        let translation = drag.translation
+                        
+                        // Resetear estados visuales
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            dragOffset = .zero
+                            showLockZone = false
+                        }
+                        
+                        // Verificar si se deslizó hacia arriba para bloquear
+                        if translation.height < -60 {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                isLocked = true
                             }
+                            // Vibración de bloqueo
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                            impactFeedback.impactOccurred()
                         }
-                    default:
-                        if isRecording {
+                        // Si no se bloqueó, detener grabación normal
+                        else {
                             onStopRecording()
+                            pressingDown = false
                         }
                     }
                 }
+            : nil
         )
+    }
+    
+    private func handlePressChange(_ pressing: Bool) {
+        print("🎤 handlePressChange: pressing=\(pressing), isRecording=\(isRecording), isLocked=\(isLocked)")
+        
+        withAnimation(.easeInOut(duration: 0.1)) {
+            pressingDown = pressing
+        }
+        
+        if pressing {
+            // Iniciar grabación cuando empiece el long press (solo si no está ya grabando)
+            if !isRecording && !isLocked {
+                print("🎤 Iniciando grabación desde handlePressChange")
+                onStartRecording()
+            }
+        } else {
+            // Detener grabación cuando se suelte el botón (solo si está grabando y no está bloqueado)
+            if isRecording && !isLocked {
+                print("🎤 Deteniendo grabación desde handlePressChange")
+                onStopRecording()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    dragOffset = .zero
+                    showLockZone = false
+                }
+            }
+        }
     }
 }

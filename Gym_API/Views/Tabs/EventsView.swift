@@ -11,9 +11,7 @@ struct EventsView: View {
     @State private var searchTask: Task<Void, Never>?
     
     // Estados para navegación de chat desde tarjetas
-    @State private var shouldNavigateToChat = false
     @State private var selectedEventForChat: Event?
-    @State private var showingChat = false
     
     var filteredEvents: [Event] {
         let searchFilteredEvents = searchText.isEmpty ? eventService.events : eventService.events.filter { event in
@@ -140,6 +138,7 @@ struct EventsView: View {
                             LazyVStack(spacing: 16) {
                                 ForEach(filteredEvents) { event in
                                     EventCard(event: event, onChatTap: {
+                                        print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
                                         handleEventChatTap(event: event)
                                     })
                                     .padding(.horizontal, 20)
@@ -153,6 +152,8 @@ struct EventsView: View {
             }
             .sheet(isPresented: $showingFilterSheet) {
                 EventFilterSheet(selectedFilter: $selectedFilter)
+                    .presentationDetents([.fraction(0.6)])
+                    .presentationDragIndicator(.visible)
             }
         }
         .onAppear {
@@ -160,17 +161,23 @@ struct EventsView: View {
                 await eventService.fetchEvents()
             }
         }
-        .fullScreenCover(isPresented: $showingChat) {
-            if let event = selectedEventForChat {
-                // TODO: Implement StreamChatView
-                Text("Chat for \(event.title)")
-            }
+        .sheet(item: $selectedEventForChat) { event in
+            let _ = print("🔥 sheet activated for event: \(event.title) (ID: \(event.id))")
+            EventChatView(
+                eventId: String(event.id),
+                eventTitle: event.title,
+                authService: authService
+            )
+            .environmentObject(themeManager)
         }
     }
     
     private func handleEventChatTap(event: Event) {
+        print("🔥 handleEventChatTap called for event: \(event.title) (ID: \(event.id))")
+        
+        // Usar selectedEventForChat para el sheet
         selectedEventForChat = event
-        showingChat = true
+        print("🔥 selectedEventForChat set to: \(selectedEventForChat?.title ?? "nil")")
     }
 }
 

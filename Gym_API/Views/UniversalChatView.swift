@@ -12,10 +12,12 @@ struct UniversalChatView: View {
     @State private var streamToken: StreamTokenResponse?
     @State private var newMessage = ""
     @State private var hasLoadedChat = false
+    @State private var showContent = false
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         let _ = print("🎨 UniversalChatView body rendering - Chat: \(chatRoom.streamChannelId)")
+        let _ = print("🎨 ChatRoom name: \(chatRoom.name ?? "nil")")
         let _ = print("🎨 Estado actual: isLoading=\(isLoading), streamService.isLoading=\(streamChatService.isLoading), streamService.isConnected=\(streamChatService.isConnected)")
         let _ = print("🎨 Errores: local=\(errorMessage ?? "nil"), stream=\(streamChatService.errorMessage ?? "nil")")
         VStack(spacing: 0) {
@@ -31,18 +33,56 @@ struct UniversalChatView: View {
             
             // Chat Content
             if isLoading || streamChatService.isLoading {
-                LoadingChatView(themeManager: themeManager)
+                // Enhanced loading state
+                ZStack {
+                    Color.dynamicBackground(theme: themeManager.currentTheme)
+                    
+                    VStack(spacing: 24) {
+                        // Enhanced loading animation
+                        EnhancedLoadingView(
+                            message: getLoadingMessage(),
+                            themeManager: themeManager
+                        )
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage = errorMessage ?? streamChatService.errorMessage {
-                ErrorChatView(message: errorMessage, themeManager: themeManager, onRetry: {
-                    // Reset states para permitir retry
-                    self.errorMessage = nil
-                    self.streamChatService.errorMessage = nil
-                    self.streamChatService.isConnected = false
-                    self.hasLoadedChat = false
-                    loadChatRoom()
-                })
-            } else if streamChatService.isConnected {
-                // Nueva interfaz de chat estilo iMessage
+                // Error state
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 48))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    
+                    Text("Error")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    
+                    Text(errorMessage)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                    
+                    Button("Retry") {
+                        // Reset states para permitir retry
+                        self.errorMessage = nil
+                        self.streamChatService.errorMessage = nil
+                        self.streamChatService.isConnected = false
+                        self.hasLoadedChat = false
+                        loadChatRoom()
+                    }
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+            } else if streamChatService.isConnected || (!streamChatService.isLoading && streamToken != nil) {
+                // Nueva interfaz de chat estilo iMessage con transición
                 VStack(spacing: 0) {
                     // Messages List
                     ScrollViewReader { proxy in
@@ -81,62 +121,70 @@ struct UniversalChatView: View {
                         themeManager: themeManager
                     )
                 }
+                .opacity(showContent ? 1 : 0)
+                .scaleEffect(showContent ? 1 : 0.95)
+                .animation(.easeOut(duration: 0.3), value: showContent)
             } else {
-                // Fallback Interface con debugging
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
-                        .scaleEffect(1.2)
+                // Fallback Interface - mejorado
+                ZStack {
+                    Color.dynamicBackground(theme: themeManager.currentTheme)
                     
-                    VStack(spacing: 8) {
-                        Text("Conectando al chat...")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    VStack(spacing: 20) {
+                        // Pulse loading animation
+                        PulseLoadingView(
+                            message: "Connecting to chat...",
+                            themeManager: themeManager
+                        )
                         
-                        Text("Estado: \(getConnectionStatus())")
+                        // Subtle status text
+                        Text(getConnectionStatus())
                             .font(.system(size: 12))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                            .transition(.opacity)
                         
-                        // Debugging detallado
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Debug Info:")
-                                .font(.system(size: 10, weight: .bold))
-                            Text("• isLoading: \(isLoading)")
-                                .font(.system(size: 9))
-                            Text("• streamService.isLoading: \(streamChatService.isLoading)")
-                                .font(.system(size: 9))
-                            Text("• streamService.isConnected: \(streamChatService.isConnected)")
-                                .font(.system(size: 9))
-                            Text("• hasLoadedChat: \(hasLoadedChat)")
-                                .font(.system(size: 9))
-                            Text("• streamToken: \(streamToken != nil ? "✓" : "✗")")
-                                .font(.system(size: 9))
+                        // Only show retry button after some time
+                        if hasLoadedChat {
+                            Button(action: {
+                                // Reset completo y reintentar
+                                streamChatService.disconnect()
+                                errorMessage = nil
+                                streamChatService.errorMessage = nil
+                                hasLoadedChat = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    loadChatRoom()
+                                }
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 14))
+                                    Text("Retry")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 1)
+                                )
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            .padding(.top, 12)
                         }
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        .padding(.top, 8)
                     }
-                    
-                    Button("Force reconnection") {
-                        // Reset completo y reintentar
-                        streamChatService.disconnect()
-                        errorMessage = nil
-                        streamChatService.errorMessage = nil
-                        hasLoadedChat = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            loadChatRoom()
-                        }
-                    }
-                    .padding(.top, 16)
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .animation(.easeInOut(duration: 0.3), value: hasLoadedChat)
                 }
-                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .navigationBarHidden(true)
         .onAppear {
             print("👀 UniversalChatView onAppear - Chat: \(chatRoom.streamChannelId)")
-            loadChatRoom()
+            if !hasLoadedChat {
+                hasLoadedChat = true
+                loadChatRoom()
+            }
         }
         .onDisappear {
             // Reset del flag y desconectar del chat cuando se cierre la vista
@@ -196,15 +244,25 @@ struct UniversalChatView: View {
                         channelId: chatRoom.streamChannelId
                     )
                     
-                    // NO marcar como cargado aquí - dejar que StreamChatService maneje el estado
-                    isLoading = false
+                    // Esperar un momento para la conexión y luego marcar como no cargando
+                    await MainActor.run {
+                        isLoading = false
+                        // Activar transición suave
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showContent = true
+                            }
+                        }
+                    }
                     print("🔧 Token procesado, esperando conexión de StreamChatService...")
                     
                 } else {
-                    errorMessage = chatService.errorMessage ?? "No se pudo obtener el token de Stream"
-                    print("⚠️ No se pudo obtener el token de Stream: \(errorMessage ?? "Error desconocido")")
-                    isLoading = false
-                    hasLoadedChat = false // Permitir reintentos
+                    await MainActor.run {
+                        errorMessage = chatService.errorMessage ?? "No se pudo obtener el token de Stream"
+                        print("⚠️ No se pudo obtener el token de Stream: \(errorMessage ?? "Error desconocido")")
+                        isLoading = false
+                        hasLoadedChat = false // Permitir reintentos
+                    }
                 }
                 
                 // Cancelar el timeout si terminamos antes
@@ -212,9 +270,11 @@ struct UniversalChatView: View {
                 
             } catch {
                 print("❌ Error en loadChatRoom: \(error)")
-                errorMessage = "Error al cargar el chat: \(error.localizedDescription)"
-                isLoading = false
-                hasLoadedChat = false // Permitir reintentos
+                await MainActor.run {
+                    errorMessage = "Error al cargar el chat: \(error.localizedDescription)"
+                    isLoading = false
+                    hasLoadedChat = false // Permitir reintentos
+                }
                 timeoutTask.cancel()
             }
         }
@@ -233,12 +293,21 @@ struct UniversalChatView: View {
     }
     
     private func getConnectionStatus() -> String {
-        if isLoading { return "Cargando token..." }
-        if streamChatService.isLoading { return "Conectando a Stream..." }
-        if streamChatService.isConnected { return "Conectado" }
-        if streamChatService.errorMessage != nil { return "Error de conexión" }
-        if errorMessage != nil { return "Error de token" }
-        return "Inicializando..."
+        if isLoading { return "Securing connection..." }
+        if streamChatService.isLoading { return "Joining chat..." }
+        if streamChatService.isConnected { return "Connected" }
+        if streamChatService.errorMessage != nil { return "Connection issue" }
+        if errorMessage != nil { return "Authentication issue" }
+        return "Initializing..."
+    }
+    
+    private func getLoadingMessage() -> String {
+        if isLoading { 
+            return "Setting up chat..."
+        } else if streamChatService.isLoading {
+            return "Joining conversation..."
+        }
+        return "Loading messages..."
     }
 }
 
@@ -248,6 +317,7 @@ struct UniversalChatHeaderView: View {
     let isLoading: Bool
     let themeManager: ThemeManager
     let onBackPressed: () -> Void
+    @ObservedObject private var chatService = ChatService.shared
     
     var body: some View {
         HStack(spacing: 12) {
@@ -270,23 +340,43 @@ struct UniversalChatHeaderView: View {
             
             // Chat Info
             VStack(alignment: .leading, spacing: 2) {
-                Text(chatRoom.chatType.displayName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                
-                Text(chatRoom.displayName)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    .lineLimit(1)
+                if chatRoom.chatType == .direct {
+                    // Para chats directos, mostrar solo el nombre del otro usuario
+                    Text(chatService.getResolvedDisplayName(for: chatRoom))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .lineLimit(1)
+                    
+                    Text("Direct Message")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                } else {
+                    // Para otros tipos de chat, mantener el comportamiento original
+                    Text(chatRoom.chatType.displayName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    
+                    Text(chatRoom.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .lineLimit(1)
+                }
             }
             
             Spacer()
             
             // Loading or Action Buttons
             if isLoading {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
-                    .scaleEffect(0.8)
+                // Mini pulse animation in header
+                Circle()
+                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(isLoading ? 1.2 : 0.8)
+                    .opacity(isLoading ? 0.6 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                        value: isLoading
+                    )
             } else {
                 HStack(spacing: 16) {
                     Button(action: {}) {

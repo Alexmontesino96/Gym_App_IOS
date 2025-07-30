@@ -210,7 +210,8 @@ struct DirectMessagesView: View {
         request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("4", forHTTPHeaderField: "X-Gym-ID")
+        let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)

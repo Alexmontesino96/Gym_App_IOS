@@ -13,7 +13,9 @@ struct EnhancedProfileView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var oneSignalService: OneSignalService
     @StateObject private var membershipService = MembershipService.shared
+    @StateObject private var gymService = GymService.shared
     @State private var refreshID = UUID()
+    @State private var showingGymSelector = false
     let onThemeChangeRequest: () -> Void
     
     var body: some View {
@@ -30,6 +32,13 @@ struct EnhancedProfileView: View {
                         MembershipCardView(
                             membershipService: membershipService,
                             themeManager: themeManager
+                        )
+                        
+                        // Sección de gym actual
+                        CurrentGymSection(
+                            gymService: gymService,
+                            themeManager: themeManager,
+                            onSwitchGym: { showingGymSelector = true }
                         )
                         
                         // Opciones de perfil
@@ -62,9 +71,26 @@ struct EnhancedProfileView: View {
             .navigationBarTitleDisplayMode(.large)
             .animation(.easeInOut(duration: 0.3), value: themeManager.currentTheme)
         }
+        .sheet(isPresented: $showingGymSelector) {
+            GymSelectorModal(
+                onGymSelected: { gym in
+                    gymService.selectGym(gym)
+                    showingGymSelector = false
+                    // Recargar datos con el nuevo gym
+                    Task {
+                        await membershipService.getMyMembershipStatus()
+                    }
+                },
+                onCancel: {
+                    showingGymSelector = false
+                }
+            )
+            .environmentObject(themeManager)
+        }
         .onAppear {
-            // Configurar AuthService en MembershipService
+            // Configurar AuthService en servicios
             membershipService.authService = authService
+            gymService.authService = authService
             
             // Cargar estado de membresía
             Task {
@@ -276,12 +302,12 @@ struct MembershipContentView: View {
             Rectangle()
                 .fill(
                     LinearGradient(
-                        colors: [membershipColor.opacity(0.8), membershipColor],
+                        colors: [membershipColor.opacity(0.3), membershipColor.opacity(0.5)],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .frame(height: 4)
+                .frame(height: 3)
         }
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
@@ -525,6 +551,194 @@ struct LogoutButton: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: Color.red.opacity(0.3), radius: 8, x: 0, y: 4)
         }
+    }
+}
+
+// MARK: - Current Gym Section
+struct CurrentGymSection: View {
+    @ObservedObject var gymService: GymService
+    let themeManager: ThemeManager
+    let onSwitchGym: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Current Gym")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            
+            if let currentGym = gymService.currentGym {
+                HStack(spacing: 16) {
+                    // Gym Icon
+                    Circle()
+                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Image(systemName: currentGym.roleIcon)
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                        )
+                    
+                    // Gym Info
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(currentGym.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        
+                        Text(currentGym.roleDisplayName)
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    }
+                    
+                    Spacer()
+                    
+                    // Switch Button
+                    Button(action: onSwitchGym) {
+                        Text("Switch")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 1)
+                            )
+                    }
+                }
+                .padding(16)
+                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                Text("No gym selected")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .italic()
+            }
+        }
+    }
+}
+
+// MARK: - Gym Selector Modal
+struct GymSelectorModal: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var gymService = GymService.shared
+    @State private var selectedGym: GymInfo?
+    
+    let onGymSelected: (GymInfo) -> Void
+    let onCancel: () -> Void
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                if gymService.isLoadingGyms {
+                    ProgressView("Loading gyms...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(gymService.myGyms) { gym in
+                                GymSelectorRow(
+                                    gym: gym,
+                                    isCurrentGym: gym.id == gymService.currentGym?.id,
+                                    isSelected: selectedGym?.id == gym.id,
+                                    themeManager: themeManager,
+                                    onTap: { selectedGym = gym }
+                                )
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+            }
+            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+            .navigationTitle("Select Gym")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancel") { onCancel() },
+                trailing: Button("Done") {
+                    if let selectedGym = selectedGym {
+                        onGymSelected(selectedGym)
+                    }
+                }
+                .disabled(selectedGym == nil)
+            )
+        }
+        .onAppear {
+            Task {
+                await gymService.getMyGyms(forceRefresh: true)
+            }
+        }
+    }
+}
+
+// MARK: - Gym Selector Row
+struct GymSelectorRow: View {
+    let gym: GymInfo
+    let isCurrentGym: Bool
+    let isSelected: Bool
+    let themeManager: ThemeManager
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 16) {
+                // Gym Icon
+                Circle()
+                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: gym.roleIcon)
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                    )
+                
+                // Gym Info
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(gym.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        
+                        if isCurrentGym {
+                            Text("CURRENT")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    
+                    Text(gym.roleDisplayName)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                }
+                
+                Spacer()
+                
+                // Selection Indicator
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                } else {
+                    Circle()
+                        .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                        .frame(width: 20, height: 20)
+                }
+            }
+            .padding(16)
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.clear,
+                        lineWidth: 2
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

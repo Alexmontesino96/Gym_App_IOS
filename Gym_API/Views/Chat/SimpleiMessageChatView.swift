@@ -236,70 +236,138 @@ struct SimpleiMessageChatView: View {
                 .fill(Color.dynamicBorder(theme: themeManager.currentTheme))
                 .frame(height: 0.5)
             
-            HStack(spacing: 8) {
-                // Camera Button (estilo iMessage)
-                Button(action: {}) {
-                    Image(systemName: "camera.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-                
-                // Text Input Container
+            ZStack {
+                // Barra de chat normal
                 HStack(spacing: 8) {
-                    TextField("iMessage", text: $newMessage, axis: .vertical)
-                        .font(.system(size: 16))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .lineLimit(1...5)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .onSubmit {
-                            sendMessage()
+                    // Camera Button (estilo iMessage)
+                    Button(action: {}) {
+                        Image(systemName: "camera.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .frame(width: 36, height: 36)
+                    }
+                    
+                    // Text Input Container
+                    HStack(spacing: 8) {
+                        ZStack(alignment: .leading) {
+                            if newMessage.isEmpty {
+                                Text("iMessage")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.6))
+                            }
+                            
+                            TextField("", text: $newMessage, axis: .vertical)
+                                .font(.system(size: 16))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                .lineLimit(1...5)
+                                .textFieldStyle(PlainTextFieldStyle())
+                                .frame(minHeight: 20)
+                                .padding(.vertical, 0)
+                                .accentColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .onSubmit {
+                                    sendMessage()
+                                }
+                                .onChange(of: newMessage) { _, newValue in
+                                    if !newValue.isEmpty {
+                                        streamChatService.startTyping()
+                                    } else {
+                                        streamChatService.stopTyping()
+                                    }
+                                }
                         }
-                        .onChange(of: newMessage) { _, newValue in
-                            if !newValue.isEmpty {
-                                streamChatService.startTyping()
-                            } else {
-                                streamChatService.stopTyping()
+                        
+                        // Emoji/Plus Button
+                        if newMessage.isEmpty {
+                            Button(action: {}) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    .frame(width: 30, height: 30)
                             }
                         }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                            )
+                    )
                     
-                    // Emoji/Plus Button
-                    if newMessage.isEmpty {
-                        Button(action: {}) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 22))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    // Send Button (estilo iMessage)
+                    if !newMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button(action: sendMessage) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .frame(width: 36, height: 36)
                         }
+                        .transition(.scale.combined(with: .opacity))
+                    } else {
+                        // Voice Recording Button con gestos
+                        VoiceRecordingButtonSimple(
+                            isRecording: $isRecording,
+                            recordingTime: $recordingTime,
+                            onStartRecording: startVoiceRecording,
+                            onStopRecording: stopVoiceRecording,
+                            onCancelRecording: cancelVoiceRecording,
+                            themeManager: themeManager
+                        )
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                        )
-                )
+                .opacity(isRecording ? 0 : 1)
+                .animation(.easeInOut(duration: 0.2), value: isRecording)
                 
-                // Send Button (estilo iMessage)
-                if !newMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Button(action: sendMessage) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                // Interfaz de grabación estilo WhatsApp
+                if isRecording {
+                    HStack(spacing: 12) {
+                        // Timer de grabación
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                                .opacity(recordingTime.truncatingRemainder(dividingBy: 1.0) < 0.5 ? 1 : 0.3)
+                            
+                            Text(String(format: "%01d:%02d", Int(recordingTime) / 60, Int(recordingTime) % 60))
+                                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        }
+                        
+                        Spacer()
+                        
+                        // Texto "Desliza para cancelar" con flechas
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 12, weight: .medium))
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Desliza para cancelar")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(Color.gray)
+                        .onLongPressGesture(minimumDuration: 0.01, pressing: { _ in }) {
+                            // No hacer nada - esto previene interferencias
+                        }
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 10)
+                                .onEnded { drag in
+                                    if drag.translation.width < -50 {
+                                        cancelVoiceRecording()
+                                    }
+                                }
+                        )
+                        
+                        Spacer()
+                        
+                        // Espacio para mantener proporción
+                        Color.clear
+                            .frame(width: 36, height: 36)
                     }
-                    .transition(.scale.combined(with: .opacity))
-                } else {
-                    // Voice Recording Button con gestos
-                    VoiceRecordingButton(
-                        isRecording: $isRecording,
-                        recordingTime: $recordingTime,
-                        onStartRecording: startVoiceRecording,
-                        onStopRecording: stopVoiceRecording,
-                        onCancelRecording: cancelVoiceRecording,
-                        themeManager: themeManager
-                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .animation(.easeInOut(duration: 0.2), value: isRecording)
                 }
             }
             .padding(.horizontal, 12)
@@ -318,6 +386,8 @@ struct SimpleiMessageChatView: View {
         }
         
         print("🚀 Iniciando loadChatRoom para evento \(eventId)")
+        print("🔍 authService.isAuthenticated: \(authService.isAuthenticated)")
+        print("🔍 authService.user: \(authService.user?.email ?? "nil")")
         isLoading = true
         hasLoadedChat = true
         errorMessage = nil
@@ -327,10 +397,16 @@ struct SimpleiMessageChatView: View {
         Task {
             do {
                 guard let eventIdInt = Int(eventId) else {
-                    errorMessage = "ID de evento inválido"
-                    isLoading = false
+                    print("❌ Error: No se pudo convertir eventId '\(eventId)' a Int")
+                    await MainActor.run {
+                        errorMessage = "ID de evento inválido: \(eventId)"
+                        isLoading = false
+                    }
                     return
                 }
+                
+                print("✅ eventId convertido exitosamente: \(eventIdInt)")
+                print("🔄 Llamando getChatDataForEvent...")
                 
                 if let chatData = await chatService.getChatDataForEvent(eventId: eventIdInt) {
                     streamToken = chatData.token
@@ -352,9 +428,12 @@ struct SimpleiMessageChatView: View {
                     
                     isLoading = false
                 } else {
-                    errorMessage = "No se pudieron obtener datos del chat"
-                    print("⚠️ No se pudieron obtener datos del chat")
-                    isLoading = false
+                    print("❌ Error: getChatDataForEvent devolvió nil")
+                    await MainActor.run {
+                        errorMessage = "No se pudo cargar el chat para el evento \(eventIdInt)"
+                        isLoading = false
+                    }
+                    return
                 }
             }
         }
@@ -378,17 +457,21 @@ struct SimpleiMessageChatView: View {
     
     private func startVoiceRecording() {
         print("🎤 Iniciando grabación de voz")
-        isRecording = true
-        recordingTime = 0
         
-        // Vibración de inicio
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
-        
-        // Timer para contar tiempo de grabación en el main thread
-        recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            DispatchQueue.main.async {
-                self.recordingTime += 0.1
+        // Usar async para evitar modificar estado durante actualización de vista
+        DispatchQueue.main.async {
+            self.isRecording = true
+            self.recordingTime = 0
+            
+            // Vibración de inicio
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+            
+            // Timer para contar tiempo de grabación
+            self.recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+                DispatchQueue.main.async {
+                    self.recordingTime += 0.1
+                }
             }
         }
         
@@ -402,13 +485,16 @@ struct SimpleiMessageChatView: View {
     
     private func stopVoiceRecording() {
         print("🎤 Deteniendo grabación de voz (duración: \(recordingTime)s)")
-        isRecording = false
-        recordingTimer?.invalidate()
-        recordingTimer = nil
         
-        // Vibración de finalización
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        DispatchQueue.main.async {
+            self.isRecording = false
+            self.recordingTimer?.invalidate()
+            self.recordingTimer = nil
+            
+            // Vibración de finalización
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+        }
         
         if recordingTime > 1.0 {
             // Solo enviar si la grabación dura más de 1 segundo
@@ -423,14 +509,17 @@ struct SimpleiMessageChatView: View {
     
     private func cancelVoiceRecording() {
         print("❌ Grabación de voz cancelada")
-        isRecording = false
-        recordingTimer?.invalidate()
-        recordingTimer = nil
-        recordingTime = 0
         
-        // Vibración de cancelación
-        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-        impactFeedback.impactOccurred()
+        DispatchQueue.main.async {
+            self.isRecording = false
+            self.recordingTimer?.invalidate()
+            self.recordingTimer = nil
+            self.recordingTime = 0
+            
+            // Vibración de cancelación
+            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+            impactFeedback.impactOccurred()
+        }
     }
 }
 
@@ -498,45 +587,64 @@ struct VoiceRecordingButton: View {
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isLongPressed)
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isRecording)
         .animation(.easeInOut(duration: 0.2), value: showCancelText)
-        .gesture(
-            // Combinar gesto de presión larga con arrastre
-            LongPressGesture(minimumDuration: 0.3) // Duración mínima para activar
-                .sequenced(before: DragGesture())
-                .updating($isLongPressed) { value, state, transaction in
-                    switch value {
-                    case .first(true):
-                        state = true
-                        if !isRecording {
-                            onStartRecording()
-                        }
-                    case .second(true, let drag):
-                        state = true
-                        if isRecording {
-                            dragOffset = drag?.translation ?? .zero
-                            showCancelText = (drag?.translation.width ?? 0) < -40
-                        }
-                    default:
-                        state = false
+        .onLongPressGesture(minimumDuration: 0.1, pressing: { pressing in
+            print("🎤 handlePressChange (iMessage): pressing=\(pressing), isRecording=\(isRecording)")
+            
+            withAnimation(.easeInOut(duration: 0.1)) {
+                // pressingDown = pressing (esta variable no existe en esta versión)
+            }
+            
+            if pressing {
+                // Iniciar grabación cuando empiece el long press
+                if !isRecording {
+                    print("🎤 Iniciando grabación desde iMessage")
+                    onStartRecording()
+                }
+            } else {
+                // Detener grabación cuando se suelte el botón
+                if isRecording {
+                    print("🎤 Deteniendo grabación desde iMessage")
+                    onStopRecording()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        dragOffset = .zero
+                        showCancelText = false
                     }
                 }
-                .onEnded { value in
-                    dragOffset = .zero
-                    showCancelText = false
-                    
-                    switch value {
-                    case .first(false):
-                        // Se soltó antes de completar la presión larga - no hacer nada
-                        break
-                    case .second(true, let drag):
-                        if isRecording {
-                            if let dragValue = drag, dragValue.translation.width < -60 {
-                                onCancelRecording()
-                            } else {
-                                onStopRecording()
-                            }
+            }
+        }) {
+            // No hacer nada aquí para evitar llamadas duplicadas
+            print("🎤 Long press completado (iMessage sin acción)")
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { drag in
+                    if isRecording {
+                        let translation = drag.translation
+                        
+                        // Actualizar offset con límites
+                        dragOffset = CGSize(
+                            width: max(-100, min(0, translation.width)),
+                            height: max(-100, min(0, translation.height))
+                        )
+                        
+                        // Detectar zona de cancelar
+                        showCancelText = translation.width < -50
+                    }
+                }
+                .onEnded { drag in
+                    if isRecording {
+                        let translation = drag.translation
+                        
+                        // Resetear estados visuales
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            dragOffset = .zero
+                            showCancelText = false
                         }
-                    default:
-                        if isRecording {
+                        
+                        // Verificar si se deslizó hacia la izquierda para cancelar
+                        if translation.width < -60 {
+                            onCancelRecording()
+                        } else {
                             onStopRecording()
                         }
                     }

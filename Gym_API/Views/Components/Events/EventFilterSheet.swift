@@ -7,28 +7,11 @@ struct EventFilterSheet: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                // Header
-                VStack(spacing: 8) {
-                    Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    
-                    Text("Filter Events")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    
-                    Text("Choose which events to show")
-                        .font(.subheadline)
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-                .padding(.top, 20)
-                
-                // Filter Options
-                VStack(spacing: 16) {
+            VStack(spacing: 16) {
+                // Filter Options - Más compacto
+                VStack(spacing: 12) {
                     ForEach(EventFilter.allCases, id: \.self) { filter in
-                        FilterOption(
+                        CompactFilterOption(
                             filter: filter,
                             isSelected: selectedFilter == filter,
                             themeManager: themeManager
@@ -38,23 +21,22 @@ struct EventFilterSheet: View {
                     }
                 }
                 .padding(.horizontal, 20)
+                .padding(.top, 10)
                 
-                Spacer()
-                
-                // Apply Button
+                // Apply Button - Más compacto
                 Button(action: {
                     dismiss()
                 }) {
                     Text("Apply Filter")
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        .frame(height: 44)
                         .background(Color.dynamicAccent(theme: themeManager.currentTheme))
                         .cornerRadius(12)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 30)
+                .padding(.bottom, 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.dynamicBackground(theme: themeManager.currentTheme))
@@ -70,6 +52,62 @@ struct EventFilterSheet: View {
                 }
             }
         }
+    }
+}
+
+struct CompactFilterOption: View {
+    let filter: EventFilter
+    let isSelected: Bool
+    let themeManager: ThemeManager
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Filter Icon - Más pequeño
+                Image(systemName: filter.iconName)
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? .white : Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2))
+                    )
+                
+                // Filter Info - Solo título
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(filter.displayName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        
+                        Spacer()
+                        
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .font(.system(size: 18))
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicBorder(theme: themeManager.currentTheme),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
