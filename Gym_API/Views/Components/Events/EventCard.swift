@@ -353,7 +353,7 @@ struct ModernEventCardContent: View {
                         .disabled(event.participantsCount >= event.maxParticipants)
                     }
                 }
-                .frame(width: 110, height: 40)
+                .frame(width: 120, height: 44)
                 .offset(x: 20)
             }
         }

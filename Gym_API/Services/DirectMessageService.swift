@@ -16,7 +16,7 @@ struct ChatRoomResponse: Codable {
     let id: Int
     let streamChannelId: String
     let streamChannelType: String
-    let createdAt: Date
+    let createdAt: String
     
     enum CodingKeys: String, CodingKey {
         case name
@@ -26,6 +26,43 @@ struct ChatRoomResponse: Codable {
         case streamChannelId = "stream_channel_id"
         case streamChannelType = "stream_channel_type"
         case createdAt = "created_at"
+    }
+}
+
+// MARK: - Extension for ChatRoomResponse
+extension ChatRoomResponse {
+    /// Convierte la respuesta de la API en un ChatChannelData
+    func toChatChannelData() -> ChatChannelData {
+        let channelType = streamChannelId.getChannelType()
+        
+        // Usar el nombre de la API, que ya viene formateado correctamente
+        let displayName = name
+        
+        // Extraer participantes del ID si es un chat directo
+        var participants: [String] = []
+        if isDirect {
+            let parsed = streamChannelId.parseStreamChannelId()
+            if let userId1 = parsed.metadata["userId1"], let userId2 = parsed.metadata["userId2"] {
+                participants = [userId1, userId2]
+            }
+        }
+        
+        // Convertir fecha string a Date
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let createdDate = dateFormatter.date(from: createdAt) ?? Date()
+        
+        return ChatChannelData(
+            id: streamChannelId,
+            name: displayName,
+            type: channelType,
+            participants: participants,
+            lastMessage: nil,
+            lastMessageAt: nil,
+            createdAt: createdDate,
+            unreadCount: 0,
+            isActive: true
+        )
     }
 }
 

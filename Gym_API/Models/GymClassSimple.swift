@@ -6,6 +6,7 @@ struct GymClass: Identifiable {
     let name: String
     let description: String
     let instructor: String
+    let trainerId: Int // Agregado para obtener la imagen del trainer
     let startTime: Date
     let endTime: Date
     let maxParticipants: Int
@@ -15,11 +16,12 @@ struct GymClass: Identifiable {
     let gymTimezone: String? // Agregado para manejar zona horaria
     
     // Inicializador completo
-    init(id: Int, name: String, description: String, instructor: String, startTime: Date, endTime: Date, maxParticipants: Int, currentParticipants: Int, difficulty: ClassDifficulty, status: ClassStatus, gymTimezone: String? = nil) {
+    init(id: Int, name: String, description: String, instructor: String, trainerId: Int, startTime: Date, endTime: Date, maxParticipants: Int, currentParticipants: Int, difficulty: ClassDifficulty, status: ClassStatus, gymTimezone: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
         self.instructor = instructor
+        self.trainerId = trainerId
         self.startTime = startTime
         self.endTime = endTime
         self.maxParticipants = maxParticipants

@@ -4,7 +4,7 @@ struct ClassCardView: View {
     @EnvironmentObject var themeManager: ThemeManager
     let gymClass: GymClass
     @EnvironmentObject var classService: ClassService
-    @State private var trainerImage: String = ""
+    @State private var trainerImageURL: String = ""
     
     var body: some View {
         HStack(spacing: 0) {
@@ -68,7 +68,7 @@ struct ClassCardView: View {
                 // Instructor and action button
                 HStack(spacing: 0) {
                     HStack(spacing: 10) {
-                        AsyncImage(url: URL(string: instructorImageURL)) { phase in
+                        AsyncImage(url: URL(string: trainerImageURL)) { phase in
                             switch phase {
                             case .success(let image):
                                 image
@@ -226,6 +226,12 @@ struct ClassCardView: View {
                 )
             }
         }
+        .onAppear {
+            updateTrainerImage()
+        }
+        .onChange(of: classService.trainers.count) { _, _ in
+            updateTrainerImage()
+        }
     }
     
     // MARK: - Computed Properties
@@ -266,13 +272,21 @@ struct ClassCardView: View {
     }
     
     private var instructorDisplayName: String {
-        // Map generic instructor names to Jose Paul Rodriguez as shown in original
-        return "Jose Paul Rodriguez"
+        return gymClass.instructor
     }
     
-    private var instructorImageURL: String {
-        // Return empty string to use fallback icon
-        return ""
+    private func updateTrainerImage() {
+        print("🔍 [ClassCardView] Actualizando imagen - Buscando trainer con ID: \(gymClass.trainerId)")
+        print("🔍 [ClassCardView] Trainers disponibles: \(classService.trainers.count)")
+        
+        if let trainer = classService.getTrainer(trainerId: gymClass.trainerId) {
+            print("✅ [ClassCardView] Trainer encontrado: \(trainer.fullName)")
+            print("🖼️ [ClassCardView] Picture URL: '\(trainer.picture ?? "")'")
+            trainerImageURL = trainer.picture ?? ""
+        } else {
+            print("❌ [ClassCardView] Trainer no encontrado para ID: \(gymClass.trainerId)")
+            trainerImageURL = ""
+        }
     }
     
     private var difficultyText: String {
@@ -322,6 +336,7 @@ struct ClassCardView: View {
         name: "Boxing Fundamentals",
         description: "Learn the basics of boxing",
         instructor: "Coach Mike",
+        trainerId: 1,
         startTime: Date(),
         endTime: Date().addingTimeInterval(3600),
         maxParticipants: 15,

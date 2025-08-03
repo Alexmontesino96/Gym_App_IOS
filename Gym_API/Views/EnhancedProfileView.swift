@@ -16,6 +16,7 @@ struct EnhancedProfileView: View {
     @StateObject private var gymService = GymService.shared
     @State private var refreshID = UUID()
     @State private var showingGymSelector = false
+    @State private var showingSettings = false
     let onThemeChangeRequest: () -> Void
     
     var body: some View {
@@ -48,7 +49,7 @@ struct EnhancedProfileView: View {
                         )
                         
                         // Sección de notificaciones
-                        NotificationsSection(
+                        ProfileNotificationsSection(
                             oneSignalService: oneSignalService,
                             themeManager: themeManager,
                             refreshID: $refreshID
@@ -69,7 +70,24 @@ struct EnhancedProfileView: View {
             }
             .navigationTitle("Perfil")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { 
+                        showingSettings = true 
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    }
+                }
+            }
             .animation(.easeInOut(duration: 0.3), value: themeManager.currentTheme)
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(onThemeChangeRequest: onThemeChangeRequest)
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .environmentObject(UserProfileService.shared)
         }
         .sheet(isPresented: $showingGymSelector) {
             GymSelectorModal(
@@ -104,27 +122,127 @@ struct EnhancedProfileView: View {
 struct UserHeaderView: View {
     let themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
+    @StateObject private var profileImageService = ProfileImageService()
+    @State private var showingImagePicker = false
+    @State private var selectedImage: UIImage?
+    @State private var showingUploadAlert = false
     
     var body: some View {
         VStack(spacing: 16) {
-            // Avatar con gradiente
+            // Avatar con imagen real o placeholder
             ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.dynamicAccent(theme: themeManager.currentTheme),
-                                Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                // Avatar Image
+                if let user = authService.user {
+                    let _ = print("🔍 [PROFILE DEBUG] Usuario encontrado: \(user.name)")
+                    let _ = print("🔍 [PROFILE DEBUG] Picture URL: '\(user.picture ?? "nil")'")
+                    
+                    if let pictureURL = user.picture, !pictureURL.isEmpty {
+                        let _ = print("✅ [PROFILE DEBUG] Usando AsyncImage")
+                        
+                        AsyncImage(url: URL(string: pictureURL)) { phase in
+                            switch phase {
+                            case .empty:
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: 100, height: 100)
+                                    .overlay(
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .gray))
+                                    )
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 100, height: 100)
+                                    .clipShape(Circle())
+                            case .failure(_):
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: 100, height: 100)
+                                    .overlay(
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 45))
+                                            .foregroundColor(.gray)
+                                    )
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    } else {
+                        let _ = print("⚠️ [PROFILE DEBUG] Picture URL es nil o vacía")
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.dynamicAccent(theme: themeManager.currentTheme),
+                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 100, height: 100)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 45))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                } else {
+                    let _ = print("❌ [PROFILE DEBUG] No hay usuario autenticado")
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.dynamicAccent(theme: themeManager.currentTheme),
+                                    Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 100, height: 100)
+                        .frame(width: 100, height: 100)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 45))
+                                .foregroundColor(.white)
+                        )
+                }
                 
-                Image(systemName: "person.fill")
-                    .font(.system(size: 45))
-                    .foregroundColor(.white)
+                // Edit button overlay
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            showingImagePicker = true
+                        }) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(width: 28, height: 28)
+                                .background(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.dynamicBackground(theme: themeManager.currentTheme), lineWidth: 2)
+                                )
+                        }
+                        .disabled(profileImageService.isUploading)
+                    }
+                }
+                .frame(width: 100, height: 100)
+                
+                // Loading overlay
+                if profileImageService.isUploading {
+                    Circle()
+                        .fill(Color.black.opacity(0.5))
+                        .frame(width: 100, height: 100)
+                        .overlay(
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        )
+                }
             }
             .shadow(color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), radius: 10, x: 0, y: 5)
             
@@ -140,8 +258,58 @@ struct UserHeaderView: View {
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 }
             }
+            
+            // Error message
+            if let error = profileImageService.uploadError {
+                Text(error)
+                    .font(.system(size: 14))
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+            }
         }
         .padding(.top, 10)
+        .sheet(isPresented: $showingImagePicker) {
+            ImagePickerSheet(selectedImage: $selectedImage, isPresented: $showingImagePicker)
+                .environmentObject(themeManager)
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage {
+                Task {
+                    let success = await profileImageService.uploadProfileImage(image)
+                    if success {
+                        // Actualizar el usuario con la nueva URL
+                        if let newURL = profileImageService.profileImageURL {
+                            authService.updateUserPicture(newURL)
+                        }
+                        showingUploadAlert = true
+                    }
+                }
+            }
+        }
+        .alert("Profile Updated", isPresented: $showingUploadAlert) {
+            Button("OK") { }
+        } message: {
+            Text("Your profile photo has been updated successfully.")
+        }
+        .onAppear {
+            profileImageService.authService = authService
+        }
+    }
+    
+    private func createValidURL(from urlString: String) -> URL? {
+        let cleanedString = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        var cleanURL = cleanedString
+        
+        if cleanURL.hasSuffix("?") {
+            cleanURL = String(cleanURL.dropLast())
+        }
+        
+        if cleanURL.hasPrefix("https://") || cleanURL.hasPrefix("http://") {
+            return URL(string: cleanURL)
+        }
+        
+        return nil
     }
 }
 
@@ -450,7 +618,7 @@ struct ProfileOptionsSection: View {
 }
 
 // MARK: - Notifications Section
-struct NotificationsSection: View {
+struct ProfileNotificationsSection: View {
     @ObservedObject var oneSignalService: OneSignalService
     let themeManager: ThemeManager
     @Binding var refreshID: UUID

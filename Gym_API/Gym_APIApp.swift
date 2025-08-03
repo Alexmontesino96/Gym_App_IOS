@@ -13,8 +13,10 @@ struct Gym_APIApp: App {
     @StateObject private var authService = AuthServiceDirect()
     @StateObject private var eventService = EventService()
     @StateObject private var classService = ClassService()
+    @StateObject private var profileService = UserProfileService.shared
     @StateObject private var themeManager = ThemeManager()
     @StateObject private var oneSignalService = OneSignalService.shared
+    @StateObject private var gymService = GymService.shared
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -35,8 +37,10 @@ struct Gym_APIApp: App {
                 .environmentObject(authService)
                 .environmentObject(eventService)
                 .environmentObject(classService)
+                .environmentObject(profileService)
                 .environmentObject(themeManager)
                 .environmentObject(oneSignalService)
+                .environmentObject(gymService)
             .preferredColorScheme(themeManager.currentTheme == .dark ? .dark : .light)
             .onAppear {
                 // Inicializar OneSignal primero
@@ -45,6 +49,8 @@ struct Gym_APIApp: App {
                 authService.checkAuthStatus()
                 eventService.authService = authService
                 classService.authService = authService
+                profileService.authService = authService
+                gymService.authService = authService
             }
             .onChange(of: authService.isAuthenticated) {
                 if authService.isAuthenticated {

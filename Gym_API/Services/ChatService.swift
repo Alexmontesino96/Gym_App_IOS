@@ -37,12 +37,10 @@ struct ChatRoom: Codable, Identifiable {
     
     var displayName: String {
         let safeName = name ?? "Direct chat"
-        print("📊 displayName - name: \(name ?? "nil"), safeName: \(safeName), chatType: \(chatType)")
         switch chatType {
         case .direct:
             let cleanName = safeName.replacingOccurrences(of: "Chat with ", with: "")
                                     .replacingOccurrences(of: "Chat ", with: "")
-            print("📊 displayName - cleanName after replacement: \(cleanName)")
             // Si el nombre empieza con "auth0", usar placeholder por ahora
             // La resolución se maneja en la vista para evitar problemas de concurrencia
             if cleanName.hasPrefix("auth0") {
@@ -177,11 +175,17 @@ class ChatService: ObservableObject {
     @Published var errorMessage: String?
     @Published var connectedChannels: [String: Any] = [:]
     @Published var isConnectedToStream = false
+    @Published var isTestingConnection = false
+    @Published var connectionTestResult: String?
     
     // MARK: - Chat Rooms Properties
     @Published var chatRooms: [ChatRoom] = []
     @Published var isLoadingRooms = false
     @Published var roomsErrorMessage: String?
+    
+    // MARK: - Request Management
+    private var currentMyRoomsTask: Task<Void, Never>?
+    private var currentTokenTask: Task<StreamTokenResponse?, Never>?
     
     // MARK: - User Name Resolution
     @Published var userNameCache: [Int: String] = [:] // user_id -> display_name
@@ -241,6 +245,18 @@ class ChatService: ObservableObject {
     
     // MARK: - Get Stream Token
     func getStreamToken() async -> StreamTokenResponse? {
+        // Cancelar tarea anterior si existe
+        currentTokenTask?.cancel()
+        
+        // Crear nueva tarea
+        currentTokenTask = Task {
+            return await performGetStreamToken()
+        }
+        
+        return await currentTokenTask?.value
+    }
+    
+    private func performGetStreamToken() async -> StreamTokenResponse? {
         updateOnMainThread {
             self.isLoadingToken = true
             self.errorMessage = nil
@@ -263,6 +279,7 @@ class ChatService: ObservableObject {
         }
         
         do {
+            // Usar timeout más corto para evitar acumulación
             let (data, response) = try await session.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse {
@@ -299,6 +316,241 @@ class ChatService: ObservableObject {
         }
         
         return nil
+    }
+    
+    // MARK: - Test GetStream Connection
+    func testGetStreamConnection() async {
+        updateOnMainThread {
+            self.isTestingConnection = true
+            self.connectionTestResult = nil
+            self.errorMessage = nil
+        }
+        
+        print("🧪 Iniciando prueba de conexión a GetStream...")
+        
+        // Paso 1: Obtener token
+        guard let tokenResponse = await getStreamToken() else {
+            updateOnMainThread {
+                self.connectionTestResult = "❌ Error: No se pudo obtener el token de GetStream"
+                self.isTestingConnection = false
+            }
+            return
+        }
+        
+        print("✅ Token obtenido: \(tokenResponse.token.prefix(20))...")
+        print("🔑 API Key: \(tokenResponse.apiKey)")
+        print("👤 Internal User ID: \(tokenResponse.internalUserId)")
+        
+        // Decodificar el JWT para ver su contenido
+        await decodeAndLogJWT(tokenResponse.token)
+        
+        // Almacenar el token para comparación posterior
+        print("🔍 Token que se pasará al provider: \(tokenResponse.token)")
+        
+        // Paso 2: Intentar conectar usando el GetStreamChatProvider
+        do {
+            let provider = GetStreamChatProvider()
+            
+            // Crear credenciales de prueba
+            // IMPORTANTE: El userId debe coincidir con el user_id del token JWT
+            let userId = "user_\(tokenResponse.internalUserId)"
+            
+            let credentials = ChatCredentials(
+                token: tokenResponse.token,
+                apiKey: tokenResponse.apiKey,
+                userId: userId,
+                userInfo: ChatUser(
+                    id: userId,
+                    name: "Test User",
+                    avatarURL: nil
+                )
+            )
+            
+            print("🔍 Usando userId: \(userId) para coincidir con el token")
+            
+            print("🔌 Intentando conectar a GetStream...")
+            try await provider.connect(credentials: credentials)
+            
+            updateOnMainThread {
+                self.isConnectedToStream = true
+                self.connectionTestResult = "✅ Conexión exitosa a GetStream!"
+                self.isTestingConnection = false
+            }
+            
+            print("🎉 ¡Conexión exitosa a GetStream!")
+            
+            // Sincronizar con rooms de la API
+            print("🔄 Sincronizando con rooms de la API...")
+            await syncApiRoomsWithGetStream(provider: provider)
+            
+            // Desconectar después de la prueba
+            await provider.disconnect()
+            
+            updateOnMainThread {
+                self.isConnectedToStream = false
+            }
+            
+        } catch {
+            print("❌ Error conectando a GetStream: \(error)")
+            updateOnMainThread {
+                self.connectionTestResult = "❌ Error de conexión: \(error.localizedDescription)"
+                self.isTestingConnection = false
+                self.isConnectedToStream = false
+            }
+        }
+    }
+    
+    // MARK: - JWT Debugging
+    private func decodeAndLogJWT(_ token: String) async {
+        print("🔍 Decodificando JWT...")
+        
+        // Dividir el JWT en sus partes
+        let parts = token.split(separator: ".")
+        if parts.count != 3 {
+            print("❌ JWT inválido: no tiene 3 partes")
+            return
+        }
+        
+        // Decodificar el header
+        if let headerData = base64UrlDecode(String(parts[0])),
+           let headerJson = try? JSONSerialization.jsonObject(with: headerData) as? [String: Any] {
+            print("📋 JWT Header:")
+            for (key, value) in headerJson {
+                print("   \(key): \(value)")
+            }
+        }
+        
+        // Decodificar el payload
+        if let payloadData = base64UrlDecode(String(parts[1])),
+           let payloadJson = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] {
+            print("📋 JWT Payload:")
+            for (key, value) in payloadJson {
+                print("   \(key): \(value)")
+            }
+            
+            // Verificar campos importantes para GetStream
+            if payloadJson["user_id"] != nil {
+                print("✅ Campo 'user_id' encontrado en el token")
+            } else {
+                print("❌ Campo 'user_id' NO encontrado en el token")
+                print("🔍 Campos disponibles: \(Array(payloadJson.keys).joined(separator: ", "))")
+            }
+            
+            // Verificar otros campos relevantes
+            if let sub = payloadJson["sub"] {
+                print("📋 Subject (sub): \(sub)")
+            }
+            if let iss = payloadJson["iss"] {
+                print("📋 Issuer (iss): \(iss)")
+            }
+            if let aud = payloadJson["aud"] {
+                print("📋 Audience (aud): \(aud)")
+            }
+            if let exp = payloadJson["exp"] {
+                print("📋 Expires (exp): \(exp)")
+            }
+        }
+    }
+    
+    private func base64UrlDecode(_ string: String) -> Data? {
+        var base64 = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        // Agregar padding si es necesario
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+        
+        return Data(base64Encoded: base64)
+    }
+    
+    // MARK: - Sync API Rooms with GetStream
+    private func syncApiRoomsWithGetStream(provider: GetStreamChatProvider) async {
+        print("🔄 Iniciando sincronización de rooms API con GetStream...")
+        
+        // Obtener rooms de la API
+        await getMyRooms()
+        
+        print("📋 Rooms obtenidos de la API: \(chatRooms.count)")
+        
+        // Para each room, intentar crear/unirse al canal correspondiente en GetStream
+        for room in chatRooms {
+            print("🏠 Procesando room: \(room.name ?? "Sin nombre") - \(room.streamChannelId)")
+            
+            do {
+                // Intentar unirse al canal en GetStream
+                try await provider.joinConversation(room.streamChannelId)
+                print("✅ Unido al canal: \(room.streamChannelId)")
+                
+                // Actualizar el nombre del canal si está disponible
+                if let roomName = room.name, !roomName.isEmpty {
+                    do {
+                        try await provider.updateChannelName(room.streamChannelId, name: roomName)
+                        print("🏷️ Nombre actualizado para \(room.streamChannelId): \(roomName)")
+                    } catch {
+                        print("⚠️ No se pudo actualizar el nombre del canal \(room.streamChannelId): \(error)")
+                    }
+                }
+            } catch {
+                print("❌ Error uniéndose al canal \(room.streamChannelId): \(error)")
+                
+                // Si no existe, intentar crearlo
+                print("🛠️ Intentando crear canal: \(room.streamChannelId)")
+                
+                let conversationType: ChatConversation.ConversationType
+                switch room.chatType {
+                case .direct:
+                    conversationType = .direct
+                case .event:
+                    conversationType = .group
+                case .general:
+                    conversationType = .channel
+                }
+                
+                let createRequest = CreateConversationRequest(
+                    id: room.streamChannelId, // Usar el ID específico de la API
+                    name: room.name,
+                    type: conversationType,
+                    members: [], // Se agregarán los miembros posteriormente
+                    metadata: [
+                        "room_id": room.id,
+                        "event_id": room.eventId as Any,
+                        "is_direct": room.isDirect
+                    ]
+                )
+                
+                do {
+                    let createdConversation = try await provider.createConversation(createRequest)
+                    print("✅ Canal creado: \(createdConversation.id)")
+                    
+                    // Actualizar el nombre del canal recién creado
+                    if let roomName = room.name, !roomName.isEmpty {
+                        do {
+                            try await provider.updateChannelName(room.streamChannelId, name: roomName)
+                            print("🏷️ Nombre actualizado para canal creado \(room.streamChannelId): \(roomName)")
+                        } catch {
+                            print("⚠️ No se pudo actualizar el nombre del canal creado \(room.streamChannelId): \(error)")
+                        }
+                    }
+                } catch {
+                    print("❌ Error creando canal: \(error)")
+                }
+            }
+        }
+        
+        // Después de sincronizar, obtener conversaciones actualizadas
+        print("🔍 Obteniendo conversaciones actualizadas después de sincronización...")
+        do {
+            let conversations = try await provider.getConversations()
+            print("💬 Conversaciones finales: \(conversations.count)")
+            for (index, conversation) in conversations.enumerated() {
+                print("   \(index + 1). ID: \(conversation.id), Name: \(conversation.name ?? "Sin nombre"), Members: \(conversation.members.count)")
+            }
+        } catch {
+            print("❌ Error obteniendo conversaciones finales: \(error)")
+        }
     }
     
     // MARK: - Get Event Chat Room
@@ -378,8 +630,57 @@ class ChatService: ObservableObject {
         return nil
     }
     
-    // MARK: - Get My Rooms
+    // MARK: - Get My Rooms (usando nuevo endpoint)
+    func getMyRoomsFromAPI() async -> [ChatRoomResponse]? {
+        guard let url = URL(string: "\(baseURL)/chat/my-rooms") else {
+            print("❌ URL inválida para my-rooms")
+            return nil
+        }
+        
+        guard let request = await createAuthenticatedRequest(url: url) else {
+            print("❌ No se pudo crear request autenticado")
+            return nil
+        }
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 Response status for my-rooms: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 {
+                    let decoder = JSONDecoder()
+                    let rooms = try decoder.decode([ChatRoomResponse].self, from: data)
+                    print("✅ Salas cargadas desde API: \(rooms.count)")
+                    return rooms
+                } else {
+                    print("❌ Error HTTP: \(httpResponse.statusCode)")
+                    if let errorString = String(data: data, encoding: .utf8) {
+                        print("❌ Error detail: \(errorString)")
+                    }
+                }
+            }
+        } catch {
+            print("❌ Error obteniendo salas: \(error)")
+        }
+        
+        return nil
+    }
+    
+    // MARK: - Get My Rooms (método original)
     func getMyRooms() async {
+        // Cancelar tarea anterior si existe
+        currentMyRoomsTask?.cancel()
+        
+        // Crear nueva tarea
+        currentMyRoomsTask = Task {
+            await performGetMyRooms()
+        }
+        
+        await currentMyRoomsTask?.value
+    }
+    
+    private func performGetMyRooms() async {
         updateOnMainThread {
             self.isLoadingRooms = true
             self.roomsErrorMessage = nil
@@ -514,24 +815,34 @@ class ChatService: ObservableObject {
                     dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
                     decoder.dateDecodingStrategy = .formatted(dateFormatter)
                     
-                    let members = try decoder.decode([UserProfile].self, from: data)
+                    let participants = try decoder.decode([GymParticipant].self, from: data)
                     
-                    print("🏃‍♂️ Miembros cargados: \(members.count)")
-                    for member in members {
-                        print("👤 Usuario: \(member.fullName) - Role: \(member.role) - ID: \(member.id)")
+                    print("🏃‍♂️ Participantes cargados: \(participants.count)")
+                    
+                    // Convertir participantes a UserProfile y actualizar cache
+                    var validMembers: [UserProfile] = []
+                    for participant in participants {
+                        print("👤 Participante: \(participant.fullName) - Role: \(participant.role ?? "N/A") - ID: \(participant.id)")
+                        
+                        // Si no podemos convertir a UserProfile, al menos guardar el nombre
+                        if let userProfile = participant.toUserProfile() {
+                            validMembers.append(userProfile)
+                        }
+                        // Siempre guardar el nombre en cache
+                        self.userNameCache[participant.id] = participant.fullName
                     }
                     
                     updateOnMainThread {
-                        // Actualizar cache de miembros
-                        for member in members {
+                        // Actualizar cache de miembros con los que pudimos convertir
+                        for member in validMembers {
                             self.gymMembersCache[member.id] = member
-                            self.userNameCache[member.id] = member.fullName
                         }
                         self.isLoadingGymMembers = false
                     }
                     
-                    print("✅ Cargados \(members.count) miembros del gym en cache")
-                    print("👤 Miembros: \(members.map { "\($0.id): \($0.fullName)" }.joined(separator: ", "))")
+                    print("✅ Cargados \(participants.count) participantes del gym")
+                    print("✅ Convertidos \(validMembers.count) a UserProfile")
+                    print("👤 Nombres en cache: \(self.userNameCache.count)")
                     
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
@@ -626,20 +937,31 @@ class ChatService: ObservableObject {
         print("✅ Resolución de nombres desde channel IDs completada")
     }
     
+    // MARK: - Cache for resolved display names
+    private var resolvedDisplayNameCache: [String: String] = [:]
+    private var pendingResolutions: Set<String> = []
+    
     // MARK: - Get Resolved Display Name
     func getResolvedDisplayName(for chatRoom: ChatRoom) -> String {
-        print("🔍 getResolvedDisplayName - ChatRoom info:")
-        print("   - streamChannelId: \(chatRoom.streamChannelId)")
-        print("   - name: \(chatRoom.name ?? "nil")")
-        print("   - chatType: \(chatRoom.chatType)")
-        print("   - isDirect: \(chatRoom.isDirect)")
-        
+        // Para chats no directos, siempre usar displayName
         guard chatRoom.chatType == .direct else {
             return chatRoom.displayName
         }
         
-        // Para chats directos, siempre usar los IDs del streamChannelId
-        // El formato es "direct_user_X_user_Y", necesitamos obtener el otro usuario
+        // Usar cache de nombres resueltos para evitar recálculos
+        if let cachedDisplayName = resolvedDisplayNameCache[chatRoom.streamChannelId] {
+            return cachedDisplayName
+        }
+        
+        // Si ya hay una resolución pendiente para este chat, no iniciar otra
+        if pendingResolutions.contains(chatRoom.streamChannelId) {
+            return "Loading..."
+        }
+        
+        // Marcar como pendiente para evitar múltiples resoluciones
+        pendingResolutions.insert(chatRoom.streamChannelId)
+        
+        // Para chats directos, extraer los IDs del streamChannelId
         let pattern = "direct_user_(\\d+)_user_(\\d+)"
         if let regex = try? NSRegularExpression(pattern: pattern),
            let match = regex.firstMatch(in: chatRoom.streamChannelId, range: NSRange(chatRoom.streamChannelId.startIndex..., in: chatRoom.streamChannelId)) {
@@ -650,40 +972,80 @@ class ChatService: ObservableObject {
                 let userId1String = String(chatRoom.streamChannelId[range1])
                 let userId2String = String(chatRoom.streamChannelId[range2])
                 
-                print("   - User IDs extraídos: \(userId1String), \(userId2String)")
-                
                 if let userId1 = Int(userId1String),
                    let userId2 = Int(userId2String) {
                     
-                    // Determinar cuál es el otro usuario (usar currentUserId hardcodeado)
+                    // Determinar cuál es el otro usuario
                     let otherUserId = (userId1 == currentUserId) ? userId2 : userId1
                     
-                    print("   - Usuario actual: \(currentUserId), otro usuario: \(otherUserId)")
-                    
-                    // Buscar en el cache de nombres
+                    // Buscar en el cache de nombres de usuario
                     if let cachedName = userNameCache[otherUserId] {
-                        print("   - ✅ Nombre encontrado en cache para user \(otherUserId): \(cachedName)")
-                        return cachedName
+                        let resolvedName = cachedName
+                        resolvedDisplayNameCache[chatRoom.streamChannelId] = resolvedName
+                        pendingResolutions.remove(chatRoom.streamChannelId)
+                        return resolvedName
                     }
                     
-                    // Si no está en cache, cargar miembros en background
-                    if gymMembersCache.isEmpty && !isLoadingGymMembers {
-                        print("   - 🔄 Cache vacío, iniciando carga de miembros...")
-                        Task {
-                            await loadGymMembers()
-                        }
+                    // Si no está en cache, iniciar carga en background una sola vez
+                    Task {
+                        await loadGymMembersForResolution(chatRoomId: chatRoom.streamChannelId, otherUserId: otherUserId)
                     }
                     
-                    print("   - ⏳ Nombre no encontrado en cache para user \(otherUserId)")
-                    return "Loading..." // Se resuelve en background
+                    return "Loading..."
                 }
                 
-                return "Chat \(userId1String)-\(userId2String)"
+                // Fallback para IDs no válidos
+                let fallbackName = "Chat \(userId1String)-\(userId2String)"
+                resolvedDisplayNameCache[chatRoom.streamChannelId] = fallbackName
+                pendingResolutions.remove(chatRoom.streamChannelId)
+                return fallbackName
             }
         }
         
-        print("   - ❌ No se pudo extraer IDs del streamChannelId")
-        return "Direct Message"
+        // Fallback final
+        let fallbackName = "Direct Message"
+        resolvedDisplayNameCache[chatRoom.streamChannelId] = fallbackName
+        pendingResolutions.remove(chatRoom.streamChannelId)
+        return fallbackName
+    }
+    
+    // MARK: - Load Gym Members for Name Resolution
+    private func loadGymMembersForResolution(chatRoomId: String, otherUserId: Int) async {
+        // Si ya hay miembros en cache, resolver directamente
+        if !gymMembersCache.isEmpty {
+            await resolveNameFromCache(chatRoomId: chatRoomId, otherUserId: otherUserId)
+            return
+        }
+        
+        // Si ya hay una carga en progreso, esperar
+        if isLoadingGymMembers {
+            // Esperar un poco y volver a intentar
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 segundos
+            await resolveNameFromCache(chatRoomId: chatRoomId, otherUserId: otherUserId)
+            return
+        }
+        
+        // Cargar miembros
+        await loadGymMembers()
+        await resolveNameFromCache(chatRoomId: chatRoomId, otherUserId: otherUserId)
+    }
+    
+    // MARK: - Resolve Name from Cache
+    private func resolveNameFromCache(chatRoomId: String, otherUserId: Int) async {
+        let resolvedName: String
+        
+        if let cachedName = userNameCache[otherUserId] {
+            resolvedName = cachedName
+        } else {
+            resolvedName = "User \(otherUserId)"
+        }
+        
+        updateOnMainThread {
+            self.resolvedDisplayNameCache[chatRoomId] = resolvedName
+            self.pendingResolutions.remove(chatRoomId)
+            // Forzar actualización de la UI
+            self.objectWillChange.send()
+        }
     }
 
     // MARK: - Get Direct Chat (1:1) - Para miembros
@@ -897,11 +1259,8 @@ class ChatService: ObservableObject {
         
         print("🔍 Iniciando refresh de últimos mensajes para \(chatRooms.count) canales...")
         
-        // Extraer los channel IDs de los chat rooms
-        let channelIds = chatRooms.map { $0.streamChannelId }
-        
-        // Obtener los últimos mensajes desde Stream.io
-        let lastMessages = await StreamChatService.shared.getLastMessagesForChannels(channelIds)
+        // TODO: Implementar obtención de últimos mensajes desde el nuevo sistema
+        let lastMessages: [ChannelLastMessage] = []
         
         // Actualizar cache local
         for lastMessage in lastMessages {
@@ -1132,9 +1491,21 @@ class ChatService: ObservableObject {
     
     // MARK: - Clear All Data
     
+    /// Cancela todas las tareas en progreso
+    func cancelAllTasks() {
+        print("🚫 Cancelando todas las tareas de ChatService en progreso...")
+        currentMyRoomsTask?.cancel()
+        currentTokenTask?.cancel()
+        currentMyRoomsTask = nil
+        currentTokenTask = nil
+    }
+    
     /// Limpia todos los datos del chat
     func clearAllData() {
         print("🧹 Limpiando todos los datos de chat...")
+        
+        // Cancelar tareas en progreso
+        cancelAllTasks()
         
         // Limpiar arrays y cache
         chatRooms = []
@@ -1151,8 +1522,7 @@ class ChatService: ObservableObject {
         isRefreshingMessages = false
         errorMessage = nil
         
-        // Desconectar de Stream si está conectado
-        StreamChatService.shared.disconnect()
+        // TODO: Desconectar del nuevo sistema de chat si es necesario
         
         print("✅ Datos de chat limpiados")
     }

@@ -80,7 +80,7 @@ struct EncryptedMessage: Codable {
 class E2EEncryptionService: ObservableObject {
     static let shared = E2EEncryptionService()
     
-    private let keychain = KeychainService()
+    private let keychain = E2EKeychainService()
     private let keychainIdentityKey = "com.gymapi.e2e.identity"
     private let keychainPreKeysPrefix = "com.gymapi.e2e.prekey."
     
@@ -293,8 +293,8 @@ class E2EEncryptionService: ObservableObject {
     }
 }
 
-// MARK: - Keychain Service Helper
-private class KeychainService {
+// MARK: - E2E Keychain Service Helper
+private class E2EKeychainService {
     func save(_ data: Data, for key: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

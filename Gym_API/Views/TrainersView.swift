@@ -136,33 +136,7 @@ struct TrainerCard: View {
     var body: some View {
         VStack(spacing: 12) {
             // Profile image or placeholder
-            ZStack {
-                Circle()
-                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
-                    .frame(width: 80, height: 80)
-                
-                if !trainer.picture.isEmpty, let url = URL(string: trainer.picture) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 80, height: 80)
-                            .clipShape(Circle())
-                    } placeholder: {
-                        Image("trainer_placeholder")
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 80, height: 80)
-                            .clipShape(Circle())
-                    }
-                } else {
-                    Image("trainer_placeholder")
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 80, height: 80)
-                        .clipShape(Circle())
-                }
-            }
+            ProfileAvatar.large(pictureURL: trainer.picture ?? "", showBorder: true)
             
             VStack(spacing: 4) {
                 // Name

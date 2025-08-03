@@ -26,8 +26,10 @@ class GymService: ObservableObject {
     
     // MARK: - Published Properties
     @Published var myGyms: [GymInfo] = []
+    @Published var allGyms: [Gym] = []
     @Published var currentGym: GymInfo?
     @Published var isLoadingGyms = false
+    @Published var isLoadingAllGyms = false
     @Published var errorMessage: String?
     @Published var gymHours: [GymHours] = []
     @Published var isLoadingHours = false
@@ -537,6 +539,94 @@ class GymService: ObservableObject {
         }
         
         return true
+    }
+    
+    // MARK: - Get All Gyms (PUBLIC - no authentication required)
+    func getAllGyms(forceRefresh: Bool = false) async {
+        isLoadingAllGyms = true
+        errorMessage = nil
+        
+        guard let url = URL(string: "\(baseURL)/gyms/?skip=0&limit=100&is_active=true") else {
+            errorMessage = "Invalid URL"
+            isLoadingAllGyms = false
+            return
+        }
+        
+        // Create simple request without authentication (public endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 Response status for all gyms (public): \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 {
+                    let decoder = JSONDecoder()
+                    let gyms = try decoder.decode([Gym].self, from: data)
+                    
+                    self.allGyms = gyms.filter { $0.isActive }
+                    self.isLoadingAllGyms = false
+                    
+                    print("✅ Loaded \(gyms.count) available gyms (public)")
+                    for gym in self.allGyms {
+                        print("🏋️ Available Gym: \(gym.name) (ID: \(gym.id))")
+                    }
+                    
+                } else {
+                    let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
+                    print("❌ Error getting all gyms: \(errorString)")
+                    errorMessage = "Error loading gyms: \(httpResponse.statusCode)"
+                    isLoadingAllGyms = false
+                }
+            }
+        } catch {
+            print("❌ Error fetching all gyms: \(error)")
+            errorMessage = "Network error: \(error.localizedDescription)"
+            isLoadingAllGyms = false
+        }
+    }
+    
+    // MARK: - Get Gym Details (PUBLIC - no authentication required)
+    func getGymDetails(gymId: Int) async -> GymDetail? {
+        guard let url = URL(string: "\(baseURL)/gyms/\(gymId)/details") else {
+            print("❌ Invalid URL for gym details")
+            return nil
+        }
+        
+        // Create simple request without authentication (public endpoint)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 Response status for gym details: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 {
+                    let decoder = JSONDecoder()
+                    let gymDetail = try decoder.decode(GymDetail.self, from: data)
+                    
+                    print("✅ Loaded gym details for: \(gymDetail.name)")
+                    print("   - Hours: \(gymDetail.gymHours.count) entries")
+                    print("   - Plans: \(gymDetail.membershipPlans.count) plans")
+                    print("   - Modules: \(gymDetail.modules.count) modules")
+                    
+                    return gymDetail
+                } else {
+                    let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
+                    print("❌ Error getting gym details: \(errorString)")
+                }
+            }
+        } catch {
+            print("❌ Error fetching gym details: \(error)")
+        }
+        
+        return nil
     }
 }
 

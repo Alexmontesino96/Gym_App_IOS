@@ -12,7 +12,7 @@ import PhotosUI
 struct MediaPickerView: View {
     @Binding var isPresented: Bool
     let onMediaSelected: ([MediaItem]) -> Void
-    @State private var selectedItems: [PhotosPickerItem] = []
+    @State private var selectedItems: [PhotosUI.PhotosPickerItem] = []
     @State private var selectedMedia: [MediaItem] = []
     @EnvironmentObject var themeManager: ThemeManager
     
@@ -45,11 +45,10 @@ struct MediaPickerView: View {
                 .background(Color.dynamicSurface(theme: themeManager.currentTheme))
                 
                 // Photos Picker
-                PhotosPicker(
+                PhotosUI.PhotosPicker(
                     selection: $selectedItems,
                     maxSelectionCount: 10,
-                    matching: .any(of: [.images, .videos]),
-                    photoLibrary: .shared()
+                    matching: .any(of: [.images, .videos])
                 ) {
                     VStack(spacing: 16) {
                         Image(systemName: "photo.on.rectangle.angled")
@@ -98,7 +97,7 @@ struct MediaPickerView: View {
         }
     }
     
-    private func loadSelectedMedia(from items: [PhotosPickerItem]) async {
+    private func loadSelectedMedia(from items: [PhotosUI.PhotosPickerItem]) async {
         var loadedMedia: [MediaItem] = []
         
         for item in items {

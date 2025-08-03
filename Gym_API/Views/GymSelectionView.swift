@@ -9,66 +9,68 @@ import SwiftUI
 
 struct GymSelectionView: View {
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authService: AuthServiceDirect
     @StateObject private var gymService = GymService.shared
     @State private var isLoading = false
     @State private var selectedGym: GymInfo?
+    @State private var showOnboarding = false
     
     let onGymSelected: (GymInfo) -> Void
     
     var body: some View {
-        ZStack {
-            Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
-            
-            VStack(spacing: 32) {
-                // Header
-                VStack(spacing: 16) {
-                    Image(systemName: "building.2.fill")
-                        .font(.system(size: 64))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    
-                    VStack(spacing: 8) {
-                        Text("Select Your Gym")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        
-                        Text(gymService.hasSelectedGym ? "Confirm your gym selection" : "Choose which gym you want to access")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            .multilineTextAlignment(.center)
+        let _ = print("🔍 GymSelectionView - isLoadingGyms: \(gymService.isLoadingGyms), myGyms.count: \(gymService.myGyms.count)")
+        let _ = print("🔍 GymSelectionView - hasCompletedOnboarding: \(UserDefaults.standard.bool(forKey: "hasCompletedOnboarding"))")
+        
+        // Show onboarding directly if no gyms and not loading
+        if !gymService.isLoadingGyms && gymService.myGyms.isEmpty {
+            // Check if user has completed onboarding before
+            if UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+                // User already saw onboarding, go directly to available gyms
+                let _ = print("✅ Mostrando AvailableGymsView (usuario ya vio onboarding)")
+                AvailableGymsView(showCancelButton: false)
+                    .environmentObject(themeManager)
+                    .environmentObject(gymService)
+                    .environmentObject(authService)
+            } else {
+                // First time user, show onboarding
+                let _ = print("✅ Mostrando OnboardingView (primera vez)")
+                OnboardingView()
+                    .environmentObject(themeManager)
+                    .environmentObject(gymService)
+                    .onDisappear {
+                        // Mark onboarding as completed when user leaves the view
+                        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
                     }
-                }
-                .padding(.top, 60)
+            }
+        } else {
+            ZStack {
+                Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
                 
-                // Gym List
-                if gymService.isLoadingGyms {
-                    ProgressView("Loading your gyms...")
-                        .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                } else if gymService.myGyms.isEmpty {
+                VStack(spacing: 32) {
+                    // Header
                     VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 48))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        Image(systemName: "building.2.fill")
+                            .font(.system(size: 64))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                         
-                        Text("No gyms found")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        
-                        Text("You don't appear to be a member of any gyms yet. Please contact your gym administrator to get access.")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 20)
-                        
-                        Button("Refresh") {
-                            loadGyms()
+                        VStack(spacing: 8) {
+                            Text("Select Your Gym")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            
+                            Text(gymService.hasSelectedGym ? "Confirm your gym selection" : "Choose which gym you want to access")
+                                .font(.system(size: 16, weight: .regular))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                .multilineTextAlignment(.center)
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        .foregroundColor(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .padding(.top, 60)
+                    
+                    // Gym List
+                    if gymService.isLoadingGyms {
+                        ProgressView("Loading your gyms...")
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
@@ -114,14 +116,15 @@ struct GymSelectionView: View {
                     .disabled(isLoading)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 40)
+                    }
                 }
             }
-        }
-        .onAppear {
-            loadGyms()
-            // Pre-seleccionar el gym si hay uno en storage
-            if let currentGym = gymService.currentGym {
-                selectedGym = currentGym
+            .onAppear {
+                loadGyms()
+                // Pre-seleccionar el gym si hay uno en storage
+                if let currentGym = gymService.currentGym {
+                    selectedGym = currentGym
+                }
             }
         }
     }
@@ -237,4 +240,5 @@ struct GymSelectionCard: View {
         print("Selected gym: \(gym.name)")
     }
     .environmentObject(ThemeManager())
+    .environmentObject(AuthServiceDirect())
 }

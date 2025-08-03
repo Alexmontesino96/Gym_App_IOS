@@ -12,6 +12,7 @@ import SwiftUI
 import Auth0
 import JWTDecode
 
+
 extension Notification.Name {
     static let userDidLogout = Notification.Name("userDidLogout")
 }
@@ -22,8 +23,18 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     @Published var user: User?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var biometricAuthAvailable = false
+    @Published var biometricAuthEnabled = false
+    
+    // Biometric authentication context - temporarily disabled
+    // private let biometricContext = LAContext()
     
     init() {
+        // Migrate tokens if needed
+        if !KeychainService.shared.hasMigratedToKeychain {
+            KeychainService.shared.migrateFromUserDefaults()
+        }
+        // Temporarily disabled: checkBiometricAvailability()
         checkAuthStatus()
     }
     
@@ -64,8 +75,9 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 self.user = user
                 self.isAuthenticated = true
                 
-                // Guardar tokens de forma segura
+                // Guardar tokens de forma segura en Keychain
                 saveCredentials(credentials)
+                saveUserInfo(user)
                 
                 print("✅ Login exitoso con Auth0 directo")
                 print("🔹 Usuario: \(user.name)")
@@ -170,104 +182,222 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     }
     
     func checkAuthStatus() {
-        if let _ = getStoredCredentials() {
-            // En una implementación real, verificaríamos si el token sigue siendo válido
-            // Por ahora, asumimos que el usuario está autenticado si hay credenciales guardadas
+        print("🔍 Verificando estado de autenticación...")
+        
+        // Verificar si hay credenciales válidas en Keychain
+        guard let accessToken = getStoredCredentials(),
+              !isTokenExpired(token: accessToken) else {
+            print("❌ No hay token válido o ha expirado")
+            isAuthenticated = false
+            user = nil
+            return
+        }
+        
+        // Intentar obtener información del usuario del ID token
+        if let idToken = KeychainService.shared.getToken(type: .idToken),
+           let jwt = try? decode(jwt: idToken) {
+            // Extraer datos del JWT
+            let userId = jwt.subject ?? "unknown_user"
+            let userEmail = jwt["email"].string ?? "unknown@example.com"
+            let userName = jwt["name"].string ?? "Usuario"
+            let userPicture = jwt["picture"].string
             
-            // Simular usuario autenticado (esto debería ser reemplazado con datos reales)
+            let user = User(
+                id: userId,
+                email: userEmail,
+                name: userName,
+                picture: userPicture,
+                isCoach: false
+            )
+            
+            self.user = user
+            self.isAuthenticated = true
+            print("✅ Usuario autenticado desde ID token")
+        } else {
+            // Fallback: intentar cargar de UserDefaults (compatibilidad)
+            guard let savedUserId = UserDefaults.standard.string(forKey: "saved_user_id"),
+                  let savedUserEmail = UserDefaults.standard.string(forKey: "saved_user_email"),
+                  let savedUserName = UserDefaults.standard.string(forKey: "saved_user_name") else {
+                print("❌ No hay información de usuario disponible")
+                isAuthenticated = false
+                user = nil
+                return
+            }
+            
+            let savedUserPicture = UserDefaults.standard.string(forKey: "saved_user_picture")
+            let savedUserIsCoach = UserDefaults.standard.bool(forKey: "saved_user_is_coach")
+            
             let savedUser = User(
-                id: "saved_user_123",
-                email: "alex@gymapi.com",
-                name: "Alex Montesino",
-                picture: nil,
-                isCoach: true
+                id: savedUserId,
+                email: savedUserEmail,
+                name: savedUserName,
+                picture: savedUserPicture,
+                isCoach: savedUserIsCoach
             )
             
             self.user = savedUser
             self.isAuthenticated = true
-            
-            print("✅ Usuario autenticado desde sesión guardada")
+            print("✅ Usuario autenticado desde UserDefaults (compatibilidad)")
         }
+        
+        print("✅ Usuario autenticado desde sesión guardada: \(user?.name ?? "Usuario")")
+        print("🔹 Token válido hasta: \(getTokenExpirationDate())")
+        
+        #if DEBUG
+        KeychainService.shared.debugPrintTokens()
+        #endif
     }
     
     // MARK: - Gestión de Credenciales
     
     private func saveCredentials(_ credentials: Credentials) {
-        // En una implementación real, esto se guardaría en Keychain
-        // Por simplicidad, usamos UserDefaults
-        UserDefaults.standard.set(credentials.accessToken, forKey: "auth0_access_token")
-        UserDefaults.standard.set(credentials.idToken, forKey: "auth0_id_token")
+        // Guardar tokens de forma segura en Keychain
+        KeychainService.shared.saveToken(credentials.accessToken, type: .accessToken)
+        KeychainService.shared.saveToken(credentials.idToken, type: .idToken)
         if let refreshToken = credentials.refreshToken {
-            UserDefaults.standard.set(refreshToken, forKey: "auth0_refresh_token")
+            KeychainService.shared.saveToken(refreshToken, type: .refreshToken)
         }
+        // Mantener fecha de login en UserDefaults (no es sensible)
         UserDefaults.standard.set(Date(), forKey: "auth0_login_date")
     }
     
     private func getStoredCredentials() -> String? {
-        // Usar accessToken para llamadas a APIs - contiene la audiencia correcta
-        return UserDefaults.standard.string(forKey: "auth0_access_token")
+        // Obtener accessToken de Keychain - contiene la audiencia correcta
+        return KeychainService.shared.getToken(type: .accessToken)
+    }
+    
+    private func saveUserInfo(_ user: User) {
+        UserDefaults.standard.set(user.id, forKey: "saved_user_id")
+        UserDefaults.standard.set(user.email, forKey: "saved_user_email")
+        UserDefaults.standard.set(user.name, forKey: "saved_user_name")
+        UserDefaults.standard.set(user.picture, forKey: "saved_user_picture")
+        UserDefaults.standard.set(user.isCoach, forKey: "saved_user_is_coach")
     }
     
     private func clearCredentials() {
-        UserDefaults.standard.removeObject(forKey: "auth0_access_token")
-        UserDefaults.standard.removeObject(forKey: "auth0_id_token")
-        UserDefaults.standard.removeObject(forKey: "auth0_refresh_token")
+        // Limpiar tokens de Keychain
+        KeychainService.shared.deleteAllTokens()
+        
+        // Limpiar datos no sensibles de UserDefaults
         UserDefaults.standard.removeObject(forKey: "auth0_login_date")
+        UserDefaults.standard.removeObject(forKey: "saved_user_id")
+        UserDefaults.standard.removeObject(forKey: "saved_user_email")
+        UserDefaults.standard.removeObject(forKey: "saved_user_name")
+        UserDefaults.standard.removeObject(forKey: "saved_user_picture")
+        UserDefaults.standard.removeObject(forKey: "saved_user_is_coach")
     }
     
     // MARK: - Token Management
     
     func getValidAccessToken() async -> String? {
+        print("🔍 Solicitando token de acceso válido...")
+        
         // Verificar si hay un token válido
         if let token = getStoredCredentials() {
-            // Verificar si el token ha expirado
-            if !isTokenExpired() {
+            // Verificar si el token ha expirado decodificando el JWT
+            if !isTokenExpired(token: token) {
+                print("✅ Token válido encontrado")
                 return token
             } else {
                 print("🔄 Token expirado, intentando renovar...")
                 // Intentar renovar el token
-                return await renewTokenIfNeeded()
+                if let renewedToken = await renewTokenIfNeeded() {
+                    print("✅ Token renovado exitosamente")
+                    return renewedToken
+                } else {
+                    print("❌ Falló la renovación del token")
+                    return nil
+                }
             }
         }
+        
+        print("❌ No hay token almacenado")
         return nil
     }
     
-    private func isTokenExpired() -> Bool {
-        guard let loginDate = UserDefaults.standard.object(forKey: "auth0_login_date") as? Date else {
+    private func isTokenExpired(token: String) -> Bool {
+        // Decodificar el JWT para obtener la expiración real
+        guard let jwt = try? decode(jwt: token) else {
+            print("⚠️ No se pudo decodificar el JWT, asumiendo expirado")
             return true
         }
         
-        // Los tokens de Auth0 típicamente duran 24 horas
+        // Obtener el claim 'exp' del JWT
+        guard let exp = jwt["exp"].double else {
+            print("⚠️ No se encontró el claim 'exp' en el JWT")
+            return true
+        }
+        
+        let expirationDate = Date(timeIntervalSince1970: exp)
+        let now = Date()
+        
+        // Considerar expirado si queda menos de 5 minutos
+        let bufferTime: TimeInterval = 5 * 60 // 5 minutos
+        let isExpired = now.addingTimeInterval(bufferTime) > expirationDate
+        
+        if isExpired {
+            print("❌ Token expirado (expira: \(expirationDate))")
+        } else {
+            let timeRemaining = expirationDate.timeIntervalSince(now)
+            let minutes = Int(timeRemaining / 60)
+            print("✅ Token válido por \(minutes) minutos más")
+        }
+        
+        return isExpired
+    }
+    
+    private func getTokenExpirationDate() -> String {
+        guard let loginDate = UserDefaults.standard.object(forKey: "auth0_login_date") as? Date else {
+            return "Desconocida"
+        }
+        
         let expirationTime = loginDate.addingTimeInterval(24 * 60 * 60) // 24 horas
-        return Date() > expirationTime
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: expirationTime)
     }
     
     private func renewTokenIfNeeded() async -> String? {
-        guard let refreshToken = UserDefaults.standard.string(forKey: "auth0_refresh_token") else {
-            print("❌ No hay refresh token disponible")
+        guard let refreshToken = KeychainService.shared.getToken(type: .refreshToken) else {
+            print("❌ No hay refresh token disponible en Keychain")
             // Si no hay refresh token, necesitamos re-autenticar
             await logout()
             return nil
         }
         
+        print("🔄 Intentando renovar token con retry logic...")
+        
         do {
-            let credentials = try await Auth0
-                .authentication()
-                .renew(withRefreshToken: refreshToken)
-                .start()
+            let credentials = try await NetworkRetryService.shared.executeTokenRefresh(refreshToken: refreshToken)
             
             // Guardar las nuevas credenciales
             saveCredentials(credentials)
             
-            print("✅ Token renovado exitosamente")
+            print("✅ Token renovado exitosamente con retry logic")
+            print("🔹 Nuevo token (primeros 50 chars): \(credentials.accessToken.prefix(50))...")
+            
             return credentials.accessToken
             
+        } catch NetworkRetryService.RetryError.maxRetriesExceeded {
+            print("❌ Falló renovación después de múltiples intentos")
+            errorMessage = "Error de conexión. Intenta más tarde."
+        } catch NetworkRetryService.RetryError.nonRetryableError(let underlyingError) {
+            print("❌ Error no recuperable al renovar token: \(underlyingError)")
+            if underlyingError.localizedDescription.contains("invalid_grant") {
+                print("❌ Refresh token inválido, requiere re-login")
+                errorMessage = "Sesión expirada. Inicia sesión nuevamente."
+            } else {
+                errorMessage = "Error de autenticación: \(underlyingError.localizedDescription)"
+            }
         } catch {
-            print("❌ Error al renovar token: \(error)")
-            // Si falla la renovación, cerrar sesión
-            await logout()
-            return nil
+            print("❌ Error inesperado al renovar token: \(error)")
+            errorMessage = "Error inesperado: \(error.localizedDescription)"
         }
+        
+        // Si falla la renovación, cerrar sesión
+        await logout()
+        return nil
     }
     
     // MARK: - Métodos de Utilidad
@@ -312,6 +442,19 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         print("✅ Datos del usuario anterior limpiados")
     }
     
+    // MARK: - User Profile Updates
+    
+    @MainActor
+    func updateUserPicture(_ newPictureURL: String) {
+        if let currentUser = user {
+            var updatedUser = currentUser
+            updatedUser.picture = newPictureURL
+            self.user = updatedUser
+            print("✅ User picture updated locally: \(newPictureURL)")
+        }
+    }
+    
+    
     /// Limpia UserDefaults específicos del usuario
     private func clearUserSpecificDefaults() {
         let userDefaultsKeys = [
@@ -339,6 +482,206 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         }
         
         UserDefaults.standard.synchronize()
+    }
+    
+    // MARK: - Biometric Authentication (Temporarily Disabled)
+    
+    /// Check if biometric authentication is available on the device
+    private func checkBiometricAvailability() {
+        // Temporarily disabled - will be re-enabled after fixing LocalAuthentication imports
+        biometricAuthAvailable = false
+        biometricAuthEnabled = false
+        print("⚠️ Autenticación biométrica temporalmente deshabilitada")
+        return
+        
+        /* // Commented out until LocalAuthentication is properly imported
+        var error: NSError?
+        
+        let isAvailable = biometricContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        
+        biometricAuthAvailable = isAvailable
+        
+        if isAvailable {
+            let biometricType = biometricContext.biometryType
+            switch biometricType {
+            case .faceID:
+                print("🔑 Face ID disponible")
+            case .touchID:
+                print("🔑 Touch ID disponible")
+            case .opticID:
+                print("🔑 Optic ID disponible")
+            default:
+                print("🔑 Autenticación biométrica disponible")
+            }
+            
+            // Check if user has enabled biometric auth
+            biometricAuthEnabled = UserDefaults.standard.bool(forKey: "biometric_auth_enabled")
+        } else {
+            print("❌ Autenticación biométrica no disponible: \(error?.localizedDescription ?? "Desconocido")")
+            biometricAuthEnabled = false
+        }
+    }
+    
+    /// Enable or disable biometric authentication
+    func setBiometricAuthEnabled(_ enabled: Bool) {
+        biometricAuthEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "biometric_auth_enabled")
+        print("🔑 Autenticación biométrica \(enabled ? "activada" : "desactivada")")
+    }
+    
+    /// Attempt biometric authentication for quick login
+    func attemptBiometricLogin() async -> Bool {
+        guard biometricAuthAvailable && biometricAuthEnabled else {
+            print("⚠️ Autenticación biométrica no disponible o no habilitada")
+            return false
+        }
+        
+        // Check if we have stored credentials
+        guard KeychainService.shared.getToken(type: .accessToken) != nil else {
+            print("⚠️ No hay tokens almacenados para autenticación biométrica")
+            return false
+        }
+        
+        do {
+            let biometricType = biometricContext.biometryType
+            var reason: String
+            
+            switch biometricType {
+            case .faceID:
+                reason = "Usa Face ID para acceder rápidamente a tu cuenta"
+            case .touchID:
+                reason = "Usa Touch ID para acceder rápidamente a tu cuenta"
+            case .opticID:
+                reason = "Usa Optic ID para acceder rápidamente a tu cuenta"
+            default:
+                reason = "Usa tu biometría para acceder rápidamente a tu cuenta"
+            }
+            
+            let success = try await biometricContext.evaluatePolicy(
+                .deviceOwnerAuthenticationWithBiometrics,
+                localizedReason: reason
+            )
+            
+            if success {
+                print("✅ Autenticación biométrica exitosa")
+                // Re-check auth status to validate stored tokens
+                checkAuthStatus()
+                return isAuthenticated
+            } else {
+                print("❌ Autenticación biométrica fallida")
+                return false
+            }
+            
+        } catch {
+            print("❌ Error en autenticación biométrica: \(error.localizedDescription)")
+            
+            if let laError = error as? LAError {
+                switch laError.code {
+                case .userCancel:
+                    print("🚫 Usuario canceló autenticación biométrica")
+                case .userFallback:
+                    print("🔄 Usuario eligió fallback (contraseña)")
+                case .biometryNotAvailable:
+                    print("⚠️ Biometría no disponible")
+                    biometricAuthAvailable = false
+                case .biometryNotEnrolled:
+                    print("⚠️ Biometría no configurada")
+                case .biometryLockout:
+                    print("🔒 Biometría bloqueada - demasiados intentos")
+                default:
+                    print("❌ Error biométrico desconocido: \(laError.localizedDescription)")
+                }
+            }
+            
+            return false
+        }
+        */
+    }
+    
+    /// Enable or disable biometric authentication
+    func setBiometricAuthEnabled(_ enabled: Bool) {
+        // Temporarily disabled
+        biometricAuthEnabled = false
+        print("⚠️ setBiometricAuthEnabled temporalmente deshabilitado")
+    }
+    
+    /// Attempt biometric authentication for quick login
+    func attemptBiometricLogin() async -> Bool {
+        // Temporarily disabled
+        print("⚠️ attemptBiometricLogin temporalmente deshabilitado")
+        return false
+    }
+    
+    /// Get the type of biometric authentication available
+    var biometricTypeString: String {
+        return "No disponible (temporalmente deshabilitado)"
+    }
+    
+    // MARK: - Enhanced Login with Retry
+    
+    /// Enhanced login with network retry logic
+    func loginWithRetry() async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            let credentials = try await NetworkRetryService.shared.executeWithRetry {
+                try await Auth0
+                    .webAuth()
+                    .audience(Auth0Config.audience)
+                    .scope("openid profile email")
+                    .start()
+            }
+            
+            // Process successful login
+            await processSuccessfulLogin(credentials)
+            
+        } catch NetworkRetryService.RetryError.maxRetriesExceeded {
+            print("❌ Login falló después de múltiples intentos")
+            errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente."
+        } catch NetworkRetryService.RetryError.circuitBreakerOpen {
+            print("❌ Circuit breaker abierto - servicio no disponible")
+            errorMessage = "Servicio temporalmente no disponible. Intenta en unos minutos."
+        } catch {
+            print("❌ Error inesperado en login: \(error)")
+            errorMessage = "Error de inicio de sesión: \(error.localizedDescription)"
+        }
+        
+        isLoading = false
+    }
+    
+    /// Process successful login credentials
+    private func processSuccessfulLogin(_ credentials: Auth0.Credentials) async {
+        // Extract user info from ID token
+        if let jwt = try? decode(jwt: credentials.idToken) {
+            let userId = jwt.subject ?? "unknown_user"
+            let userEmail = jwt["email"].string ?? "unknown@example.com"
+            let userName = jwt["name"].string ?? "Usuario"
+            let userPicture = jwt["picture"].string
+            
+            let user = User(
+                id: userId,
+                email: userEmail,
+                name: userName,
+                picture: userPicture,
+                isCoach: false
+            )
+            
+            self.user = user
+            self.isAuthenticated = true
+            
+            // Save credentials securely
+            saveCredentials(credentials)
+            saveUserInfo(user)
+            
+            print("✅ Login exitoso con retry logic")
+            print("🔹 Usuario: \(user.name)")
+            print("🔹 Email: \(user.email)")
+            
+        } else {
+            errorMessage = "Error: respuesta inválida de Auth0"
+            return
+        }
     }
 }
 

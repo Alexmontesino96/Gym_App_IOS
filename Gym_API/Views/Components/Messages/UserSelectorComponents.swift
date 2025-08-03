@@ -68,17 +68,7 @@ struct UserSelectorRow: View {
         Button(action: onTap) {
             HStack(spacing: 16) {
                 // Avatar
-                AsyncImage(url: URL(string: user.picture)) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(Circle())
+                ProfileAvatar.medium(pictureURL: user.picture ?? "")
                 
                 // User Info
                 VStack(alignment: .leading, spacing: 4) {

@@ -37,8 +37,8 @@ struct EventDetailView: View {
                     EmptyView()
                 }
             }
-        .navigationTitle("Event Details")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("Event")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -74,17 +74,17 @@ struct EventDetailContent: View {
     
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 24) {
-                // Event Header Card
+            LazyVStack(alignment: .leading, spacing: 20) {
+                // Event Header Card (now includes image)
                 EventHeaderCard(eventDetail: eventDetail)
                 
-                // Event Details Section
-                EventDetailsSection(eventDetail: eventDetail)
-                
-                // Description Section
+                // Description Section - Moved after image
                 if !eventDetail.description.isEmpty {
                     EventDescriptionSection(description: eventDetail.description)
                 }
+                
+                // Event Details Section
+                EventDetailsSection(eventDetail: eventDetail)
                 
                 // Action Buttons Section
                 EventActionButtons(
@@ -108,9 +108,9 @@ struct EventDetailContent: View {
                 }
                 
                 // Bottom spacing
-                Spacer(minLength: 100)
+                Spacer(minLength: 80)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
         }
         .offset(x: shakeOffset)
         .background(
@@ -179,63 +179,28 @@ struct EventHeaderCard: View {
     let eventDetail: EventDetail
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Status Badge
-            HStack {
-                EventStatusBadge(status: eventDetail.status)
-                Spacer()
-                Text("Event #\(eventDetail.id)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
-                    .clipShape(Capsule())
+        VStack(spacing: 20) {
+            // Status Badge and Title Section
+            VStack(spacing: 12) {
+                HStack {
+                    EventStatusBadge(status: eventDetail.status)
+                    Spacer()
+                }
+                
+                HStack {
+                    Text(eventDetail.title)
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer()
+                }
             }
-            .padding(.bottom, 16)
             
-            // Title
-            HStack {
-                Text(eventDetail.title)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                Spacer()
-            }
-            .padding(.bottom, 16)
-            
-            // Event Image with modern design
+            // Event Image - Now more prominent
             ModernEventImageView()
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1),
-                            Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.05)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
-                                    Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-        )
+        .padding(20)
     }
 }
 
@@ -244,18 +209,18 @@ struct EventStatusBadge: View {
     let status: EventStatus
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Circle()
                 .fill(statusColor)
-                .frame(width: 8, height: 8)
+                .frame(width: 6, height: 6)
             
-            Text(statusText.uppercased())
-                .font(.system(size: 12, weight: .bold))
+            Text(statusText)
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(statusColor)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(statusColor.opacity(0.1))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(statusColor.opacity(0.08))
         .clipShape(Capsule())
     }
     
@@ -283,132 +248,52 @@ struct ModernEventImageView: View {
     
     var body: some View {
         ZStack {
-            // Background with modern gradient
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2),
-                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(height: 180)
+            // Simple background
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.05))
+                .frame(height: 200)
             
-            // Modern pattern overlay
-            ModernPatternView()
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-            
-            // Central icon
-            VStack(spacing: 8) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 32, weight: .light))
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                
-                Text("Event")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7))
-            }
+            // Minimal icon
+            Image(systemName: "calendar")
+                .font(.system(size: 28, weight: .ultraLight))
+                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.6))
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1), lineWidth: 0.5)
+        )
     }
 }
 
-struct ModernPatternView: View {
-    @EnvironmentObject var themeManager: ThemeManager
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Circular patterns
-                ForEach(0..<5) { i in
-                    Circle()
-                        .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1), lineWidth: 1)
-                        .frame(width: CGFloat(40 + i * 20), height: CGFloat(40 + i * 20))
-                        .position(
-                            x: geometry.size.width * 0.8,
-                            y: geometry.size.height * 0.3
-                        )
-                }
-                
-                ForEach(0..<3) { i in
-                    Circle()
-                        .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.05), lineWidth: 1)
-                        .frame(width: CGFloat(60 + i * 30), height: CGFloat(60 + i * 30))
-                        .position(
-                            x: geometry.size.width * 0.2,
-                            y: geometry.size.height * 0.7
-                        )
-                }
-            }
-        }
-    }
-}
 
 struct EventDetailsSection: View {
     @EnvironmentObject var themeManager: ThemeManager
     let eventDetail: EventDetail
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Section Title
-            HStack {
-                Text("Event Details")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                Spacer()
-            }
-            .padding(.bottom, 16)
+        VStack(spacing: 16) {
+            // Location
+            DetailRow(
+                icon: "location",
+                title: "Location",
+                value: eventDetail.location
+            )
             
-            VStack(spacing: 16) {
-                // Location
-                DetailRow(
-                    icon: "location.fill",
-                    title: "Location",
-                    value: eventDetail.location
-                )
-                
-                Divider()
-                    .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2))
-                
-                // Date and Time
-                DetailRow(
-                    icon: "calendar",
-                    title: "Date & Time",
-                    value: eventDetail.dayTimeString
-                )
-                
-                Divider()
-                    .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2))
-                
-                // Participants
-                DetailRow(
-                    icon: "person.2.fill",
-                    title: "Participants",
-                    value: "\(eventDetail.participantsCount)/\(eventDetail.maxParticipants)"
-                )
-                
-                Divider()
-                    .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2))
-                
-                // Creator
-                DetailRow(
-                    icon: "person.badge.key.fill",
-                    title: "Creator",
-                    value: "User #\(eventDetail.creatorId)"
-                )
-            }
+            // Date and Time
+            DetailRow(
+                icon: "calendar",
+                title: "Date & Time",
+                value: eventDetail.dayTimeString
+            )
+            
+            // Participants
+            DetailRow(
+                icon: "person.2",
+                title: "Participants",
+                value: "\(eventDetail.participantsCount)/\(eventDetail.maxParticipants)"
+            )
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2), lineWidth: 1)
-                )
-        )
+        .padding(.horizontal, 20)
     }
 }
 
@@ -419,21 +304,21 @@ struct DetailRow: View {
     let value: String
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             // Icon
             Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                .frame(width: 24, height: 24)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                .frame(width: 20, height: 20)
             
             // Content
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 
                 Text(value)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
             }
             
@@ -447,31 +332,18 @@ struct EventDescriptionSection: View {
     let description: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Section Title
-            HStack {
-                Text("Description")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                Spacer()
-            }
-            .padding(.bottom, 16)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Description")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
             
             Text(description)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.85))
-                .lineSpacing(4)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2), lineWidth: 1)
-                )
-        )
+        .padding(.horizontal, 20)
     }
 }
 
@@ -486,7 +358,7 @@ struct EventActionButtons: View {
     @Binding var selectedChatEvent: Event?
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             // Main Action Button
             Button(action: {
                 if eventDetail.status == .completed {
@@ -506,28 +378,24 @@ struct EventActionButtons: View {
                     currentRegistrationState = eventService.isUserRegistered(eventId: eventDetail.id)
                 }
             }) {
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     if eventService.isJoiningEvent {
                         LoadingDotsView()
                     } else {
                         Image(systemName: getButtonIcon(for: eventDetail))
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
                         
                         Text(getButtonText(for: eventDetail))
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 56)
+                .frame(height: 48)
                 .background(
-                    Capsule()
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(getButtonColor(for: eventDetail))
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
                 )
             }
             .disabled(shouldDisableButton(for: eventDetail) || eventService.isJoiningEvent)
@@ -551,40 +419,36 @@ struct EventActionButtons: View {
                     )
                     showingEventChat = true
                 }) {
-                    HStack(spacing: 16) {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    HStack(spacing: 12) {
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         
                         Text("Event Chat")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         
                         Spacer()
                         
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .padding(.horizontal, 20)
+                    .frame(height: 48)
+                    .padding(.horizontal, 16)
                     .background(
-                        Capsule()
-                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.05))
                             .overlay(
-                                Capsule()
-                                    .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), lineWidth: 1.5)
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1), lineWidth: 1)
                             )
                     )
                 }
             }
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.05))
-        )
+        .padding(.horizontal, 20)
     }
     
     private func shakeView() {
@@ -873,100 +737,54 @@ struct ParticipantsSection: View {
     @ObservedObject var eventService: EventService
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 16) {
             // Section Header
             HStack {
-                Text("Participantes")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                Text("Participants")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 
                 Spacer()
                 
                 if eventService.isLoadingParticipations {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
-                        .scaleEffect(0.8)
+                        .scaleEffect(0.7)
                 } else {
-                    Text("(\(eventService.eventParticipations.count))")
-                        .font(.system(size: 16, weight: .medium))
+                    Text("\(eventService.eventParticipations.count)")
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
-                        .clipShape(Capsule())
                 }
             }
-            .padding(.bottom, 20)
             
             // Participants Content
             if eventService.isLoadingParticipations {
                 // Loading state
-                VStack(spacing: 12) {
-                    ForEach(0..<3, id: \.self) { _ in
+                VStack(spacing: 8) {
+                    ForEach(0..<2, id: \.self) { _ in
                         ParticipantSkeletonRow()
                     }
                 }
-            } else if let errorMessage = eventService.participationsErrorMessage {
-                // Error state
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.red)
-                    
-                    Text("Error al cargar participantes")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    
-                    Text(errorMessage)
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                }
-                .padding(.vertical, 32)
             } else if eventService.eventParticipations.isEmpty {
                 // Empty state
-                VStack(spacing: 16) {
-                    Image(systemName: "person.slash.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
-                    
-                    Text("No participants yet")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    
-                    Text("Be the first to join this event")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-                }
-                .padding(.vertical, 32)
+                Text("No participants yet")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .padding(.vertical, 8)
             } else {
                 // Participants list
-                VStack(spacing: 0) {
+                VStack(spacing: 8) {
                     ForEach(eventService.eventParticipations) { participation in
                         ParticipantRow(
                             participation: participation,
                             userProfile: eventService.userProfiles[participation.memberId],
                             eventDetail: eventService.eventDetail
                         )
-                        
-                        if participation.id != eventService.eventParticipations.last?.id {
-                            Divider()
-                                .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2))
-                        }
                     }
                 }
             }
         }
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.2), lineWidth: 1)
-                )
-        )
+        .padding(.horizontal, 20)
     }
 }
 
@@ -977,80 +795,33 @@ struct ParticipantRow: View {
     @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Avatar
-            if let userProfile = userProfile,
-               !userProfile.picture.isEmpty,
-               let url = URL(string: userProfile.picture) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.gray)
-                }
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
-            } else {
-                Image(systemName: "person.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(.gray)
-                    .frame(width: 40, height: 40)
-            }
+            ProfileAvatar.small(
+                pictureURL: userProfile?.picture ?? "",
+                showBorder: false
+            )
             
             // Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(userProfile?.fullName ?? "Usuario #\(participation.memberId)")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(userProfile?.fullName ?? "User #\(participation.memberId)")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 
-                HStack(spacing: 8) {
-                    // Status
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(statusColor(for: participation.status))
-                            .frame(width: 8, height: 8)
-                        
-                        Text(statusText(for: participation.status))
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.gray)
-                    }
-                    
-                    // Role with creator indicator
-                    if let userProfile = userProfile {
-                        let isCreator = eventDetail?.creatorId == participation.memberId
-                        let roleText = isCreator ? "• Creador" : "• \(userProfile.displayRole)"
-                        let roleColor = isCreator ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7)
-                        
-                        Text(roleText)
-                            .font(.system(size: 12, weight: isCreator ? .semibold : .regular))
-                            .foregroundColor(roleColor)
-                            .lineLimit(1)
-                    }
+                if let userProfile = userProfile {
+                    let isCreator = eventDetail?.creatorId == participation.memberId
+                    Text(isCreator ? "Creator" : userProfile.displayRole)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .lineLimit(1)
                 }
             }
-            .layoutPriority(1)
             
-            Spacer(minLength: 8)
-            
-            // Join date
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("Joined")
-                    .font(.system(size: 9))
-                    .foregroundColor(.gray.opacity(0.7))
-                
-                Text(formatJoinDate(participation.registeredAt))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.gray)
-            }
-            .frame(minWidth: 60)
+            Spacer()
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
     
     private func statusColor(for status: String) -> Color {
@@ -1094,47 +865,27 @@ struct ParticipantRow: View {
 
 struct ParticipantSkeletonRow: View {
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Avatar skeleton
             Circle()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 40, height: 40)
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 28, height: 28)
             
             // Info skeleton
             VStack(alignment: .leading, spacing: 4) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(height: 16)
-                    .frame(maxWidth: 140)
-                
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(width: 60, height: 12)
-                    
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(width: 70, height: 12)
-                }
-            }
-            .layoutPriority(1)
-            
-            Spacer(minLength: 8)
-            
-            // Date skeleton
-            VStack(alignment: .trailing, spacing: 2) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: 40, height: 9)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 14)
+                    .frame(maxWidth: 120)
                 
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: 50, height: 11)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 60, height: 12)
             }
-            .frame(minWidth: 60)
+            
+            Spacer()
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
 }
 

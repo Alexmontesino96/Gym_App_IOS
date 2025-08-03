@@ -33,6 +33,7 @@ struct AuthenticatedView: View {
                         gymService.selectGym(selectedGym)
                     }
                     .environmentObject(themeManager)
+                    .environmentObject(authService)
                 }
             } else {
                 let _ = print("🔍 Usuario NO autenticado, mostrando login")

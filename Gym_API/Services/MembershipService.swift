@@ -134,7 +134,7 @@ class MembershipService: ObservableObject {
     
     private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     private let session = URLSession.shared
-    weak var authService: AuthServiceProtocol?
+    weak var authService: AuthServiceDirect?
     
     // Gym ID dinámico - se puede configurar desde la app
     var currentGymId: Int {
@@ -164,11 +164,29 @@ class MembershipService: ObservableObject {
     private func createAuthenticatedRequest(url: URL, method: String = "GET") async -> URLRequest? {
         guard let authService = authService else {
             print("❌ No authService configured")
+            updateOnMainThread {
+                self.errorMessage = "Authentication service not available"
+                self.isLoading = false
+            }
+            return nil
+        }
+        
+        // Verificar que el authService esté realmente autenticado
+        guard authService.isAuthenticated else {
+            print("❌ AuthService not authenticated")
+            updateOnMainThread {
+                self.errorMessage = "User not authenticated"
+                self.isLoading = false
+            }
             return nil
         }
         
         guard let token = await authService.getValidAccessToken() else {
             print("❌ No valid access token")
+            updateOnMainThread {
+                self.errorMessage = "No valid access token"
+                self.isLoading = false
+            }
             return nil
         }
         
@@ -205,7 +223,7 @@ class MembershipService: ObservableObject {
         
         updateOnMainThread {
             self.isLoading = true
-            self.errorMessage = nil
+            self.errorMessage = nil  // Limpiar errores previos
         }
         
         guard let url = URL(string: "\(baseURL)/memberships/my-status") else {
@@ -253,6 +271,9 @@ class MembershipService: ObservableObject {
                     updateOnMainThread {
                         self.membershipStatus = status
                         self.isLoading = false
+                        self.errorMessage = nil
+                        // Forzar actualización de la UI
+                        self.objectWillChange.send()
                     }
                     
                     print("✅ Estado de membresía obtenido exitosamente: \(status.membershipDisplayName)")
@@ -293,6 +314,13 @@ class MembershipService: ObservableObject {
     func clearMembershipData() {
         membershipStatus = nil
         errorMessage = nil
+        isLoading = false
         print("🗑️ Datos de membresía limpiados")
+    }
+    
+    // MARK: - Force Refresh
+    func forceRefresh() async {
+        clearMembershipData()
+        await getMyMembershipStatus()
     }
 }

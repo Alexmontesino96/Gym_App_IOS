@@ -7,10 +7,9 @@ struct EventChatView: View {
     @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
-        SimpleiMessageChatView(
-            eventId: eventId,
-            eventTitle: eventTitle,
-            authService: authService
+        OptimizedChatView(
+            conversationId: "event_\(eventId)",
+            conversationName: eventTitle
         )
         .environmentObject(themeManager)
     }

@@ -2,11 +2,11 @@ import Foundation
 import Combine
 
 // MARK: - User Public Profile Model
-struct UserPublicProfile: Codable, Identifiable {
+struct UserPublicProfile: Codable, Identifiable, Equatable {
     let id: Int
     let firstName: String
     let lastName: String
-    let picture: String
+    let picture: String?
     let role: String
     let bio: String?
     let isActive: Bool
@@ -745,6 +745,10 @@ class ClassService: ObservableObject {
         return "Coach \(trainerId)"
     }
     
+    func getTrainer(trainerId: Int) -> UserPublicProfile? {
+        return trainerMap[trainerId]
+    }
+    
     // MARK: - Clear Cache
     
     /// Limpia todos los datos de clases en cache
@@ -878,6 +882,7 @@ extension ClassService {
                 name: sessionWithClass.classInfo.name,
                 description: sessionWithClass.classInfo.description,
                 instructor: sessionWithClass.trainerName,
+                trainerId: sessionWithClass.session.trainerId,
                 startTime: correctStartTime,
                 endTime: correctEndTime,
                 maxParticipants: sessionWithClass.classInfo.maxCapacity,

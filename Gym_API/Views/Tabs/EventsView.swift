@@ -4,7 +4,6 @@ struct EventsView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var themeManager: ThemeManager
-    @EnvironmentObject var streamChatService: StreamChatService
     @State private var searchText = ""
     @State private var selectedFilter: EventFilter = .available
     @State private var showingFilterSheet = false
@@ -37,21 +36,22 @@ struct EventsView: View {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Header
-                        VStack(alignment: .leading, spacing: 16) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Eventos")
-                                    .font(.system(size: 32, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                
-                                Text("Connect with your community. Train together.")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            }
-                            .padding(.horizontal, 20)
+                VStack(spacing: 0) {
+                    // Fixed Header
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Eventos")
+                                .font(.system(size: 32, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             
+                            Text("Connect with your community. Train together.")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        // Search Bar with Filter Button
+                        HStack(spacing: 12) {
                             // Search Bar
                             HStack {
                                 Image(systemName: "magnifyingglass")
@@ -86,56 +86,43 @@ struct EventsView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                             )
-                            .padding(.horizontal, 20)
                             
-                            // Action Buttons
-                            HStack(spacing: 16) {
-                                // Refresh Button
-                                Button(action: {
-                                    Task { await eventService.fetchEvents() }
-                                }) {
-                                    Image(systemName: eventService.isLoading ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                        .rotationEffect(.degrees(eventService.isLoading ? 360 : 0))
-                                        .animation(eventService.isLoading ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: eventService.isLoading)
-                                }
-                                .disabled(eventService.isLoading)
-                                
-                                Spacer()
-                                
-                                // Filter Button
-                                Button(action: {
-                                    showingFilterSheet = true
-                                }) {
-                                    Image(systemName: "line.3.horizontal.decrease.circle")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                }
+                            // Filter Button
+                            Button(action: {
+                                showingFilterSheet = true
+                            }) {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                             }
-                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
                         }
-                        
-                        // Events List
-                        if filteredEvents.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                
-                                Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    .multilineTextAlignment(.center)
-                                
-                                Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.top, 40)
-                        } else {
-                            LazyVStack(spacing: 16) {
+                        .padding(.horizontal, 20)
+                    }
+                    .padding(.bottom, 16)
+                    .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+                    
+                    // Scrollable Events List
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            if filteredEvents.isEmpty {
+                                VStack(spacing: 16) {
+                                    Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
+                                        .font(.system(size: 48))
+                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    
+                                    Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        .multilineTextAlignment(.center)
+                                    
+                                    Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                                        .multilineTextAlignment(.center)
+                                }
+                                .padding(.top, 40)
+                            } else {
                                 ForEach(filteredEvents) { event in
                                     EventCard(event: event, onChatTap: {
                                         print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
@@ -144,9 +131,13 @@ struct EventsView: View {
                                     .padding(.horizontal, 20)
                                 }
                             }
+                            
+                            Spacer(minLength: 100)
                         }
-                        
-                        Spacer(minLength: 100)
+                        .padding(.top, 8)
+                    }
+                    .refreshable {
+                        await eventService.fetchEvents()
                     }
                 }
             }
@@ -186,5 +177,4 @@ struct EventsView: View {
         .environmentObject(AuthServiceDirect())
         .environmentObject(EventService())
         .environmentObject(ThemeManager())
-        .environmentObject(StreamChatService.shared)
 }

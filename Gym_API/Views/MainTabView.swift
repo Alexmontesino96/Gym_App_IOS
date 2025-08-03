@@ -34,20 +34,28 @@ struct MainTabView: View {
                 .tag(2)
             
             // Messages Tab
-            MessagesView()
+            UnifiedMessagesView()
                 .tabItem {
                     Image(systemName: selectedTab == 3 ? "message.fill" : "message")
                     Text("Messages")
                 }
                 .tag(3)
             
-            // Profile Tab
-            EnhancedProfileView(onThemeChangeRequest: requestThemeChange)
+            // Stream Test Tab (temporal)
+            StreamConnectionTestView()
                 .tabItem {
-                    Image(systemName: selectedTab == 4 ? "person.fill" : "person")
-                    Text("Profile")
+                    Image(systemName: selectedTab == 4 ? "bolt.fill" : "bolt")
+                    Text("Stream Test")
                 }
                 .tag(4)
+            
+            // Profile Tab
+            ModernProfileView(onThemeChangeRequest: requestThemeChange)
+                .tabItem {
+                    Image(systemName: selectedTab == 5 ? "person.fill" : "person")
+                    Text("Profile")
+                }
+                .tag(5)
         }
         .accentColor(themeManager.currentTheme == .dark ? 
                     Color(red: 0.85, green: 0.2, blue: 0.2) : 

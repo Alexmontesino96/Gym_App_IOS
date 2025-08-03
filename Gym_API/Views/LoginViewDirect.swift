@@ -46,11 +46,21 @@ struct LoginViewDirect: View {
                 
                 Spacer()
                 
+                // Indicador de estado de autenticación
+                AuthStateIndicator()
+                    .padding(.horizontal, 32)
+                
+                // Botón biométrico (si está disponible)
+                if authService.biometricAuthAvailable && authService.biometricAuthEnabled {
+                    BiometricAuthButton()
+                        .padding(.bottom, 16)
+                }
+                
                 // Botón de login con Auth0
                 VStack(spacing: 20) {
                     Button(action: {
                         Task {
-                            await authService.login()
+                            await authService.loginWithRetry()
                         }
                     }) {
                         HStack {
@@ -77,28 +87,18 @@ struct LoginViewDirect: View {
                     }
                     .padding(.horizontal, 32)
                     
-                    // Mensaje de error o información
-                    if let errorMessage = authService.errorMessage {
-                        VStack(spacing: 8) {
-                            Text(errorMessage)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                .multilineTextAlignment(.center)
-                            
-                            if errorMessage.contains("Conexión perdida") || errorMessage.contains("Timeout") {
-                                Text("💡 Offline mode will be activated to continue")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(themeManager.currentTheme == .dark ? .orange : .blue)
-                                    .multilineTextAlignment(.center)
-                            }
-                        }
-                        .padding(.horizontal, 32)
+                    // Network status indicator (solo en DEBUG)
+                    #if DEBUG
+                    if !authService.isAuthenticated {
+                        NetworkStatusIndicator()
+                            .padding(.top, 16)
                     }
+                    #endif
                 }
                 
                 Spacer()
                 
-                // Información del flujo
+                // Información del flujo mejorada
                 VStack(spacing: 12) {
                     Text("🔐 Secure Authentication")
                         .font(.system(size: 16, weight: .semibold))
@@ -106,9 +106,12 @@ struct LoginViewDirect: View {
                     
                     VStack(alignment: .leading, spacing: 6) {
                         Text("✅ No passwords to remember")
-                        Text("✅ Integrated secure browser")
-                        Text("✅ Authentication with Auth0")
-                        Text("✅ Persistent session")
+                        Text("✅ Encrypted token storage")
+                        Text("✅ Automatic retry on connection issues")
+                        if authService.biometricAuthAvailable {
+                            Text("✅ \(authService.biometricTypeString) support")
+                        }
+                        Text("✅ Persistent secure session")
                     }
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))

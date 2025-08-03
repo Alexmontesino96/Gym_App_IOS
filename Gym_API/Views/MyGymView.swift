@@ -213,7 +213,7 @@ struct GymContactSection: View {
             
             VStack(spacing: 12) {
                 // Address
-                ContactRow(
+                GymContactRow(
                     icon: "map",
                     title: "Address",
                     value: gym.address.isEmpty ? "No address available" : gym.address,
@@ -225,7 +225,7 @@ struct GymContactSection: View {
                 )
                 
                 // Phone
-                ContactRow(
+                GymContactRow(
                     icon: "phone",
                     title: "Phone",
                     value: gym.phone,
@@ -237,7 +237,7 @@ struct GymContactSection: View {
                 )
                 
                 // Email
-                ContactRow(
+                GymContactRow(
                     icon: "envelope",
                     title: "Email",
                     value: gym.email,
@@ -275,7 +275,7 @@ struct GymContactSection: View {
 }
 
 // MARK: - Contact Row
-struct ContactRow: View {
+struct GymContactRow: View {
     let icon: String
     let title: String
     let value: String

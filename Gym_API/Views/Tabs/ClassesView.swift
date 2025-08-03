@@ -71,6 +71,8 @@ struct ClassesView: View {
         }
         .onAppear {
             Task {
+                // Cargar trainers primero para que estén disponibles para las tarjetas
+                await classService.loadTrainers()
                 await classService.loadSessionsForDateIfNeeded(date: selectedDate)
                 await classService.fetchMyClasses() // Cargar estado de registro del usuario
             }
