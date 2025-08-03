@@ -40,6 +40,9 @@ class ClassService: ObservableObject {
     @Published var isLoadingMyClasses = false
     @Published var myClassesErrorMessage: String?
     @Published var trainers: [UserPublicProfile] = []
+    @Published var isLoadingTrainers = false
+    @Published var trainersErrorMessage: String?
+    @Published var authenticationError = false
     
     // MARK: - Private Properties
     private var trainerMap: [Int: UserPublicProfile] = [:]
@@ -404,22 +407,9 @@ class ClassService: ObservableObject {
             self.joinClassErrorMessages[sessionId] = nil
         }
         
-        // Validar si la sesión está disponible antes de enviar la petición
-        let sessionWithClass = await MainActor.run { 
-            self.sessions.first(where: { $0.session.id == sessionId }) 
-        }
-        
-        if let sessionWithClass = sessionWithClass {
-            if !sessionWithClass.canJoinNow {
-                let errorMessage = "No se puede unir a esta clase en este momento. " + sessionWithClass.timeUntilClass
-                _ = await MainActor.run {
-                    self.joinClassErrorMessages[sessionId] = errorMessage
-                    self.joiningClassIds.remove(sessionId)
-                }
-                print("❌ Validación local falló: \(errorMessage)")
-                return
-            }
-        }
+        // El backend manejará las validaciones de tiempo y disponibilidad
+        // Removemos validación local para evitar conflictos con la lógica del servidor
+        print("🔍 Enviando petición de join al backend para validación de disponibilidad")
         
         do {
             guard let url = URL(string: "\(baseURL)/schedule/participation/register/\(sessionId)") else {
@@ -450,19 +440,15 @@ class ClassService: ObservableObject {
             print("🔍 Registering for class session: \(sessionId)")
             
             // Logging para debuggear zona horaria
-            if let sessionWithClass = sessionWithClass {
-                let now = Date()
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                formatter.timeZone = TimeZone.current
-                
-                print("🕐 Debugging zona horaria:")
-                print("🕐 Hora actual local: \(formatter.string(from: now))")
-                print("🕐 Inicio clase local: \(formatter.string(from: sessionWithClass.session.startTime))")
-                print("🕐 Zona horaria actual: \(TimeZone.current.identifier)")
-                print("🕐 canJoinNow: \(sessionWithClass.canJoinNow)")
-                print("🕐 timeUntilClass: \(sessionWithClass.timeUntilClass)")
-            }
+            let now = Date()
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            formatter.timeZone = TimeZone.current
+            
+            print("🕐 Debugging zona horaria:")
+            print("🕐 Hora actual local: \(formatter.string(from: now))")
+            print("🕐 Zona horaria actual: \(TimeZone.current.identifier)")
+            print("🕐 Enviando petición de join para sesión: \(sessionId)")
             
             let (data, response) = try await session.data(for: request)
             
@@ -477,8 +463,13 @@ class ClassService: ObservableObject {
                 print("✅ Successfully registered for class session \(sessionId)")
                 
                 _ = await MainActor.run {
+                    let oldStatus = self.userRegistrationStatus[sessionId] ?? false
                     self.userRegistrationStatus[sessionId] = true
-                    print("🔄 Estado de registro actualizado para sesión \(sessionId)")
+                    print("✅ Estado de registro actualizado para sesión \(sessionId): \(oldStatus) -> true")
+                    print("📊 Estado completo de registros: \(self.userRegistrationStatus)")
+                    // Forzar actualización de las published properties para UI
+                    self.objectWillChange.send()
+                    print("🔄 ObjectWillChange enviado para forzar actualización de UI")
                 }
             } else {
                 let errorMessage = try? JSONDecoder().decode(APIError.self, from: data)
@@ -488,8 +479,13 @@ class ClassService: ObservableObject {
                 // Si el error es que ya está registrado, actualizar el estado
                 if httpResponse.statusCode == 400 && message.contains("Ya estás registrado") {
                     _ = await MainActor.run {
+                        let oldStatus = self.userRegistrationStatus[sessionId] ?? false
                         self.userRegistrationStatus[sessionId] = true
-                        print("🔄 Usuario ya registrado en sesión \(sessionId), actualizando estado")
+                        print("✅ Usuario ya registrado - Estado actualizado para sesión \(sessionId): \(oldStatus) -> true")
+                        print("📊 Estado completo de registros: \(self.userRegistrationStatus)")
+                        // Forzar actualización de las published properties para UI
+                        self.objectWillChange.send()
+                        print("🔄 ObjectWillChange enviado para forzar actualización de UI")
                     }
                 } else {
                     _ = await MainActor.run {
@@ -570,6 +566,8 @@ class ClassService: ObservableObject {
                 _ = await MainActor.run {
                     self.userRegistrationStatus[sessionId] = false
                     print("🔄 Estado de registro actualizado para sesión \(sessionId) - Cancelado")
+                    // Forzar actualización de las published properties para UI
+                    self.objectWillChange.send()
                 }
             } else {
                 let errorMessage = try? JSONDecoder().decode(APIError.self, from: data)
@@ -682,6 +680,12 @@ class ClassService: ObservableObject {
     
     // MARK: - Load Trainers
     func loadTrainers() async {
+        _ = await MainActor.run {
+            self.isLoadingTrainers = true
+            self.trainersErrorMessage = nil
+            self.authenticationError = false
+        }
+        
         do {
             guard let url = URL(string: "\(baseURL)/users/p/gym-participants?role=TRAINER&skip=0&limit=100") else {
                 throw ClassServiceError.invalidURL
@@ -690,17 +694,23 @@ class ClassService: ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
             
-            // Agregar headers de autorización
-            if let token = UserDefaults.standard.string(forKey: "auth0_access_token") {
+            // Agregar token de autorización usando el método seguro
+            if let token = await getAuthToken() {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                print("🔑 Token agregado: Bearer \(token.prefix(20))...")
+                print("🔑 Token agregado para trainers: Bearer \(token.prefix(20))...")
             } else {
-                print("❌ No se encontró token en auth0_access_token")
+                print("❌ No se encontró token de autorización válido para trainers")
+                _ = await MainActor.run {
+                    self.trainersErrorMessage = "Error de autenticación. Inicia sesión nuevamente."
+                    self.authenticationError = true
+                    self.isLoadingTrainers = false
+                }
+                return
             }
             
             // Agregar header del gym
             let gymId = GymService.shared.currentGymId ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             
@@ -723,19 +733,43 @@ class ClassService: ObservableObject {
                     self.trainers = loadedTrainers
                     // Crear mapeo de ID a trainer
                     self.trainerMap = Dictionary(uniqueKeysWithValues: loadedTrainers.map { ($0.id, $0) })
+                    self.trainersErrorMessage = nil
+                    self.authenticationError = false
                 }
             } else {
                 print("❌ Error loading trainers: HTTP \(httpResponse.statusCode)")
+                
+                _ = await MainActor.run {
+                    if httpResponse.statusCode == 403 {
+                        print("⚠️ Error 403: Problema de autenticación. Verificar token y permisos.")
+                        self.trainersErrorMessage = "Error de autenticación. Inicia sesión nuevamente."
+                        self.authenticationError = true
+                    } else if httpResponse.statusCode == 401 {
+                        self.trainersErrorMessage = "Sesión expirada. Inicia sesión nuevamente."
+                        self.authenticationError = true
+                    } else {
+                        self.trainersErrorMessage = "Error del servidor: \(httpResponse.statusCode)"
+                    }
+                }
             }
             
         } catch {
             print("❌ Error loading trainers: \(error)")
+            _ = await MainActor.run {
+                self.trainersErrorMessage = "Error cargando trainers: \(error.localizedDescription)"
+            }
+        }
+        
+        _ = await MainActor.run {
+            self.isLoadingTrainers = false
         }
     }
     
     // MARK: - Helper Methods
     func isUserRegistered(sessionId: Int) -> Bool {
-        return userRegistrationStatus[sessionId] == true
+        let isRegistered = userRegistrationStatus[sessionId] == true
+        print("🔍 Consultando registro para sesión \(sessionId): \(isRegistered)")
+        return isRegistered
     }
     
     func getTrainerName(trainerId: Int) -> String {
@@ -763,12 +797,16 @@ class ClassService: ObservableObject {
         userRegistrationStatus = [:]
         joinClassErrorMessages = [:]
         cancelClassErrorMessages = [:]
+        trainerMap = [:]
         
         // Resetear estados
         isLoading = false
         isLoadingMyClasses = false
+        isLoadingTrainers = false
         errorMessage = nil
         myClassesErrorMessage = nil
+        trainersErrorMessage = nil
+        authenticationError = false
         
         print("✅ Cache de clases limpiado")
     }

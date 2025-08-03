@@ -232,10 +232,21 @@ extension SessionWithClass {
         // Permitir unirse hasta 5 minutos después de que inicie la clase
         let joinDeadline = calendar.date(byAdding: .minute, value: 5, to: session.startTime) ?? session.startTime
         
-        // No permitir unirse más de 30 minutos antes
-        let earliestJoinTime = calendar.date(byAdding: .minute, value: -30, to: session.startTime) ?? session.startTime
+        // Permitir unirse hasta 24 horas antes (más flexible para reservas)
+        let earliestJoinTime = calendar.date(byAdding: .hour, value: -24, to: session.startTime) ?? session.startTime
         
-        return now >= earliestJoinTime && now <= joinDeadline && session.status == .scheduled
+        // Validar que la clase esté programada y dentro de la ventana de tiempo
+        let isWithinTimeWindow = now >= earliestJoinTime && now <= joinDeadline
+        let isValidStatus = session.status == .scheduled || session.status == .active
+        
+        print("🕐 Validación canJoinNow para sesión \(session.id):")
+        print("🕐 - Ahora: \(now)")
+        print("🕐 - Inicio clase: \(session.startTime)")
+        print("🕐 - Ventana permitida: \(earliestJoinTime) - \(joinDeadline)")  
+        print("🕐 - Dentro de ventana: \(isWithinTimeWindow)")
+        print("🕐 - Estado válido: \(isValidStatus) (status: \(session.status))")
+        
+        return isWithinTimeWindow && isValidStatus
     }
     
     var timeUntilClass: String {
