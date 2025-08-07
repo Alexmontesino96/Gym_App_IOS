@@ -8,7 +8,9 @@ struct SettingsView: View {
     @EnvironmentObject var profileService: UserProfileService
     @ObservedObject private var membershipService = MembershipService.shared
     @StateObject private var oneSignalService = OneSignalService.shared
+    @StateObject private var gymService = GymService.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var showingMyGym = false
     
     let onThemeChangeRequest: () -> Void
     
@@ -33,6 +35,13 @@ struct SettingsView: View {
                         
                         // Settings Sections
                         VStack(spacing: 16) {
+                            // Gym Section
+                            GymSection(
+                                gymService: gymService,
+                                themeManager: themeManager,
+                                showingMyGym: $showingMyGym
+                            )
+                            
                             // Membership Section
                             MembershipSection(
                                 membershipService: membershipService,
@@ -79,6 +88,11 @@ struct SettingsView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingMyGym) {
+            MyGymView()
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+        }
         .onReceive(authService.$isAuthenticated) { isAuthenticated in
             // Configurar AuthService en MembershipService cuando el estado de autenticación cambie
             membershipService.authService = authService
@@ -91,11 +105,13 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            // Configurar AuthService en MembershipService
+            // Configurar AuthService en MembershipService y GymService
             membershipService.authService = authService
+            gymService.authService = authService
             
             // Dar un pequeño delay para asegurar que authService esté completamente listo
             Task {
+                await gymService.getMyGyms()
                 // Pequeño delay para permitir que authService se inicialice completamente
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 segundos
                 
@@ -248,6 +264,82 @@ struct MembershipSection: View {
                         Text("No membership information available")
                             .font(.system(size: 14))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Gym Section
+struct GymSection: View {
+    @ObservedObject var gymService: GymService
+    let themeManager: ThemeManager
+    @Binding var showingMyGym: Bool
+    
+    var body: some View {
+        SettingsCard(title: "My Gym", themeManager: themeManager) {
+            VStack(spacing: 12) {
+                if gymService.isLoadingGyms {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading gym...")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                } else if let gym = gymService.currentGym {
+                    Button(action: { showingMyGym = true }) {
+                        HStack {
+                            Image(systemName: "building.2.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(gym.name)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                    .lineLimit(1)
+                                
+                                HStack(spacing: 6) {
+                                    Text(gym.roleDisplayName)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    
+                                    if gymService.myGyms.count > 1 {
+                                        Text("•")
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        Text("Tap to change")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                    }
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        }
+                    }
+                } else {
+                    HStack {
+                        Image(systemName: "building.2")
+                            .font(.system(size: 20))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("No gym associated")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            
+                            Text("Contact your gym to get added")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        }
+                        
+                        Spacer()
                     }
                 }
             }

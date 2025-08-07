@@ -41,10 +41,16 @@ struct ModernProfileView: View {
                             .padding(.top, 20)
                             .padding(.bottom, 20)
                             
+                            // Membership Status Widget
+                            MembershipStatusWidget(
+                                membershipService: membershipService,
+                                themeManager: themeManager
+                            )
+                            .padding(.bottom, 20)
+                            
                             // Stats Section
                             StatsSection(
                                 profile: profile,
-                                membershipService: membershipService,
                                 themeManager: themeManager
                             )
                             .padding(.horizontal, 20)
@@ -127,6 +133,7 @@ struct ModernProfileView: View {
                 await membershipService.getMyMembershipStatus()
             }
             profileImageService.authService = authService
+            membershipService.authService = authService
         }
         .sheet(isPresented: $showingImagePicker) {
             ImagePickerSheet(selectedImage: $selectedImage, isPresented: $showingImagePicker)
@@ -262,7 +269,6 @@ struct ProfileHeaderSection: View {
 // MARK: - Stats Section
 struct StatsSection: View {
     let profile: UserProfile
-    let membershipService: MembershipService
     let themeManager: ThemeManager
     
     var body: some View {

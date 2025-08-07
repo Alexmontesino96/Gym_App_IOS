@@ -1,12 +1,14 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Class Action State Management
-enum ClassActionState {
+enum ClassActionState: Equatable {
     case available
     case registered
     case full 
     case live
-    case completed
+    case completed(wasRegistered: Bool)
+    case attended
     case cancelled
     
     struct ActionConfig {
@@ -35,7 +37,7 @@ enum ClassActionState {
             )
         case .registered:
             return ActionConfig(
-                text: "Registered",
+                text: "Joined",
                 icon: "checkmark.circle.fill",
                 primaryColor: Color(red: 0.22, green: 0.78, blue: 0.22), // Verde fitness
                 isDisabled: true
@@ -54,13 +56,32 @@ enum ClassActionState {
                 primaryColor: Color.dynamicAccent(theme: theme),
                 isDisabled: true
             )
-        case .completed:
+        case .attended:
             return ActionConfig(
-                text: "Completed",
+                text: "Attended",
                 icon: "checkmark.seal.fill",
-                primaryColor: Color.gray,
-                isDisabled: true
+                primaryColor: Color(hex: "#10B981") ?? Color(red: 0.06, green: 0.73, blue: 0.51), // Verde éxito
+                backgroundColor: Color(hex: "#10B981")?.opacity(0.15) ?? Color(red: 0.06, green: 0.73, blue: 0.51).opacity(0.15),
+                isDisabled: false // Permitir ver estadísticas de la clase
             )
+        case .completed(let wasRegistered):
+            if wasRegistered {
+                return ActionConfig(
+                    text: "Great Job!",
+                    icon: "trophy.fill",
+                    primaryColor: Color(hex: "#10B981") ?? Color(red: 0.06, green: 0.73, blue: 0.51), // Verde esmeralda éxito
+                    backgroundColor: Color(hex: "#10B981")?.opacity(0.15) ?? Color(red: 0.06, green: 0.73, blue: 0.51).opacity(0.15),
+                    isDisabled: false // Permitir ver detalles/estadísticas
+                )
+            } else {
+                return ActionConfig(
+                    text: "Ended",
+                    icon: "clock.badge.checkmark",
+                    primaryColor: Color(hex: "#6B7280") ?? Color.gray, // Gris neutro
+                    backgroundColor: Color(hex: "#6B7280")?.opacity(0.1) ?? Color.gray.opacity(0.1),
+                    isDisabled: true
+                )
+            }
         case .cancelled:
             return ActionConfig(
                 text: "Cancelled",
@@ -166,66 +187,662 @@ struct ClassTypeIcon: View {
     
     var body: some View {
         Image(systemName: fitnessIcon)
-            .font(.system(size: 16, weight: .semibold))
+            .font(.system(size: 20, weight: .semibold))
             .foregroundColor(Color.dynamicAccent(theme: theme))
-            .frame(width: 20, height: 20)
+            .frame(width: 24, height: 24)
     }
 }
 
-/// Botón de acción moderno con micro-animaciones
-struct ModernActionButton: View {
-    let config: ClassActionState.ActionConfig
+/// Botón adaptivo que cambia de estado inteligentemente
+struct AdaptiveClassButton: View {
+    let gymClass: GymClass
+    let currentState: ClassActionState
     let isLoading: Bool
-    let action: () -> Void
+    let onJoin: () -> Void
+    let onCancel: () -> Void
     let theme: ThemeManager.AppTheme
     
-    @State private var isPressed = false
+    @State private var showHint = false
+    @State private var showActionSheet = false
+    @State private var buttonScale: CGFloat = 1.0
+    @State private var animationDirection: AnimationDirection = .idle
+    @State private var isPreloading = false
+    @State private var glowAnimation = false
+    
+    enum AnimationDirection {
+        case joining
+        case canceling
+        case idle
+    }
     
     var body: some View {
-        Button(action: {
-            print("🔴 Botón presionado - Disabled: \(config.isDisabled), Loading: \(isLoading)")
-            if !config.isDisabled && !isLoading {
-                print("🔴 Ejecutando acción del botón")
-                action()
-            } else {
-                print("❌ Botón deshabilitado - No se ejecutará acción")
+        // Para estados especiales (completed y attended), usar diseños especiales
+        switch currentState {
+        case .completed(let wasRegistered):
+            completedButton(wasRegistered: wasRegistered)
+        case .attended:
+            attendedButton
+        default:
+            standardButton
+        }
+    }
+    
+    private var attendedButton: some View {
+        let config = currentState.config(theme: theme)
+        
+        return HStack(spacing: 10) {
+            Image(systemName: config.icon)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .rotationEffect(.degrees(glowAnimation ? 3 : -3))
+                .animation(
+                    .easeInOut(duration: 1.5)
+                    .repeatForever(autoreverses: true),
+                    value: glowAnimation
+                )
+            
+            Text(config.text)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                // Glow effect sutil para attended
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(config.primaryColor)
+                    .blur(radius: 6)
+                    .opacity(glowAnimation ? 0.5 : 0.2)
+                    .scaleEffect(glowAnimation ? 1.05 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: true),
+                        value: glowAnimation
+                    )
+                
+                // Main background con gradiente
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                config.primaryColor,
+                                config.primaryColor.opacity(0.9)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             }
-        }) {
-            HStack(spacing: 6) {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
-                } else {
-                    Image(systemName: config.icon)
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(config.text)
-                        .font(.system(size: 14, weight: .semibold))
+        )
+        .scaleEffect(buttonScale)
+        .onAppear {
+            withAnimation {
+                glowAnimation = true
+            }
+        }
+        .onTapGesture {
+            // Animación de tap suave
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                buttonScale = 0.97
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                    buttonScale = 1.0
                 }
             }
-            .foregroundColor(config.isDisabled ? Color.dynamicTextSecondary(theme: theme) : .white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(config.isDisabled ? Color.dynamicSurface(theme: theme) : config.primaryColor)
-                    .overlay(
-                        config.isDisabled ?
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.dynamicBorder(theme: theme), lineWidth: 1) : nil
-                    )
-            )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
-            .opacity(config.isDisabled ? 0.6 : 1.0)
-        }
-        .disabled(config.isDisabled || isLoading)
-        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isPressed = pressing
+            
+            // Haptic feedback suave
+            if #available(iOS 13.0, *) {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
             }
-        }, perform: {})
+            
+            // Aquí se puede agregar navegación a estadísticas de la clase
+        }
+    }
+    
+    private func completedButton(wasRegistered: Bool) -> some View {
+        let config = currentState.config(theme: theme)
+        
+        return HStack(spacing: 10) {
+            Image(systemName: config.icon)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+                .rotationEffect(.degrees(wasRegistered && glowAnimation ? 5 : -5))
+                .animation(
+                    wasRegistered ? 
+                    .easeInOut(duration: 2.0).repeatForever(autoreverses: true) : nil,
+                    value: glowAnimation
+                )
+            
+            Text(config.text)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                // Glow effect solo para usuarios que asistieron
+                if wasRegistered {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(config.primaryColor)
+                        .blur(radius: 8)
+                        .opacity(glowAnimation ? 0.6 : 0.3)
+                        .scaleEffect(glowAnimation ? 1.1 : 1.0)
+                        .animation(
+                            .easeInOut(duration: 2.0)
+                            .repeatForever(autoreverses: true),
+                            value: glowAnimation
+                        )
+                }
+                
+                // Main background
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                config.primaryColor,
+                                config.primaryColor.opacity(0.8)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        )
+        .scaleEffect(buttonScale)
+        .onAppear {
+            if wasRegistered {
+                withAnimation {
+                    glowAnimation = true
+                }
+            }
+        }
+        .onTapGesture {
+            // Animación de tap
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                buttonScale = 0.95
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                    buttonScale = 1.0
+                }
+            }
+            
+            // Haptic feedback
+            if #available(iOS 13.0, *) {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+            }
+        }
+    }
+    
+    private var standardButton: some View {
+        Button(action: handleTap) {
+            buttonContent
+        }
+        .buttonStyle(CustomButtonStyle())
+        .scaleEffect(buttonScale)
+        .disabled(isLoading || isPreloading)
+        .modifier(ButtonAnimationsModifier(
+            currentState: currentState,
+            showHint: showHint,
+            buttonScale: buttonScale,
+            isLoading: isLoading,
+            isPreloading: isPreloading,
+            animationForCurrentDirection: animationForCurrentDirection
+        ))
+        .modifier(ButtonLifecycleModifier(
+            currentState: currentState,
+            animationDirection: animationDirection,
+            showHint: $showHint
+        ))
+        .confirmationDialog("Manage Registration", isPresented: $showActionSheet, titleVisibility: .visible) {
+            dialogButtons
+        } message: {
+            Text("What would you like to do with this class?")
+        }
+    }
+    
+    private var buttonContent: some View {
+        HStack(spacing: 8) {
+            buttonIcon
+            buttonTextContent
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(buttonBackground)
+        .foregroundColor(buttonForegroundColor)
+    }
+    
+    private var buttonIcon: some View {
+        Group {
+            if isLoading || isPreloading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .tint(buttonForegroundColor)
+                    .scaleEffect(0.8)
+            } else {
+                Image(systemName: currentState == .registered ? "checkmark.circle.fill" : "plus.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .scaleEffect(currentState == .registered ? 1.0 : 0.9)
+            }
+        }
+        .frame(width: 16, height: 16)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isLoading)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isPreloading)
+    }
+    
+    private var buttonTextContent: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            buttonMainText
+            buttonHint
+        }
+    }
+    
+    private var buttonMainText: some View {
+        Text(currentState == .registered ? "Joined" : (isLoading || isPreloading ? "Joining..." : "Join"))
+            .font(.system(size: 16, weight: .semibold))
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isLoading)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isPreloading)
+    }
+    
+    @ViewBuilder
+    private var buttonHint: some View {
+        if currentState == .registered && showHint {
+            Text("Tap to manage")
+                .font(.system(size: 11, weight: .regular))
+                .opacity(0.7)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .transition(.asymmetric(
+                    insertion: .scale.combined(with: .opacity).combined(with: .move(edge: .top)),
+                    removal: .scale.combined(with: .opacity).combined(with: .move(edge: .top))
+                ))
+        }
+    }
+    
+    private var buttonBackground: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(buttonBackgroundColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(buttonBorderColor, lineWidth: buttonBorderWidth)
+            )
+    }
+    
+    @ViewBuilder
+    private var dialogButtons: some View {
+        Button("Cancel Registration", role: .destructive) {
+            handleCancelWithAnimation()
+        }
+        Button("Add Reminder") {
+            print("Add reminder tapped")
+        }
+        Button("View Details") {
+            print("View details tapped")
+        }
+        Button("Cancel", role: .cancel) { }
     }
 }
+
+// MARK: - Button Helper Modifiers and Styles
+struct CustomButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+    }
+}
+
+struct ButtonAnimationsModifier: ViewModifier {
+    let currentState: ClassActionState
+    let showHint: Bool
+    let buttonScale: CGFloat
+    let isLoading: Bool
+    let isPreloading: Bool
+    let animationForCurrentDirection: Animation
+    
+    func body(content: Content) -> some View {
+        content
+            .animation(animationForCurrentDirection, value: currentState)
+            .animation(.spring(response: 0.35, dampingFraction: 0.9), value: showHint)
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: buttonScale)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isLoading)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isPreloading)
+    }
+}
+
+struct ButtonLifecycleModifier: ViewModifier {
+    let currentState: ClassActionState
+    let animationDirection: AdaptiveClassButton.AnimationDirection
+    @Binding var showHint: Bool
+    
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                if currentState == .registered {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showHint = true
+                        }
+                    }
+                }
+            }
+            .onChange(of: currentState) { _, newState in
+                handleStateChange(newState)
+            }
+    }
+    
+    private func handleStateChange(_ newState: ClassActionState) {
+        if newState == .registered {
+            if animationDirection == .joining {
+                if #available(iOS 13.0, *) {
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                }
+            }
+            
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                showHint = false
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                    showHint = true
+                }
+            }
+        } else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+                showHint = false
+            }
+        }
+    }
+}
+
+extension AdaptiveClassButton {
+    private var buttonBackgroundColor: Color {
+        switch currentState {
+        case .registered:
+            return Color.dynamicSurface(theme: theme) // Color de fondo de la tarjeta
+        default:
+            return Color.dynamicAccent(theme: theme) // Rojo marca
+        }
+    }
+    
+    private var buttonBorderColor: Color {
+        switch currentState {
+        case .registered:
+            return Color.dynamicAccent(theme: theme) // Borde rojo de resaltado
+        default:
+            return Color.clear // Sin borde para estado normal
+        }
+    }
+    
+    private var buttonBorderWidth: CGFloat {
+        switch currentState {
+        case .registered:
+            return 1.5 // Borde visible para estado registered
+        default:
+            return 0 // Sin borde para estado normal
+        }
+    }
+    
+    private var buttonForegroundColor: Color {
+        switch currentState {
+        case .registered:
+            return Color.dynamicAccent(theme: theme) // Texto rojo de resaltado
+        default:
+            return Color.white // Texto blanco para estado normal
+        }
+    }
+    
+    private var animationForCurrentDirection: Animation {
+        switch animationDirection {
+        case .joining:
+            return .spring(response: 0.4, dampingFraction: 0.8)
+        case .canceling:
+            return .spring(response: 0.3, dampingFraction: 0.85)
+        case .idle:
+            return .spring(response: 0.35, dampingFraction: 0.9)
+        }
+    }
+    
+    private func handleTap() {
+        if currentState == .registered {
+            // Si ya está registrado, mostrar action sheet
+            showActionSheet = true
+        } else {
+            // Si no está registrado, hacer join con animación mejorada
+            animationDirection = .joining
+            
+            // Fase 1: Comprimir ligeramente el botón y activar preloading
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+                buttonScale = 0.96
+                isPreloading = true
+            }
+            
+            // Fase 2: Expandir, cambiar a loading real y ejecutar acción
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    buttonScale = 1.0
+                    isPreloading = false
+                }
+                
+                // Llamar a onJoin que debería activar isLoading
+                onJoin()
+            }
+        }
+    }
+    
+    private func handleCancelWithAnimation() {
+        // Animación de preparación para cancelar
+        animationDirection = .canceling
+        
+        // Fase 1: Preparación - ligera compresión
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.9)) {
+            buttonScale = 0.97
+            showHint = false
+        }
+        
+        // Fase 2: Transición principal - cambio de estado
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(animationForCurrentDirection) {
+                buttonScale = 1.0
+            }
+            
+            // Haptic feedback al cancelar
+            if #available(iOS 13.0, *) {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+            }
+            
+            onCancel()
+        }
+        
+        // Fase 3: Cleanup - resetear dirección de animación
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            animationDirection = .idle
+        }
+    }
+}
+
+/// Badge de completado con animación y diferenciación visual
+struct CompletedBadge: View {
+    let theme: ThemeManager.AppTheme
+    let wasUserRegistered: Bool
+    @State private var isAnimating = false
+    
+    var body: some View {
+        ZStack {
+            // Fondo con efecto glow para clases completadas con éxito
+            if wasUserRegistered {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(hex: "#10B981") ?? Color.green,
+                                Color(hex: "#059669") ?? Color.green.opacity(0.8)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 48, height: 48)
+                    .blur(radius: 8)
+                    .opacity(isAnimating ? 0.6 : 0.3)
+                    .scaleEffect(isAnimating ? 1.2 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 2.0)
+                        .repeatForever(autoreverses: true),
+                        value: isAnimating
+                    )
+            }
+            
+            // Badge principal
+            ZStack {
+                Circle()
+                    .fill(wasUserRegistered ? 
+                        Color(hex: "#10B981") ?? Color.green :
+                        Color.gray.opacity(0.3)
+                    )
+                    .frame(width: 40, height: 40)
+                
+                Circle()
+                    .stroke(
+                        wasUserRegistered ?
+                        (Color(hex: "#059669") ?? Color.green.opacity(0.8)) :
+                        Color.gray.opacity(0.5),
+                        lineWidth: 2
+                    )
+                    .frame(width: 40, height: 40)
+                
+                Image(systemName: wasUserRegistered ? "trophy.fill" : "clock.badge.checkmark")
+                    .font(.system(size: wasUserRegistered ? 20 : 18, weight: .bold))
+                    .foregroundColor(.white)
+                    .rotationEffect(.degrees(wasUserRegistered && isAnimating ? 5 : 0))
+                    .animation(
+                        wasUserRegistered ? 
+                        .easeInOut(duration: 0.15)
+                        .repeatForever(autoreverses: true) : nil,
+                        value: isAnimating
+                    )
+            }
+        }
+        .onAppear {
+            if wasUserRegistered {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isAnimating = true
+                }
+            }
+        }
+    }
+}
+
+/// Animación de celebración para cuando se completa una clase
+struct CompletedCelebrationView: View {
+    @Binding var show: Bool
+    let wasUserRegistered: Bool
+    @State private var particleOpacity: Double = 0
+    @State private var particleScale: CGFloat = 0.5
+    @State private var checkScale: CGFloat = 0.3
+    @State private var textOpacity: Double = 0
+    
+    var body: some View {
+        if show && wasUserRegistered {
+            ZStack {
+                // Partículas de celebración
+                ForEach(0..<8, id: \.self) { index in
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hex: "#10B981") ?? Color.green)
+                        .opacity(particleOpacity)
+                        .scaleEffect(particleScale)
+                        .offset(particleOffset(for: index))
+                        .animation(
+                            .spring(response: 0.6, dampingFraction: 0.6)
+                            .delay(Double(index) * 0.05),
+                            value: particleScale
+                        )
+                }
+                
+                // Contenido principal
+                VStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color(hex: "#10B981") ?? Color.green,
+                                        Color(hex: "#059669") ?? Color.green.opacity(0.9)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 80, height: 80)
+                        
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 40, weight: .bold))
+                            .foregroundColor(.white)
+                            .scaleEffect(checkScale)
+                    }
+                    
+                    VStack(spacing: 4) {
+                        Text("Class Completed!")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(Color(hex: "#10B981") ?? Color.green)
+                        
+                        Text("Great job on finishing the class")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color.gray)
+                            .multilineTextAlignment(.center)
+                    }
+                    .opacity(textOpacity)
+                }
+                .padding(32)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color(hex: "#10B981")?.opacity(0.2) ?? Color.green.opacity(0.2), lineWidth: 1)
+                        )
+                )
+                .scaleEffect(show ? 1.0 : 0.8)
+                .opacity(show ? 1.0 : 0)
+            }
+            .onAppear {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    checkScale = 1.0
+                    particleOpacity = 1.0
+                    particleScale = 1.5
+                }
+                
+                withAnimation(.easeInOut(duration: 0.3).delay(0.2)) {
+                    textOpacity = 1.0
+                }
+                
+                // Auto-ocultar después de 3 segundos
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        show = false
+                    }
+                }
+            }
+        }
+    }
+    
+    private func particleOffset(for index: Int) -> CGSize {
+        let angle = Double(index) * (360.0 / 8.0) * .pi / 180
+        let radius: CGFloat = 60
+        return CGSize(
+            width: CGFloat(cos(angle)) * radius,
+            height: CGFloat(sin(angle)) * radius
+        )
+    }
+}
+
 
 // MARK: - Main Class Card View
 struct ClassCardView: View {
@@ -236,296 +853,543 @@ struct ClassCardView: View {
     @State private var cardPressed = false
     @State private var cachedActionState: ClassActionState = .available
     @State private var lastStateUpdateTime: Date = Date()
+    @State private var needsStateUpdate: Bool = false
+    @State private var showSuccessAnimation = false
+    @State private var wasRegisteredBefore = false
+    @State private var showCompletedAnimation = false
+    @State private var hasShownCompletedAnimation = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header con indicador de estado
-            if currentActionState == .live {
-                HStack {
-                    LiveIndicator(theme: themeManager.currentTheme)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-            }
-            
-            // Contenido principal
-            VStack(alignment: .leading, spacing: 16) {
-                // Header: Título y tiempo
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top, spacing: 12) {
-                        // Icono de tipo de clase
-                        ClassTypeIcon(className: gymClass.name, theme: themeManager.currentTheme)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            // Nombre de clase con jerarquía optimizada (17pt)
-                            Text(gymClass.name)
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                .lineLimit(1)
-                                .accessibilityLabel("Class name: \(gymClass.name)")
-                            
-                            // Tiempo con mejor formato
-                            HStack(spacing: 6) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                Text(formattedTimeWithDuration)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            }
-                        }
-                        
-                        Spacer()
-                    }
-                }
+        cardContent
+            .background(cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(statusBadge, alignment: .topTrailing)
+            .overlay(successAnimation)
+            .overlay(completedCelebration)
+            .scaleEffect(cardPressed ? 0.98 : 1.0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0), value: cardPressed)
+            .onAppear {
+                print("🔍 ClassCardView onAppear - Clase: \(gymClass.name)")
+                print("🔍 AuthService configurado: \(classService.authService != nil)")
+                print("🔍 Trainers en cache: \(classService.trainers.count)")
                 
-                // Stats Pills compactos
-                HStack(spacing: 8) {
-                    StatsPill(
-                        "\(duration)min",
-                        icon: "timer",
-                        color: Color.dynamicTextSecondary(theme: themeManager.currentTheme),
-                        theme: themeManager.currentTheme
-                    )
-                    
-                    StatsPill(
-                        spotsText,
-                        icon: availableSpots > 0 ? "person.2" : "person.2.fill",
-                        color: spotsColor,
-                        theme: themeManager.currentTheme
-                    )
-                    
-                    StatsPill(
-                        difficultyText,
-                        color: difficultyColor,
-                        theme: themeManager.currentTheme
-                    )
-                    
-                    Spacer()
-                }
+                // Inicializar wasRegisteredBefore para evitar animación en primera carga
+                let currentRegistrationStatus = classService.userRegistrationStatus[gymClass.id] ?? false
+                wasRegisteredBefore = currentRegistrationStatus
                 
-                // Bottom: Instructor y Action
-                HStack(spacing: 12) {
-                    // Instructor info compacto con estado de error
-                    HStack(spacing: 8) {
-                        AsyncImage(url: URL(string: trainerImageURL)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 32, height: 32)
-                                    .clipShape(Circle())
-                            case .failure(_), .empty:
-                                Circle()
-                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Group {
-                                            if classService.isLoadingTrainers {
-                                                ProgressView()
-                                                    .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicTextSecondary(theme: themeManager.currentTheme)))
-                                                    .scaleEffect(0.8)
-                                            } else if classService.authenticationError {
-                                                Image(systemName: "exclamationmark.triangle.fill")
-                                                    .font(.system(size: 12))
-                                                    .foregroundColor(.orange)
-                                            } else {
-                                                Image(systemName: "person.fill")
-                                                    .font(.system(size: 14))
-                                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                            }
-                                        }
-                                    )
-                            @unknown default:
-                                Circle()
-                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                    .frame(width: 32, height: 32)
-                            }
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(instructorDisplayName)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(
-                                    classService.authenticationError ? 
-                                    .orange : Color.dynamicText(theme: themeManager.currentTheme)
-                                )
-                                .lineLimit(1)
-                        }
+                // Inicializar estado de acción
+                updateActionStateAsync()
+                
+                // Cargar trainers si no están cargados o hay error de autenticación
+                if classService.trainers.isEmpty || classService.authenticationError {
+                    print("🔍 Cargando trainers porque el cache está vacío o hay error de auth")
+                    Task {
+                        await classService.loadTrainers()
+                        updateTrainerImage()
                     }
-                    
-                    Spacer()
-                    
-                    // Action button moderno
-                    if currentActionState == .registered {
-                        HStack(spacing: 8) {
-                            ModernActionButton(
-                                config: currentActionState.config(theme: themeManager.currentTheme),
-                                isLoading: false,
-                                action: {},
-                                theme: themeManager.currentTheme
-                            )
-                            
-                            // Botón cancelar compacto
-                            Button(action: {
-                                print("🔴 Cancelando registro para clase \(gymClass.id): \(gymClass.name)")
-                                Task {
-                                    await classService.cancelClassRegistration(classId: gymClass.id, reason: "User cancelled from app")
-                                    print("✅ Proceso de cancelación completado para \(gymClass.id)")
-                                }
-                            }) {
-                                if classService.cancellingClassIds.contains(gymClass.id) {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .red))
-                                        .scaleEffect(0.7)
-                                } else {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 10, weight: .semibold))
-                                }
-                            }
-                            .foregroundColor(.red)
-                            .frame(width: 28, height: 28)
-                            .background(
-                                Circle()
-                                    .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                            )
-                        }
-                    } else {
-                        ModernActionButton(
-                            config: currentActionState.config(theme: themeManager.currentTheme),
-                            isLoading: isLoadingAction,
-                            action: {
-                                print("🔴 Intentando unirse a la clase \(gymClass.id): \(gymClass.name)")
-                                Task {
-                                    await classService.joinClass(classId: gymClass.id)
-                                    print("✅ Proceso de unirse a clase completado para \(gymClass.id)")
-                                }
-                            },
-                            theme: themeManager.currentTheme
-                        )
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, currentActionState == .live ? 8 : 16)
-            .padding(.bottom, 16)
-        }
-        .background(
-            // Glassmorphism effect
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            currentActionState == .live ? 
-                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3) :
-                            Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.1),
-                            lineWidth: currentActionState == .live ? 1.5 : 0.5
-                        )
-                )
-                .shadow(
-                    color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.1 : 0.05),
-                    radius: 8,
-                    x: 0,
-                    y: 2
-                )
-        )
-        .scaleEffect(cardPressed ? 0.98 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8, blendDuration: 0), value: cardPressed)
-        .onAppear {
-            print("🔍 ClassCardView onAppear - Clase: \(gymClass.name)")
-            print("🔍 AuthService configurado: \(classService.authService != nil)")
-            print("🔍 Trainers en cache: \(classService.trainers.count)")
-            
-            // Cargar trainers si no están cargados o hay error de autenticación
-            if classService.trainers.isEmpty || classService.authenticationError {
-                print("🔍 Cargando trainers porque el cache está vacío o hay error de auth")
-                Task {
-                    await classService.loadTrainers()
+                } else {
+                    print("🔍 Usando trainers del cache")
                     updateTrainerImage()
                 }
-            } else {
-                print("🔍 Usando trainers del cache")
+            }
+            .onChange(of: classService.trainers.count) { _, _ in
                 updateTrainerImage()
             }
-        }
-        .onChange(of: classService.trainers.count) { _, _ in
-            updateTrainerImage()
-        }
-        .onChange(of: classService.userRegistrationStatus) { _, _ in
-            // Forzar recálculo del estado cuando cambie el estado de registro
-            DispatchQueue.main.async {
-                self.lastStateUpdateTime = Date().addingTimeInterval(-10) // Forzar recálculo
-                print("🔄 Forzando actualización de estado para clase \(gymClass.id)")
+            .onChange(of: classService.userRegistrationStatus) { oldValue, newValue in
+                // Detectar cuando el usuario se registra exitosamente
+                let wasRegistered = oldValue[gymClass.id] ?? false
+                let isNowRegistered = newValue[gymClass.id] ?? false
+                
+                if !wasRegistered && isNowRegistered && !wasRegisteredBefore {
+                    // Mostrar animación de éxito con mismo timing que botón
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showSuccessAnimation = true
+                    }
+                    
+                    // Haptic feedback
+                    if #available(iOS 13.0, *) {
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedback.impactOccurred()
+                    }
+                    
+                    // Auto-hide después de 2 segundos con misma animación
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showSuccessAnimation = false
+                        }
+                    }
+                    
+                    wasRegisteredBefore = true
+                }
+                
+                updateActionStateAsync()
             }
-        }
-        .onChange(of: classService.joiningClassIds.count) { _, _ in
-            // Forzar recálculo cuando termine una operación de join
-            if !classService.joiningClassIds.contains(gymClass.id) {
-                DispatchQueue.main.async {
-                    self.lastStateUpdateTime = Date().addingTimeInterval(-10) // Forzar recálculo
-                    print("🔄 Operación de join completada, forzando actualización para clase \(gymClass.id)")
+            .onChange(of: classService.joiningClassIds.count) { _, _ in
+                // Solo actualizar si esta clase específica terminó su operación
+                if !classService.joiningClassIds.contains(gymClass.id) && !needsStateUpdate {
+                    debounceStateUpdate()
                 }
             }
-        }
-        .onTapGesture {
-            // Micro-animación de tap
-            withAnimation(.easeInOut(duration: 0.1)) {
-                cardPressed = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            .onTapGesture {
+                // Micro-animación de tap
                 withAnimation(.easeInOut(duration: 0.1)) {
-                    cardPressed = false
+                    cardPressed = true
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        cardPressed = false
+                    }
+                }
+                
+                // Si hay error de autenticación, intentar recargar trainers
+                if classService.authenticationError {
+                    print("🔄 Reintentando cargar trainers después de tap en tarjeta con error de auth")
+                    Task {
+                        await classService.loadTrainers()
+                    }
+                }
+            }
+    }
+    
+    // MARK: - Card Content Components
+    
+    private var cardContent: some View {
+        HStack(spacing: 0) {
+            accentLine
+            mainContent
+        }
+    }
+    
+    private var accentLine: some View {
+        Rectangle()
+            .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+            .frame(width: 6)
+    }
+    
+    private var mainContent: some View {
+        VStack(spacing: 0) {
+            liveIndicatorHeader
+            contentBody
+        }
+    }
+    
+    @ViewBuilder
+    private var liveIndicatorHeader: some View {
+        if currentActionState == .live {
+            HStack {
+                LiveIndicator(theme: themeManager.currentTheme)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+        }
+    }
+    
+    private var contentBody: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            classHeader
+            statsPills
+            bottomSection
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, currentActionState == .live ? 12 : 20)
+        .padding(.bottom, 20)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentActionState)
+    }
+    
+    private var classHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Título con icono alineado
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                ClassTypeIcon(className: gymClass.name, theme: themeManager.currentTheme)
+                
+                Text(gymClass.name)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+                    .accessibilityLabel("Class name: \(gymClass.name)")
+                
+                Spacer()
             }
             
-            // Si hay error de autenticación, intentar recargar trainers
-            if classService.authenticationError {
-                print("🔄 Reintentando cargar trainers después de tap en tarjeta con error de auth")
-                Task {
-                    await classService.loadTrainers()
-                }
+            // Información de tiempo separada
+            timeInfo
+                .padding(.leading, 36) // Alinear con el texto (12 spacing + 24 icon width)
+        }
+    }
+    
+    private var timeInfo: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock")
+                .font(.system(size: 12))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            Text(formattedTimeWithDuration)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+        }
+    }
+    
+    private var statsPills: some View {
+        HStack(spacing: 8) {
+            StatsPill(
+                "\(duration)min",
+                icon: "timer",
+                color: Color.dynamicTextSecondary(theme: themeManager.currentTheme),
+                theme: themeManager.currentTheme
+            )
+            
+            StatsPill(
+                spotsText,
+                icon: availableSpots > 0 ? "person.2" : "person.2.fill",
+                color: spotsColor,
+                theme: themeManager.currentTheme
+            )
+            
+            StatsPill(
+                difficultyText,
+                color: difficultyColor,
+                theme: themeManager.currentTheme
+            )
+            
+            Spacer()
+        }
+    }
+    
+    private var bottomSection: some View {
+        HStack(spacing: 8) { // Reducido el spacing para dar más espacio
+            instructorInfo
+                .layoutPriority(1) // INVERTIDO: Prioridad menor para que se adapte al botón
+                .frame(maxWidth: .infinity, alignment: .leading) // Usar espacio restante
+                .clipped() // Evitar desbordamiento
+            
+            actionButtonsArea
+                .layoutPriority(2) // INVERTIDO: Prioridad ALTA para el botón - nunca se compromete
+                .fixedSize(horizontal: true, vertical: false) // Mantener tamaño natural del botón
+        }
+        .frame(maxWidth: .infinity) // Asegurar que use todo el ancho disponible
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentActionState)
+    }
+    
+    private var instructorInfo: some View {
+        HStack(spacing: 6) { // Reducido el spacing
+            instructorImage
+                .frame(width: 28, height: 28) // Ligeramente más pequeño para ahorrar espacio
+            instructorName
+                .layoutPriority(1) // El texto se adapta al espacio disponible
+                .frame(minWidth: 60, maxWidth: .infinity, alignment: .leading) // Rango más flexible
+        }
+        .fixedSize(horizontal: false, vertical: true) // Mantener altura fija
+        .frame(maxWidth: .infinity, alignment: .leading) // Usar espacio restante
+    }
+    
+    private var instructorImage: some View {
+        AsyncImage(url: URL(string: trainerImageURL)) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 28, height: 28)
+                    .clipShape(Circle())
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: trainerImageURL)
+            case .failure(_), .empty:
+                instructorPlaceholder
+            @unknown default:
+                instructorPlaceholder
             }
         }
+        .frame(width: 28, height: 28) // Frame fijo para evitar cambios de layout
+    }
+    
+    private var instructorPlaceholder: some View {
+        Circle()
+            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .frame(width: 28, height: 28)
+            .overlay(instructorPlaceholderContent)
+    }
+    
+    @ViewBuilder
+    private var instructorPlaceholderContent: some View {
+        if classService.isLoadingTrainers {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle())
+                .tint(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                .scaleEffect(0.8)
+        } else if classService.authenticationError {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.orange)
+        } else {
+            Image(systemName: "person.fill")
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+        }
+    }
+    
+    private var instructorName: some View {
+        Text(instructorDisplayName)
+            .font(.system(size: 15, weight: .medium))
+            .foregroundColor(
+                classService.authenticationError ? 
+                .orange : Color.dynamicText(theme: themeManager.currentTheme)
+            )
+            .lineLimit(1)
+            .truncationMode(.tail) // Truncar agresivamente si es necesario
+            .minimumScaleFactor(0.85) // Permitir reducción del texto si es necesario
+            .fixedSize(horizontal: false, vertical: true) // Altura fija
+            .frame(maxWidth: .infinity, alignment: .leading) // Usar espacio disponible
+            .clipped() // Evitar desbordamiento
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: instructorDisplayName)
+    }
+    
+    private var actionButtonsArea: some View {
+        AdaptiveClassButton(
+            gymClass: gymClass,
+            currentState: currentActionState,
+            isLoading: isLoadingAction,
+            onJoin: joinAction,
+            onCancel: cancelAction,
+            theme: themeManager.currentTheme
+        )
+    }
+    
+    private func joinAction() {
+        print("🔴 Intentando unirse a la clase \(gymClass.id): \(gymClass.name)")
+        Task {
+            await classService.joinClass(classId: gymClass.id)
+            print("✅ Proceso de unirse a clase completado para \(gymClass.id)")
+        }
+    }
+    
+    private func cancelAction() {
+        print("🔴 Cancelando registro para clase \(gymClass.id): \(gymClass.name)")
+        Task {
+            await classService.cancelClassRegistration(classId: gymClass.id, reason: "User cancelled from app")
+            print("✅ Proceso de cancelación completado para \(gymClass.id)")
+        }
+    }
+    
+    // MARK: - Background and Overlays
+    
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .overlay(cardBorder)
+    }
+    
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .stroke(borderColor, lineWidth: borderWidth)
+    }
+    
+    private var borderColor: Color {
+        switch currentActionState {
+        case .live:
+            return Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3)
+        case .completed(let wasRegistered) where wasRegistered:
+            return (Color(hex: "#10B981") ?? Color.green).opacity(0.3)
+        default:
+            return Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.1)
+        }
+    }
+    
+    private var borderWidth: CGFloat {
+        switch currentActionState {
+        case .live: 
+            return 1.5
+        case .completed(let wasRegistered) where wasRegistered: 
+            return 1.0
+        default: 
+            return 0.5
+        }
+    }
+    
+    @ViewBuilder
+    private var statusBadge: some View {
+        ZStack {
+            // Badge para estado registered
+            if currentActionState == .registered {
+                Circle()
+                    .fill(Color(red: 0.22, green: 0.78, blue: 0.22))
+                    .frame(width: 12, height: 12)
+                    .padding(.top, 12)
+                    .padding(.trailing, 12)
+                    .transition(.scale.combined(with: .opacity))
+            }
+            
+            // Badge especial para estado attended
+            if currentActionState == .attended {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "#10B981") ?? Color.green)
+                        .frame(width: 20, height: 20)
+                    
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.top, 8)
+                .padding(.trailing, 8)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.3).combined(with: .opacity),
+                    removal: .scale(scale: 0.3).combined(with: .opacity)
+                ))
+            }
+            
+            // Badge mejorado para estado completed
+            if case .completed(let wasRegistered) = currentActionState {
+                CompletedBadge(theme: themeManager.currentTheme, wasUserRegistered: wasRegistered)
+                    .padding(.top, 8)
+                    .padding(.trailing, 8)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.3).combined(with: .opacity),
+                        removal: .scale(scale: 0.3).combined(with: .opacity)
+                    ))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentActionState)
+    }
+    
+    
+    @ViewBuilder
+    private var successAnimation: some View {
+        if showSuccessAnimation {
+            VStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundColor(Color(red: 0.22, green: 0.78, blue: 0.22))
+                Text("You're In!")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Color(red: 0.22, green: 0.78, blue: 0.22))
+            }
+            .padding(24)
+            .background(successAnimationBackground)
+            .scaleEffect(showSuccessAnimation ? 1.0 : 0.3)
+            .opacity(showSuccessAnimation ? 1.0 : 0.0)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSuccessAnimation)
+        }
+    }
+    
+    @ViewBuilder
+    private var completedCelebration: some View {
+        CompletedCelebrationView(
+            show: $showCompletedAnimation,
+            wasUserRegistered: wasUserRegisteredForClass
+        )
+    }
+    
+    private var successAnimationBackground: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 4)
     }
     
     // MARK: - Computed Properties
     
-    /// Obtiene el estado actual con caching para evitar re-evaluaciones innecesarias
+    /// Obtiene el estado actual (solo lectura, sin modificaciones)
     private var currentActionState: ClassActionState {
+        // Verificar si necesitamos actualización asíncrona
         let now = Date()
         let timeSinceLastUpdate = now.timeIntervalSince(lastStateUpdateTime)
-        
-        // Re-evaluar solo si han pasado más de 2 segundos o si cambió el estado de registro
         let shouldRecalculate = timeSinceLastUpdate > 2.0 || 
                                (cachedActionState != .registered && classService.isUserRegistered(classId: gymClass.id)) ||
                                (cachedActionState == .registered && !classService.isUserRegistered(classId: gymClass.id))
         
-        if shouldRecalculate {
-            cachedActionState = calculateActionState()
-            lastStateUpdateTime = now
-            print("🔄 Estado recalculado para clase \(gymClass.id): \(cachedActionState)")
+        if shouldRecalculate && !needsStateUpdate {
+            // Programar actualización asíncrona para evitar modificar estado durante view update
+            DispatchQueue.main.async {
+                self.updateActionStateAsync()
+            }
         }
         
         return cachedActionState
     }
     
-    /// Calcula el estado actual de la clase para la UI
+    /// Calcula el estado actual de la clase para la UI (optimizado con nuevos estados)
     private func calculateActionState() -> ClassActionState {
         print("🔍 Evaluando estado para clase \(gymClass.id): \(gymClass.name)")
         let now = Date()
+        let sessionId = gymClass.id
         
         // Verificar si está cancelada
         if gymClass.status == .cancelled {
             return .cancelled
         }
         
-        // Verificar si está completada
+        // Usar datos optimizados si están disponibles y son recientes
+        if classService.shouldUseOptimizedParticipationData(),
+           let participationStatus = classService.getParticipationStatus(sessionId: sessionId) {
+            
+            print("🚀 Usando datos optimizados de participación para sesión \(sessionId): \(participationStatus.displayName)")
+            
+            // Verificar si está completada o ha terminado
+            if gymClass.status == .completed || now > gymClass.endTime {
+                
+                switch participationStatus {
+                case .attended:
+                    // Usuario asistió - mostrar estado especial "attended"
+                    return .attended
+                    
+                case .registered:
+                    // Usuario estaba registrado pero no se marcó asistencia - mostrar como completed
+                    if !hasShownCompletedAnimation {
+                        DispatchQueue.main.async {
+                            self.showCompletedAnimation = true
+                            self.hasShownCompletedAnimation = true
+                            
+                            if #available(iOS 13.0, *) {
+                                let notificationFeedback = UINotificationFeedbackGenerator()
+                                notificationFeedback.notificationOccurred(.success)
+                            }
+                        }
+                    }
+                    return .completed(wasRegistered: true)
+                    
+                case .cancelled:
+                    // Usuario canceló - mostrar como completed pero sin éxito
+                    return .completed(wasRegistered: false)
+                }
+            }
+            
+            // Verificar si está en vivo
+            if now >= gymClass.startTime && now <= gymClass.endTime {
+                return .live
+            }
+            
+            // Estados basados en participación optimizada
+            switch participationStatus {
+            case .registered:
+                return .registered
+            case .attended:
+                // Esto no debería pasar para clases que no han terminado, pero por seguridad
+                return .registered
+            case .cancelled:
+                // Usuario canceló, mostrar como disponible si hay espacio
+                if gymClass.currentParticipants >= gymClass.maxParticipants {
+                    return .full
+                }
+                return .available
+            }
+        }
+        
+        // Fallback al comportamiento anterior si no hay datos optimizados
+        print("⚠️ Fallback a lógica anterior - datos optimizados no disponibles")
+        
+        // Verificar si está completada o ha terminado
         if gymClass.status == .completed || now > gymClass.endTime {
-            return .completed
+            if wasUserRegisteredForClass && !hasShownCompletedAnimation {
+                DispatchQueue.main.async {
+                    self.showCompletedAnimation = true
+                    self.hasShownCompletedAnimation = true
+                    
+                    if #available(iOS 13.0, *) {
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.success)
+                    }
+                }
+            }
+            return .completed(wasRegistered: wasUserRegisteredForClass)
         }
         
         // Verificar si está en vivo
@@ -533,14 +1397,11 @@ struct ClassCardView: View {
             return .live
         }
         
-        // Verificar si está registrado
+        // Verificar si está registrado (método legacy)
         let isRegistered = classService.isUserRegistered(classId: gymClass.id)
         print("🔍 Usuario registrado en clase \(gymClass.id): \(isRegistered)")
-        print("🔍 Estado actual en userRegistrationStatus: \(classService.userRegistrationStatus[gymClass.id] ?? false)")
         if isRegistered {
-            let state = ClassActionState.registered
-            print("✅ Estado final para clase \(gymClass.id): \(state)")
-            return state
+            return .registered
         }
         
         // Verificar si está llena
@@ -549,9 +1410,7 @@ struct ClassCardView: View {
         }
         
         // Por defecto, disponible
-        let state = ClassActionState.available
-        print("🔍 Estado final para clase \(gymClass.id): \(state)")
-        return state
+        return .available
     }
     
     /// Estado de carga para acciones
@@ -608,6 +1467,32 @@ struct ClassCardView: View {
         }
     }
     
+    /// Actualiza el estado de acción de forma asíncrona
+    private func updateActionStateAsync() {
+        guard !needsStateUpdate else { return }
+        needsStateUpdate = true
+        
+        let newState = calculateActionState()
+        let now = Date()
+        
+        // Usar un pequeño delay para evitar múltiples actualizaciones rápidas
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if self.cachedActionState != newState {
+                print("🔄 Estado recalculado para clase \(self.gymClass.id): \(self.cachedActionState) -> \(newState)")
+                self.cachedActionState = newState
+            }
+            self.lastStateUpdateTime = now
+            self.needsStateUpdate = false
+        }
+    }
+    
+    /// Debounce para evitar actualizaciones muy frecuentes
+    private func debounceStateUpdate() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.updateActionStateAsync()
+        }
+    }
+    
     /// Actualiza la imagen del trainer desde el servicio
     private func updateTrainerImage() {
         print("🔍 Actualizando imagen del trainer ID: \(gymClass.trainerId)")
@@ -615,12 +1500,24 @@ struct ClassCardView: View {
         
         if let trainer = classService.getTrainer(trainerId: gymClass.trainerId) {
             let pictureURL = trainer.picture ?? ""
-            print("✅ Trainer encontrado: \(trainer.fullName), Picture URL: \(pictureURL)")
-            DispatchQueue.main.async {
-                self.trainerImageURL = pictureURL
+            print("✅ Trainer encontrado: \(trainer.fullName)")
+            print("🔍 Picture URL original: '\(pictureURL)'")
+            
+            // Validar que la URL no esté vacía y sea válida
+            if !pictureURL.isEmpty, URL(string: pictureURL) != nil {
+                print("✅ URL válida, actualizando imagen")
+                DispatchQueue.main.async {
+                    self.trainerImageURL = pictureURL
+                }
+            } else {
+                print("⚠️ URL inválida o vacía, usando placeholder")
+                DispatchQueue.main.async {
+                    self.trainerImageURL = ""
+                }
             }
         } else {
             print("❌ Trainer no encontrado para ID: \(gymClass.trainerId)")
+            print("🔍 Trainers en cache: \(classService.trainers.map { "ID: \($0.id), Name: \($0.fullName)" }.joined(separator: ", "))")
             DispatchQueue.main.async {
                 self.trainerImageURL = ""
             }
@@ -665,6 +1562,18 @@ struct ClassCardView: View {
         } else {
             return Color(red: 0.96, green: 0.62, blue: 0.04) // Naranja - disponible
         }
+    }
+    
+    /// Detecta si el usuario estaba registrado en la clase (para mostrar como completada con éxito)
+    private var wasUserRegisteredForClass: Bool {
+        // Verificar en el estado de registro actual
+        let isCurrentlyRegistered = classService.userRegistrationStatus[gymClass.id] ?? false
+        
+        // Si la clase ya terminó y el usuario estaba/está registrado, asumimos que asistió
+        let now = Date()
+        let classHasEnded = now > gymClass.endTime || gymClass.status == .completed
+        
+        return isCurrentlyRegistered || (wasRegisteredBefore && classHasEnded)
     }
 }
 

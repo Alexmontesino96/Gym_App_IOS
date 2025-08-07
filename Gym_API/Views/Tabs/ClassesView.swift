@@ -5,6 +5,7 @@ struct ClassesView: View {
     @EnvironmentObject var classService: ClassService
     @EnvironmentObject var themeManager: ThemeManager
     @State private var selectedDate = Date()
+    @State private var isRefreshing = false
     
     // Filtered classes based on selected date
     private var filteredClasses: [GymClass] {
@@ -22,12 +23,12 @@ struct ClassesView: View {
                 VStack(spacing: 0) {
                     // Weekly Date Selector
                     WeeklyDateSelector(selectedDate: $selectedDate)
-                    .padding(.top, 10)
+                    .padding(.top, 20)
                     .padding(.bottom, 16)
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
                     
                     // Classes Content
-                    if classService.isLoading {
+                    if classService.isLoading && !isRefreshing {
                         Spacer()
                         ProgressView("Loading classes...")
                             .font(.system(size: 16, weight: .medium))
@@ -36,21 +37,31 @@ struct ClassesView: View {
                     } else if filteredClasses.isEmpty {
                         Spacer()
                         VStack(spacing: 16) {
-                            Image(systemName: "calendar.badge.exclamationmark")
-                                .font(.system(size: 48))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            
-                            Text("No classes available")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            
-                            Text("for \(formatSelectedDate())")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            
-                            Text("Try selecting a different date")
-                                .font(.system(size: 14))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                            if isRefreshing {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .padding(.bottom, 8)
+                                
+                                Text("Refreshing classes...")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            } else {
+                                Image(systemName: "calendar.badge.exclamationmark")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                
+                                Text("No classes available")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                
+                                Text("for \(formatSelectedDate())")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                
+                                Text("Try selecting a different date or pull to refresh")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                            }
                         }
                         Spacer()
                     } else {
@@ -62,6 +73,9 @@ struct ClassesView: View {
                                 }
                             }
                             .padding(.vertical, 20)
+                        }
+                        .refreshable {
+                            await refreshClasses()
                         }
                     }
                 }
@@ -81,6 +95,24 @@ struct ClassesView: View {
             Task {
                 await classService.loadSessionsForDateIfNeeded(date: newDate)
             }
+        }
+    }
+    
+    // MARK: - Refresh Function
+    private func refreshClasses() async {
+        await MainActor.run {
+            isRefreshing = true
+        }
+        
+        // Forzar recarga de clases para la fecha seleccionada
+        await classService.forceRefreshSessions(date: selectedDate)
+        // Recargar el estado de registro del usuario  
+        await classService.forceRefreshMyClasses()
+        // Recargar trainers por si hubo cambios
+        await classService.loadTrainers()
+        
+        await MainActor.run {
+            isRefreshing = false
         }
     }
     

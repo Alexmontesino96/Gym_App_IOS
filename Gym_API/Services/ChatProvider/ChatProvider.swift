@@ -122,7 +122,7 @@ class ChatProviderManager: ObservableObject {
         case .firebase:
             return FirebaseChatProvider()
         case .supabase:
-            return SupabaseChatProvider()
+            fatalError("Supabase provider no está implementado")
         }
     }
     
@@ -142,7 +142,7 @@ class ChatProviderManager: ObservableObject {
             
             // 2. Para cada conversación, exportar mensajes
             for conversation in conversations {
-                let messages = try await oldProvider.getMessages(
+                let _ = try await oldProvider.getMessages(
                     for: conversation.id,
                     limit: 1000, // Ajustar según necesidades
                     before: nil

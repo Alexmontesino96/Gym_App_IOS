@@ -368,9 +368,9 @@ class GetStreamChatProvider: ChatProvider {
         if let rooms = await chatService.getMyRoomsFromAPI() {
             print("📋 Salas obtenidas de la API: \(rooms.count)")
             for room in rooms {
-                // Mapear tanto con como sin prefijo "messaging:"
+                // Los IDs de la API vienen sin prefijo "messaging:", pero Stream los usa con prefijo
+                // Mapear el ID base (como viene de la API)
                 roomNameMap[room.streamChannelId] = room.name
-                roomNameMap["messaging:\(room.streamChannelId)"] = room.name
                 print("   - \(room.streamChannelId) → \(room.name)")
             }
             print("✅ Mapa de nombres cargado: \(roomNameMap.count) entradas")
@@ -397,6 +397,7 @@ class GetStreamChatProvider: ChatProvider {
         return roomNameMap
     }
     
+    
     func getConversations() async throws -> [ChatConversation] {
         print("📋 getConversations() iniciado")
         
@@ -411,8 +412,11 @@ class GetStreamChatProvider: ChatProvider {
         let userId = currentUser?.id ?? ""
         print("👤 Buscando canales para usuario: \(userId)")
         
+        // Cambiar query para mostrar TODOS los canales donde el usuario es miembro
+        // Eliminar sort restrictivo por lastMessageAt que puede ocultar canales sin mensajes
         let query = ChannelListQuery(filter: .containMembers(userIds: [userId]))
-        print("🔍 Query creado: \(query)")
+        print("🔍 Query sin sort restrictivo creado para obtener TODOS los canales del usuario: \(query)")
+        print("🔍 Esto debería incluir canales donde es miembro pero no ha escrito mensajes")
         
         let channelListController = chatClient.channelListController(query: query)
         print("🎮 ChannelListController creado")
@@ -431,7 +435,8 @@ class GetStreamChatProvider: ChatProvider {
             }
         }
         
-        print("📊 Número de canales encontrados: \(channelListController.channels.count)")
+        print("📊 Número de canales encontrados con query SIN sort restrictivo: \(channelListController.channels.count)")
+        print("🔍 COMPARACIÓN: Antes teníamos 9 canales, ahora tenemos: \(channelListController.channels.count)")
         
         // Obtener nombres desde la API
         let roomNameMap: [String: String]
@@ -441,17 +446,53 @@ class GetStreamChatProvider: ChatProvider {
             roomNameMap = [:]
         }
         
-        // Log de canales raw
+        // Log de canales raw con análisis detallado
+        print("🔍 ANÁLISIS DETALLADO DE CANALES ENCONTRADOS:")
         for (index, channel) in channelListController.channels.enumerated() {
             print("🔍 Canal \(index + 1):")
             print("   - ID: \(channel.cid)")
             print("   - Name: \(channel.name ?? "Sin nombre")")
-            print("   - API Name: \(roomNameMap[channel.cid.id] ?? "N/A")")
+            print("   - API Name: \(roomNameMap[channel.cid.id] ?? "❌ NO EN API")")
             print("   - Type: \(channel.type)")
             print("   - Members: \(channel.memberCount)")
             print("   - Created: \(channel.createdAt)")
-            print("   - Last Message: \(channel.lastMessageAt?.description ?? "N/A")")
+            print("   - Last Message: \(channel.lastMessageAt?.description ?? "⚠️ SIN MENSAJES")")
             print("   - Latest Messages Count: \(channel.latestMessages.count)")
+            
+            // Verificar si existe en la API
+            if roomNameMap[channel.cid.id] != nil {
+                print("   ✅ Canal existe en API")
+            } else {
+                print("   ❌ Canal NO existe en API - puede ser canal directo o creado manualmente")
+            }
+        }
+        
+        // Análisis de canales faltantes de la API (normalizar IDs para comparación)
+        // Stream IDs: messaging:event_615_d3d94468 -> event_615_d3d94468
+        // API IDs: event_615_d3d94468 (ya sin prefijo)
+        let foundChannelIds = Set(channelListController.channels.map { channel in
+            let fullId = channel.cid.id
+            // Remover prefijo "messaging:" si existe
+            return fullId.hasPrefix("messaging:") ? String(fullId.dropFirst("messaging:".count)) : fullId
+        })
+        
+        let apiChannelIds = Set(roomNameMap.keys.map { apiId in
+            // Los IDs de la API ya vienen sin prefijo, pero por si acaso
+            return apiId.hasPrefix("messaging:") ? String(apiId.dropFirst("messaging:".count)) : apiId
+        })
+        
+        let missingFromStream = apiChannelIds.subtracting(foundChannelIds)
+        
+        print("📊 ANÁLISIS DE COBERTURA:")
+        print("   - Canales en API: \(apiChannelIds.count)")
+        print("   - Canales encontrados en Stream: \(foundChannelIds.count)")
+        print("   - Canales faltantes en Stream: \(missingFromStream.count)")
+        
+        if !missingFromStream.isEmpty {
+            print("🔍 CANALES DE LA API QUE NO APARECEN EN STREAM:")
+            for missingId in missingFromStream {
+                print("   - \(missingId) → \(roomNameMap[missingId] ?? "N/A")")
+            }
         }
         
         // Convertir canales a nuestro modelo con nombres enriquecidos
@@ -459,8 +500,12 @@ class GetStreamChatProvider: ChatProvider {
             var conversation = convertStreamChannel(channel)
             
             // Usar el nombre de la API si está disponible
-            // Intentar con el ID completo (messaging:event_xxx) o solo el ID base
-            let apiName = roomNameMap[channel.cid.id] ?? roomNameMap[channel.cid.id.replacingOccurrences(of: "messaging:", with: "")]
+            // Normalizar el ID del canal para buscar en roomNameMap
+            let normalizedChannelId = channel.cid.id.hasPrefix("messaging:") ? 
+                String(channel.cid.id.dropFirst("messaging:".count)) : channel.cid.id
+            
+            // Buscar en roomNameMap tanto con el ID normalizado como sin normalizar
+            let apiName = roomNameMap[normalizedChannelId] ?? roomNameMap[channel.cid.id]
             
             if let name = apiName {
                 conversation = ChatConversation(

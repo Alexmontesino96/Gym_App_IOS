@@ -12,6 +12,29 @@ import SwiftUI
 import Auth0
 import JWTDecode
 
+// MARK: - Auth Error
+enum AuthError: LocalizedError {
+    case invalidResponse
+    case invalidCredentials
+    case networkError(Error)
+    case tokenExpired
+    case unknown(Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "Respuesta inválida del servidor de autenticación"
+        case .invalidCredentials:
+            return "Credenciales inválidas"
+        case .networkError(let error):
+            return "Error de red: \(error.localizedDescription)"
+        case .tokenExpired:
+            return "El token de acceso ha expirado"
+        case .unknown(let error):
+            return "Error desconocido: \(error.localizedDescription)"
+        }
+    }
+}
 
 extension Notification.Name {
     static let userDidLogout = Notification.Name("userDidLogout")
@@ -20,7 +43,7 @@ extension Notification.Name {
 @MainActor
 class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     @Published var isAuthenticated = false
-    @Published var user: User?
+    @Published var user: AuthUser?
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var biometricAuthAvailable = false
@@ -64,7 +87,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 let userName = jwt["name"].string ?? "Usuario"
                 let userPicture = jwt["picture"].string // String? opcional
                 
-                let user = User(
+                let user = AuthUser(
                     id: userId,
                     email: userEmail,
                     name: userName,
@@ -135,7 +158,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 segundo
         
         // Crear usuario temporal para continuar usando la app
-        let offlineUser = User(
+        let offlineUser = AuthUser(
             id: "offline_user_123",
             email: "usuario@gymapi.com",
             name: "Usuario Offline",
@@ -202,7 +225,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             let userName = jwt["name"].string ?? "Usuario"
             let userPicture = jwt["picture"].string
             
-            let user = User(
+            let user = AuthUser(
                 id: userId,
                 email: userEmail,
                 name: userName,
@@ -227,7 +250,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             let savedUserPicture = UserDefaults.standard.string(forKey: "saved_user_picture")
             let savedUserIsCoach = UserDefaults.standard.bool(forKey: "saved_user_is_coach")
             
-            let savedUser = User(
+            let savedUser = AuthUser(
                 id: savedUserId,
                 email: savedUserEmail,
                 name: savedUserName,
@@ -266,7 +289,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         return KeychainService.shared.getToken(type: .accessToken)
     }
     
-    private func saveUserInfo(_ user: User) {
+    private func saveUserInfo(_ user: AuthUser) {
         UserDefaults.standard.set(user.id, forKey: "saved_user_id")
         UserDefaults.standard.set(user.email, forKey: "saved_user_email")
         UserDefaults.standard.set(user.name, forKey: "saved_user_name")
@@ -402,7 +425,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     
     // MARK: - Métodos de Utilidad
     
-    func getUserInfo() -> User? {
+    func getUserInfo() -> AuthUser? {
         return user
     }
     
@@ -447,8 +470,14 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     @MainActor
     func updateUserPicture(_ newPictureURL: String) {
         if let currentUser = user {
-            var updatedUser = currentUser
-            updatedUser.picture = newPictureURL
+            // Crear nueva instancia con picture actualizada
+            let updatedUser = AuthUser(
+                id: currentUser.id,
+                email: currentUser.email,
+                name: currentUser.name,
+                picture: newPictureURL,
+                isCoach: currentUser.isCoach
+            )
             self.user = updatedUser
             print("✅ User picture updated locally: \(newPictureURL)")
         }
@@ -659,7 +688,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             let userName = jwt["name"].string ?? "Usuario"
             let userPicture = jwt["picture"].string
             
-            let user = User(
+            let user = AuthUser(
                 id: userId,
                 email: userEmail,
                 name: userName,

@@ -69,6 +69,7 @@ struct EnhancedLoadingView: View {
 struct PulseLoadingView: View {
     let message: String
     let themeManager: ThemeManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     
     @State private var scale: CGFloat = 1.0
     @State private var opacity: Double = 1.0
@@ -80,19 +81,25 @@ struct PulseLoadingView: View {
     }
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: dynamicTypeSize.adjustedSpacing(12)) {
             ZStack {
                 // Outer pulse ring
                 Circle()
                     .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), lineWidth: 2)
-                    .frame(width: 50, height: 50)
+                    .frame(
+                        width: min(50 * dynamicTypeSize.scalingFactor, 70),
+                        height: min(50 * dynamicTypeSize.scalingFactor, 70)
+                    )
                     .scaleEffect(scale)
                     .opacity(1.0 - (scale * 0.3))
                 
                 // Inner solid circle
                 Circle()
                     .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    .frame(width: 24, height: 24)
+                    .frame(
+                        width: min(24 * dynamicTypeSize.scalingFactor, 35),
+                        height: min(24 * dynamicTypeSize.scalingFactor, 35)
+                    )
                     .rotationEffect(.degrees(rotation))
             }
             .animation(
@@ -103,11 +110,13 @@ struct PulseLoadingView: View {
                 .linear(duration: 2.0).repeatForever(autoreverses: false),
                 value: rotation
             )
+            .accessibilityHidden(true) // Hide decorative loading animation
             
             Text(message)
-                .font(.system(size: 13, weight: .medium))
+                .font(.cappedDynamicSystem(size: 13, weight: .medium, maxSize: 17))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 .opacity(opacity)
+                .dynamicTypeSupport(maxLines: 2)
         }
         .onAppear {
             scale = 1.8
@@ -117,6 +126,11 @@ struct PulseLoadingView: View {
                 opacity = 1.0
             }
         }
+        // Accessibility: Announce loading state
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(message)
+        .accessibilityAddTraits([.updatesFrequently])
+        .accessibilityValue("Loading in progress")
     }
 }
 

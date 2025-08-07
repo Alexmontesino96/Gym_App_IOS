@@ -44,6 +44,12 @@ class ClassService: ObservableObject {
     @Published var trainersErrorMessage: String?
     @Published var authenticationError = false
     
+    // MARK: - Optimized Participation Status Properties
+    @Published var userParticipations: [Int: UserParticipation] = [:]
+    @Published var isLoadingParticipationStatus = false
+    @Published var participationStatusErrorMessage: String?
+    @Published var lastParticipationStatusUpdate: Date?
+    
     // MARK: - Private Properties
     private var trainerMap: [Int: UserPublicProfile] = [:]
     
@@ -160,7 +166,7 @@ class ClassService: ObservableObject {
         return await authService.getValidAccessToken()
     }
     
-    // MARK: - Force Refresh
+    // MARK: - Force Refresh (2-Phase Strategy)
     func forceRefreshSessions(date: Date) async {
         // Cancelar tasks anteriores
         currentSessionTask?.cancel()
@@ -168,6 +174,7 @@ class ClassService: ObservableObject {
         // Limpiar el cache para forzar recarga
         loadedStartDate = nil
         loadedEndDate = nil
+        lastParticipationStatusUpdate = nil // Forzar recarga de participaciones también
         
         // Crear nueva task y cargar de nuevo
         currentSessionTask = Task {
@@ -176,7 +183,7 @@ class ClassService: ObservableObject {
         await currentSessionTask?.value
     }
     
-    // MARK: - Force Refresh My Classes
+    // MARK: - Force Refresh My Classes (Legacy)
     func forceRefreshMyClasses() async {
         // Cancelar task anterior
         currentMyClassesTask?.cancel()
@@ -188,7 +195,14 @@ class ClassService: ObservableObject {
         await currentMyClassesTask?.value
     }
     
-    // MARK: - Smart Date Range Loading
+    // MARK: - Force Refresh Participation Status (Optimized)
+    func forceRefreshParticipationStatus(startDate: Date, endDate: Date) async {
+        print("🔄 Forzando recarga de estados de participación...")
+        lastParticipationStatusUpdate = nil // Invalidar cache
+        await fetchMyParticipationStatus(startDate: startDate, endDate: endDate)
+    }
+    
+    // MARK: - Smart Date Range Loading (2-Phase Strategy)
     func loadSessionsForDateIfNeeded(date: Date) async {
         let calendar = Calendar.current
         
@@ -196,7 +210,8 @@ class ClassService: ObservableObject {
         if let loadedStart = loadedStartDate,
            let loadedEnd = loadedEndDate,
            date >= loadedStart && date <= loadedEnd {
-            // Ya tenemos los datos para esta fecha
+            // Ya tenemos los datos para esta fecha, pero verificar si necesitamos actualizar participaciones
+            await loadParticipationStatusIfNeeded(startDate: loadedStart, endDate: loadedEnd)
             return
         }
         
@@ -227,7 +242,22 @@ class ClassService: ObservableObject {
             newEndDate = max(newEndDate, existingEnd)
         }
         
+        // Fase 1: Cargar sesiones (datos principales)
         await fetchSessionsByDateRange(startDate: newStartDate, endDate: newEndDate)
+        
+        // Fase 2: Cargar estados de participación optimizados (paralelo)
+        await loadParticipationStatusIfNeeded(startDate: newStartDate, endDate: newEndDate)
+    }
+    
+    // MARK: - Load Participation Status If Needed
+    private func loadParticipationStatusIfNeeded(startDate: Date, endDate: Date) async {
+        // Solo cargar si no tenemos datos recientes (cache de 5 minutos)
+        if !shouldUseOptimizedParticipationData() {
+            print("🚀 Cargando estados de participación optimizados...")
+            await fetchMyParticipationStatus(startDate: startDate, endDate: endDate)
+        } else {
+            print("✅ Estados de participación en cache son válidos, omitiendo carga")
+        }
     }
     
     // MARK: - Fetch Sessions by Date Range
@@ -253,7 +283,7 @@ class ClassService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            let gymId = GymService.shared.currentGymId ?? 4
+            let gymId = await GymService.shared.currentGymId ?? 4
             request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
@@ -345,7 +375,7 @@ class ClassService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            let gymId = GymService.shared.currentGymId ?? 4
+            let gymId = await GymService.shared.currentGymId ?? 4
             request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
@@ -420,7 +450,7 @@ class ClassService: ObservableObject {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
-            let gymId = GymService.shared.currentGymId ?? 4
+            let gymId = await GymService.shared.currentGymId ?? 4
         request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
@@ -462,9 +492,15 @@ class ClassService: ObservableObject {
                 _ = try configuredJSONDecoder().decode(ClassParticipation.self, from: data)
                 print("✅ Successfully registered for class session \(sessionId)")
                 
-                _ = await MainActor.run {
+                await MainActor.run {
                     let oldStatus = self.userRegistrationStatus[sessionId] ?? false
-                    self.userRegistrationStatus[sessionId] = true
+                    var updatedStatus = self.userRegistrationStatus
+                    updatedStatus[sessionId] = true
+                    self.userRegistrationStatus = updatedStatus
+                    
+                    // Invalidar cache de participaciones para forzar recarga optimizada
+                    self.lastParticipationStatusUpdate = nil
+                    
                     print("✅ Estado de registro actualizado para sesión \(sessionId): \(oldStatus) -> true")
                     print("📊 Estado completo de registros: \(self.userRegistrationStatus)")
                     // Forzar actualización de las published properties para UI
@@ -478,9 +514,15 @@ class ClassService: ObservableObject {
                 
                 // Si el error es que ya está registrado, actualizar el estado
                 if httpResponse.statusCode == 400 && message.contains("Ya estás registrado") {
-                    _ = await MainActor.run {
+                    await MainActor.run {
                         let oldStatus = self.userRegistrationStatus[sessionId] ?? false
-                        self.userRegistrationStatus[sessionId] = true
+                        var updatedStatus = self.userRegistrationStatus
+                        updatedStatus[sessionId] = true
+                        self.userRegistrationStatus = updatedStatus
+                        
+                        // Invalidar cache de participaciones
+                        self.lastParticipationStatusUpdate = nil
+                        
                         print("✅ Usuario ya registrado - Estado actualizado para sesión \(sessionId): \(oldStatus) -> true")
                         print("📊 Estado completo de registros: \(self.userRegistrationStatus)")
                         // Forzar actualización de las published properties para UI
@@ -529,7 +571,7 @@ class ClassService: ObservableObject {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
-            let gymId = GymService.shared.currentGymId ?? 4
+            let gymId = await GymService.shared.currentGymId ?? 4
         request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
@@ -563,8 +605,14 @@ class ClassService: ObservableObject {
                 _ = try configuredJSONDecoder().decode(ClassParticipation.self, from: data)
                 print("✅ Successfully cancelled registration for class session \(sessionId)")
                 
-                _ = await MainActor.run {
-                    self.userRegistrationStatus[sessionId] = false
+                await MainActor.run {
+                    var updatedStatus = self.userRegistrationStatus
+                    updatedStatus[sessionId] = false
+                    self.userRegistrationStatus = updatedStatus
+                    
+                    // Invalidar cache de participaciones para forzar recarga optimizada
+                    self.lastParticipationStatusUpdate = nil
+                    
                     print("🔄 Estado de registro actualizado para sesión \(sessionId) - Cancelado")
                     // Forzar actualización de las published properties para UI
                     self.objectWillChange.send()
@@ -591,6 +639,112 @@ class ClassService: ObservableObject {
         }
     }
     
+    // MARK: - Fetch My Participation Status (Optimized)
+    func fetchMyParticipationStatus(startDate: Date, endDate: Date) async {
+        _ = await MainActor.run {
+            self.isLoadingParticipationStatus = true
+            self.participationStatusErrorMessage = nil
+        }
+        
+        do {
+            // Formatear fechas para query parameters
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let startDateString = dateFormatter.string(from: startDate)
+            let endDateString = dateFormatter.string(from: endDate)
+            
+            guard let url = URL(string: "\(baseURL)/schedule/participation/my-participation-status?start_date=\(startDateString)&end_date=\(endDateString)") else {
+                throw ClassServiceError.invalidURL
+            }
+            
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "accept")
+            
+            // Agregar header X-Gym-ID
+            let gymId = await GymService.shared.currentGymId ?? 4
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            
+            // Agregar token de autorización
+            if let token = await getAuthToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                print("🔑 Token incluido en petición de participation status:")
+                print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
+            } else {
+                print("⚠️ No se encontró token de autorización válido para participation status")
+                _ = await MainActor.run {
+                    self.participationStatusErrorMessage = "No se encontró token de autorización válido"
+                    self.isLoadingParticipationStatus = false
+                }
+                return
+            }
+            
+            print("🔍 Fetching participation status from: \(url)")
+            print("📅 Date range: \(startDateString) to \(endDateString)")
+            
+            // Verificar si la task fue cancelada antes de hacer la request
+            try Task.checkCancellation()
+            
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw ClassServiceError.invalidResponse
+            }
+            
+            print("📡 Response status for participation status: \(httpResponse.statusCode)")
+            
+            if httpResponse.statusCode == 200 {
+                let participationResponse = try configuredJSONDecoder().decode(ParticipationStatusResponse.self, from: data)
+                
+                print("✅ Successfully fetched \(participationResponse.participations.count) participation statuses")
+                
+                await MainActor.run {
+                    // Limpiar estado anterior
+                    self.userParticipations.removeAll()
+                    var newUserRegistrationStatus: [Int: Bool] = [:]
+                    
+                    // Actualizar con nuevos datos
+                    for participation in participationResponse.participations {
+                        self.userParticipations[participation.sessionId] = participation
+                        
+                        // Actualizar el estado booleano legacy para compatibilidad
+                        newUserRegistrationStatus[participation.sessionId] = participation.status.isActiveParticipation
+                        
+                        print("🔄 Estado actualizado para sesión \(participation.sessionId): \(participation.status.displayName) (active: \(participation.status.isActiveParticipation))")
+                    }
+                    
+                    self.userRegistrationStatus = newUserRegistrationStatus
+                    self.lastParticipationStatusUpdate = Date()
+                    print("📊 Total participaciones cargadas: \(self.userParticipations.count)")
+                    print("📊 Estado de registro actualizado: \(self.userRegistrationStatus)")
+                }
+            } else {
+                let errorMessage = "Error del servidor: \(httpResponse.statusCode)"
+                print("❌ \(errorMessage)")
+                _ = await MainActor.run {
+                    self.participationStatusErrorMessage = errorMessage
+                }
+            }
+            
+        } catch {
+            // No mostrar error si la task fue cancelada intencionalmente
+            if error is CancellationError || (error as NSError).code == -999 {
+                print("🔄 Fetch participation status cancelado intencionalmente")
+                return
+            }
+            
+            print("❌ Error fetching participation status: \(error)")
+            _ = await MainActor.run {
+                self.participationStatusErrorMessage = "Error cargando estados de participación: \(error.localizedDescription)"
+            }
+        }
+        
+        _ = await MainActor.run {
+            self.isLoadingParticipationStatus = false
+        }
+    }
+    
     // MARK: - Fetch My Classes
     func fetchMyClasses(skip: Int = 0, limit: Int = 100) async {
         _ = await MainActor.run {
@@ -609,7 +763,7 @@ class ClassService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID
-            let gymId = GymService.shared.currentGymId ?? 4
+            let gymId = await GymService.shared.currentGymId ?? 4
             request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             // Agregar token de autorización
@@ -644,12 +798,14 @@ class ClassService: ObservableObject {
                 
                 print("✅ Successfully fetched \(myClassesResponse.count) registered classes")
                 
-                _ = await MainActor.run {
+                await MainActor.run {
                     // Actualizar el estado de registro basado en la respuesta simple
+                    var newRegistrationStatus = self.userRegistrationStatus
                     for myClass in myClassesResponse {
-                        self.userRegistrationStatus[myClass.sessionId] = (myClass.participationStatus == "registered")
+                        newRegistrationStatus[myClass.sessionId] = (myClass.participationStatus == "registered")
                         print("🔄 Marcando sesión \(myClass.sessionId) como \(myClass.participationStatus)")
                     }
+                    self.userRegistrationStatus = newRegistrationStatus
                     print("📊 Estado de registro actualizado: \(self.userRegistrationStatus)")
                 }
             } else {
@@ -709,7 +865,7 @@ class ClassService: ObservableObject {
             }
             
             // Agregar header del gym
-            let gymId = GymService.shared.currentGymId ?? 4
+            let gymId = await GymService.shared.currentGymId ?? 4
             request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -772,6 +928,35 @@ class ClassService: ObservableObject {
         return isRegistered
     }
     
+    // MARK: - Optimized Helper Methods
+    func getParticipationStatus(sessionId: Int) -> ParticipationStatus? {
+        return userParticipations[sessionId]?.status
+    }
+    
+    func getParticipation(sessionId: Int) -> UserParticipation? {
+        return userParticipations[sessionId]
+    }
+    
+    func hasAttended(sessionId: Int) -> Bool {
+        return getParticipationStatus(sessionId: sessionId) == .attended
+    }
+    
+    func wasCancelled(sessionId: Int) -> Bool {
+        return getParticipationStatus(sessionId: sessionId) == .cancelled
+    }
+    
+    func isActivelyRegistered(sessionId: Int) -> Bool {
+        guard let status = getParticipationStatus(sessionId: sessionId) else { return false }
+        return status.isActiveParticipation
+    }
+    
+    func shouldUseOptimizedParticipationData() -> Bool {
+        // Usar datos optimizados si fueron cargados en los últimos 5 minutos
+        guard let lastUpdate = lastParticipationStatusUpdate else { return false }
+        let cacheValidityDuration: TimeInterval = 5 * 60 // 5 minutos
+        return Date().timeIntervalSince(lastUpdate) < cacheValidityDuration
+    }
+    
     func getTrainerName(trainerId: Int) -> String {
         if let trainer = trainerMap[trainerId] {
             return trainer.fullName
@@ -792,20 +977,26 @@ class ClassService: ObservableObject {
         // Limpiar arrays
         sessions = []
         trainers = []
-        joiningClassIds = []
-        cancellingClassIds = []
+        joiningClassIds = Set<Int>()
+        cancellingClassIds = Set<Int>()
         userRegistrationStatus = [:]
         joinClassErrorMessages = [:]
         cancelClassErrorMessages = [:]
         trainerMap = [:]
         
+        // Limpiar nuevos datos optimizados
+        userParticipations = [:]
+        lastParticipationStatusUpdate = nil
+        
         // Resetear estados
         isLoading = false
         isLoadingMyClasses = false
         isLoadingTrainers = false
+        isLoadingParticipationStatus = false
         errorMessage = nil
         myClassesErrorMessage = nil
         trainersErrorMessage = nil
+        participationStatusErrorMessage = nil
         authenticationError = false
         
         print("✅ Cache de clases limpiado")
@@ -857,6 +1048,58 @@ struct MyClassSimpleResponse: Codable {
         case room
         case currentParticipants = "current_participants"
         case maxCapacity = "max_capacity"
+    }
+}
+
+// MARK: - Participation Status Models (Optimized)
+struct ParticipationStatusResponse: Codable {
+    let participations: [UserParticipation]
+    let totalCount: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case participations
+        case totalCount = "total_count"
+    }
+}
+
+struct UserParticipation: Codable, Identifiable {
+    let sessionId: Int
+    let status: ParticipationStatus
+    let registrationTime: Date?
+    let attendanceTime: Date?
+    let cancellationTime: Date?
+    
+    var id: Int { sessionId }
+    
+    enum CodingKeys: String, CodingKey {
+        case sessionId = "session_id"
+        case status
+        case registrationTime = "registration_time"
+        case attendanceTime = "attendance_time"
+        case cancellationTime = "cancellation_time"
+    }
+}
+
+enum ParticipationStatus: String, Codable, CaseIterable {
+    case registered = "registered"
+    case attended = "attended"
+    case cancelled = "cancelled"
+    
+    var isActiveParticipation: Bool {
+        switch self {
+        case .registered, .attended:
+            return true
+        case .cancelled:
+            return false
+        }
+    }
+    
+    var displayName: String {
+        switch self {
+        case .registered: return "Registered"
+        case .attended: return "Attended"
+        case .cancelled: return "Cancelled"
+        }
     }
 }
 

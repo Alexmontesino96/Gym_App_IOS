@@ -5,57 +5,79 @@ struct HomeView: View {
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var authService: AuthServiceDirect
     @StateObject private var gymService = GymService.shared
+    @StateObject private var classService = ClassService()
+    @StateObject private var profileService = UserProfileService.shared
+    @ObservedObject private var userStatsService = UserStatsService.shared
     @State private var currentDate = Date()
-    @State private var showingMyGym = false
     
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: currentDate)
         switch hour {
-        case 6..<12: return "Good Morning"
-        case 12..<17: return "Good Afternoon"
-        case 17..<22: return "Good Evening"
-        default: return "Good Night"
+        case 6..<12: return "Buenos días"
+        case 12..<17: return "Buenas tardes"
+        case 17..<22: return "Buenas noches"
+        default: return "Buenas noches"
         }
     }
     
     private var userName: String {
-        authService.user?.name.components(separatedBy: " ").first ?? "Athlete"
+        authService.user?.name.components(separatedBy: " ").first ?? "Atleta"
+    }
+    
+    private var motivationalQuestion: String {
+        let hour = Calendar.current.component(.hour, from: currentDate)
+        switch hour {
+        case 6..<12: return "¿Listo para conquistar el día?"
+        case 12..<17: return "¿Preparado para entrenar?"
+        case 17..<22: return "¿Es hora de tu próxima clase?"
+        default: return "¿Planificando el entrenamiento de mañana?"
+        }
     }
     
     var body: some View {
-        NavigationView {
+        let _ = print("🏠 HomeView.body evaluado")
+        let _ = print("🏠 UserStatsService isLoading: \(userStatsService.isLoading)")
+        let _ = print("🏠 UserStatsService hasValidStats: \(userStatsService.hasValidStats)")
+        let _ = print("🏠 UserStatsService errorMessage: \(userStatsService.errorMessage ?? "ninguno")")
+        let _ = print("🏠 UserStatsService authService configurado: \(userStatsService.authService != nil)")
+        
+        return NavigationStack {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Hero Section
-                        HeroSection(greeting: greeting, userName: userName, themeManager: themeManager)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Hero Section with personalized greeting
+                        HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
                         
-                        // Quick Access Section (4 icons in one line)
-                        QuickAccessSection(themeManager: themeManager)
+                        // Next Class Card (if user has upcoming registered classes)
+                        NextClassCard(themeManager: themeManager, classService: classService)
                         
-                        // My Gym Section
-                        MyGymCardSection(
-                            gymService: gymService,
-                            showingMyGym: $showingMyGym,
-                            themeManager: themeManager
+                        // Quick Access Actions (4 circular buttons)
+                        SmartActionsSection(
+                            themeManager: themeManager,
+                            authService: authService,
+                            eventService: eventService,
+                            classService: classService,
+                            profileService: profileService,
+                            userStatsService: userStatsService,
+                            membershipService: MembershipService.shared,
+                            locationService: LocationService.shared
                         )
                         
-                        // Stats Overview
-                        StatsOverviewSection(themeManager: themeManager)
-                        
-                        // Upcoming Events
+                        // Featured Event (single event with action buttons)
                         if !eventService.events.isEmpty {
-                            UpcomingEventsSection(events: eventService.events, themeManager: themeManager)
+                            FeaturedEventSection(events: eventService.events, themeManager: themeManager)
                         }
                         
-                        // Motivational Quote
-                        MotivationalSection(themeManager: themeManager)
+                        // Recent Activity (completed classes/events)
+                        HomeRecentActivitySection(themeManager: themeManager, classService: classService, eventService: eventService)
                         
                         Spacer(minLength: 100)
                     }
+                    .padding(.horizontal, 16)
                 }
+                // .drawingGroup() // Comentado temporalmente para debug
             }
             .refreshable {
                 await eventService.fetchEvents()
@@ -71,26 +93,46 @@ struct HomeView: View {
                             .font(.system(size: 18))
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                     }
+                    .accessibilityLabel("Toggle theme")
+                    .accessibilityHint("Switch between light and dark mode")
+                    .accessibilityValue("Current theme: \(themeManager.currentTheme.displayName)")
+                    .accessibleTouchTarget()
                 }
             }
         }
         .onAppear {
+            print("🏠 HomeView.onAppear iniciado")
             currentDate = Date()
             setupServices()
+            print("🏠 setupServices completado, iniciando tareas async")
             Task {
+                print("🏠 Iniciando fetchEvents...")
                 await eventService.fetchEvents()
+                print("🏠 fetchEvents completado, iniciando getMyGyms...")
                 await gymService.getMyGyms()
+                print("🏠 getMyGyms completado, iniciando fetchUserStats...")
+                await userStatsService.fetchUserStats()
+                print("🏠 fetchUserStats completado")
             }
-        }
-        .sheet(isPresented: $showingMyGym) {
-            MyGymView()
-                .environmentObject(themeManager)
-                .environmentObject(authService)
         }
     }
     
     private func setupServices() {
+        print("🏠 setupServices iniciado")
+        print("🏠 Configurando authService en gymService...")
         gymService.authService = authService
+        print("🏠 Configurando authService en classService...")
+        classService.authService = authService
+        print("🏠 Configurando authService en profileService...")
+        profileService.authService = authService
+        print("🏠 Configurando authService en userStatsService...")
+        userStatsService.authService = authService
+        print("🏠 AuthService configurado en userStatsService: \(userStatsService.authService != nil)")
+        
+        // Setup location service
+        print("🏠 Configurando LocationService...")
+        LocationService.shared.requestLocationPermission()
+        print("🏠 setupServices completado")
     }
 }
 
@@ -98,519 +140,319 @@ struct HomeView: View {
 struct HeroSection: View {
     let greeting: String
     let userName: String
+    let motivationalQuestion: String
     let themeManager: ThemeManager
+    let authService: AuthServiceDirect
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(greeting)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    
-                    Text(userName)
-                        .font(.system(size: 32, weight: .bold))
+        VStack(spacing: dynamicTypeSize.adjustedSpacing(20)) {
+            // Header with greeting and avatar
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: dynamicTypeSize.adjustedSpacing(4)) {
+                    Text("\(greeting), \(userName).")
+                        .font(.cappedDynamicSystem(size: 32, weight: .bold, maxSize: 42))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                }
-                
-                Spacer()
-                
-                // Fitness icon
-                ZStack {
-                    Circle()
-                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.15))
-                        .frame(width: 50, height: 50)
+                        .dynamicTypeSupport(maxLines: 2)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.5)
+                        .fixedSize(horizontal: false, vertical: true)
                     
-                    Image(systemName: "figure.boxing")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    Text(motivationalQuestion)
+                        .font(.cappedDynamicSystem(size: 16, weight: .medium, maxSize: 20))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .dynamicTypeSupport()
+                        .padding(.top, 4)
                 }
-            }
-            
-            HStack {
-                Text("Ready to crush your goals today?")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                Spacer()
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-    }
-}
-
-// MARK: - Quick Access Section
-struct QuickAccessSection: View {
-    let themeManager: ThemeManager
-    
-    private let quickAccessItems = [
-        QuickAccessItem(icon: "dumbbell.fill", title: "Classes", color: .blue),
-        QuickAccessItem(icon: "calendar.circle.fill", title: "Events", color: .green),
-        QuickAccessItem(icon: "message.circle.fill", title: "Chat", color: .purple),
-        QuickAccessItem(icon: "person.circle.fill", title: "Profile", color: .orange)
-    ]
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Quick Access")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            
-            // Quick access card with 4 icons
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                    .shadow(
-                        color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.25 : 0.1),
-                        radius: 6,
-                        x: 0,
-                        y: 3
-                    )
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
-                HStack(spacing: 0) {
-                    ForEach(quickAccessItems, id: \.title) { item in
-                        QuickAccessButtonNew(item: item, themeManager: themeManager)
-                        
-                        // Divider between items (except last)
-                        if item.title != quickAccessItems.last?.title {
-                            Rectangle()
-                                .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
-                                .frame(width: 1, height: 40)
+                Spacer()
+                
+                // User Avatar - positioned at top right
+                ZStack {
+                    // Avatar background with red accent
+                    Circle()
+                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                        .frame(width: 60, height: 60)
+                        .shadow(
+                            color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2),
+                            radius: 4,
+                            x: 0,
+                            y: 2
+                        )
+                    
+                    // User avatar or default icon
+                    Group {
+                        if let user = authService.user, let pictureUrl = user.picture, let url = URL(string: pictureUrl) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 56, height: 56)
+                                        .clipShape(Circle())
+                                case .failure(_), .empty:
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 28, weight: .semibold))
+                                        .foregroundColor(.white)
+                                @unknown default:
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 28, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                        } else {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundColor(.white)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
             }
-            .padding(.horizontal, 20)
         }
+        .padding(.horizontal, dynamicTypeSize.adjustedPadding(20))
+        .padding(.top, dynamicTypeSize.adjustedPadding(10))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(greeting), \(userName). \(motivationalQuestion)")
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
-struct QuickAccessButtonNew: View {
-    let item: QuickAccessItem
+
+// MARK: - Featured Event Section
+struct FeaturedEventSection: View {
+    let events: [Event]
     let themeManager: ThemeManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    
+    private var featuredEvent: Event? {
+        events.filter { $0.startTime > Date() }
+              .sorted { $0.startTime < $1.startTime }
+              .first
+    }
+    
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        formatter.timeZone = TimeZone.current
+        return formatter
+    }
+    
+    private var dayFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        formatter.timeZone = TimeZone.current
+        return formatter
+    }
+    
+    private var timeUntilEvent: String {
+        guard let event = featuredEvent else { return "" }
+        
+        let now = Date()
+        let timeInterval = event.startTime.timeIntervalSince(now)
+        let days = Int(timeInterval / 86400)
+        let hours = Int(timeInterval / 3600)
+        let minutes = Int((timeInterval.truncatingRemainder(dividingBy: 3600)) / 60)
+        
+        if days > 0 {
+            return "En \(days) día\(days > 1 ? "s" : "")"
+        } else if hours > 0 {
+            return "En \(hours)h \(minutes)m"
+        } else {
+            return "En \(minutes)m"
+        }
+    }
     
     var body: some View {
-        VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(item.color.opacity(0.15))
-                    .frame(width: 40, height: 40)
+        if let event = featuredEvent {
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    Text("Evento Destacado")
+                        .font(.cappedDynamicSystem(size: 20, weight: .bold, maxSize: 26))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    
+                    Spacer()
+                    
+                    NavigationLink(destination: EventsView()) {
+                        Text("Ver todos")
+                            .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    }
+                }
+                .padding(.horizontal, 4)
                 
-                Image(systemName: item.icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(item.color)
+                // Event card
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .shadow(
+                            color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.2 : 0.08),
+                            radius: 8,
+                            x: 0,
+                            y: 4
+                        )
+                    
+                    VStack(spacing: 20) {
+                        // Event header with icon
+                        HStack(spacing: 16) {
+                            // Event icon
+                            ZStack {
+                                Circle()
+                                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.15))
+                                    .frame(width: 50, height: 50)
+                                
+                                Image(systemName: "figure.run")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(event.title)
+                                    .font(.cappedDynamicSystem(size: 20, weight: .bold, maxSize: 26))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                    .lineLimit(2)
+                                
+                                Text(dayFormatter.string(from: event.startTime) + " • " + timeFormatter.string(from: event.startTime))
+                                    .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            }
+                            
+                            Spacer()
+                            
+                            // Time until event badge
+                            VStack(spacing: 4) {
+                                Text(timeUntilEvent)
+                                    .font(.cappedDynamicSystem(size: 11, weight: .bold, maxSize: 14))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
+                                    )
+                            }
+                        }
+                        
+                        // Description
+                        if !event.description.isEmpty {
+                            HStack {
+                                Text(event.description)
+                                    .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                
+                                Spacer()
+                            }
+                        }
+                        
+                        // Action buttons
+                        HStack(spacing: 12) {
+                            // Join button
+                            Button(action: {
+                                // TODO: Join event action
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                    Text("Unirse")
+                                        .font(.cappedDynamicSystem(size: 14, weight: .semibold, maxSize: 18))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                )
+                            }
+                            
+                            // Chat button
+                            Button(action: {
+                                // TODO: Open event chat
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "message.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                    Text("Chat")
+                                        .font(.cappedDynamicSystem(size: 14, weight: .semibold, maxSize: 18))
+                                }
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                                        )
+                                )
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding(24)
+                }
+                .padding(.horizontal, 4)
             }
-            
-            Text(item.title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                .lineLimit(1)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Featured event: \(event.title) on \(dayFormatter.string(from: event.startTime)) at \(timeFormatter.string(from: event.startTime))")
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
-// MARK: - Stats Overview Section
-struct StatsOverviewSection: View {
-    let themeManager: ThemeManager
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("This Week")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            
-            HStack(spacing: 12) {
-                StatCard(
-                    icon: "flame.fill",
-                    title: "Classes",
-                    value: "5",
-                    color: .red,
-                    themeManager: themeManager
-                )
-                
-                StatCard(
-                    icon: "calendar.badge.checkmark",
-                    title: "Events",
-                    value: "2",
-                    color: .green,
-                    themeManager: themeManager
-                )
-                
-                StatCard(
-                    icon: "clock.fill",
-                    title: "Hours",
-                    value: "8.5",
-                    color: .blue,
-                    themeManager: themeManager
-                )
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-}
 
-struct StatCard: View {
-    let icon: String
-    let title: String
-    let value: String
-    let color: Color
+// MARK: - StatCardSkeleton Component
+struct StatCardSkeleton: View {
     let themeManager: ThemeManager
+    @State private var isAnimating = false
     
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                 .shadow(
-                    color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.25 : 0.1),
-                    radius: 6,
+                    color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.2 : 0.08),
+                    radius: 4,
                     x: 0,
-                    y: 3
+                    y: 2
                 )
             
             VStack(spacing: 12) {
                 HStack {
-                    ZStack {
-                        Circle()
-                            .fill(color.opacity(0.15))
-                            .frame(width: 32, height: 32)
-                        
-                        Image(systemName: icon)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(color)
-                    }
+                    Circle()
+                        .fill(Color.secondary.opacity(0.3))
+                        .frame(width: 32, height: 32)
                     Spacer()
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text(value)
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.secondary.opacity(0.3))
+                            .frame(width: 40, height: 24)
                         Spacer()
                     }
                     
                     HStack {
-                        Text(title)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.secondary.opacity(0.3))
+                            .frame(height: 16)
                         Spacer()
                     }
                 }
             }
             .padding(16)
         }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Upcoming Events Section
-struct UpcomingEventsSection: View {
-    let events: [Event]
-    let themeManager: ThemeManager
-    
-    private var upcomingEvents: [Event] {
-        events.filter { $0.startTime > Date() }
-              .sorted { $0.startTime < $1.startTime }
-              .prefix(3)
-              .map { $0 }
-    }
-    
-    var body: some View {
-        if !upcomingEvents.isEmpty {
-            VStack(spacing: 16) {
-                HStack {
-                    Text("Upcoming Events")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    Spacer()
-                    
-                    NavigationLink(destination: EventsView()) {
-                        Text("See All")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    }
-                }
-                .padding(.horizontal, 20)
-                
-                // Events container with app style
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .shadow(
-                            color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.25 : 0.1),
-                            radius: 6,
-                            x: 0,
-                            y: 3
-                        )
-                    
-                    VStack(spacing: 12) {
-                        ForEach(Array(upcomingEvents.enumerated()), id: \.element.id) { index, event in
-                            CompactEventRow(event: event, themeManager: themeManager)
-                            
-                            // Divider between events (except last)
-                            if index < upcomingEvents.count - 1 {
-                                Rectangle()
-                                    .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
-                                    .frame(height: 1)
-                                    .padding(.horizontal, 16)
-                            }
-                        }
-                    }
-                    .padding(16)
-                }
-                .padding(.horizontal, 20)
-            }
-        }
-    }
-}
-
-// MARK: - Compact Event Row
-struct CompactEventRow: View {
-    let event: Event
-    let themeManager: ThemeManager
-    
-    private var timeFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        formatter.timeZone = TimeZone.current // Usar zona horaria local
-        return formatter
-    }
-    
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        formatter.timeZone = TimeZone.current // Usar zona horaria local
-        return formatter
-    }
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            // Left accent line
-            Rectangle()
-                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                .frame(width: 4, height: 40)
-                .cornerRadius(2)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    .lineLimit(1)
-                
-                HStack(spacing: 8) {
-                    Text(dateFormatter.string(from: event.startTime))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    
-                    Text("•")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    
-                    Text(timeFormatter.string(from: event.startTime))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-            }
-            
-            Spacer()
-            
-            // Status indicator
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.15))
-                    .frame(width: 24, height: 24)
-                
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 8, height: 8)
-            }
-        }
-    }
-}
-
-// MARK: - Motivational Section
-struct MotivationalSection: View {
-    let themeManager: ThemeManager
-    
-    private let quotes = [
-        "Push yourself because no one else is going to do it for you.",
-        "Your only limit is your mind.",
-        "Great things never come from comfort zones.",
-        "Success starts with self-discipline.",
-        "Be stronger than your strongest excuse."
-    ]
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Daily Motivation")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    .shadow(
-                        color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
-                        radius: 8,
-                        x: 0,
-                        y: 4
-                    )
-                
-                HStack(spacing: 16) {
-                    // Quote icon
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.2))
-                            .frame(width: 50, height: 50)
-                        
-                        Image(systemName: "quote.bubble.fill")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(quotes.randomElement() ?? quotes[0])
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.leading)
-                            .lineSpacing(2)
-                        
-                        Text("- Stay Motivated")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.8))
-                            .textCase(.uppercase)
-                            .tracking(0.5)
-                    }
-                    
-                    Spacer()
-                }
-                .padding(20)
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-}
-
-// MARK: - My Gym Card Section
-struct MyGymCardSection: View {
-    @ObservedObject var gymService: GymService
-    @Binding var showingMyGym: Bool
-    let themeManager: ThemeManager
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("My Gym")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 20)
-            
-            if gymService.isLoadingGyms {
-                // Loading state with pulse animation
-                HStack {
-                    Spacer()
-                    PulseLoadingView(message: "Loading gym...", themeManager: themeManager)
-                    Spacer()
-                }
-                .frame(height: 100)
-                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 20)
-            } else if let gym = gymService.currentGym {
-                // Gym card
-                Button(action: { showingMyGym = true }) {
-                    HStack(spacing: 16) {
-                        // Gym icon
-                        ZStack {
-                            Circle()
-                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
-                                .frame(width: 60, height: 60)
-                            
-                            Image(systemName: "building.2.fill")
-                                .font(.system(size: 28, weight: .semibold))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(gym.name)
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                .lineLimit(1)
-                            
-                            HStack(spacing: 6) {
-                                Image(systemName: gym.roleIcon)
-                                    .font(.system(size: 12))
-                                Text(gym.roleDisplayName)
-                                    .font(.system(size: 14))
-                            }
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(gym.isActive ? Color.green : Color.red)
-                                    .frame(width: 6, height: 6)
-                                Text(gym.statusText)
-                                    .font(.system(size: 12))
-                                    .foregroundColor(gym.isActive ? Color.green : Color.red)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    .padding(16)
-                    .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .shadow(
-                        color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.3 : 0.08),
-                        radius: 8,
-                        x: 0,
-                        y: 2
-                    )
-                }
-                .buttonStyle(PlainButtonStyle())
-                .padding(.horizontal, 20)
-            } else {
-                // No gym state
-                HStack(spacing: 16) {
-                    Image(systemName: "building.2")
-                        .font(.system(size: 28))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("No gym associated")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        
-                        Text("Contact your gym to get added")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    
-                    Spacer()
-                }
-                .padding(16)
-                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 20)
-            }
+        .opacity(isAnimating ? 0.6 : 1.0)
+        .drawingGroup()
+        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
+        .onAppear {
+            isAnimating = true
         }
     }
 }

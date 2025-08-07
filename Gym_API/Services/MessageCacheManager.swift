@@ -43,21 +43,14 @@ class MessageCacheManager: ObservableObject {
     /// Obtiene mensajes desde caché para una conversación
     /// Retorna array vacío si no hay caché disponible
     func getCachedMessages(for conversationId: String) -> [ChatMessage] {
-        do {
-            guard let cacheData = loadConversationCache(conversationId: conversationId) else {
-                print("📦 No hay caché para conversación: \(conversationId)")
-                return []
-            }
-            
-            let messages = cacheData.messages.map { $0.toChatMessage() }
-            print("📦 Cargados \(messages.count) mensajes desde caché para: \(conversationId)")
-            return messages
-            
-        } catch {
-            print("❌ Error cargando mensajes desde caché: \(error)")
-            handleCacheError(error, for: conversationId)
+        guard let cacheData = loadConversationCache(conversationId: conversationId) else {
+            print("📦 No hay caché para conversación: \(conversationId)")
             return []
         }
+        
+        let messages = cacheData.messages.map { $0.toChatMessage() }
+        print("📦 Cargados \(messages.count) mensajes desde caché para: \(conversationId)")
+        return messages
     }
     
     /// Guarda mensajes en caché para una conversación
@@ -544,7 +537,7 @@ private extension MessageCacheManager {
         for file in files {
             do {
                 let data = try Data(contentsOf: file)
-                var cache = try JSONDecoder().decode(ConversationMessageCache.self, from: data)
+                let cache = try JSONDecoder().decode(ConversationMessageCache.self, from: data)
                 
                 if cache.messages.count > emergencyLimit {
                     // Mantener solo los mensajes más recientes

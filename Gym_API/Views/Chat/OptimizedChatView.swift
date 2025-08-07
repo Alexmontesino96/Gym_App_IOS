@@ -81,15 +81,27 @@ struct OptimizedChatView: View {
     private var messagesView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack {
-                    // Mostrar mensajes en orden cronológico (más antiguos arriba)
-                    ForEach(sortedMessages) { message in
-                        MessageBubble(message: message, themeManager: themeManager)
-                            .padding(.horizontal)
-                            .id(message.id)
+                if isLoading && messages.isEmpty {
+                    // Show skeleton while loading
+                    MessageListSkeleton(count: 8)
+                        .padding(.top, 20)
+                } else {
+                    LazyVStack {
+                        // Mostrar mensajes en orden cronológico (más antiguos arriba)
+                        ForEach(sortedMessages) { message in
+                            MessageBubble(message: message, themeManager: themeManager)
+                                .padding(.horizontal)
+                                .id(message.id)
+                        }
+                        
+                        // Show loading skeleton at the bottom if updating
+                        if isLoading && !messages.isEmpty {
+                            MessageListSkeleton(count: 3)
+                                .padding(.top, 10)
+                        }
                     }
+                    .padding(.bottom, 8)
                 }
-                .padding(.bottom, 8)
             }
             .onChange(of: messages.count) { _ in
                 // Scroll al último mensaje cuando se agregan nuevos mensajes
@@ -110,20 +122,102 @@ struct OptimizedChatView: View {
         }
     }
     
-    // MARK: - Message Input
+    // MARK: - Enhanced Message Input
     private var messageInputView: some View {
-        HStack {
-            TextField("Escribe un mensaje...", text: $messageText)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+        HStack(spacing: 12) {
+            // Text input field
+            HStack(spacing: 8) {
+                TextField("Escribe un mensaje...", text: $messageText, axis: .vertical)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1...4) // Allow up to 4 lines
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.dynamicBackground(theme: themeManager.currentTheme))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(
+                                        messageText.isEmpty 
+                                            ? Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.3)
+                                            : Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.5),
+                                        lineWidth: 1
+                                    )
+                            )
+                    )
+                    .animation(.easeInOut(duration: 0.2), value: messageText.isEmpty)
+                
+                // Additional action buttons (optional)
+                if messageText.isEmpty {
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            // TODO: Add attachment functionality
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                // Haptic feedback
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                            }
+                        }) {
+                            Image(systemName: "paperclip")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                    .padding(.trailing, 8)
+                }
+            }
             
-            Button("Enviar") {
-                sendMessage()
+            // Send button
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    sendMessage()
+                }
+                
+                // Haptic feedback
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+            }) {
+                Image(systemName: messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "arrow.up.circle" : "arrow.up.circle.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundColor(
+                        messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty 
+                            ? Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5)
+                            : Color.dynamicAccent(theme: themeManager.currentTheme)
+                    )
+                    .scaleEffect(sendButtonPressed ? 0.9 : 1.0)
+                    .animation(.easeInOut(duration: 0.1), value: sendButtonPressed)
             }
             .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    sendButtonPressed = true
+                }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        sendButtonPressed = false
+                    }
+                }
+            }
         }
-        .padding()
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Color.dynamicSurface(theme: themeManager.currentTheme)
+                .shadow(
+                    color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.3 : 0.1),
+                    radius: 8,
+                    x: 0,
+                    y: -2
+                )
+        )
+        .animation(.easeInOut(duration: 0.2), value: messageText.isEmpty)
     }
+    
+    @State private var sendButtonPressed = false
     
     // MARK: - Actions
     
@@ -260,62 +354,154 @@ struct OptimizedChatView: View {
     }
 }
 
-// MARK: - Message Bubble
+// MARK: - Enhanced Message Bubble
 struct MessageBubble: View {
     let message: ChatMessage
     let themeManager: ThemeManager
+    @State private var isPressed = false
     
     var body: some View {
-        HStack {
+        HStack(alignment: .bottom, spacing: 8) {
             if message.isFromCurrentUser {
-                Spacer()
+                Spacer(minLength: 60)
+            } else {
+                // Avatar for received messages
+                ProfileAvatar.small(pictureURL: "")
+                    .opacity(0.8)
             }
             
-            VStack(alignment: message.isFromCurrentUser ? .trailing : .leading) {
-                HStack {
-                    Text(message.text)
-                        .padding()
-                        .background(
-                            message.isFromCurrentUser 
-                                ? Color.dynamicAccent(theme: themeManager.currentTheme).opacity(message.syncStatus == .failed ? 0.5 : 1.0)
-                                : Color.dynamicSurface(theme: themeManager.currentTheme)
-                        )
-                        .foregroundColor(
-                            message.isFromCurrentUser 
-                                ? .white 
-                                : Color.dynamicText(theme: themeManager.currentTheme)
-                        )
-                        .cornerRadius(16)
-                    
-                    // Indicador de estado de sincronización
-                    if message.isFromCurrentUser {
-                        syncStatusIcon(for: message.syncStatus)
+            VStack(alignment: message.isFromCurrentUser ? .trailing : .leading, spacing: 4) {
+                // Author name for received messages
+                if !message.isFromCurrentUser {
+                    Text(message.authorName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .padding(.horizontal, 4)
+                }
+                
+                // Message bubble
+                HStack(alignment: .bottom, spacing: 8) {
+                    VStack(alignment: message.isFromCurrentUser ? .trailing : .leading, spacing: 0) {
+                        Text(message.text)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(bubbleTextColor)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(bubbleBackground)
+                            .clipShape(BubbleShape(isFromCurrentUser: message.isFromCurrentUser))
+                            .overlay(
+                                BubbleShape(isFromCurrentUser: message.isFromCurrentUser)
+                                    .stroke(bubbleBorderColor, lineWidth: bubbleBorderWidth)
+                            )
+                            .scaleEffect(isPressed ? 0.95 : 1.0)
+                            .animation(.easeInOut(duration: 0.1), value: isPressed)
+                        
+                        // Timestamp and status
+                        HStack(spacing: 4) {
+                            Text(formatDate(message.timestamp))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                            
+                            if message.isFromCurrentUser {
+                                syncStatusIcon(for: message.syncStatus)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.top, 2)
                     }
                 }
                 
-                HStack {
-                    Text(formatDate(message.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    
-                    if message.isFromCurrentUser && message.syncStatus == .failed {
-                        Text("Error al enviar")
-                            .font(.caption2)
+                // Error message
+                if message.isFromCurrentUser && message.syncStatus == .failed {
+                    HStack {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: 12))
                             .foregroundColor(.red)
+                        
+                        Text("No se pudo enviar")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.red)
+                        
+                        Button("Reintentar") {
+                            // TODO: Implement retry functionality
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                     }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
                 }
             }
             
             if !message.isFromCurrentUser {
-                Spacer()
+                Spacer(minLength: 60)
+            }
+        }
+        .padding(.vertical, 2)
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = true
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = false
+                }
             }
         }
     }
     
+    // MARK: - Computed Properties
+    private var bubbleTextColor: Color {
+        if message.isFromCurrentUser {
+            return .white
+        } else {
+            return Color.dynamicText(theme: themeManager.currentTheme)
+        }
+    }
+    
+    private var bubbleBackground: Color {
+        if message.isFromCurrentUser {
+            let baseColor = Color.dynamicAccent(theme: themeManager.currentTheme)
+            switch message.syncStatus {
+            case .failed:
+                return baseColor.opacity(0.6)
+            case .sending, .pending:
+                return baseColor.opacity(0.8)
+            case .synced:
+                return baseColor
+            }
+        } else {
+            return Color.dynamicSurface(theme: themeManager.currentTheme)
+        }
+    }
+    
+    private var bubbleBorderColor: Color {
+        if message.isFromCurrentUser {
+            return Color.clear
+        } else {
+            return Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.2)
+        }
+    }
+    
+    private var bubbleBorderWidth: CGFloat {
+        message.isFromCurrentUser ? 0 : 1
+    }
+    
+    // MARK: - Helper Methods
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        let calendar = Calendar.current
+        
+        if calendar.isDateInToday(date) {
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        } else if calendar.isDateInYesterday(date) {
+            return "Ayer"
+        } else {
+            formatter.dateStyle = .short
+            return formatter.string(from: date)
+        }
     }
     
     @ViewBuilder
@@ -323,17 +509,34 @@ struct MessageBubble: View {
         switch status {
         case .pending, .sending:
             ProgressView()
-                .scaleEffect(0.5)
+                .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicTextSecondary(theme: themeManager.currentTheme)))
+                .scaleEffect(0.6)
                 .frame(width: 12, height: 12)
         case .synced:
-            Image(systemName: "checkmark")
-                .font(.caption2)
-                .foregroundColor(.green)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.green.opacity(0.8))
         case .failed:
-            Image(systemName: "exclamationmark.triangle")
-                .font(.caption2)
-                .foregroundColor(.red)
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.red.opacity(0.8))
         }
+    }
+}
+
+// MARK: - Custom Bubble Shape
+struct BubbleShape: Shape {
+    let isFromCurrentUser: Bool
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: isFromCurrentUser ? 
+                [.topLeft, .topRight, .bottomLeft] : 
+                [.topLeft, .topRight, .bottomRight],
+            cornerRadii: CGSize(width: 20, height: 20)
+        )
+        return Path(path.cgPath)
     }
 }
 

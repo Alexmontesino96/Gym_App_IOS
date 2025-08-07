@@ -1,0 +1,4 @@
+module StreamChatUI {
+header "StreamChatUI-Swift.h"
+export *
+}

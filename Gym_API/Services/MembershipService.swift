@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 // MARK: - Membership Status Model
-struct MembershipStatus: Codable {
+struct MembershipStatus: Codable, Equatable {
     let userId: Int
     let gymId: Int
     let gymName: String

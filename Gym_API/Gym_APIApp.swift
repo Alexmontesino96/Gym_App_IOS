@@ -10,14 +10,11 @@ import SwiftData
 
 @main
 struct Gym_APIApp: App {
-    @StateObject private var authService = AuthServiceDirect()
-    @StateObject private var eventService = EventService()
-    @StateObject private var classService = ClassService()
-    @StateObject private var profileService = UserProfileService.shared
-    @StateObject private var themeManager = ThemeManager()
-    @StateObject private var oneSignalService = OneSignalService.shared
-    @StateObject private var gymService = GymService.shared
+    let serviceContainer = ServiceContainer.shared
     
+    // Temporalmente comentado - usando AuthUser en lugar de User de SwiftData
+    // para evitar error "failed to find a currently active container for User"
+    /*
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             User.self,
@@ -30,47 +27,21 @@ struct Gym_APIApp: App {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+    */
 
     var body: some Scene {
         WindowGroup {
             AuthenticatedView()
-                .environmentObject(authService)
-                .environmentObject(eventService)
-                .environmentObject(classService)
-                .environmentObject(profileService)
-                .environmentObject(themeManager)
-                .environmentObject(oneSignalService)
-                .environmentObject(gymService)
-            .preferredColorScheme(themeManager.currentTheme == .dark ? .dark : .light)
-            .onAppear {
-                // Inicializar OneSignal primero
-                oneSignalService.initialize()
-                
-                authService.checkAuthStatus()
-                eventService.authService = authService
-                classService.authService = authService
-                profileService.authService = authService
-                gymService.authService = authService
-            }
-            .onChange(of: authService.isAuthenticated) {
-                if authService.isAuthenticated {
-                    // Configurar OneSignal con el usuario autenticado
-                    if let user = authService.user {
-                        oneSignalService.setExternalUserId(user.id)
-                        oneSignalService.sendTag(key: "user_type", value: "authenticated")
-                        oneSignalService.sendTag(key: "user_email", value: user.email)
-                    }
+                .withServiceContainer()
+                .preferredColorScheme(serviceContainer.themeManager.currentTheme == .dark ? .dark : .light)
+                .onAppear {
+                    // Inicializar OneSignal
+                    serviceContainer.oneSignalService.initialize()
                     
-                    // Cargar trainers solo después de la autenticación
-                    Task {
-                        await classService.loadTrainers()
-                    }
-                } else {
-                    // Logout de OneSignal cuando el usuario cierra sesión
-                    oneSignalService.logout()
+                    // Verificar estado de autenticación
+                    serviceContainer.authService.checkAuthStatus()
                 }
-            }
         }
-        .modelContainer(sharedModelContainer)
+        // .modelContainer(sharedModelContainer) // Comentado temporalmente
     }
 }

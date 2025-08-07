@@ -41,21 +41,13 @@ struct MainTabView: View {
                 }
                 .tag(3)
             
-            // Stream Test Tab (temporal)
-            StreamConnectionTestView()
-                .tabItem {
-                    Image(systemName: selectedTab == 4 ? "bolt.fill" : "bolt")
-                    Text("Stream Test")
-                }
-                .tag(4)
-            
             // Profile Tab
-            ModernProfileView(onThemeChangeRequest: requestThemeChange)
+            UnifiedProfileView(onThemeChangeRequest: requestThemeChange)
                 .tabItem {
-                    Image(systemName: selectedTab == 5 ? "person.fill" : "person")
+                    Image(systemName: selectedTab == 4 ? "person.fill" : "person")
                     Text("Profile")
                 }
-                .tag(5)
+                .tag(4)
         }
         .accentColor(themeManager.currentTheme == .dark ? 
                     Color(red: 0.85, green: 0.2, blue: 0.2) : 
