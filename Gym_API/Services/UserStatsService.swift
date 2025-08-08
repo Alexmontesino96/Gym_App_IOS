@@ -222,6 +222,7 @@ class UserStatsService: ObservableObject {
             weeklyHours: mockHours,
             monthlyClasses: mockClasses * 4,
             totalStreak: Int.random(in: 0...30),
+            currentStreak: Int.random(in: 0...15),
             lastUpdated: Date()
         )
     }
@@ -319,6 +320,10 @@ class UserStatsService: ObservableObject {
     
     var hasValidStats: Bool {
         return comprehensiveStats != nil || currentStats != nil
+    }
+    
+    var currentStreak: Int {
+        return comprehensiveStats?.fitnessMetrics.streakCurrent ?? currentStats?.currentStreak ?? 0
     }
     
     func getDisplayStats() -> UserStats? {

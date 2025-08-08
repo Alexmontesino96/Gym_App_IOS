@@ -7,6 +7,7 @@ struct UserStats: Codable {
     let weeklyHours: Double
     let monthlyClasses: Int
     let totalStreak: Int
+    let currentStreak: Int
     let lastUpdated: Date
     
     // Computed properties para UI
@@ -358,6 +359,7 @@ extension UserStats {
         weeklyHours: 0.0,
         monthlyClasses: 0,
         totalStreak: 0,
+        currentStreak: 0,
         lastUpdated: Date()
     )
     
@@ -367,7 +369,8 @@ extension UserStats {
         self.weeklyEvents = comprehensive.eventsMetrics.eventsAttended
         self.weeklyHours = comprehensive.fitnessMetrics.totalWorkoutHours
         self.monthlyClasses = comprehensive.fitnessMetrics.classesAttended * 4 // Approximation
-        self.totalStreak = comprehensive.fitnessMetrics.streakCurrent
+        self.totalStreak = comprehensive.fitnessMetrics.streakLongest
+        self.currentStreak = comprehensive.fitnessMetrics.streakCurrent
         self.lastUpdated = Date()
     }
 }

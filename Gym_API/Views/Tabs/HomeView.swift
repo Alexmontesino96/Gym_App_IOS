@@ -50,6 +50,18 @@ struct HomeView: View {
                         // Hero Section with personalized greeting
                         HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
                         
+                        // Streak Indicator - Mostrar solo si hay datos de stats y racha > 0
+                        if userStatsService.hasValidStats && userStatsService.currentStreak > 0 {
+                            HStack {
+                                StreakIndicator(streakCount: userStatsService.currentStreak, theme: themeManager.currentTheme)
+                                Spacer()
+                            }
+                            .transition(.asymmetric(
+                                insertion: .scale.combined(with: .opacity),
+                                removal: .opacity
+                            ))
+                        }
+                        
                         // Next Class Card (if user has upcoming registered classes)
                         NextClassCard(themeManager: themeManager, classService: classService)
                         

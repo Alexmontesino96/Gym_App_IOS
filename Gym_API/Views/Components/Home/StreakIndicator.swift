@@ -1,125 +1,165 @@
 import SwiftUI
 
 // MARK: - Streak Indicator Component
-/// Componente para mostrar rachas de días consecutivos de entrenamiento
-/// que se integra perfectamente con el sistema de diseño de la app
+/// Componente mejorado para mostrar rachas de días consecutivos de entrenamiento
+/// Rediseñado para perfecta integración con ambos temas de la app (claro/oscuro)
+/// Compatible con colores #D93333 y sistema de accesibilidad WCAG 2.1 AA
 struct StreakIndicator: View {
     let streakCount: Int
-    let message: String
     let theme: ThemeManager.AppTheme
     
     @State private var isAnimating = false
-    @State private var particleAnimation = false
     @State private var glowPulse = false
+    @State private var shimmerOffset: CGFloat = -50
     
-    init(streakCount: Int, theme: ThemeManager.AppTheme, customMessage: String? = nil) {
-        self.streakCount = streakCount
-        self.theme = theme
-        self.message = customMessage ?? "¡\(streakCount) días seguidos!"
+    // Mensajes personalizados basados en el número de días
+    private var streakMessage: String {
+        switch streakCount {
+        case 1: return "¡Primer día!"
+        case 2: return "¡2 días seguidos!"
+        case 3: return "¡3 day streak! Keep it up!"
+        case 4...6: return "¡\(streakCount) días increíbles!"
+        case 7...13: return "¡Una semana completa!"
+        case 14...29: return "¡\(streakCount) días imparable!"
+        case 30...: return "¡Leyenda de \(streakCount) días!"
+        default: return "¡Sigue así!"
+        }
     }
     
     var body: some View {
-        HStack(spacing: 8) {
-            // Icono de fuego animado
+        HStack(spacing: 10) {
+            // Icono de fuego con efectos mejorados
             streakIcon
             
-            // Texto del mensaje
+            // Texto del mensaje con mejor tipografía
             streakText
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(streakBackground)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(modernStreakBackground)
         .clipShape(Capsule())
-        .overlay(streakBorder)
+        .overlay(shimmerOverlay)
         .shadow(
-            color: Color.dynamicAccent(theme: theme).opacity(0.25),
-            radius: 4,
+            color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.4 : 0.2),
+            radius: theme == .dark ? 6 : 4,
             x: 0,
-            y: 2
+            y: 3
         )
-        .scaleEffect(isAnimating ? 1.05 : 1.0)
+        .scaleEffect(isAnimating ? 1.02 : 1.0)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Streak indicator: \(streakMessage)")
+        .accessibilityHint("Your current workout streak")
         .onAppear {
-            startAnimations()
+            startModernAnimations()
         }
     }
     
-    // MARK: - Subcomponents
+    // MARK: - Subcomponents Mejorados
     
     private var streakIcon: some View {
         ZStack {
-            // Glow effect sutil
+            // Glow effect adaptado al tema
             if glowPulse {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color.dynamicAccent(theme: theme))
-                    .blur(radius: 4)
-                    .opacity(0.6)
-                    .scaleEffect(1.2)
+                    .blur(radius: 3)
+                    .opacity(theme == .dark ? 0.8 : 0.5)
+                    .scaleEffect(1.15)
             }
             
-            // Icono principal
+            // Icono principal con mejor contraste
             Image(systemName: "flame.fill")
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundColor(Color.dynamicAccent(theme: theme))
-                .rotationEffect(.degrees(isAnimating ? 5 : -5))
+                .rotationEffect(.degrees(isAnimating ? 3 : -3))
         }
     }
     
     private var streakText: some View {
-        Text(message)
-            .font(.system(size: 13, weight: .semibold))
+        Text(streakMessage)
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundColor(Color.dynamicAccent(theme: theme))
             .lineLimit(1)
+            .minimumScaleFactor(0.8)
     }
     
-    private var streakBackground: some View {
-        // Fondo glassmorphism integrado con el tema
-        RoundedRectangle(cornerRadius: 20)
-            .fill(
-                Color.dynamicAccent(theme: theme).opacity(0.1)
-            )
-            .background(
-                // Blur background para efecto glassmorphism
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.8)
-            )
+    // Fondo moderno con glassmorphism mejorado
+    private var modernStreakBackground: some View {
+        ZStack {
+            // Base glassmorphism
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, theme == .dark ? .dark : .light)
+            
+            // Overlay de color temático
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.15 : 0.08), location: 0.0),
+                            .init(color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.08 : 0.12), location: 1.0)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            
+            // Borde sutil
+            Capsule()
+                .stroke(
+                    Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.3 : 0.2),
+                    lineWidth: 1
+                )
+        }
     }
     
-    private var streakBorder: some View {
+    // Efecto shimmer para dar vida al componente
+    private var shimmerOverlay: some View {
         Capsule()
-            .stroke(
+            .fill(
                 LinearGradient(
-                    gradient: Gradient(colors: [
-                        Color.dynamicAccent(theme: theme).opacity(0.4),
-                        Color.dynamicAccent(theme: theme).opacity(0.2)
+                    gradient: Gradient(stops: [
+                        .init(color: Color.clear, location: 0),
+                        .init(color: Color.white.opacity(theme == .dark ? 0.15 : 0.25), location: 0.5),
+                        .init(color: Color.clear, location: 1)
                     ]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                lineWidth: 1
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             )
+            .offset(x: shimmerOffset)
+            .clipped()
     }
     
-    // MARK: - Animations
+    // MARK: - Animaciones Modernas
     
-    private func startAnimations() {
-        // Animación de entrada suave
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2)) {
+    private func startModernAnimations() {
+        // Animación de entrada más sutil
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
             isAnimating = true
         }
         
-        // Animación de glow intermitente
+        // Glow pulsante más suave
         withAnimation(
-            .easeInOut(duration: 2.0)
+            .easeInOut(duration: 3.0)
             .repeatForever(autoreverses: true)
         ) {
             glowPulse = true
         }
         
-        // Resetear la animación de escala
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+        // Efecto shimmer periódico
+        withAnimation(
+            .linear(duration: 2.5)
+            .repeatForever(autoreverses: false)
+            .delay(1.0)
+        ) {
+            shimmerOffset = 100
+        }
+        
+        // Resetear animación de escala después de un momento
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) {
                 isAnimating = false
             }
         }
@@ -427,17 +467,36 @@ struct GreatJobAchievementBadge: View {
 // MARK: - Usage Examples and Preview
 #Preview {
     VStack(spacing: 24) {
-        // Basic streak indicator
-        StreakIndicator(streakCount: 3, theme: .dark)
+        Text("Tema Oscuro")
+            .font(.title2)
+            .foregroundColor(Color.dynamicText(theme: .dark))
         
-        // Enhanced streak indicator  
+        // Streak indicators en tema oscuro
+        StreakIndicator(streakCount: 3, theme: .dark)
         EnhancedStreakIndicator(streakCount: 7, theme: .dark)
+        
+        Divider()
+        
+        Text("Tema Claro")
+            .font(.title2)
+            .foregroundColor(Color.dynamicText(theme: .light))
+        
+        // Streak indicators en tema claro
+        StreakIndicator(streakCount: 3, theme: .light)
+        EnhancedStreakIndicator(streakCount: 7, theme: .light)
         
         // Achievement badges
         GreatJobAchievementBadge(achievementType: .classCompleted, theme: .dark)
-        
-        GreatJobAchievementBadge(achievementType: .weekStreak, theme: .dark)
     }
     .padding()
-    .background(Color.dynamicBackground(theme: .dark))
+    .background(
+        LinearGradient(
+            gradient: Gradient(stops: [
+                .init(color: Color.dynamicBackground(theme: .dark), location: 0.0),
+                .init(color: Color.dynamicBackground(theme: .light), location: 1.0)
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    )
 }

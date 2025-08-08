@@ -39,7 +39,8 @@ enum ClassActionState: Equatable {
             return ActionConfig(
                 text: "Joined",
                 icon: "checkmark.circle.fill",
-                primaryColor: Color(red: 0.22, green: 0.78, blue: 0.22), // Verde fitness
+                primaryColor: Color.dynamicAccent(theme: theme),
+                backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
                 isDisabled: true
             )
         case .full:
@@ -60,8 +61,8 @@ enum ClassActionState: Equatable {
             return ActionConfig(
                 text: "Attended",
                 icon: "checkmark.seal.fill",
-                primaryColor: Color(hex: "#10B981") ?? Color(red: 0.06, green: 0.73, blue: 0.51), // Verde éxito
-                backgroundColor: Color(hex: "#10B981")?.opacity(0.15) ?? Color(red: 0.06, green: 0.73, blue: 0.51).opacity(0.15),
+                primaryColor: Color.dynamicAccent(theme: theme),
+                backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
                 isDisabled: false // Permitir ver estadísticas de la clase
             )
         case .completed(let wasRegistered):
@@ -69,16 +70,16 @@ enum ClassActionState: Equatable {
                 return ActionConfig(
                     text: "Great Job!",
                     icon: "trophy.fill",
-                    primaryColor: Color(hex: "#10B981") ?? Color(red: 0.06, green: 0.73, blue: 0.51), // Verde esmeralda éxito
-                    backgroundColor: Color(hex: "#10B981")?.opacity(0.15) ?? Color(red: 0.06, green: 0.73, blue: 0.51).opacity(0.15),
+                    primaryColor: Color.dynamicAccent(theme: theme),
+                    backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
                     isDisabled: false // Permitir ver detalles/estadísticas
                 )
             } else {
                 return ActionConfig(
                     text: "Ended",
                     icon: "clock.badge.checkmark",
-                    primaryColor: Color(hex: "#6B7280") ?? Color.gray, // Gris neutro
-                    backgroundColor: Color(hex: "#6B7280")?.opacity(0.1) ?? Color.gray.opacity(0.1),
+                    primaryColor: Color.dynamicTextSecondary(theme: theme),
+                    backgroundColor: Color.dynamicTextSecondary(theme: theme).opacity(0.1),
                     isDisabled: true
                 )
             }
@@ -681,8 +682,8 @@ struct CompletedBadge: View {
                     .fill(
                         LinearGradient(
                             gradient: Gradient(colors: [
-                                Color(hex: "#10B981") ?? Color.green,
-                                Color(hex: "#059669") ?? Color.green.opacity(0.8)
+                                Color.dynamicAccent(theme: theme),
+                                Color.dynamicAccent(theme: theme).opacity(0.8)
                             ]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -703,16 +704,16 @@ struct CompletedBadge: View {
             ZStack {
                 Circle()
                     .fill(wasUserRegistered ? 
-                        Color(hex: "#10B981") ?? Color.green :
-                        Color.gray.opacity(0.3)
+                        Color.dynamicAccent(theme: theme) :
+                        Color.dynamicTextSecondary(theme: theme).opacity(0.3)
                     )
                     .frame(width: 40, height: 40)
                 
                 Circle()
                     .stroke(
                         wasUserRegistered ?
-                        (Color(hex: "#059669") ?? Color.green.opacity(0.8)) :
-                        Color.gray.opacity(0.5),
+                        Color.dynamicAccent(theme: theme).opacity(0.8) :
+                        Color.dynamicTextSecondary(theme: theme).opacity(0.5),
                         lineWidth: 2
                     )
                     .frame(width: 40, height: 40)
@@ -743,6 +744,7 @@ struct CompletedBadge: View {
 struct CompletedCelebrationView: View {
     @Binding var show: Bool
     let wasUserRegistered: Bool
+    let theme: ThemeManager.AppTheme
     @State private var particleOpacity: Double = 0
     @State private var particleScale: CGFloat = 0.5
     @State private var checkScale: CGFloat = 0.3
@@ -755,7 +757,7 @@ struct CompletedCelebrationView: View {
                 ForEach(0..<8, id: \.self) { index in
                     Image(systemName: "star.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(hex: "#10B981") ?? Color.green)
+                        .foregroundColor(Color.dynamicAccent(theme: theme))
                         .opacity(particleOpacity)
                         .scaleEffect(particleScale)
                         .offset(particleOffset(for: index))
@@ -773,8 +775,8 @@ struct CompletedCelebrationView: View {
                             .fill(
                                 LinearGradient(
                                     gradient: Gradient(colors: [
-                                        Color(hex: "#10B981") ?? Color.green,
-                                        Color(hex: "#059669") ?? Color.green.opacity(0.9)
+                                        Color.dynamicAccent(theme: theme),
+                                        Color.dynamicAccent(theme: theme).opacity(0.9)
                                     ]),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -791,7 +793,7 @@ struct CompletedCelebrationView: View {
                     VStack(spacing: 4) {
                         Text("Class Completed!")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(Color(hex: "#10B981") ?? Color.green)
+                            .foregroundColor(Color.dynamicAccent(theme: theme))
                         
                         Text("Great job on finishing the class")
                             .font(.system(size: 14, weight: .medium))
@@ -806,7 +808,7 @@ struct CompletedCelebrationView: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color(hex: "#10B981")?.opacity(0.2) ?? Color.green.opacity(0.2), lineWidth: 1)
+                                .stroke(Color.dynamicAccent(theme: theme).opacity(0.2), lineWidth: 1)
                         )
                 )
                 .scaleEffect(show ? 1.0 : 0.8)
@@ -1188,7 +1190,7 @@ struct ClassCardView: View {
         case .live:
             return Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3)
         case .completed(let wasRegistered) where wasRegistered:
-            return (Color(hex: "#10B981") ?? Color.green).opacity(0.3)
+            return Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3)
         default:
             return Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.1)
         }
@@ -1211,7 +1213,7 @@ struct ClassCardView: View {
             // Badge para estado registered
             if currentActionState == .registered {
                 Circle()
-                    .fill(Color(red: 0.22, green: 0.78, blue: 0.22))
+                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
                     .frame(width: 12, height: 12)
                     .padding(.top, 12)
                     .padding(.trailing, 12)
@@ -1222,7 +1224,7 @@ struct ClassCardView: View {
             if currentActionState == .attended {
                 ZStack {
                     Circle()
-                        .fill(Color(hex: "#10B981") ?? Color.green)
+                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
                         .frame(width: 20, height: 20)
                     
                     Image(systemName: "checkmark.seal.fill")
@@ -1258,10 +1260,10 @@ struct ClassCardView: View {
             VStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 44, weight: .bold))
-                    .foregroundColor(Color(red: 0.22, green: 0.78, blue: 0.22))
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 Text("You're In!")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Color(red: 0.22, green: 0.78, blue: 0.22))
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
             }
             .padding(24)
             .background(successAnimationBackground)
@@ -1275,7 +1277,8 @@ struct ClassCardView: View {
     private var completedCelebration: some View {
         CompletedCelebrationView(
             show: $showCompletedAnimation,
-            wasUserRegistered: wasUserRegisteredForClass
+            wasUserRegistered: wasUserRegisteredForClass,
+            theme: themeManager.currentTheme
         )
     }
     
