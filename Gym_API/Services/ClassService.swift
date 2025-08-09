@@ -43,6 +43,10 @@ class ClassService: ObservableObject {
     @Published var isLoadingTrainers = false
     @Published var trainersErrorMessage: String?
     @Published var authenticationError = false
+    @Published var trainersLastUpdated: Date = Date()
+    
+    // Cache TTL para trainers (5 minutos)
+    private let trainersCacheTTL: TimeInterval = 300
     
     // MARK: - Optimized Participation Status Properties
     @Published var userParticipations: [Int: UserParticipation] = [:]
@@ -60,6 +64,7 @@ class ClassService: ObservableObject {
     // MARK: - Task Management
     private var currentSessionTask: Task<Void, Never>?
     private var currentMyClassesTask: Task<Void, Never>?
+    private var currentTrainersTask: Task<Void, Never>?
     
     private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     private let session = URLSession.shared
@@ -253,10 +258,7 @@ class ClassService: ObservableObject {
     private func loadParticipationStatusIfNeeded(startDate: Date, endDate: Date) async {
         // Solo cargar si no tenemos datos recientes (cache de 5 minutos)
         if !shouldUseOptimizedParticipationData() {
-            print("🚀 Cargando estados de participación optimizados...")
             await fetchMyParticipationStatus(startDate: startDate, endDate: endDate)
-        } else {
-            print("✅ Estados de participación en cache son válidos, omitiendo carga")
         }
     }
     
@@ -710,14 +712,12 @@ class ClassService: ObservableObject {
                         
                         // Actualizar el estado booleano legacy para compatibilidad
                         newUserRegistrationStatus[participation.sessionId] = participation.status.isActiveParticipation
-                        
-                        print("🔄 Estado actualizado para sesión \(participation.sessionId): \(participation.status.displayName) (active: \(participation.status.isActiveParticipation))")
                     }
                     
                     self.userRegistrationStatus = newUserRegistrationStatus
                     self.lastParticipationStatusUpdate = Date()
                     print("📊 Total participaciones cargadas: \(self.userParticipations.count)")
-                    print("📊 Estado de registro actualizado: \(self.userRegistrationStatus)")
+                    print("📊 Estado de participación actualizado con \(self.userParticipations.count) entradas")
                 }
             } else {
                 let errorMessage = "Error del servidor: \(httpResponse.statusCode)"
@@ -836,6 +836,40 @@ class ClassService: ObservableObject {
     
     // MARK: - Load Trainers
     func loadTrainers() async {
+        // Verificar si los datos están frescos
+        let now = Date()
+        let timeSinceLastUpdate = now.timeIntervalSince(trainersLastUpdated)
+        
+        if !trainers.isEmpty && timeSinceLastUpdate < trainersCacheTTL && !authenticationError {
+            print("🔍 Trainers cache still valid (updated \(Int(timeSinceLastUpdate))s ago), skipping request")
+            return
+        }
+        
+        print("🔍 Loading trainers (cache expired or empty)")
+        
+        // Cancelar task anterior si existe
+        currentTrainersTask?.cancel()
+        
+        currentTrainersTask = Task {
+            await performLoadTrainers()
+        }
+        
+        await currentTrainersTask?.value
+    }
+    
+    /// Fuerza la recarga de trainers ignorando el cache
+    func forceReloadTrainers() async {
+        print("🔄 Forcing trainers reload...")
+        
+        // Invalidar cache
+        await MainActor.run {
+            self.trainersLastUpdated = Date(timeIntervalSince1970: 0) // Fecha muy antigua
+        }
+        
+        await loadTrainers()
+    }
+    
+    private func performLoadTrainers() async {
         _ = await MainActor.run {
             self.isLoadingTrainers = true
             self.trainersErrorMessage = nil
@@ -843,6 +877,9 @@ class ClassService: ObservableObject {
         }
         
         do {
+            // Verificar si la task fue cancelada
+            try Task.checkCancellation()
+            
             guard let url = URL(string: "\(baseURL)/users/p/gym-participants?role=TRAINER&skip=0&limit=100") else {
                 throw ClassServiceError.invalidURL
             }
@@ -863,6 +900,9 @@ class ClassService: ObservableObject {
                 }
                 return
             }
+            
+            // Verificar cancelación antes de continuar
+            try Task.checkCancellation()
             
             // Agregar header del gym
             let gymId = await GymService.shared.currentGymId ?? 4
@@ -891,6 +931,7 @@ class ClassService: ObservableObject {
                     self.trainerMap = Dictionary(uniqueKeysWithValues: loadedTrainers.map { ($0.id, $0) })
                     self.trainersErrorMessage = nil
                     self.authenticationError = false
+                    self.trainersLastUpdated = Date() // Actualizar timestamp para forzar refresh
                 }
             } else {
                 print("❌ Error loading trainers: HTTP \(httpResponse.statusCode)")
@@ -910,6 +951,12 @@ class ClassService: ObservableObject {
             }
             
         } catch {
+            // No reportar errores de cancelación como errores reales
+            if error is CancellationError {
+                print("🔄 Trainers request cancelled - this is normal")
+                return
+            }
+            
             print("❌ Error loading trainers: \(error)")
             _ = await MainActor.run {
                 self.trainersErrorMessage = "Error cargando trainers: \(error.localizedDescription)"
@@ -923,9 +970,7 @@ class ClassService: ObservableObject {
     
     // MARK: - Helper Methods
     func isUserRegistered(sessionId: Int) -> Bool {
-        let isRegistered = userRegistrationStatus[sessionId] == true
-        print("🔍 Consultando registro para sesión \(sessionId): \(isRegistered)")
-        return isRegistered
+        return userRegistrationStatus[sessionId] == true
     }
     
     // MARK: - Optimized Helper Methods
@@ -952,7 +997,9 @@ class ClassService: ObservableObject {
     
     func shouldUseOptimizedParticipationData() -> Bool {
         // Usar datos optimizados si fueron cargados en los últimos 5 minutos
-        guard let lastUpdate = lastParticipationStatusUpdate else { return false }
+        guard let lastUpdate = lastParticipationStatusUpdate else { 
+            return false 
+        }
         let cacheValidityDuration: TimeInterval = 5 * 60 // 5 minutos
         return Date().timeIntervalSince(lastUpdate) < cacheValidityDuration
     }

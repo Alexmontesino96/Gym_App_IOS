@@ -1,367 +1,593 @@
-//
-//  UserStatsService.swift
-//  Gym_API
-//
-//  Created by Alex Montesino on 8/4/25.
-//
-
 import Foundation
 import Combine
+import SwiftUI
 
+// MARK: - User Stats Service
 @MainActor
 class UserStatsService: ObservableObject {
+    // MARK: - Published Properties
+    @Published var userStats: UserStats = .empty
+    @Published var comprehensiveStats: ComprehensiveStats? = nil
+    @Published var achievements: [Achievement] = []
+    @Published var workoutHistory: [WorkoutHistory] = []
+    @Published var personalGoals: [PersonalGoal] = []
+    @Published var workoutBuddies: [WorkoutBuddy] = []
+    @Published var leaderboardPosition: LeaderboardEntry?
+    @Published var activityAnalytics: ActivityAnalytics?
+    
+    @Published var isLoading = false
+    @Published var error: Error?
+    
+    // MARK: - Private Properties
+    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private var cancellables = Set<AnyCancellable>()
+    
+    // MARK: - Dependency Injection
+    weak var authService: AuthServiceDirect?
+    weak var gymService: GymService?
+    
+    // MARK: - Singleton
     static let shared = UserStatsService()
     
     private init() {
-        print("📊 UserStatsService singleton inicializado")
+        // Generar datos de ejemplo para desarrollo
+        generateMockData()
     }
     
-    // Legacy stats (for backward compatibility)
-    @Published var currentStats: UserStats?
+    // MARK: - Public Methods
     
-    // New comprehensive stats
-    @Published var comprehensiveStats: ComprehensiveStats?
-    @Published var selectedPeriod: StatsPeriod = .week
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    
-    weak var authService: AuthServiceDirect?
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
-    private let session = URLSession.shared
-    
-    // MARK: - Task Management
-    private var currentTask: Task<Void, Never>?
-    
-    // MARK: - Helper for Main Thread Updates
-    private func updateOnMainThread(_ updates: @escaping () -> Void) {
-        if Thread.isMainThread {
-            updates()
-        } else {
-            DispatchQueue.main.async {
-                updates()
-            }
-        }
-    }
-    
-    // MARK: - Helper for Authenticated Requests
-    private func createAuthenticatedRequest(url: URL, method: String = "GET") async -> URLRequest? {
-        guard let authService = authService else {
-            print("❌ No authService configured")
-            updateOnMainThread {
-                self.errorMessage = "Authentication service not available"
-                self.isLoading = false
-            }
-            return nil
+    /// Obtiene estadísticas completas del usuario
+    func fetchComprehensiveStats(period: StatsPeriod = .week) async {
+        isLoading = true
+        error = nil
+        
+        guard let token = await authService?.getValidAccessToken(),
+              let gymId = gymService?.currentGymId else {
+            print("❌ [UserStatsService] Missing auth token or gym ID")
+            isLoading = false
+            return
         }
         
-        guard let token = await authService.getValidAccessToken() else {
-            print("❌ No valid access token")
-            updateOnMainThread {
-                self.errorMessage = "Authentication failed"
-                self.isLoading = false
-            }
-            return nil
+        guard let url = URL(string: "\(baseURL)/users/stats/comprehensive?period=\(period.rawValue)") else {
+            print("❌ [UserStatsService] Invalid URL")
+            isLoading = false
+            return
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = method
+        request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
         
-        // Agregar gym header si está disponible
-        let gymService = GymService.shared
-        if let currentGymId = gymService.currentGymId {
-            request.setValue(String(currentGymId), forHTTPHeaderField: "X-Gym-ID")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                let decoder = JSONDecoder()
+                let stats = try decoder.decode(ComprehensiveStats.self, from: data)
+                comprehensiveStats = stats
+                userStats = UserStats(from: stats)
+                achievements = stats.achievements
+                print("✅ [UserStatsService] Comprehensive stats loaded successfully")
+            }
+        } catch {
+            print("❌ [UserStatsService] Error fetching stats: \(error)")
+            self.error = error
+            // Usar datos de ejemplo si falla la API
+            generateMockData()
         }
         
-        return request
+        isLoading = false
     }
     
-    func fetchUserStats() async {
-        await fetchComprehensiveStats(period: selectedPeriod, includeGoals: true)
+    /// Obtiene el historial de entrenamientos
+    func fetchWorkoutHistory() async {
+        // Por ahora usar datos de ejemplo
+        generateMockWorkoutHistory()
     }
     
-    func fetchComprehensiveStats() async {
-        await fetchComprehensiveStats(period: selectedPeriod, includeGoals: true)
+    /// Obtiene los objetivos personales
+    func fetchPersonalGoals() async {
+        // Por ahora usar datos de ejemplo
+        generateMockGoals()
     }
     
-    func fetchComprehensiveStats(period: StatsPeriod = .week, includeGoals: Bool = true) async {
-        print("📊 Fetching comprehensive user stats for period: \(period.rawValue)")
-        
-        // Cancel any existing task
-        currentTask?.cancel()
-        
-        currentTask = Task {
-            guard !Task.isCancelled else { return }
-            
-            updateOnMainThread {
-                self.isLoading = true
-                self.errorMessage = nil
-                self.selectedPeriod = period
-            }
-            
-            // Create API request
-            guard let url = URL(string: "\(baseURL)/users/stats/comprehensive") else {
-                print("❌ Invalid URL for comprehensive stats")
-                updateOnMainThread {
-                    self.errorMessage = "Invalid request URL"
-                    self.isLoading = false
-                }
-                return
-            }
-            
-            var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            urlComponents?.queryItems = [
-                URLQueryItem(name: "period", value: period.rawValue),
-                URLQueryItem(name: "include_goals", value: String(includeGoals))
-            ]
-            
-            guard let finalURL = urlComponents?.url else {
-                print("❌ Failed to create URL with query parameters")
-                updateOnMainThread {
-                    self.errorMessage = "Failed to create request"
-                    self.isLoading = false
-                }
-                return
-            }
-            
-            guard let request = await createAuthenticatedRequest(url: finalURL, method: "GET") else {
-                return // Error already handled in createAuthenticatedRequest
-            }
-            
-            guard !Task.isCancelled else { return }
-            
-            do {
-                print("🌐 Making request to: \(finalURL.absoluteString)")
-                let (data, response) = try await session.data(for: request)
-                
-                guard !Task.isCancelled else { return }
-                
-                if let httpResponse = response as? HTTPURLResponse {
-                    print("📊 Stats API Response: \(httpResponse.statusCode)")
-                    
-                    if httpResponse.statusCode == 200 {
-                        // Parse comprehensive stats
-                        let decoder = JSONDecoder()
-                        let comprehensiveStats = try decoder.decode(ComprehensiveStats.self, from: data)
-                        
-                        updateOnMainThread {
-                            self.comprehensiveStats = comprehensiveStats
-                            // Update legacy stats for backward compatibility
-                            self.currentStats = UserStats(from: comprehensiveStats)
-                            self.isLoading = false
-                            self.errorMessage = nil
-                        }
-                        
-                        print("✅ Comprehensive stats loaded successfully")
-                        print("   Classes: \(comprehensiveStats.fitnessMetrics.classesAttended)")
-                        print("   Events: \(comprehensiveStats.eventsMetrics.eventsAttended)")
-                        print("   Hours: \(comprehensiveStats.fitnessMetrics.workoutHoursString)")
-                        print("   Achievements: \(comprehensiveStats.achievements.count)")
-                        print("   Recommendations: \(comprehensiveStats.recommendations.count)")
-                    } else {
-                        // Handle error response
-                        let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
-                        print("❌ API Error \(httpResponse.statusCode): \(errorString)")
-                        
-                        updateOnMainThread {
-                            self.errorMessage = "Failed to load stats (Error \(httpResponse.statusCode))"
-                            self.isLoading = false
-                        }
-                        
-                        // Fallback to mock data on error
-                        await fallbackToMockData()
-                    }
-                } else {
-                    print("❌ Invalid response type")
-                    updateOnMainThread {
-                        self.errorMessage = "Invalid server response"
-                        self.isLoading = false
-                    }
-                    await fallbackToMockData()
-                }
-                
-            } catch {
-                guard !Task.isCancelled else { return }
-                
-                print("❌ Network error: \(error.localizedDescription)")
-                updateOnMainThread {
-                    self.errorMessage = "Network error: \(error.localizedDescription)"
-                    self.isLoading = false
-                }
-                
-                // Fallback to mock data on network error
-                await fallbackToMockData()
-            }
-        }
+    /// Obtiene los compañeros de entrenamiento
+    func fetchWorkoutBuddies() async {
+        // Por ahora usar datos de ejemplo
+        generateMockBuddies()
     }
     
-    // MARK: - Fallback Methods
-    
-    private func fallbackToMockData() async {
-        print("📊 Falling back to mock data...")
-        
-        updateOnMainThread {
-            let mockComprehensiveStats = self.createMockComprehensiveStats()
-            self.comprehensiveStats = mockComprehensiveStats
-            self.currentStats = UserStats(from: mockComprehensiveStats)
-            self.isLoading = false
-            // Keep the original error message
-        }
+    /// Obtiene la posición en el leaderboard
+    func fetchLeaderboardPosition(category: LeaderboardCategory = .workouts, period: LeaderboardPeriod = .month) async {
+        // Por ahora usar datos de ejemplo
+        generateMockLeaderboard()
     }
     
-    private func createMockStats() -> UserStats {
-        // Datos mock realistas basados en uso típico de gimnasio
-        let mockClasses = Int.random(in: 2...8)
-        let mockEvents = Int.random(in: 0...3)
-        let mockHours = Double.random(in: 3.0...12.0)
-        
-        return UserStats(
-            weeklyClasses: mockClasses,
-            weeklyEvents: mockEvents,
-            weeklyHours: mockHours,
-            monthlyClasses: mockClasses * 4,
-            totalStreak: Int.random(in: 0...30),
-            currentStreak: Int.random(in: 0...15),
+    /// Obtiene análisis de actividad
+    func fetchActivityAnalytics() async {
+        // Por ahora usar datos de ejemplo
+        generateMockAnalytics()
+    }
+    
+    // MARK: - Mock Data Generation
+    
+    private func generateMockData() {
+        // Generar estadísticas básicas
+        userStats = UserStats(
+            weeklyClasses: 5,
+            weeklyEvents: 2,
+            weeklyHours: 7.5,
+            monthlyClasses: 18,
+            totalStreak: 12,
+            currentStreak: 12,
             lastUpdated: Date()
         )
+        
+        // Generar logros
+        achievements = [
+            Achievement(
+                id: 1,
+                type: "streak",
+                name: "Iron Will",
+                description: "30-day workout streak",
+                earnedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400 * 5)),
+                badgeIcon: "flame.fill"
+            ),
+            Achievement(
+                id: 2,
+                type: "milestone",
+                name: "Century Club",
+                description: "Complete 100 workouts",
+                earnedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400 * 10)),
+                badgeIcon: "star.circle.fill"
+            ),
+            Achievement(
+                id: 3,
+                type: "social",
+                name: "Team Player",
+                description: "Join 10 group classes",
+                earnedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-86400 * 2)),
+                badgeIcon: "person.3.fill"
+            )
+        ]
+        
+        generateMockWorkoutHistory()
+        generateMockGoals()
+        generateMockBuddies()
+        generateMockLeaderboard()
+        generateMockAnalytics()
     }
     
-    private func createMockComprehensiveStats() -> ComprehensiveStats {
-        let mockClasses = Int.random(in: 2...8)
-        let mockEvents = Int.random(in: 0...3)
-        let mockHours = Double.random(in: 3.0...12.0)
-        let mockStreak = Int.random(in: 0...15)
-        let mockSocialScore = Double.random(in: 0...10)
-        
-        return ComprehensiveStats(
-            userId: 0,
-            period: selectedPeriod.rawValue,
-            periodStart: ISO8601DateFormatter().string(from: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()),
-            periodEnd: ISO8601DateFormatter().string(from: Date()),
-            fitnessMetrics: FitnessMetrics(
-                classesAttended: mockClasses,
-                classesScheduled: mockClasses + Int.random(in: 1...3),
-                attendanceRate: Double.random(in: 60...100),
-                totalWorkoutHours: mockHours,
-                averageSessionDuration: Double.random(in: 45...90),
-                streakCurrent: mockStreak,
-                streakLongest: mockStreak + Int.random(in: 5...20),
-                favoriteClassTypes: ["HIIT", "Yoga", "CrossFit"].shuffled().prefix(Int.random(in: 1...3)).map { String($0) },
-                peakWorkoutTimes: ["18:00", "19:00", "07:00"].shuffled().prefix(Int.random(in: 1...2)).map { String($0) },
-                caloriesBurnedEstimate: Double.random(in: 1200...3500)
+    private func generateMockWorkoutHistory() {
+        workoutHistory = [
+            WorkoutHistory(
+                id: 1,
+                date: Date(),
+                type: .strength,
+                duration: 45,
+                caloriesBurned: 320,
+                className: "Power Lifting",
+                trainerName: "Mike Johnson",
+                notes: "Great session, PR on deadlift!",
+                performance: PerformanceMetric(
+                    metric: "Deadlift",
+                    value: 120,
+                    unit: "kg",
+                    improvement: 5.2
+                )
             ),
-            eventsMetrics: EventsMetrics(
-                eventsAttended: mockEvents,
-                eventsRegistered: mockEvents + Int.random(in: 0...2),
-                eventsCreated: Int.random(in: 0...1),
-                attendanceRate: mockEvents > 0 ? Double.random(in: 70...100) : 0,
-                favoriteEventTypes: ["Fitness Challenge", "Community Event"].shuffled().prefix(1).map { String($0) }
+            WorkoutHistory(
+                id: 2,
+                date: Date().addingTimeInterval(-86400),
+                type: .cardio,
+                duration: 30,
+                caloriesBurned: 280,
+                className: "HIIT Blast",
+                trainerName: "Sarah Williams",
+                notes: nil,
+                performance: nil
             ),
-            socialMetrics: SocialMetrics(
-                chatMessagesSent: Int.random(in: 5...50),
-                chatRoomsActive: Int.random(in: 1...5),
-                socialScore: mockSocialScore,
-                trainerInteractions: Int.random(in: 0...10)
+            WorkoutHistory(
+                id: 3,
+                date: Date().addingTimeInterval(-86400 * 2),
+                type: .yoga,
+                duration: 60,
+                caloriesBurned: 180,
+                className: "Vinyasa Flow",
+                trainerName: "Emma Davis",
+                notes: "Feeling more flexible",
+                performance: nil
+            )
+        ]
+    }
+    
+    private func generateMockGoals() {
+        personalGoals = [
+            PersonalGoal(
+                id: "goal1",
+                title: "Lose 5kg",
+                description: "Reach target weight of 75kg",
+                targetValue: 5,
+                currentValue: 3.2,
+                unit: "kg",
+                deadline: Date().addingTimeInterval(86400 * 30),
+                category: .weight,
+                createdAt: Date().addingTimeInterval(-86400 * 15),
+                isCompleted: false
             ),
-            healthMetrics: HealthMetrics(
-                currentWeight: Double.random(in: 60...90),
-                currentHeight: Double.random(in: 160...190),
-                bmi: nil, // Will be calculated
-                bmiCategory: ["normal", "underweight", "overweight"].randomElement(),
-                weightChange: Double.random(in: -2...2),
-                goalsProgress: []
+            PersonalGoal(
+                id: "goal2",
+                title: "Run 10K",
+                description: "Complete a 10K run under 50 minutes",
+                targetValue: 10,
+                currentValue: 7.5,
+                unit: "km",
+                deadline: Date().addingTimeInterval(86400 * 45),
+                category: .fitness,
+                createdAt: Date().addingTimeInterval(-86400 * 20),
+                isCompleted: false
             ),
-            membershipUtilization: MembershipUtilization(
-                planName: ["Basic", "Premium", "Elite"].randomElement() ?? "Basic",
-                utilizationRate: Double.random(in: 20...90),
-                valueScore: Double.random(in: 3...9),
-                daysUntilRenewal: Int.random(in: 5...365),
-                recommendedActions: [
-                    "Try attending more classes to get better value",
-                    "Consider joining group events",
-                    "Book sessions with trainers"
-                ].shuffled().prefix(Int.random(in: 2...3)).map { String($0) }
+            PersonalGoal(
+                id: "goal3",
+                title: "100 Push-ups",
+                description: "Do 100 consecutive push-ups",
+                targetValue: 100,
+                currentValue: 65,
+                unit: "reps",
+                deadline: nil,
+                category: .fitness,
+                createdAt: Date().addingTimeInterval(-86400 * 30),
+                isCompleted: false
+            )
+        ]
+    }
+    
+    private func generateMockBuddies() {
+        workoutBuddies = [
+            WorkoutBuddy(
+                id: 1,
+                name: "Alex Thompson",
+                picture: nil,
+                sharedWorkouts: 15,
+                lastWorkoutTogether: Date().addingTimeInterval(-86400 * 2),
+                favoriteClass: "CrossFit"
             ),
-            achievements: [],
-            trends: Trends(
-                attendanceTrend: ["increasing", "stable", "decreasing"].randomElement() ?? "stable",
-                workoutIntensityTrend: ["increasing", "stable", "decreasing"].randomElement() ?? "stable",
-                socialEngagementTrend: ["increasing", "stable", "decreasing"].randomElement() ?? "stable"
+            WorkoutBuddy(
+                id: 2,
+                name: "Maria Garcia",
+                picture: nil,
+                sharedWorkouts: 8,
+                lastWorkoutTogether: Date().addingTimeInterval(-86400 * 5),
+                favoriteClass: "Yoga Flow"
             ),
-            recommendations: [
-                "Try scheduling classes in advance",
-                "Consider a new workout type",
-                "Join community events to meet new people",
-                "Track your progress weekly"
-            ].shuffled().prefix(Int.random(in: 2...4)).map { String($0) }
+            WorkoutBuddy(
+                id: 3,
+                name: "John Smith",
+                picture: nil,
+                sharedWorkouts: 12,
+                lastWorkoutTogether: Date().addingTimeInterval(-86400),
+                favoriteClass: "Strength Training"
+            )
+        ]
+    }
+    
+    private func generateMockLeaderboard() {
+        leaderboardPosition = LeaderboardEntry(
+            id: 1,
+            userId: 1,
+            userName: "You",
+            userPicture: nil,
+            score: 18,
+            rank: 5,
+            category: .workouts,
+            period: .month
         )
     }
     
-    // MARK: - Utility Methods
-    func refreshStats() async {
-        await fetchUserStats()
+    private func generateMockAnalytics() {
+        // Generar datos de actividad semanal
+        let weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        var weeklyData: [DayActivity] = []
+        
+        for (index, day) in weekDays.enumerated() {
+            let date = Date().addingTimeInterval(Double(-86400 * (6 - index)))
+            let isActive = Bool.random() || index < 4
+            weeklyData.append(DayActivity(
+                dayOfWeek: day,
+                date: date,
+                workoutCount: isActive ? Int.random(in: 1...2) : 0,
+                totalMinutes: isActive ? Int.random(in: 30...90) : 0,
+                isActive: isActive
+            ))
+        }
+        
+        // Generar tendencia mensual
+        var monthlyTrend: [MonthDataPoint] = []
+        for i in 0..<4 {
+            monthlyTrend.append(MonthDataPoint(
+                date: Date().addingTimeInterval(Double(-86400 * 7 * i)),
+                value: Double.random(in: 3...8),
+                label: "Week \(4-i)"
+            ))
+        }
+        
+        // Desglose por categoría
+        let categoryBreakdown = [
+            CategoryData(category: .strength, percentage: 35, totalSessions: 7),
+            CategoryData(category: .cardio, percentage: 30, totalSessions: 6),
+            CategoryData(category: .yoga, percentage: 20, totalSessions: 4),
+            CategoryData(category: .hiit, percentage: 15, totalSessions: 3)
+        ]
+        
+        activityAnalytics = ActivityAnalytics(
+            weeklyData: weeklyData,
+            monthlyTrend: monthlyTrend,
+            categoryBreakdown: categoryBreakdown,
+            timeInvestment: TimeInvestment(
+                averageSessionDuration: 52,
+                peakHour: 18,
+                preferredDays: ["Monday", "Wednesday", "Friday"],
+                consistency: 0.75
+            )
+        )
     }
+}
+
+// MARK: - Extended Models for Profile Page
+
+struct WorkoutHistory: Identifiable, Codable {
+    let id: Int
+    let date: Date
+    let type: WorkoutType
+    let duration: Int // in minutes
+    let caloriesBurned: Int?
+    let className: String?
+    let trainerName: String?
+    let notes: String?
+    let performance: PerformanceMetric?
     
-    func refreshStatsForPeriod(_ period: StatsPeriod) async {
-        await fetchComprehensiveStats(period: period, includeGoals: true)
-    }
-    
-    func clearStats() {
-        updateOnMainThread {
-            self.currentStats = nil
-            self.comprehensiveStats = nil
-            self.errorMessage = nil
-            self.isLoading = false
+    var formattedDuration: String {
+        if duration < 60 {
+            return "\(duration) min"
+        } else {
+            let hours = duration / 60
+            let minutes = duration % 60
+            return minutes > 0 ? "\(hours)h \(minutes)min" : "\(hours)h"
         }
     }
     
-    // MARK: - Convenience Methods for UI
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        if Calendar.current.isDateInToday(date) {
+            return "Today"
+        } else if Calendar.current.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+    }
+}
+
+enum WorkoutType: String, Codable, CaseIterable {
+    case strength = "strength"
+    case cardio = "cardio"
+    case yoga = "yoga"
+    case hiit = "hiit"
+    case cycling = "cycling"
+    case swimming = "swimming"
+    case other = "other"
     
-    var hasValidStats: Bool {
-        return comprehensiveStats != nil || currentStats != nil
+    var displayName: String {
+        switch self {
+        case .strength: return "Strength"
+        case .cardio: return "Cardio"
+        case .yoga: return "Yoga"
+        case .hiit: return "HIIT"
+        case .cycling: return "Cycling"
+        case .swimming: return "Swimming"
+        case .other: return "Other"
+        }
     }
     
-    var currentStreak: Int {
-        return comprehensiveStats?.fitnessMetrics.streakCurrent ?? currentStats?.currentStreak ?? 0
+    var iconName: String {
+        switch self {
+        case .strength: return "dumbbell.fill"
+        case .cardio: return "figure.run"
+        case .yoga: return "figure.yoga"
+        case .hiit: return "bolt.heart.fill"
+        case .cycling: return "bicycle"
+        case .swimming: return "figure.pool.swim"
+        case .other: return "figure.walk"
+        }
     }
     
-    func getDisplayStats() -> UserStats? {
-        return currentStats
+    var color: Color {
+        switch self {
+        case .strength: return .blue
+        case .cardio: return .red
+        case .yoga: return .purple
+        case .hiit: return .orange
+        case .cycling: return .green
+        case .swimming: return .cyan
+        case .other: return .gray
+        }
+    }
+}
+
+struct PerformanceMetric: Codable {
+    let metric: String
+    let value: Double
+    let unit: String
+    let improvement: Double? // percentage improvement
+}
+
+struct PersonalGoal: Identifiable, Codable {
+    let id: String
+    let title: String
+    let description: String
+    let targetValue: Double
+    let currentValue: Double
+    let unit: String
+    let deadline: Date?
+    let category: GoalCategory
+    let createdAt: Date
+    let isCompleted: Bool
+    
+    var progress: Double {
+        return min(currentValue / targetValue, 1.0)
     }
     
-    func getComprehensiveStats() -> ComprehensiveStats? {
-        return comprehensiveStats
+    var progressPercentage: Int {
+        return Int(progress * 100)
     }
     
-    func getCurrentPeriodDisplayName() -> String {
-        return selectedPeriod.displayName
+    var daysRemaining: Int? {
+        guard let deadline = deadline else { return nil }
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: Date(), to: deadline)
+        return components.day
+    }
+}
+
+enum GoalCategory: String, Codable, CaseIterable {
+    case weight = "weight"
+    case fitness = "fitness"
+    case nutrition = "nutrition"
+    case wellness = "wellness"
+    case custom = "custom"
+    
+    var displayName: String {
+        switch self {
+        case .weight: return "Weight"
+        case .fitness: return "Fitness"
+        case .nutrition: return "Nutrition"
+        case .wellness: return "Wellness"
+        case .custom: return "Custom"
+        }
     }
     
-    // MARK: - Analytics Helper Methods
-    
-    func hasAchievements() -> Bool {
-        return comprehensiveStats?.achievements.isEmpty == false
+    var iconName: String {
+        switch self {
+        case .weight: return "scalemass.fill"
+        case .fitness: return "figure.strengthtraining.traditional"
+        case .nutrition: return "leaf.fill"
+        case .wellness: return "heart.fill"
+        case .custom: return "star.fill"
+        }
     }
     
-    func hasRecommendations() -> Bool {
-        return comprehensiveStats?.recommendations.isEmpty == false
+    var color: Color {
+        switch self {
+        case .weight: return .orange
+        case .fitness: return .blue
+        case .nutrition: return .green
+        case .wellness: return .pink
+        case .custom: return .purple
+        }
     }
+}
+
+struct WorkoutBuddy: Identifiable, Codable {
+    let id: Int
+    let name: String
+    let picture: String?
+    let sharedWorkouts: Int
+    let lastWorkoutTogether: Date?
+    let favoriteClass: String?
     
-    func hasHealthMetrics() -> Bool {
-        guard let health = comprehensiveStats?.healthMetrics else { return false }
-        return health.currentWeight != nil || health.currentHeight != nil
+    var initials: String {
+        let components = name.split(separator: " ")
+        let firstInitial = components.first?.first ?? Character("?")
+        let lastInitial = components.count > 1 ? (components.last?.first ?? Character("")) : Character("")
+        return "\(firstInitial)\(lastInitial)".uppercased()
     }
+}
+
+struct LeaderboardEntry: Identifiable, Codable {
+    let id: Int
+    let userId: Int
+    let userName: String
+    let userPicture: String?
+    let score: Int
+    let rank: Int
+    let category: LeaderboardCategory
+    let period: LeaderboardPeriod
     
-    func getAttendanceRate() -> Double {
-        return comprehensiveStats?.fitnessMetrics.attendanceRate ?? 0.0
+    var rankDisplay: String {
+        switch rank {
+        case 1: return "🥇"
+        case 2: return "🥈"
+        case 3: return "🥉"
+        default: return "#\(rank)"
+        }
     }
+}
+
+enum LeaderboardCategory: String, Codable {
+    case workouts = "workouts"
+    case minutes = "minutes"
+    case streak = "streak"
+    case challenges = "challenges"
     
-    func getSocialScore() -> Double {
-        return comprehensiveStats?.socialMetrics.socialScore ?? 0.0
+    var displayName: String {
+        switch self {
+        case .workouts: return "Workouts"
+        case .minutes: return "Minutes"
+        case .streak: return "Streak"
+        case .challenges: return "Challenges"
+        }
     }
+}
+
+enum LeaderboardPeriod: String, Codable {
+    case week = "week"
+    case month = "month"
+    case year = "year"
+    case allTime = "all_time"
     
-    func getMembershipUtilization() -> Double {
-        return comprehensiveStats?.membershipUtilization.utilizationRate ?? 0.0
+    var displayName: String {
+        switch self {
+        case .week: return "This Week"
+        case .month: return "This Month"
+        case .year: return "This Year"
+        case .allTime: return "All Time"
+        }
     }
+}
+
+struct ActivityAnalytics: Codable {
+    let weeklyData: [DayActivity]
+    let monthlyTrend: [MonthDataPoint]
+    let categoryBreakdown: [CategoryData]
+    let timeInvestment: TimeInvestment
+}
+
+struct DayActivity: Codable {
+    let dayOfWeek: String
+    let date: Date
+    let workoutCount: Int
+    let totalMinutes: Int
+    let isActive: Bool
+}
+
+struct MonthDataPoint: Codable {
+    let date: Date
+    let value: Double
+    let label: String
+}
+
+struct CategoryData: Codable {
+    let category: WorkoutType
+    let percentage: Double
+    let totalSessions: Int
+}
+
+struct TimeInvestment: Codable {
+    let averageSessionDuration: Int
+    let peakHour: Int
+    let preferredDays: [String]
+    let consistency: Double // 0.0 to 1.0
 }

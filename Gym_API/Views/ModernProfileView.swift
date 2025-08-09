@@ -2,417 +2,426 @@ import SwiftUI
 
 // MARK: - Modern Profile View
 struct ModernProfileView: View {
-    @EnvironmentObject var themeManager: ThemeManager
+    // MARK: - Environment & State
     @EnvironmentObject var authService: AuthServiceDirect
-    @EnvironmentObject var profileService: UserProfileService
-    @StateObject private var membershipService = MembershipService.shared
-    @StateObject private var gymService = GymService.shared
-    @StateObject private var profileImageService = ProfileImageService()
-    @State private var showingImagePicker = false
-    @State private var selectedImage: UIImage?
-    @State private var showingEditProfile = false
-    @State private var showingSettings = false
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
+    @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var colorCustomizationManager = ColorCustomizationManager.shared
+    @StateObject private var profileService = UserProfileService.shared
+    @StateObject private var userStatsService = UserStatsService.shared
     
-    let onThemeChangeRequest: () -> Void
+    @State private var showingSettings = false
+    @State private var showingColorPicker = false
+    @State private var selectedSection: ProfileSection = .achievements
+    
+    // MARK: - Profile Sections
+    enum ProfileSection: String, CaseIterable {
+        case achievements = "Achievements"
+        case analytics = "Analytics"
+        case social = "Social"
+        case goals = "Goals"
+        case history = "History"
+        
+        var iconName: String {
+            switch self {
+            case .achievements: return "trophy.fill"
+            case .analytics: return "chart.line.uptrend.xyaxis"
+            case .social: return "person.2.fill"
+            case .goals: return "target"
+            case .history: return "clock.arrow.circlepath"
+            }
+        }
+    }
     
     var body: some View {
         NavigationView {
             ZStack {
-                // Dynamic background that respects theme
+                // Background
                 Color.dynamicBackground(theme: themeManager.currentTheme)
                     .ignoresSafeArea()
                 
-                if profileService.isLoading {
-                    ProgressView("Cargando perfil...")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                } else if let profile = profileService.userProfile {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            // Header Section with Profile Image
-                            ProfileHeaderSection(
-                                profile: profile,
-                                onImageTap: { showingImagePicker = true },
-                                themeManager: themeManager,
-                                profileImageService: profileImageService
-                            )
-                            .padding(.top, 20)
-                            .padding(.bottom, 20)
-                            
-                            // Membership Status Widget
-                            MembershipStatusWidget(
-                                membershipService: membershipService,
-                                themeManager: themeManager
-                            )
-                            .padding(.bottom, 20)
-                            
-                            // Stats Section
-                            StatsSection(
-                                profile: profile,
-                                themeManager: themeManager
-                            )
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 25)
-                            
-                            // Bio Section
-                            BioSection(bio: profile.bio, themeManager: themeManager)
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 25)
-                            
-                            // Recommended Section
-                            RecommendedSection(themeManager: themeManager)
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 80) // Space for tab bar
-                        }
-                    }
-                    .refreshable {
-                        async let profileRefresh: Void = profileService.refreshProfile()
-                        async let membershipRefresh: Void = membershipService.refreshMembershipStatus()
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        // Compact Header with Settings Icon
+                        profileHeader
                         
-                        await profileRefresh
-                        await membershipRefresh
-                    }
-                } else {
-                    // Error State
-                    VStack(spacing: 16) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 64))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        // Section Selector
+                        sectionSelector
                         
-                        Text("No se pudo cargar el perfil")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        
-                        if let error = profileService.error {
-                            Text(error.localizedDescription)
-                                .font(.system(size: 14))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
-                        }
-                        
-                        Button("Reintentar") {
-                            Task {
-                                await profileService.fetchUserProfile()
+                        // Dynamic Content Based on Selection
+                        Group {
+                            switch selectedSection {
+                            case .achievements:
+                                achievementShowcase
+                            case .analytics:
+                                progressAnalytics
+                            case .social:
+                                socialFitnessJourney
+                            case .goals:
+                                personalGoalsTracking
+                            case .history:
+                                trainingHistory
                             }
                         }
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        .font(.system(size: 16, weight: .semibold))
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 25)
-                                .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 2)
-                        )
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
                     }
+                    .padding(.bottom, 100)
                 }
             }
-            .navigationBarHidden(false)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingSettings = true }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    }
-                }
-                
-                ToolbarItem(placement: .principal) {
-                    Text("Profile")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(onThemeChangeRequest: {})
+            }
+            .sheet(isPresented: $showingColorPicker) {
+                ProfileColorPickerSheet(
+                    isPresented: $showingColorPicker,
+                    currentColor: colorCustomizationManager.currentBackgroundColor
+                )
+                .environmentObject(themeManager)
+                .environmentObject(colorCustomizationManager)
             }
         }
         .onAppear {
-            Task {
-                await profileService.fetchUserProfile()
-                await membershipService.getMyMembershipStatus()
-            }
-            profileImageService.authService = authService
-            membershipService.authService = authService
-        }
-        .sheet(isPresented: $showingImagePicker) {
-            ImagePickerSheet(selectedImage: $selectedImage, isPresented: $showingImagePicker)
-                .environmentObject(themeManager)
-        }
-        .onChange(of: selectedImage) { _, newImage in
-            if let image = newImage {
-                Task {
-                    let success = await profileImageService.uploadProfileImage(image)
-                    if success {
-                        // Actualizar el perfil del usuario
-                        await profileService.refreshProfile()
-                        alertMessage = "Foto de perfil actualizada exitosamente"
-                        showingAlert = true
-                    } else {
-                        alertMessage = profileImageService.uploadError ?? "Error al actualizar la foto de perfil"
-                        showingAlert = true
-                    }
-                    selectedImage = nil // Reset selection
-                }
-            }
-        }
-        .alert("Actualización de Perfil", isPresented: $showingAlert) {
-            Button("OK") { }
-        } message: {
-            Text(alertMessage)
-        }
-        .sheet(isPresented: $showingEditProfile) {
-            Text("Edit Profile")
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView(onThemeChangeRequest: onThemeChangeRequest)
-                .environmentObject(themeManager)
-                .environmentObject(authService)
-                .environmentObject(profileService)
+            setupServices()
+            loadData()
         }
     }
-}
-
-// MARK: - Profile Header Section
-struct ProfileHeaderSection: View {
-    let profile: UserProfile
-    let onImageTap: () -> Void
-    let themeManager: ThemeManager
-    let profileImageService: ProfileImageService
     
-    var body: some View {
-        VStack(spacing: 16) {
-            // Profile Image with Instagram-style edit button
-            ZStack(alignment: .bottomTrailing) {
-                AsyncImage(url: URL(string: profileImageService.profileImageURL ?? profile.picture ?? "")) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 140, height: 140)
-                            .clipShape(Circle())
-                    case .failure(_), .empty:
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.dynamicAccent(theme: themeManager.currentTheme),
-                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 140, height: 140)
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.white)
-                            )
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-                
-                // Instagram-style edit button
-                Button(action: onImageTap) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            .frame(width: 36, height: 36)
-                        
-                        Circle()
-                            .strokeBorder(Color.dynamicBackground(theme: themeManager.currentTheme), lineWidth: 3)
-                            .frame(width: 36, height: 36)
-                        
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
-                    }
-                }
-                .offset(x: -5, y: -5)
-                
-                // Loading overlay
-                if profileImageService.isUploading {
-                    Circle()
-                        .fill(Color.black.opacity(0.6))
-                        .frame(width: 140, height: 140)
-                        .overlay(
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(1.2)
-                        )
-                }
-            }
+    // MARK: - Header Section
+    private var profileHeader: some View {
+        ZStack {
+            // Gradient Background
+            LinearGradient(
+                colors: colorCustomizationManager.currentBackgroundColor.gradientColors + [
+                    Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.3)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 200)
+            .cornerRadius(20)
+            .padding(.horizontal, 16)
             
-            // Name and Role
-            VStack(spacing: 8) {
-                Text(profile.fullName)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(.green)
-                        .frame(width: 8, height: 8)
+            VStack(spacing: 12) {
+                // Top Bar with Settings
+                HStack {
+                    Spacer()
                     
-                    Text(profile.displayRole)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    // Settings Icon
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.2))
+                                    .background(
+                                        VisualEffectBlur(blurStyle: .systemUltraThinMaterialDark)
+                                            .clipShape(Circle())
+                                    )
+                            )
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                
+                // Profile Picture and Info
+                VStack(spacing: 8) {
+                    ZStack {
+                        // Profile Image
+                        if let picture = profileService.userProfile?.picture,
+                           let url = URL(string: picture) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            .frame(width: 80, height: 80)
+                            .clipShape(Circle())
+                        } else {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.8),
+                                            colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.4)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    Text(profileService.userProfile?.fullName.prefix(2).uppercased() ?? "??")
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                        
+                        // Edit Color Button
+                        Button(action: { showingColorPicker = true }) {
+                            Image(systemName: "paintpalette.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    Circle()
+                                        .fill(Color(red: 0.85, green: 0.2, blue: 0.2))
+                                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                                )
+                        }
+                        .offset(x: 30, y: 30)
+                    }
+                    
+                    // Name and Role
+                    Text(profileService.userProfile?.fullName ?? "Loading...")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    HStack(spacing: 12) {
+                        // Streak Badge
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.orange)
+                            Text("\(userStatsService.userStats.currentStreak) days")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.2))
+                        )
+                        
+                        // Member Badge
+                        Text(profileService.userProfile?.displayRole ?? "Member")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.9))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.2))
+                            )
+                    }
                 }
             }
+            .padding(.bottom, 16)
         }
     }
-}
-
-// MARK: - Stats Section
-struct StatsSection: View {
-    let profile: UserProfile
-    let themeManager: ThemeManager
     
-    var body: some View {
-        HStack(spacing: 40) {
-            // Weight
-            StatItem(
-                title: "Weight",
-                value: profile.weight != nil ? "\(Int(profile.weight!)) lbs" : "155 lbs",
-                themeManager: themeManager
-            )
-            
-            // Height
-            StatItem(
-                title: "Height", 
-                value: profile.heightDisplay ?? (profile.height != nil ? "\(Int(profile.height!))cm" : "5'8\""),
-                themeManager: themeManager
-            )
-            
-            // Age
-            StatItem(
-                title: "Age",
-                value: profile.age != nil ? "\(profile.age!)" : "30",
-                themeManager: themeManager
-            )
+    // MARK: - Section Selector
+    private var sectionSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(ProfileSection.allCases, id: \.self) { section in
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedSection = section
+                        }
+                    }) {
+                        VStack(spacing: 8) {
+                            Image(systemName: section.iconName)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(
+                                    selectedSection == section
+                                        ? Color.dynamicAccent(theme: themeManager.currentTheme)
+                                        : Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6)
+                                )
+                            
+                            Text(section.rawValue)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(
+                                    selectedSection == section
+                                        ? Color.dynamicText(theme: themeManager.currentTheme)
+                                        : Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6)
+                                )
+                            
+                            // Selection Indicator
+                            Rectangle()
+                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .frame(height: 2)
+                                .opacity(selectedSection == section ? 1 : 0)
+                        }
+                        .frame(width: 80)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 20)
         }
     }
-}
-
-// MARK: - Stat Item
-struct StatItem: View {
-    let title: String
-    let value: String
-    let themeManager: ThemeManager
     
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.system(size: 14))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-            
-            Text(value)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-        }
-    }
-}
-
-// MARK: - Bio Section
-struct BioSection: View {
-    let bio: String?
-    let themeManager: ThemeManager
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Bio")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-            
-            Text(bio ?? "I'm dedicated to helping my clients achieve their fitness goals and overcome any obstacles they face.")
-                .font(.system(size: 16))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                .lineLimit(nil)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-// MARK: - Recommended Section
-struct RecommendedSection: View {
-    let themeManager: ThemeManager
-    
-    var body: some View {
+    // MARK: - Achievement Showcase
+    private var achievementShowcase: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Recommended")
-                .font(.system(size: 18, weight: .bold))
+            Text("Your Achievements")
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .padding(.horizontal, 20)
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    RecommendedCard(
-                        title: "Kickboxing",
-                        icon: "figure.boxing",
-                        color: .red,
-                        themeManager: themeManager
-                    )
-                    
-                    RecommendedCard(
-                        title: "Shin Guard",
-                        icon: "shield.fill",
-                        color: .blue,
-                        themeManager: themeManager
-                    )
-                    
-                    RecommendedCard(
-                        title: "Boxing",
-                        icon: "sportscourt.fill",
-                        color: .orange,
-                        themeManager: themeManager
-                    )
+                    ForEach(userStatsService.achievements) { achievement in
+                        ProfileAchievementCard(achievement: achievement, theme: themeManager.currentTheme)
+                    }
                 }
                 .padding(.horizontal, 20)
             }
-            .padding(.horizontal, -20)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-// MARK: - Recommended Card
-struct RecommendedCard: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let themeManager: ThemeManager
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            Circle()
-                .fill(color.opacity(0.2))
-                .frame(width: 60, height: 60)
-                .overlay(
-                    Image(systemName: icon)
-                        .font(.system(size: 24))
-                        .foregroundColor(color)
-                )
             
-            Text(title)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .multilineTextAlignment(.center)
+            // Quick Stats
+            HStack(spacing: 16) {
+                ProfileStatCard(
+                    title: "Total Workouts",
+                    value: "\(userStatsService.userStats.monthlyClasses)",
+                    icon: "figure.strengthtraining.traditional",
+                    color: .blue,
+                    theme: themeManager.currentTheme
+                )
+                
+                ProfileStatCard(
+                    title: "This Week",
+                    value: "\(userStatsService.userStats.weeklyClasses)",
+                    icon: "calendar",
+                    color: .green,
+                    theme: themeManager.currentTheme
+                )
+            }
+            .padding(.horizontal, 20)
         }
-        .frame(width: 100)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-        )
     }
-}
-
-// MARK: - Preview
-#Preview {
-    ModernProfileView(onThemeChangeRequest: {})
-        .environmentObject(ThemeManager())
-        .environmentObject(AuthServiceDirect())
-        .environmentObject(UserProfileService.shared)
+    
+    // MARK: - Progress Analytics
+    private var progressAnalytics: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Activity Analytics")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .padding(.horizontal, 20)
+            
+            // Weekly Activity Heatmap
+            WeeklyActivityView(
+                weeklyData: userStatsService.activityAnalytics?.weeklyData ?? [],
+                theme: themeManager.currentTheme
+            )
+            .padding(.horizontal, 20)
+            
+            // Category Breakdown
+            CategoryBreakdownView(
+                categoryData: userStatsService.activityAnalytics?.categoryBreakdown ?? [],
+                theme: themeManager.currentTheme
+            )
+            .padding(.horizontal, 20)
+            
+            // Time Investment
+            if let timeInvestment = userStatsService.activityAnalytics?.timeInvestment {
+                TimeInvestmentCard(
+                    timeInvestment: timeInvestment,
+                    theme: themeManager.currentTheme
+                )
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    // MARK: - Social Fitness Journey
+    private var socialFitnessJourney: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Fitness Community")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .padding(.horizontal, 20)
+            
+            // Leaderboard Position
+            if let position = userStatsService.leaderboardPosition {
+                LeaderboardCard(
+                    entry: position,
+                    theme: themeManager.currentTheme
+                )
+                .padding(.horizontal, 20)
+            }
+            
+            // Workout Buddies
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Workout Partners")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.8))
+                    .padding(.horizontal, 20)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(userStatsService.workoutBuddies) { buddy in
+                            WorkoutBuddyCard(buddy: buddy, theme: themeManager.currentTheme)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Personal Goals & Tracking
+    private var personalGoalsTracking: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Active Goals")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .padding(.horizontal, 20)
+            
+            ForEach(userStatsService.personalGoals) { goal in
+                PersonalGoalCard(goal: goal, theme: themeManager.currentTheme)
+                    .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    // MARK: - Training History
+    private var trainingHistory: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Recent Workouts")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .padding(.horizontal, 20)
+            
+            ForEach(userStatsService.workoutHistory) { workout in
+                WorkoutHistoryCard(workout: workout, theme: themeManager.currentTheme)
+                    .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    private func setupServices() {
+        userStatsService.authService = authService
+        userStatsService.gymService = GymService.shared
+        profileService.authService = authService
+        colorCustomizationManager.authService = authService
+        colorCustomizationManager.profileService = profileService
+    }
+    
+    private func loadData() {
+        Task {
+            await profileService.fetchUserProfile()
+            await userStatsService.fetchComprehensiveStats()
+            await userStatsService.fetchWorkoutHistory()
+            await userStatsService.fetchPersonalGoals()
+            await userStatsService.fetchWorkoutBuddies()
+            await userStatsService.fetchLeaderboardPosition()
+            await userStatsService.fetchActivityAnalytics()
+            
+            // Load color from profile
+            if let profile = profileService.userProfile {
+                colorCustomizationManager.loadColorFromProfile(profile)
+            }
+        }
+    }
 }

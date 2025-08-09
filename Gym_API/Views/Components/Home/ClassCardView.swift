@@ -306,9 +306,9 @@ struct AdaptiveClassButton: View {
     private func completedButton(wasRegistered: Bool) -> some View {
         let config = currentState.config(theme: theme)
         
-        return HStack(spacing: 10) {
+        return HStack(spacing: 8) {
             Image(systemName: config.icon)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.white)
                 .rotationEffect(.degrees(wasRegistered && glowAnimation ? 5 : -5))
                 .animation(
@@ -318,11 +318,11 @@ struct AdaptiveClassButton: View {
                 )
             
             Text(config.text)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundColor(.white)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
         .background(
             ZStack {
                 // Glow effect solo para usuarios que asistieron
@@ -689,7 +689,7 @@ struct CompletedBadge: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 48, height: 48)
+                    .frame(width: 40, height: 40)
                     .blur(radius: 8)
                     .opacity(isAnimating ? 0.6 : 0.3)
                     .scaleEffect(isAnimating ? 1.2 : 1.0)
@@ -704,22 +704,22 @@ struct CompletedBadge: View {
             ZStack {
                 Circle()
                     .fill(wasUserRegistered ? 
-                        Color.dynamicAccent(theme: theme) :
+                        Color.dynamicAccent(theme: theme).opacity(0.8) :
                         Color.dynamicTextSecondary(theme: theme).opacity(0.3)
                     )
-                    .frame(width: 40, height: 40)
+                    .frame(width: 32, height: 32)
                 
                 Circle()
                     .stroke(
                         wasUserRegistered ?
-                        Color.dynamicAccent(theme: theme).opacity(0.8) :
+                        Color.dynamicAccent(theme: theme).opacity(0.6) :
                         Color.dynamicTextSecondary(theme: theme).opacity(0.5),
-                        lineWidth: 2
+                        lineWidth: 1.5
                     )
-                    .frame(width: 40, height: 40)
+                    .frame(width: 32, height: 32)
                 
-                Image(systemName: wasUserRegistered ? "trophy.fill" : "clock.badge.checkmark")
-                    .font(.system(size: wasUserRegistered ? 20 : 18, weight: .bold))
+                Image(systemName: wasUserRegistered ? "checkmark.seal.fill" : "clock.badge.checkmark")
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
                     .rotationEffect(.degrees(wasUserRegistered && isAnimating ? 5 : 0))
                     .animation(
@@ -858,8 +858,12 @@ struct ClassCardView: View {
     @State private var needsStateUpdate: Bool = false
     @State private var showSuccessAnimation = false
     @State private var wasRegisteredBefore = false
-    @State private var showCompletedAnimation = false
+    // @State private var showCompletedAnimation = false // Reemplazado por NotificationManager
     @State private var hasShownCompletedAnimation = false
+    @State private var notificationShownForStates: Set<String> = [] // Track para evitar duplicados
+    
+    // Identificador único para esta instancia de la tarjeta
+    private let cardInstanceId = UUID().uuidString
     
     var body: some View {
         cardContent
@@ -867,7 +871,7 @@ struct ClassCardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(statusBadge, alignment: .topTrailing)
             .overlay(successAnimation)
-            .overlay(completedCelebration)
+            // .overlay(completedCelebration) // Reemplazado por NotificationManager
             .scaleEffect(cardPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0), value: cardPressed)
             .onAppear {
@@ -885,9 +889,15 @@ struct ClassCardView: View {
                 // Cargar trainers si no están cargados o hay error de autenticación
                 if classService.trainers.isEmpty || classService.authenticationError {
                     print("🔍 Cargando trainers porque el cache está vacío o hay error de auth")
-                    Task {
-                        await classService.loadTrainers()
-                        updateTrainerImage()
+                    // Solo cargar si no está ya cargando para evitar requests duplicados
+                    if !classService.isLoadingTrainers {
+                        Task {
+                            await classService.loadTrainers()
+                            updateTrainerImage()
+                        }
+                    } else {
+                        // Si ya está cargando, solo esperar y actualizar cuando termine
+                        print("🔄 Ya se están cargando los trainers, esperando...")
                     }
                 } else {
                     print("🔍 Usando trainers del cache")
@@ -895,6 +905,10 @@ struct ClassCardView: View {
                 }
             }
             .onChange(of: classService.trainers.count) { _, _ in
+                updateTrainerImage()
+            }
+            .onChange(of: classService.trainersLastUpdated) { _, _ in
+                // Actualizar cuando se refresquen los trainers
                 updateTrainerImage()
             }
             .onChange(of: classService.userRegistrationStatus) { oldValue, newValue in
@@ -1220,7 +1234,7 @@ struct ClassCardView: View {
                     .transition(.scale.combined(with: .opacity))
             }
             
-            // Badge especial para estado attended
+            // Badge especial para estado attended  
             if currentActionState == .attended {
                 ZStack {
                     Circle()
@@ -1237,6 +1251,8 @@ struct ClassCardView: View {
                     insertion: .scale(scale: 0.3).combined(with: .opacity),
                     removal: .scale(scale: 0.3).combined(with: .opacity)
                 ))
+                .accessibilityLabel("Class attendance verified")
+                .accessibilityHint("You have attended this completed class")
             }
             
             // Badge mejorado para estado completed
@@ -1248,6 +1264,8 @@ struct ClassCardView: View {
                         insertion: .scale(scale: 0.3).combined(with: .opacity),
                         removal: .scale(scale: 0.3).combined(with: .opacity)
                     ))
+                    .accessibilityLabel(wasRegistered ? "Class completion verified" : "Class ended")
+                    .accessibilityHint(wasRegistered ? "You completed this class successfully" : "This class has ended but you were not registered")
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentActionState)
@@ -1257,15 +1275,15 @@ struct ClassCardView: View {
     @ViewBuilder
     private var successAnimation: some View {
         if showSuccessAnimation {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 Text("You're In!")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
             }
-            .padding(24)
+            .padding(16)
             .background(successAnimationBackground)
             .scaleEffect(showSuccessAnimation ? 1.0 : 0.3)
             .opacity(showSuccessAnimation ? 1.0 : 0.0)
@@ -1273,14 +1291,15 @@ struct ClassCardView: View {
         }
     }
     
-    @ViewBuilder
-    private var completedCelebration: some View {
-        CompletedCelebrationView(
-            show: $showCompletedAnimation,
-            wasUserRegistered: wasUserRegisteredForClass,
-            theme: themeManager.currentTheme
-        )
-    }
+    // Comentado - Reemplazado por NotificationManager
+    // @ViewBuilder
+    // private var completedCelebration: some View {
+    //     CompletedCelebrationView(
+    //         show: $showCompletedAnimation,
+    //         wasUserRegistered: wasUserRegisteredForClass,
+    //         theme: themeManager.currentTheme
+    //     )
+    // }
     
     private var successAnimationBackground: some View {
         RoundedRectangle(cornerRadius: 16)
@@ -1311,7 +1330,6 @@ struct ClassCardView: View {
     
     /// Calcula el estado actual de la clase para la UI (optimizado con nuevos estados)
     private func calculateActionState() -> ClassActionState {
-        print("🔍 Evaluando estado para clase \(gymClass.id): \(gymClass.name)")
         let now = Date()
         let sessionId = gymClass.id
         
@@ -1324,8 +1342,6 @@ struct ClassCardView: View {
         if classService.shouldUseOptimizedParticipationData(),
            let participationStatus = classService.getParticipationStatus(sessionId: sessionId) {
             
-            print("🚀 Usando datos optimizados de participación para sesión \(sessionId): \(participationStatus.displayName)")
-            
             // Verificar si está completada o ha terminado
             if gymClass.status == .completed || now > gymClass.endTime {
                 
@@ -1336,9 +1352,13 @@ struct ClassCardView: View {
                     
                 case .registered:
                     // Usuario estaba registrado pero no se marcó asistencia - mostrar como completed
-                    if !hasShownCompletedAnimation {
+                    let notificationKey = "completed_opt_\(self.gymClass.id)"
+                    if !notificationShownForStates.contains(notificationKey) {
+                        print("🎉 [OPTIMIZED] Requesting completed notification for class \(self.gymClass.id) (\(self.gymClass.name)) - Card: \(self.cardInstanceId) - Key: \(notificationKey)")
+                        notificationShownForStates.insert(notificationKey)
                         DispatchQueue.main.async {
-                            self.showCompletedAnimation = true
+                            // NotificationManager maneja la consolidación y deduplicación
+                            NotificationManager.shared.showClassCompletedNotification(classId: self.gymClass.id, className: self.gymClass.name, theme: self.themeManager.currentTheme)
                             self.hasShownCompletedAnimation = true
                             
                             if #available(iOS 13.0, *) {
@@ -1376,19 +1396,35 @@ struct ClassCardView: View {
             }
         }
         
+        // Si llegamos aquí con datos optimizados válidos, no ejecutar fallback
+        if classService.shouldUseOptimizedParticipationData(),
+           let participationStatus = classService.getParticipationStatus(sessionId: sessionId) {
+            print("🛡️ [OPTIMIZED] Preventing fallback execution for class \(self.gymClass.id) - Card: \(self.cardInstanceId)")
+            // Los casos no manejados arriba deberían mostrar como disponible por defecto
+            if gymClass.currentParticipants >= gymClass.maxParticipants {
+                return .full
+            }
+            return .available
+        }
+        
         // Fallback al comportamiento anterior si no hay datos optimizados
-        print("⚠️ Fallback a lógica anterior - datos optimizados no disponibles")
         
         // Verificar si está completada o ha terminado
         if gymClass.status == .completed || now > gymClass.endTime {
-            if wasUserRegisteredForClass && !hasShownCompletedAnimation {
-                DispatchQueue.main.async {
-                    self.showCompletedAnimation = true
-                    self.hasShownCompletedAnimation = true
-                    
-                    if #available(iOS 13.0, *) {
-                        let notificationFeedback = UINotificationFeedbackGenerator()
-                        notificationFeedback.notificationOccurred(.success)
+            if wasUserRegisteredForClass {
+                let notificationKey = "completed_fallback_\(self.gymClass.id)"
+                if !notificationShownForStates.contains(notificationKey) {
+                    print("🎉 [FALLBACK] Requesting completed notification for class \(self.gymClass.id) (\(self.gymClass.name)) - Card: \(self.cardInstanceId) - Key: \(notificationKey)")
+                    notificationShownForStates.insert(notificationKey)
+                    DispatchQueue.main.async {
+                        // NotificationManager maneja la consolidación y deduplicación
+                        NotificationManager.shared.showClassCompletedNotification(classId: self.gymClass.id, className: self.gymClass.name, theme: self.themeManager.currentTheme)
+                        self.hasShownCompletedAnimation = true
+                        
+                        if #available(iOS 13.0, *) {
+                            let notificationFeedback = UINotificationFeedbackGenerator()
+                            notificationFeedback.notificationOccurred(.success)
+                        }
                     }
                 }
             }
@@ -1509,20 +1545,27 @@ struct ClassCardView: View {
             // Validar que la URL no esté vacía y sea válida
             if !pictureURL.isEmpty, URL(string: pictureURL) != nil {
                 print("✅ URL válida, actualizando imagen")
-                DispatchQueue.main.async {
-                    self.trainerImageURL = pictureURL
+                // Solo actualizar si la URL cambió para evitar recargas innecesarias
+                if trainerImageURL != pictureURL {
+                    DispatchQueue.main.async {
+                        self.trainerImageURL = pictureURL
+                    }
                 }
             } else {
                 print("⚠️ URL inválida o vacía, usando placeholder")
-                DispatchQueue.main.async {
-                    self.trainerImageURL = ""
+                if !trainerImageURL.isEmpty {
+                    DispatchQueue.main.async {
+                        self.trainerImageURL = ""
+                    }
                 }
             }
         } else {
             print("❌ Trainer no encontrado para ID: \(gymClass.trainerId)")
             print("🔍 Trainers en cache: \(classService.trainers.map { "ID: \($0.id), Name: \($0.fullName)" }.joined(separator: ", "))")
-            DispatchQueue.main.async {
-                self.trainerImageURL = ""
+            if !trainerImageURL.isEmpty {
+                DispatchQueue.main.async {
+                    self.trainerImageURL = ""
+                }
             }
         }
     }

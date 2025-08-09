@@ -198,6 +198,71 @@ class UserProfileService: ObservableObject {
         await fetchUserProfile()
     }
     
+    /// Actualiza el color de fondo del perfil en el servidor
+    func updateProfileBackgroundColor(_ colorHex: String) async -> Bool {
+        guard let authService = authService,
+              let token = await authService.getValidAccessToken() else {
+            print("❌ [UserProfileService] No valid auth token for color update")
+            return false
+        }
+        
+        guard let url = URL(string: "\(baseURL)/users/profile/data") else {
+            print("❌ [UserProfileService] Invalid URL for color update")
+            return false
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let requestBody = ["color": colorHex]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ [UserProfileService] Invalid response for background color update")
+                return false
+            }
+            
+            if httpResponse.statusCode == 200 {
+                print("✅ [UserProfileService] Profile color updated successfully: \(colorHex)")
+                
+                // El endpoint devuelve el perfil completo actualizado, decodificarlo
+                do {
+                    let decoder = configuredJSONDecoder()
+                    let updatedProfile = try decoder.decode(UserProfile.self, from: data)
+                    
+                    await MainActor.run {
+                        self.userProfile = updatedProfile
+                    }
+                    
+                    print("✅ [UserProfileService] Profile updated with new color: \(updatedProfile.color ?? "nil")")
+                } catch {
+                    print("❌ [UserProfileService] Error decoding updated profile: \(error)")
+                    // Aún consideramos exitoso si el servidor respondió 200
+                }
+                
+                return true
+            } else {
+                print("❌ [UserProfileService] HTTP Error updating color: \(httpResponse.statusCode)")
+                
+                if let errorString = String(data: data, encoding: .utf8) {
+                    print("❌ [UserProfileService] Error details: \(errorString)")
+                }
+                
+                return false
+            }
+            
+        } catch {
+            print("❌ [UserProfileService] Network error updating color: \(error)")
+            return false
+        }
+    }
+    
     /// Limpia los datos del perfil
     func clearProfile() {
         userProfile = nil

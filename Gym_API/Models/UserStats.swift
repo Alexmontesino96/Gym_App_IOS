@@ -268,7 +268,7 @@ struct MembershipUtilization: Codable {
     }
 }
 
-struct Achievement: Codable {
+struct Achievement: Codable, Identifiable {
     let id: Int
     let type: String
     let name: String

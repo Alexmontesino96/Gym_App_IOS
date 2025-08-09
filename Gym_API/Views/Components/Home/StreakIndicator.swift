@@ -15,14 +15,14 @@ struct StreakIndicator: View {
     // Mensajes personalizados basados en el número de días
     private var streakMessage: String {
         switch streakCount {
-        case 1: return "¡Primer día!"
-        case 2: return "¡2 días seguidos!"
-        case 3: return "¡3 day streak! Keep it up!"
-        case 4...6: return "¡\(streakCount) días increíbles!"
-        case 7...13: return "¡Una semana completa!"
-        case 14...29: return "¡\(streakCount) días imparable!"
-        case 30...: return "¡Leyenda de \(streakCount) días!"
-        default: return "¡Sigue así!"
+        case 1: return "First day! Keep it up! 🔥"
+        case 2: return "2 day streak! 💪"
+        case 3: return "3 day streak! Keep it up! 🔥"
+        case 4...6: return "\(streakCount) days strong! 🚀"
+        case 7...13: return "Full week! Amazing! 🏆"
+        case 14...29: return "\(streakCount) days unstoppable! ⚡"
+        case 30...: return "\(streakCount) day legend! 👑"
+        default: return "Keep crushing it!"
         }
     }
     
@@ -36,15 +36,17 @@ struct StreakIndicator: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(modernStreakBackground)
-        .clipShape(Capsule())
-        .overlay(shimmerOverlay)
-        .shadow(
-            color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.4 : 0.2),
-            radius: theme == .dark ? 6 : 4,
-            x: 0,
-            y: 3
+        .background(
+            modernStreakBackground
+                .shadow(
+                    color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.3 : 0.15),
+                    radius: theme == .dark ? 4 : 3,
+                    x: 0,
+                    y: 2
+                )
         )
+        .clipShape(Capsule())
+        .overlay(shimmerOverlay.clipShape(Capsule()))
         .scaleEffect(isAnimating ? 1.02 : 1.0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Streak indicator: \(streakMessage)")
@@ -58,14 +60,14 @@ struct StreakIndicator: View {
     
     private var streakIcon: some View {
         ZStack {
-            // Glow effect adaptado al tema
+            // Glow effect más sutil adaptado al tema
             if glowPulse {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color.dynamicAccent(theme: theme))
-                    .blur(radius: 3)
-                    .opacity(theme == .dark ? 0.8 : 0.5)
-                    .scaleEffect(1.15)
+                    .blur(radius: 2)
+                    .opacity(theme == .dark ? 0.4 : 0.3)
+                    .scaleEffect(1.08)
             }
             
             // Icono principal con mejor contraste
@@ -84,32 +86,31 @@ struct StreakIndicator: View {
             .minimumScaleFactor(0.8)
     }
     
-    // Fondo moderno con glassmorphism mejorado
+    // Fondo optimizado para WCAG 2.1 AA compliance
     private var modernStreakBackground: some View {
         ZStack {
-            // Base glassmorphism
+            // Base más sólida para mejor contraste
             Capsule()
-                .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, theme == .dark ? .dark : .light)
+                .fill(Color.dynamicSurface(theme: theme))
             
-            // Overlay de color temático
+            // Overlay reducido para mantener legibilidad
             Capsule()
                 .fill(
                     LinearGradient(
                         gradient: Gradient(stops: [
-                            .init(color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.15 : 0.08), location: 0.0),
-                            .init(color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.08 : 0.12), location: 1.0)
+                            .init(color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.08 : 0.05), location: 0.0),
+                            .init(color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.05 : 0.08), location: 1.0)
                         ]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
             
-            // Borde sutil
+            // Borde más definido para mejor contraste
             Capsule()
                 .stroke(
-                    Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.3 : 0.2),
-                    lineWidth: 1
+                    Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.4 : 0.3),
+                    lineWidth: 1.5
                 )
         }
     }
@@ -140,9 +141,9 @@ struct StreakIndicator: View {
             isAnimating = true
         }
         
-        // Glow pulsante más suave
+        // Glow pulsante más suave y menos intenso
         withAnimation(
-            .easeInOut(duration: 3.0)
+            .easeInOut(duration: 4.0)
             .repeatForever(autoreverses: true)
         ) {
             glowPulse = true
@@ -178,14 +179,14 @@ struct EnhancedStreakIndicator: View {
     
     var streakMessage: String {
         switch streakCount {
-        case 1: return "¡Primer día! 🔥"
-        case 2: return "¡2 días seguidos! 💪"
-        case 3: return "¡Racha de 3 días!"
-        case 4...6: return "¡\(streakCount) días increíbles!"
-        case 7...13: return "¡Una semana completa! 🏆"
-        case 14...29: return "¡\(streakCount) días imparable!"
-        case 30...: return "¡Leyenda de \(streakCount) días!"
-        default: return "¡Sigue así!"
+        case 1: return "First day! Keep it up! 🔥"
+        case 2: return "2 day streak! 💪"
+        case 3: return "3 day streak! Keep it up! 🔥"
+        case 4...6: return "\(streakCount) days strong! 🚀"
+        case 7...13: return "Full week! Amazing! 🏆"
+        case 14...29: return "\(streakCount) days unstoppable! ⚡"
+        case 30...: return "\(streakCount) day legend! 👑"
+        default: return "Keep crushing it!"
         }
     }
     

@@ -176,6 +176,10 @@ struct UnifiedProfileView: View {
         profileImageService.authService = authService
         profileService.authService = authService
         
+        // Configurar ColorCustomizationManager
+        ColorCustomizationManager.shared.authService = authService
+        ColorCustomizationManager.shared.profileService = profileService
+        
         Task {
             await loadProfileData()
         }
@@ -239,7 +243,8 @@ struct UnifiedProfileView: View {
             createdAt: Date(),
             updatedAt: Date(),
             auth0Id: authUser.id,
-            picture: authUser.picture
+            picture: authUser.picture,
+            color: nil
         )
     }
 }
@@ -251,20 +256,29 @@ struct SocialProfileHero: View {
     let themeManager: ThemeManager
     let profileImageService: ProfileImageService
     
+    @StateObject private var colorCustomizationManager = ColorCustomizationManager.shared
+    @State private var showingColorPicker = false
+    
     var body: some View {
         ZStack {
-            // Dark hero background inspired by the reference image
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.9),
-                    Color.black.opacity(0.7),
-                    Color.black.opacity(0.5),
-                    Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.2)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 300)
+            // Dynamic hero background based on user's color preference
+            colorCustomizationManager.getProfileBackgroundGradient(for: themeManager.currentTheme)
+                .frame(height: 300)
+            
+            // Floating edit button for color customization
+            VStack {
+                HStack {
+                    Spacer()
+                    
+                    FloatingEditButton {
+                        showingColorPicker = true
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.top, 60)
+                }
+                
+                Spacer()
+            }
             
             VStack(spacing: 24) {
                 Spacer(minLength: 30)
@@ -355,6 +369,22 @@ struct SocialProfileHero: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 0))
+        .onAppear {
+            // Configurar servicios para el color manager
+            colorCustomizationManager.authService = profileImageService.authService
+            // Necesitamos obtener el profileService desde el environment - se configurará en UnifiedProfileView
+            
+            // Cargar color desde el perfil del usuario
+            colorCustomizationManager.loadColorFromProfile(profile)
+        }
+        .sheet(isPresented: $showingColorPicker) {
+            ProfileColorPickerSheet(
+                isPresented: $showingColorPicker,
+                currentColor: colorCustomizationManager.currentBackgroundColor
+            )
+            .environmentObject(themeManager)
+            .environmentObject(colorCustomizationManager)
+        }
     }
 }
 
@@ -1735,6 +1765,65 @@ struct SocialProfileLoadingView: View {
         .onAppear {
             rotationAngle = 360
             pulseScale = 1.1
+        }
+    }
+}
+
+// MARK: - Floating Edit Button
+struct FloatingEditButton: View {
+    let action: () -> Void
+    @State private var isPressed = false
+    @State private var scale: CGFloat = 0.8
+    @State private var opacity: Double = 0.0
+    
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                // Background with glassmorphism effect
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    )
+                    .shadow(
+                        color: .black.opacity(0.2),
+                        radius: 8,
+                        x: 0,
+                        y: 4
+                    )
+                
+                // Edit icon
+                Image(systemName: "paintpalette.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .scaleEffect(isPressed ? 0.9 : scale)
+            .opacity(opacity)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onPressGesture(
+            onPress: { 
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    isPressed = true
+                }
+            },
+            onRelease: { 
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                    isPressed = false
+                }
+                
+                // Haptic feedback
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+            }
+        )
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.5)) {
+                scale = 1.0
+                opacity = 1.0
+            }
         }
     }
 }

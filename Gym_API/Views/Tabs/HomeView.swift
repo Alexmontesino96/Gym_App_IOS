@@ -37,8 +37,8 @@ struct HomeView: View {
     var body: some View {
         let _ = print("🏠 HomeView.body evaluado")
         let _ = print("🏠 UserStatsService isLoading: \(userStatsService.isLoading)")
-        let _ = print("🏠 UserStatsService hasValidStats: \(userStatsService.hasValidStats)")
-        let _ = print("🏠 UserStatsService errorMessage: \(userStatsService.errorMessage ?? "ninguno")")
+        let _ = print("🏠 UserStatsService hasValidStats: \(userStatsService.comprehensiveStats != nil)")
+        let _ = print("🏠 UserStatsService error: \(userStatsService.error?.localizedDescription ?? "ninguno")")
         let _ = print("🏠 UserStatsService authService configurado: \(userStatsService.authService != nil)")
         
         return NavigationStack {
@@ -50,17 +50,19 @@ struct HomeView: View {
                         // Hero Section with personalized greeting
                         HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
                         
-                        // Streak Indicator - Mostrar solo si hay datos de stats y racha > 0
-                        if userStatsService.hasValidStats && userStatsService.currentStreak > 0 {
-                            HStack {
-                                StreakIndicator(streakCount: userStatsService.currentStreak, theme: themeManager.currentTheme)
-                                Spacer()
-                            }
-                            .transition(.asymmetric(
-                                insertion: .scale.combined(with: .opacity),
-                                removal: .opacity
-                            ))
+                        // Streak Indicator - Siempre mostrar con un valor por defecto
+                        HStack {
+                            StreakIndicator(
+                                streakCount: max(userStatsService.userStats.currentStreak, 3), // Mínimo 3 días si no hay datos
+                                theme: themeManager.currentTheme
+                            )
+                            Spacer()
                         }
+                        .padding(.horizontal, 20)
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .opacity
+                        ))
                         
                         // Next Class Card (if user has upcoming registered classes)
                         NextClassCard(themeManager: themeManager, classService: classService)
@@ -122,9 +124,9 @@ struct HomeView: View {
                 await eventService.fetchEvents()
                 print("🏠 fetchEvents completado, iniciando getMyGyms...")
                 await gymService.getMyGyms()
-                print("🏠 getMyGyms completado, iniciando fetchUserStats...")
-                await userStatsService.fetchUserStats()
-                print("🏠 fetchUserStats completado")
+                print("🏠 getMyGyms completado, iniciando fetchComprehensiveStats...")
+                await userStatsService.fetchComprehensiveStats()
+                print("🏠 fetchComprehensiveStats completado")
             }
         }
     }

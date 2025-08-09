@@ -8,7 +8,8 @@ struct MainTabView: View {
     @State private var pendingTheme: ThemeManager.AppTheme?
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        ZStack {
+            TabView(selection: $selectedTab) {
             // Home Tab
             HomeView()
                 .tabItem {
@@ -42,16 +43,20 @@ struct MainTabView: View {
                 .tag(3)
             
             // Profile Tab
-            UnifiedProfileView(onThemeChangeRequest: requestThemeChange)
+            ModernProfileView()
                 .tabItem {
                     Image(systemName: selectedTab == 4 ? "person.fill" : "person")
                     Text("Profile")
                 }
                 .tag(4)
+            }
+            .accentColor(themeManager.currentTheme == .dark ? 
+                        Color(red: 0.85, green: 0.2, blue: 0.2) : 
+                        Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
+            
+            // Notification Overlay - Siempre encima de todo
+            NotificationOverlay()
         }
-        .accentColor(themeManager.currentTheme == .dark ? 
-                    Color(red: 0.85, green: 0.2, blue: 0.2) : 
-                    Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
         .onAppear {
             configureTabBarAppearance()
         }
@@ -198,4 +203,6 @@ struct MainTabView: View {
     MainTabView()
         .environmentObject(AuthServiceDirect())
         .environmentObject(ThemeManager())
+        .environmentObject(ColorCustomizationManager.shared)
+        .environmentObject(UserStatsService.shared)
 } 

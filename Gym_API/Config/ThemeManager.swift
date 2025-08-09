@@ -119,7 +119,7 @@ extension Color {
     static let lightTextTertiary = Color(red: 0.45, green: 0.45, blue: 0.45) // #737373 - Contrast 5.2:1 ✅ (antes 2.8:1)
     static let lightBorderPrimary = Color(red: 0.68, green: 0.68, blue: 0.68) // #ADADAD - Contrast 4.6:1 ✅ (antes 1.9:1)
     static let lightBorderSecondary = Color(red: 0.75, green: 0.75, blue: 0.75) // #BFBFBF - Contrast 3.2:1 ✅
-    static let lightAccentPrimary = Color(red: 0/255, green: 130/255, blue: 126/255) // #00827E - Mejor contraste ✅
+    static let lightAccentPrimary = Color(red: 0/255, green: 130/255, blue: 126/255) // #00827E - Verde-azul original ✅
     static let lightShadow = Color.black.opacity(0.1) // Sombras suaves para modo claro
     
     // MARK: - Dark Theme Colors (WCAG 2.1 AA Compliant)
@@ -132,7 +132,7 @@ extension Color {
     static let darkTextTertiary = Color(red: 0.68, green: 0.68, blue: 0.68) // #ADADAD - Contrast 7.3:1 ✅ (antes 2.8:1)
     static let darkBorderPrimary = Color(red: 0.45, green: 0.45, blue: 0.45) // #737373 - Contrast 5.2:1 ✅ (antes 2.1:1)
     static let darkBorderSecondary = Color(red: 0.35, green: 0.35, blue: 0.35) // #595959 - Contrast 3.8:1 ✅
-    static let darkAccentPrimary = Color(red: 0.90, green: 0.25, blue: 0.25) // #E64040 - Mejor contraste ✅
+    static let darkAccentPrimary = Color(red: 0.95, green: 0.35, blue: 0.35) // #F25959 - WCAG 2.1 AA compliant ✅
     static let darkShadow = Color.black.opacity(0.25) // Sombras para modo oscuro
 }
 

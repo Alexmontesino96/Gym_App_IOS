@@ -21,6 +21,7 @@ struct GymParticipant: Codable, Identifiable {
     let updatedAt: Date?
     let auth0Id: String?
     let picture: String?
+    let color: String?
     let age: Int?
     
     enum CodingKeys: String, CodingKey {
@@ -43,6 +44,7 @@ struct GymParticipant: Codable, Identifiable {
         case updatedAt = "updated_at"
         case auth0Id = "auth0_id"
         case picture
+        case color
         case age
     }
     
@@ -76,7 +78,8 @@ struct GymParticipant: Codable, Identifiable {
             createdAt: createdAt ?? Date(),
             updatedAt: updatedAt ?? Date(),
             auth0Id: auth0Id ?? "",
-            picture: picture
+            picture: picture,
+            color: color
         )
     }
 }

@@ -204,6 +204,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
     let updatedAt: Date
     let auth0Id: String
     let picture: String?
+    let color: String?
     
     enum CodingKeys: String, CodingKey {
         case id, email, role, bio, goals, picture
@@ -220,6 +221,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case auth0Id = "auth0_id"
+        case color
     }
     
     // MARK: - Computed Properties

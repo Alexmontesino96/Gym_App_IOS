@@ -108,8 +108,11 @@ struct ClassesView: View {
         await classService.forceRefreshSessions(date: selectedDate)
         // Recargar el estado de registro del usuario  
         await classService.forceRefreshMyClasses()
-        // Recargar trainers por si hubo cambios
-        await classService.loadTrainers()
+        // Recargar trainers por si hubo cambios - forzar recarga en refresh
+        await classService.forceReloadTrainers()
+        
+        // Pequeño delay para asegurar que las imágenes se actualicen después del refresh
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 segundos
         
         await MainActor.run {
             isRefreshing = false

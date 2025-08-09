@@ -19,7 +19,7 @@ struct ProgressDashboard: View {
     var body: some View {
         let _ = print("📊 ProgressDashboard.body - comprehensiveStats: \(userStatsService.comprehensiveStats != nil)")
         let _ = print("📊 ProgressDashboard.body - isLoading: \(userStatsService.isLoading)")
-        let _ = print("📊 ProgressDashboard.body - errorMessage: \(userStatsService.errorMessage ?? "none")")
+        let _ = print("📊 ProgressDashboard.body - error: \(userStatsService.error?.localizedDescription ?? "none")")
         
         return VStack(spacing: 24) {
             if let comprehensiveStats = userStatsService.comprehensiveStats {
@@ -74,7 +74,7 @@ struct ProgressDashboard: View {
                 let _ = print("📊 ProgressDashboard - Mostrando error state")
                 // Error State
                 DashboardErrorState(
-                    errorMessage: userStatsService.errorMessage,
+                    errorMessage: userStatsService.error?.localizedDescription,
                     themeManager: themeManager,
                     onRetry: {
                         Task {
