@@ -198,6 +198,99 @@ class UserProfileService: ObservableObject {
         await fetchUserProfile()
     }
     
+    /// Actualiza el perfil del usuario con nueva información
+    func updateProfile(firstName: String?, lastName: String?, birthDate: Date?, height: Double?, weight: Double?, bio: String?) async -> Bool {
+        guard let authService = authService,
+              let token = await authService.getValidAccessToken() else {
+            print("❌ [UserProfileService] No valid auth token for profile update")
+            return false
+        }
+        
+        guard let url = URL(string: "\(baseURL)/users/profile") else {
+            print("❌ [UserProfileService] Invalid URL for profile update")
+            return false
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Crear el cuerpo de la petición con los campos opcionales
+        var requestBody: [String: Any] = [:]
+        
+        if let firstName = firstName {
+            requestBody["first_name"] = firstName
+        }
+        if let lastName = lastName {
+            requestBody["last_name"] = lastName
+        }
+        if let birthDate = birthDate {
+            let formatter = ISO8601DateFormatter()
+            requestBody["birth_date"] = formatter.string(from: birthDate)
+        }
+        if let height = height {
+            requestBody["height"] = height
+        }
+        if let weight = weight {
+            requestBody["weight"] = weight
+        }
+        if let bio = bio {
+            requestBody["bio"] = bio
+        }
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ [UserProfileService] Invalid response for profile update")
+                return false
+            }
+            
+            if httpResponse.statusCode == 200 {
+                print("✅ [UserProfileService] Profile updated successfully")
+                
+                // Decodificar el perfil actualizado que devuelve el servidor
+                do {
+                    let decoder = configuredJSONDecoder()
+                    let updatedProfile = try decoder.decode(UserProfile.self, from: data)
+                    
+                    await MainActor.run {
+                        self.userProfile = updatedProfile
+                    }
+                    
+                    print("👤 [UserProfileService] Updated profile: \(updatedProfile.fullName)")
+                    return true
+                    
+                } catch {
+                    print("❌ [UserProfileService] Error decoding updated profile: \(error)")
+                    // Aún así refrescar el perfil desde el servidor
+                    await fetchUserProfile()
+                    return true
+                }
+            } else {
+                print("❌ [UserProfileService] Profile update failed: \(httpResponse.statusCode)")
+                return false
+            }
+        } catch {
+            print("❌ [UserProfileService] Network error during profile update: \(error)")
+            return false
+        }
+    }
+    
+    /// Verifica si el perfil del usuario tiene los campos básicos completos
+    func isProfileComplete() -> Bool {
+        guard let profile = userProfile else { return false }
+        
+        return !profile.firstName.isEmpty &&
+               !profile.lastName.isEmpty &&
+               profile.height != nil &&
+               profile.weight != nil &&
+               profile.birthDate != nil
+    }
+    
     /// Actualiza el color de fondo del perfil en el servidor
     func updateProfileBackgroundColor(_ colorHex: String) async -> Bool {
         guard let authService = authService,

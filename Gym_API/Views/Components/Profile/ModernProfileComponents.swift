@@ -103,7 +103,7 @@ struct WeeklyActivityView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Color.dynamicText(theme: theme).opacity(0.8))
             
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(weeklyData, id: \.dayOfWeek) { day in
                     VStack(spacing: 4) {
                         // Activity Indicator
@@ -113,17 +113,19 @@ struct WeeklyActivityView: View {
                                     ? Color.dynamicAccent(theme: theme)
                                     : Color.dynamicText(theme: theme).opacity(0.1)
                             )
-                            .frame(width: 40, height: 40)
+                            .frame(width: 35, height: 35)
                             .overlay(
                                 Text("\(day.workoutCount)")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(day.isActive ? .white : Color.dynamicText(theme: theme).opacity(0.3))
                             )
                         
                         Text(day.dayOfWeek)
-                            .font(.system(size: 11))
+                            .font(.system(size: 10))
                             .foregroundColor(Color.dynamicText(theme: theme).opacity(0.6))
+                            .lineLimit(1)
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
             .padding(16)
@@ -205,11 +207,14 @@ struct TimeInvestmentCard: View {
                     Label("\(timeInvestment.averageSessionDuration) min avg", systemImage: "timer")
                         .font(.system(size: 14))
                         .foregroundColor(Color.dynamicText(theme: theme))
+                        .lineLimit(1)
                     
                     Label("\(timeInvestment.peakHour):00 peak time", systemImage: "clock.fill")
                         .font(.system(size: 14))
                         .foregroundColor(Color.dynamicText(theme: theme))
+                        .lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
                 Spacer()
                 
@@ -449,6 +454,7 @@ struct WorkoutHistoryCard: View {
         )
     }
 }
+
 
 // MARK: - Visual Effect Blur
 struct VisualEffectBlur: UIViewRepresentable {

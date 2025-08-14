@@ -14,6 +14,7 @@ struct OptimizedChatView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var serverUpdateObserver: NSObjectProtocol?
+    @State private var messageUpdatesCancellable: AnyCancellable?
     
     // Computed property para mensajes ordenados (cacheado con límite para memoria)
     private var sortedMessages: [ChatMessage] {
@@ -42,6 +43,7 @@ struct OptimizedChatView: View {
         .onAppear {
             loadMessages()
             setupServerUpdateListener()
+            setupMessageUpdatesListener()
         }
         .onDisappear {
             // Limpiar observers para evitar memory leaks
@@ -49,6 +51,10 @@ struct OptimizedChatView: View {
                 NotificationCenter.default.removeObserver(observer)
                 serverUpdateObserver = nil
             }
+            
+            // Cancelar suscripción a actualizaciones de mensajes
+            messageUpdatesCancellable?.cancel()
+            messageUpdatesCancellable = nil
             
             // Limpiar mensajes antiguos para liberar memoria
             if messages.count > 50 {
@@ -281,12 +287,16 @@ struct OptimizedChatView: View {
         
         messageText = ""
         
+        // Usar un ID temporal específico para poder rastrearlo
+        let tempId = "temp_\(UUID().uuidString)"
+        
         let optimisticMessage = ChatMessage(
-            id: UUID().uuidString,
+            id: tempId,
             conversationId: conversationId,
             text: text,
             authorId: "current_user", // TODO: Get actual user ID
             authorName: "Current User", // TODO: Get actual user name
+            authorAvatarURL: nil, // TODO: Get current user avatar URL
             timestamp: Date(),
             isFromCurrentUser: true,
             syncStatus: .sending // Marcar como enviando
@@ -294,18 +304,20 @@ struct OptimizedChatView: View {
         
         // Agregar inmediatamente a la UI (al final de la lista)
         messages.append(optimisticMessage)
-        print("📝 Mensaje agregado optimistamente a la UI")
+        print("📝 Mensaje agregado optimistamente a la UI con ID temporal: \(tempId)")
         
         Task {
             do {
                 let _ = try await chatProviderManager.sendMessage(optimisticMessage, to: conversationId)
                 print("✅ Mensaje enviado exitosamente")
-                // El mensaje se actualizará automáticamente a través del caché
+                
+                // Cuando llegue el mensaje real del servidor con el ID correcto,
+                // se detectará como duplicado y no se agregará de nuevo
                 
             } catch {
                 await MainActor.run {
                     // Marcar mensaje como fallido en UI
-                    if let index = self.messages.firstIndex(where: { $0.id == optimisticMessage.id }) {
+                    if let index = self.messages.firstIndex(where: { $0.id == tempId }) {
                         var failedMessage = optimisticMessage
                         failedMessage.syncStatus = .failed
                         self.messages[index] = failedMessage
@@ -338,6 +350,49 @@ struct OptimizedChatView: View {
         }
     }
     
+    /// Configura listener para actualizaciones individuales de mensajes (estado de sync)
+    private func setupMessageUpdatesListener() {
+        guard let provider = chatProviderManager.currentProvider else { return }
+        
+        let currentConversationId = conversationId
+        
+        messageUpdatesCancellable = provider.messageUpdatesPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { update in
+                guard update.conversationId == currentConversationId else { return }
+                
+                switch update.type {
+                case .updated:
+                    // Actualizar el mensaje en el array local
+                    if let index = self.messages.firstIndex(where: { $0.id == update.message.id }) {
+                        self.messages[index] = update.message
+                        print("✅ Mensaje actualizado: \(update.message.id) - Estado: \(update.message.syncStatus)")
+                    }
+                    
+                case .new:
+                    // Verificar si es un mensaje que acabamos de enviar (evitar duplicados)
+                    // Los mensajes optimistas tienen syncStatus .sending o .synced y son del usuario actual
+                    let isDuplicate = update.message.isFromCurrentUser && 
+                                     self.messages.contains(where: { msg in
+                                         msg.isFromCurrentUser && 
+                                         msg.text == update.message.text &&
+                                         abs(msg.timestamp.timeIntervalSince(update.message.timestamp)) < 5 // Dentro de 5 segundos
+                                     })
+                    
+                    if !isDuplicate {
+                        self.messages.append(update.message)
+                        print("➕ Nuevo mensaje agregado: \(update.message.id)")
+                    } else {
+                        print("⚠️ Ignorando mensaje duplicado: \(update.message.text.prefix(20))...")
+                    }
+                    
+                case .deleted:
+                    self.messages.removeAll { $0.id == update.message.id }
+                    print("🗑️ Mensaje eliminado: \(update.message.id)")
+                }
+            }
+    }
+    
     /// Compara dos arrays de mensajes para detectar diferencias
     private func messagesAreEqual(_ messages1: [ChatMessage], _ messages2: [ChatMessage]) -> Bool {
         guard messages1.count == messages2.count else { return false }
@@ -366,8 +421,12 @@ struct MessageBubble: View {
                 Spacer(minLength: 60)
             } else {
                 // Avatar for received messages
-                ProfileAvatar.small(pictureURL: "")
-                    .opacity(0.8)
+                MessageAvatarView(
+                    authorName: message.authorName,
+                    avatarURL: message.authorAvatarURL,
+                    size: 32
+                )
+                .opacity(0.8)
             }
             
             VStack(alignment: message.isFromCurrentUser ? .trailing : .leading, spacing: 4) {
@@ -537,6 +596,94 @@ struct BubbleShape: Shape {
             cornerRadii: CGSize(width: 20, height: 20)
         )
         return Path(path.cgPath)
+    }
+}
+
+// MARK: - Message Avatar View
+struct MessageAvatarView: View {
+    let authorName: String
+    let avatarURL: String?
+    let size: CGFloat
+    
+    private var avatarColor: Color {
+        let colors: [Color] = [.blue, .green, .orange, .purple, .pink, .cyan, .red]
+        let index = abs(authorName.hashValue) % colors.count
+        return colors[index]
+    }
+    
+    private var initials: String {
+        let components = authorName.components(separatedBy: .whitespaces)
+        if components.count >= 2 {
+            return "\(components[0].prefix(1))\(components[1].prefix(1))".uppercased()
+        } else {
+            return "\(authorName.prefix(1))".uppercased()
+        }
+    }
+    
+    private var generatedAvatarFallback: some View {
+        // Try UI Avatars service first, fallback to initials
+        let encodedName = authorName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+        let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=random&color=fff&format=png"
+        
+        if let serviceURL = URL(string: avatarServiceURL) {
+            return AnyView(
+                AsyncImage(url: serviceURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: size, height: size)
+                            .clipShape(Circle())
+                    case .failure(_), .empty:
+                        Text(initials)
+                            .font(.system(size: size * 0.4, weight: .semibold))
+                            .foregroundColor(.white)
+                    @unknown default:
+                        Text(initials)
+                            .font(.system(size: size * 0.4, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                }
+            )
+        } else {
+            return AnyView(
+                Text(initials)
+                    .font(.system(size: size * 0.4, weight: .semibold))
+                    .foregroundColor(.white)
+            )
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(avatarColor)
+                .frame(width: size, height: size)
+            
+            // Profile photo or initials
+            Group {
+                if let avatarURL = avatarURL, !avatarURL.isEmpty, let url = URL(string: avatarURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: size, height: size)
+                                .clipShape(Circle())
+                        case .failure(_), .empty:
+                            generatedAvatarFallback
+                        @unknown default:
+                            generatedAvatarFallback
+                        }
+                    }
+                } else {
+                    generatedAvatarFallback
+                }
+            }
+        }
     }
 }
 

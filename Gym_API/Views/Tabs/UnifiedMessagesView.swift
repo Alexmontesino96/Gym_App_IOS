@@ -255,6 +255,7 @@ struct UnifiedMessagesView: View {
                     SwipeableConversationRow.withStandardActions(
                         conversation: conversation,
                         themeManager: themeManager,
+                        currentUserId: authService.user?.id,
                         onTap: {
                             print("🔘 Tap detectado en conversación: \(conversation.name ?? conversation.id)")
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -399,29 +400,76 @@ struct UnifiedMessagesView: View {
     
     // MARK: - User Selector Sheet
     private var userSelectorSheet: some View {
-        NavigationView {
-            VStack {
-                Text("Seleccionar usuario para chat")
-                    .font(.headline)
-                    .padding()
+        CoachSelectorView(
+            isPresented: $showingUserSelector,
+            onCoachSelected: { selectedCoach in
+                print("🏃‍♂️ Coach seleccionado: \(selectedCoach.fullName)")
                 
-                // TODO: Implementar selector de usuarios
-                Text("Funcionalidad de selección de usuarios pendiente")
-                    .foregroundColor(.secondary)
-                    .padding()
+                // Start loading state
+                isUpdatingFromServer = true
                 
-                Spacer()
-            }
-            .navigationTitle("Nuevo Chat")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
-                        showingUserSelector = false
+                // Create direct chat with selected coach
+                Task {
+                    do {
+                        let chatService = ChatService.shared
+                        chatService.authService = authService
+                        if let user = authService.user {
+                            chatService.setCurrentUserIdFromString(user.id)
+                        }
+                        
+                        if let directChatRoom = await chatService.getDirectChatWithCoach(selectedCoach) {
+                            print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
+                            
+                            // Convert ChatRoom to ChatConversation for navigation
+                            let conversation = ChatConversation(
+                                id: directChatRoom.streamChannelId,
+                                name: selectedCoach.fullName,
+                                type: .direct,
+                                members: [],
+                                lastMessage: nil,
+                                lastActivity: directChatRoom.effectiveDate,
+                                unreadCount: 0,
+                                metadata: [
+                                    "coach_id": selectedCoach.id,
+                                    "coach_name": selectedCoach.fullName,
+                                    "room_id": directChatRoom.id
+                                ]
+                            )
+                            
+                            await MainActor.run {
+                                // Update conversations list if this is a new conversation
+                                if !conversations.contains(where: { $0.id == conversation.id }) {
+                                    conversations.insert(conversation, at: 0)
+                                    saveConversationsToCache(conversations)
+                                }
+                                
+                                // Navigate to chat
+                                selectedConversation = conversation
+                                showingChat = true
+                                isUpdatingFromServer = false
+                                
+                                print("📱 Navegando a chat con coach: \(selectedCoach.fullName)")
+                            }
+                            
+                        } else {
+                            await MainActor.run {
+                                errorMessage = "No se pudo crear el chat con \(selectedCoach.fullName)"
+                                isUpdatingFromServer = false
+                            }
+                            print("❌ No se pudo crear chat directo con \(selectedCoach.fullName)")
+                        }
+                    } catch {
+                        await MainActor.run {
+                            errorMessage = "Error creando chat: \(error.localizedDescription)"
+                            isUpdatingFromServer = false
+                        }
+                        print("❌ Error creando chat directo: \(error)")
                     }
                 }
             }
-        }
+        )
+        .environmentObject(themeManager)
+        .environmentObject(authService)
     }
     
     // MARK: - Methods
@@ -482,8 +530,13 @@ struct UnifiedMessagesView: View {
             // Pasar authService al inicializar el provider
             await chatProviderManager.initializeProvider(authService: authService)
             
-            // Configurar credenciales si hay usuario autenticado
+            // Configurar ChatService con el ID del usuario autenticado
             if let user = authService.user {
+                let chatService = ChatService.shared
+                chatService.authService = authService
+                chatService.setCurrentUserIdFromString(user.id)
+                print("👤 UnifiedMessagesView: ChatService configurado con userId: \(user.id)")
+                
                 // Obtener token real desde la API
                 await obtenerCredencialesReales(user: user)
             }
@@ -614,6 +667,7 @@ struct UnifiedMessagesView: View {
 struct ConversationRow: View {
     let conversation: ChatConversation
     let themeManager: ThemeManager
+    let currentUserId: String?
     @State private var isPressed = false
     
     private var avatarColors: [Color] {
@@ -634,40 +688,13 @@ struct ConversationRow: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Enhanced Avatar
-            ZStack {
-                // Gradient background
-                LinearGradient(
-                    gradient: Gradient(colors: avatarColors),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .frame(width: 56, height: 56)
-                .clipShape(Circle())
-                
-                // Initial or icon
-                if let name = conversation.name, !name.isEmpty {
-                    Text(name.prefix(1).uppercased())
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.white)
-                } else {
-                    Image(systemName: conversationIcon)
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundColor(.white)
-                }
-                
-                // Online indicator (if needed)
-                if conversation.type == .direct {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 16, height: 16)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.dynamicBackground(theme: themeManager.currentTheme), lineWidth: 2)
-                        )
-                        .offset(x: 20, y: 20)
-                }
-            }
+            // Enhanced Avatar with Profile Photos
+            ConversationAvatarView(
+                conversation: conversation,
+                themeManager: themeManager,
+                size: 56,
+                currentUserId: currentUserId
+            )
             .shadow(
                 color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.3 : 0.1),
                 radius: 4,
@@ -853,6 +880,7 @@ extension UnifiedMessagesView {
             // Usar ChatService para obtener el token real
             let chatService = ChatService.shared
             chatService.authService = authService
+            chatService.setCurrentUserIdFromString(user.id)
             
             guard let tokenResponse = await chatService.getStreamToken() else {
                 print("❌ No se pudo obtener token de GetStream")
@@ -950,5 +978,164 @@ extension UnifiedMessagesView {
         
         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
         impactFeedback.impactOccurred()
+    }
+}
+
+// MARK: - Conversation Avatar View
+struct ConversationAvatarView: View {
+    let conversation: ChatConversation
+    let themeManager: ThemeManager
+    let size: CGFloat
+    let currentUserId: String?
+    
+    @State private var refreshID = UUID()
+    
+    private var avatarColors: [Color] {
+        let colors = [
+            Color.dynamicAccent(theme: themeManager.currentTheme),
+            Color.blue,
+            Color.green,
+            Color.orange,
+            Color.purple,
+            Color.pink,
+            Color.cyan
+        ]
+        
+        // Use conversation ID to consistently pick a color
+        let index = abs(conversation.id.hashValue) % colors.count
+        return [colors[index], colors[(index + 1) % colors.count]]
+    }
+    
+    private var otherUser: ChatUser? {
+        // For direct conversations, get the other user (not current user)
+        if conversation.type == .direct {
+            // Filter to get the other user
+            if let currentUserId = currentUserId {
+                // Try to find user that's not the current user
+                return conversation.members.first { user in
+                    !user.id.contains(currentUserId) && user.id != "user_\(currentUserId)"
+                }
+            } else {
+                // Fallback to first member if we don't have current user ID
+                return conversation.members.first
+            }
+        }
+        return nil
+    }
+    
+    private var conversationIcon: String {
+        switch conversation.type {
+        case .direct:
+            return "person.circle"
+        case .group:
+            return "person.3"
+        case .general:
+            return "bubble.left.and.bubble.right"
+        case .channel:
+            return "calendar.circle"
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                gradient: Gradient(colors: avatarColors),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            
+            // Profile photo or fallback
+            Group {
+                if let user = otherUser, let avatarURL = user.avatarURL, !avatarURL.isEmpty, let url = URL(string: avatarURL) {
+                    // Show profile photo
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: size, height: size)
+                                .clipShape(Circle())
+                        case .failure(_), .empty:
+                            fallbackContent
+                        @unknown default:
+                            fallbackContent
+                        }
+                    }
+                } else if let user = otherUser {
+                    // Generate avatar using UI Avatars service for direct chats
+                    let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+                    let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=random&color=fff&format=png"
+                    
+                    if let serviceURL = URL(string: avatarServiceURL) {
+                        AsyncImage(url: serviceURL) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: size, height: size)
+                                    .clipShape(Circle())
+                            case .failure(_), .empty:
+                                fallbackContent
+                            @unknown default:
+                                fallbackContent
+                            }
+                        }
+                    } else {
+                        fallbackContent
+                    }
+                } else {
+                    fallbackContent
+                }
+            }
+            
+            // Online indicator for direct chats
+            if conversation.type == .direct {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: size * 0.28, height: size * 0.28)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.dynamicBackground(theme: themeManager.currentTheme), lineWidth: 2)
+                    )
+                    .offset(x: size * 0.35, y: size * 0.35)
+            }
+        }
+        .id(refreshID) // Force refresh when avatar updates
+        .onReceive(NotificationCenter.default.publisher(for: .profileImageUpdated)) { notification in
+            // Refresh avatar if this is a direct chat and the user matches
+            if conversation.type == .direct,
+               let notificationUserId = notification.userInfo?["userId"] as? String,
+               let otherUser = otherUser,
+               otherUser.id.contains(notificationUserId) || otherUser.id == "user_\(notificationUserId)" {
+                refreshID = UUID()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .streamChatAvatarUpdated)) { notification in
+            // Refresh avatar for Stream Chat updates
+            if conversation.type == .direct,
+               let notificationUserId = notification.userInfo?["userId"] as? String,
+               let otherUser = otherUser,
+               otherUser.id.contains(notificationUserId) || otherUser.id == "user_\(notificationUserId)" {
+                refreshID = UUID()
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var fallbackContent: some View {
+        if let name = conversation.name, !name.isEmpty {
+            Text(name.prefix(1).uppercased())
+                .font(.system(size: size * 0.36, weight: .semibold))
+                .foregroundColor(.white)
+        } else {
+            Image(systemName: conversationIcon)
+                .font(.system(size: size * 0.43, weight: .medium))
+                .foregroundColor(.white)
+        }
     }
 }

@@ -131,7 +131,8 @@ struct GymSelectionView: View {
     
     private func loadGyms() {
         Task {
-            await gymService.getMyGyms(forceRefresh: true)
+            // No usar auto-selección aquí porque el usuario ya está en la pantalla de selección
+            await gymService.getMyGyms(forceRefresh: true, autoSelectIfSingle: false)
         }
     }
 }

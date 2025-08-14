@@ -83,31 +83,11 @@ class GymService: ObservableObject {
     
     // MARK: - Helper for Authenticated Requests
     private func createAuthenticatedRequest(url: URL, method: String = "GET") async -> URLRequest? {
-        guard let authService = authService else {
-            print("❌ No authService configured")
-            return nil
-        }
-        
-        guard let token = await authService.getValidAccessToken() else {
-            print("❌ No valid access token")
-            return nil
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        
-        // Add gym header if currentGym is available
-        if let gymId = currentGym?.id {
-            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
-        }
-        
-        return request
+        await HTTPClient.shared.makeRequest(url: url, method: method, includeGymHeader: true)
     }
     
     // MARK: - Get My Gyms
-    func getMyGyms(forceRefresh: Bool = false) async {
+    func getMyGyms(forceRefresh: Bool = false, autoSelectIfSingle: Bool = false) async {
         // Check cache
         if !forceRefresh,
            let lastRefresh = lastGymsRefresh,
@@ -117,6 +97,13 @@ class GymService: ObservableObject {
             // Still print the cached data for debugging
             for gym in myGyms {
                 print("📱 Cached Gym: \(gym.name), Role: \(gym.userRoleInGym)")
+            }
+            
+            // Auto-select if only one gym and flag is set
+            // Verificar hasCompletedGymSelection en lugar de hasSelectedGym
+            if autoSelectIfSingle && myGyms.count == 1 && !hasCompletedGymSelection {
+                print("🎯 Auto-selección desde caché: Solo hay 1 gym disponible")
+                await autoSelectSingleGym()
             }
             return
         }
@@ -202,6 +189,16 @@ class GymService: ObservableObject {
                     
                     // Save to UserDefaults for offline access
                     saveGymsToStorage(gyms)
+                    
+                    // Auto-select if only one gym and flag is set
+                    // Verificar hasCompletedGymSelection en lugar de hasSelectedGym para permitir auto-selección
+                    // incluso si hay un gym guardado de una sesión anterior
+                    if autoSelectIfSingle && gyms.count == 1 && !self.hasCompletedGymSelection {
+                        print("🎯 Auto-selección: Solo hay 1 gym disponible y no se ha completado la selección")
+                        await self.autoSelectSingleGym()
+                    } else {
+                        print("📊 Auto-selección evaluada: autoSelectIfSingle=\(autoSelectIfSingle), gyms.count=\(gyms.count), hasCompletedGymSelection=\(self.hasCompletedGymSelection)")
+                    }
                     
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Unknown error"
@@ -422,6 +419,31 @@ class GymService: ObservableObject {
         
         // Notificar a otros servicios del cambio
         NotificationCenter.default.post(name: .gymChanged, object: gym)
+    }
+    
+    /// Auto-selecciona el gym si solo hay uno disponible
+    private func autoSelectSingleGym() async {
+        guard myGyms.count == 1, let singleGym = myGyms.first else {
+            print("❌ autoSelectSingleGym: No hay exactamente un gym para auto-seleccionar")
+            return
+        }
+        
+        print("🚀 Auto-seleccionando el único gym disponible: \(singleGym.name)")
+        
+        // Si ya hay un gym seleccionado y es el mismo, solo marcar como completado
+        if let currentGym = currentGym, currentGym.id == singleGym.id {
+            print("✅ El gym ya estaba seleccionado, marcando selección como completada")
+            await MainActor.run {
+                self.hasCompletedGymSelection = true
+            }
+        } else {
+            // Seleccionar el nuevo gym
+            await MainActor.run {
+                self.selectGym(singleGym)
+            }
+        }
+        
+        print("✅ Gym auto-seleccionado exitosamente - hasCompletedGymSelection: \(hasCompletedGymSelection)")
     }
     
     /// Limpia la selección de gym

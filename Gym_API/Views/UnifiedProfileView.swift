@@ -134,11 +134,11 @@ struct UnifiedProfileView: View {
                 }
             }
             .sheet(isPresented: $showingImagePicker) {
-                ImagePicker(
-                    sourceType: .photoLibrary,
+                EnhancedImagePickerSheet(
                     selectedImage: $selectedImage,
                     isPresented: $showingImagePicker
                 )
+                .environmentObject(themeManager)
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView(onThemeChangeRequest: onThemeChangeRequest)
@@ -273,6 +273,7 @@ struct SocialProfileHero: View {
                     FloatingEditButton {
                         showingColorPicker = true
                     }
+                    .accessibilityLabel(Text("Edit profile color"))
                     .padding(.trailing, 20)
                     .padding(.top, 60)
                 }
@@ -328,6 +329,7 @@ struct SocialProfileHero: View {
                     .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel(Text("Change profile picture"))
                 
                 // Name prominently displayed (like Maria Parker)
                 Text(profile.fullName)
@@ -1621,6 +1623,7 @@ struct SocialQuickActions: View {
                 .cornerRadius(12)
             }
             .buttonStyle(PlainButtonStyle())
+            .accessibilityLabel(Text("Sign out"))
         }
         .padding(16)
         .background(

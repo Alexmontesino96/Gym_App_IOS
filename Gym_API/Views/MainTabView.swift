@@ -61,7 +61,7 @@ struct MainTabView: View {
             configureTabBarAppearance()
         }
         .onChange(of: themeManager.currentTheme) { _, newTheme in
-            print("🔄 Tema cambió a: \(newTheme.rawValue)")
+            debugLog("🔄 Tema cambió a: \(newTheme.rawValue)")
             configureTabBarAppearance()
             
             // Forzar actualización inmediata
@@ -70,16 +70,11 @@ struct MainTabView: View {
             }
         }
         .alert("Cambio de tema", isPresented: $showThemeChangeConfirmation) {
-            Button("Change and restart") {
-                // Aplicar el cambio de tema y reiniciar
+            Button("Apply theme") {
                 if let newTheme = pendingTheme {
                     themeManager.setTheme(newTheme)
-                    print("🔄 Tema cambiado a: \(newTheme.rawValue) y guardado")
-                    
-                    // Reiniciar la aplicación para aplicar el cambio
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        restartApp()
-                    }
+                    debugLog("🔄 Tema cambiado a: \(newTheme.rawValue) y guardado")
+                    pendingTheme = nil
                 }
             }
             
@@ -88,14 +83,14 @@ struct MainTabView: View {
             }
         } message: {
             if let newTheme = pendingTheme {
-                Text("La aplicación se reiniciará para cambiar al tema \(newTheme == .dark ? "oscuro" : "claro").")
+                Text("Se aplicará el tema \(newTheme == .dark ? "oscuro" : "claro") sin reiniciar.")
             }
         }
     }
     
     // MARK: - Private Methods
     private func configureTabBarAppearance() {
-        print("🎨 Configurando TabBar para tema: \(themeManager.currentTheme.rawValue)")
+        debugLog("🎨 Configurando TabBar para tema: \(themeManager.currentTheme.rawValue)")
         
         // Crear una nueva instancia de apariencia
         let appearance = UITabBarAppearance()
@@ -156,17 +151,17 @@ struct MainTabView: View {
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
         
-        print("   🎨 TabBar configurado:")
-        print("   🎨 - Fondo: \(backgroundColor)")
-        print("   🎨 - Iconos normales: \(normalIconColor)")
-        print("   🎨 - Iconos seleccionados: \(selectedIconColor)")
+        debugLog("   🎨 TabBar configurado:")
+        debugLog("   🎨 - Fondo: \(backgroundColor)")
+        debugLog("   🎨 - Iconos normales: \(normalIconColor)")
+        debugLog("   🎨 - Iconos seleccionados: \(selectedIconColor)")
     }
     
     private func forceTabBarUpdate() {
         DispatchQueue.main.async {
             // Forzar recreación de la apariencia
             let currentTheme = themeManager.currentTheme
-            print("   🎨 Forzando para tema: \(currentTheme.rawValue)")
+            debugLog("   🎨 Forzando para tema: \(currentTheme.rawValue)")
             
             // Obtener todas las instancias de UITabBar y forzar actualización
             UIApplication.shared.connectedScenes
@@ -181,7 +176,7 @@ struct MainTabView: View {
                         }
                 }
             
-            print("   ✅ TabBar forzado exitosamente")
+            debugLog("   ✅ TabBar forzado exitosamente")
         }
     }
     
@@ -193,9 +188,9 @@ struct MainTabView: View {
     }
     
     // Función para reiniciar la aplicización
+    // Restart removed; theme applies dynamically without exiting the app.
     private func restartApp() {
-        print("🔄 Reiniciando aplicación...")
-        exit(0)
+        debugLog("🔄 Reinicio eliminado; el tema se actualiza dinámicamente")
     }
 }
 

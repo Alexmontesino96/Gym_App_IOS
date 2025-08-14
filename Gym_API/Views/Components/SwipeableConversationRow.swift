@@ -4,6 +4,7 @@ import SwiftUI
 struct SwipeableConversationRow: View {
     let conversation: ChatConversation
     let themeManager: ThemeManager
+    let currentUserId: String?
     let onTap: () -> Void
     let onMute: (() -> Void)?
     let onArchive: (() -> Void)?
@@ -21,6 +22,7 @@ struct SwipeableConversationRow: View {
     init(
         conversation: ChatConversation,
         themeManager: ThemeManager,
+        currentUserId: String? = nil,
         onTap: @escaping () -> Void,
         onMute: (() -> Void)? = nil,
         onArchive: (() -> Void)? = nil,
@@ -28,6 +30,7 @@ struct SwipeableConversationRow: View {
     ) {
         self.conversation = conversation
         self.themeManager = themeManager
+        self.currentUserId = currentUserId
         self.onTap = onTap
         self.onMute = onMute
         self.onArchive = onArchive
@@ -88,7 +91,8 @@ struct SwipeableConversationRow: View {
             // Main conversation row
             ConversationRow(
                 conversation: conversation,
-                themeManager: themeManager
+                themeManager: themeManager,
+                currentUserId: currentUserId
             )
             .offset(x: offset)
             .onTapGesture {
@@ -242,6 +246,7 @@ extension SwipeableConversationRow {
     static func withStandardActions(
         conversation: ChatConversation,
         themeManager: ThemeManager,
+        currentUserId: String? = nil,
         onTap: @escaping () -> Void,
         onMute: @escaping () -> Void,
         onArchive: @escaping () -> Void,
@@ -250,6 +255,7 @@ extension SwipeableConversationRow {
         SwipeableConversationRow(
             conversation: conversation,
             themeManager: themeManager,
+            currentUserId: currentUserId,
             onTap: onTap,
             onMute: onMute,
             onArchive: onArchive,
@@ -261,6 +267,7 @@ extension SwipeableConversationRow {
     static func withBasicActions(
         conversation: ChatConversation,
         themeManager: ThemeManager,
+        currentUserId: String? = nil,
         onTap: @escaping () -> Void,
         onMute: @escaping () -> Void,
         onDelete: @escaping () -> Void
@@ -268,6 +275,7 @@ extension SwipeableConversationRow {
         SwipeableConversationRow(
             conversation: conversation,
             themeManager: themeManager,
+            currentUserId: currentUserId,
             onTap: onTap,
             onMute: onMute,
             onDelete: onDelete

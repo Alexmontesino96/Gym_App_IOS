@@ -80,94 +80,17 @@ class ClassService: ObservableObject {
         print("🗑️ ClassService deinitialized")
     }
     
-    // Función utilitaria para configurar JSONDecoder con formato de fecha correcto
+    // Shared decoder using centralized utility
     private func configuredJSONDecoder() -> JSONDecoder {
-        let decoder = JSONDecoder()
-        
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let container = try decoder.singleValueContainer()
-            let dateString = try container.decode(String.self)
-            
-            // Solución para iOS 18.6+ usando Date.ISO8601FormatStyle
-            if #available(iOS 15.0, *) {
-                // Intentar con diferentes configuraciones de ISO8601FormatStyle
-                let formatStyles: [Date.ISO8601FormatStyle] = [
-                    // Formato con fracciones de segundo
-                    Date.ISO8601FormatStyle(includingFractionalSeconds: true),
-                    // Formato estándar sin fracciones
-                    Date.ISO8601FormatStyle(includingFractionalSeconds: false),
-                    // Formato con zona horaria UTC
-                    Date.ISO8601FormatStyle(timeZone: TimeZone(secondsFromGMT: 0)!),
-                ]
-                
-                for formatStyle in formatStyles {
-                    do {
-                        let date = try formatStyle.parse(dateString)
-                        return date
-                    } catch {
-                        continue
-                    }
-                }
-                
-                // Intentar agregando 'Z' al final si no la tiene
-                if !dateString.hasSuffix("Z") && !dateString.contains("+") && !dateString.dropFirst(10).contains("-") {
-                    let dateStringWithZ = dateString + "Z"
-                    for formatStyle in formatStyles {
-                        do {
-                            let date = try formatStyle.parse(dateStringWithZ)
-                            return date
-                        } catch {
-                            continue
-                        }
-                    }
-                }
-            }
-            
-            // Fallback para versiones anteriores de iOS o si ISO8601FormatStyle falla
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0) // Las fechas del servidor vienen en UTC
-            
-            let dateFormats = [
-                "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS"
-            ]
-            
-            for format in dateFormats {
-                formatter.dateFormat = format
-                if let date = formatter.date(from: dateString) {
-                    return date
-                }
-            }
-            
-            // Último intento: agregar Z si no existe
-            if !dateString.hasSuffix("Z") && !dateString.contains("+") && !dateString.dropFirst(10).contains("-") {
-                let dateStringWithZ = dateString + "Z"
-                for format in dateFormats {
-                    formatter.dateFormat = format
-                    if let date = formatter.date(from: dateStringWithZ) {
-                        return date
-                    }
-                }
-            }
-            
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string '\(dateString)'. This appears to be an iOS 18.6 date decoding issue. Tried multiple formats including ISO8601FormatStyle.")
-        }
-        
-        return decoder
+        DateDecoding.serverDecoder()
     }
     
     // MARK: - Get Auth Token
     private func getAuthToken() async -> String? {
         guard let authService = authService else {
-            print("⚠️ AuthService no disponible")
+            debugLog("⚠️ AuthService no disponible")
             return nil
         }
-        
         return await authService.getValidAccessToken()
     }
     
@@ -279,21 +202,8 @@ class ClassService: ObservableObject {
                 throw ClassServiceError.invalidURL
             }
             
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("application/json", forHTTPHeaderField: "accept")
-            
-            // Agregar header X-Gym-ID
-            let gymId = await GymService.shared.currentGymId ?? 4
-            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
-            
-            // Agregar token de autorización
-            if let token = await getAuthToken() {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                print("🔑 Token incluido en petición de sesiones por rango de fecha")
-            } else {
-                print("⚠️ No se encontró token de autorización válido para sesiones")
+            guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
+                debugLog("⚠️ No se encontró token de autorización válido para sesiones")
                 _ = await MainActor.run {
                     self.errorMessage = "No se encontró token de autorización válido"
                     self.isLoading = false
@@ -659,22 +569,8 @@ class ClassService: ObservableObject {
                 throw ClassServiceError.invalidURL
             }
             
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("application/json", forHTTPHeaderField: "accept")
-            
-            // Agregar header X-Gym-ID
-            let gymId = await GymService.shared.currentGymId ?? 4
-            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
-            
-            // Agregar token de autorización
-            if let token = await getAuthToken() {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                print("🔑 Token incluido en petición de participation status:")
-                print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
-            } else {
-                print("⚠️ No se encontró token de autorización válido para participation status")
+            guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
+                debugLog("⚠️ No se encontró token de autorización válido para participation status")
                 _ = await MainActor.run {
                     self.participationStatusErrorMessage = "No se encontró token de autorización válido"
                     self.isLoadingParticipationStatus = false
@@ -757,22 +653,8 @@ class ClassService: ObservableObject {
                 throw ClassServiceError.invalidURL
             }
             
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("application/json", forHTTPHeaderField: "accept")
-            
-            // Agregar header X-Gym-ID
-            let gymId = await GymService.shared.currentGymId ?? 4
-            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
-            
-            // Agregar token de autorización
-            if let token = await getAuthToken() {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                print("🔑 Token incluido en petición de mis clases:")
-                print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
-            } else {
-                print("⚠️ No se encontró token de autorización válido para mis clases")
+            guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
+                debugLog("⚠️ No se encontró token de autorización válido para mis clases")
                 _ = await MainActor.run {
                     self.myClassesErrorMessage = "No se encontró token de autorización válido"
                     self.isLoadingMyClasses = false

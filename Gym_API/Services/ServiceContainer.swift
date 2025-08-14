@@ -72,9 +72,12 @@ class ServiceContainer: ObservableObject {
         directMessageService.authService = authService
         
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
-        
+
         // Mark as initialized
         isInitialized = true
+
+        // Configure HTTP client auth dependency
+        HTTPClient.shared.authService = authService
     }
     
     // MARK: - Observer Setup
@@ -143,14 +146,15 @@ class ServiceContainer: ObservableObject {
         print("📊 Cargando datos iniciales...")
         
         async let membershipTask = membershipService.getMyMembershipStatus()
-        async let gymTask = gymService.getMyGyms()
+        // NOTA: No cargar gyms aquí para no interferir con la lógica de auto-selección en AuthenticatedView
+        // async let gymTask = gymService.getMyGyms()
         async let trainersTask = classService.loadTrainers()
         
         await membershipTask
-        await gymTask
+        // await gymTask
         await trainersTask
         
-        print("✅ Datos iniciales cargados")
+        print("✅ Datos iniciales cargados (sin gyms - se cargan en AuthenticatedView)")
     }
     
     /// Limpia datos del usuario después del logout

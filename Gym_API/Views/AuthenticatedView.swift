@@ -11,6 +11,10 @@ struct AuthenticatedView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var gymService = GymService.shared
+    @StateObject private var profileService = UserProfileService.shared
+    
+    @State private var showingProfileCompletion = false
+    @State private var profileCheckCompleted = false
     
     var body: some View {
         let _ = print("🔍 AuthenticatedView.body evaluado")
@@ -18,22 +22,48 @@ struct AuthenticatedView: View {
         
         return Group {
             if authService.isAuthenticated {
-                let _ = print("🔍 Usuario autenticado, verificando gym selection...")
-                let _ = print("🔍 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
-                let _ = print("🔍 hasSelectedGym: \(gymService.hasSelectedGym)")
-                let _ = print("🔍 currentGym: \(gymService.currentGym?.name ?? "ninguno")")
+                let _ = print("🔍 Usuario autenticado, verificando profile completion...")
                 
-                if gymService.hasCompletedGymSelection {
-                    let _ = print("✅ Mostrando MainTabView porque hasCompletedGymSelection = true")
-                    MainTabView()
-                        .environmentObject(themeManager)
-                } else {
-                    let _ = print("✅ Mostrando GymSelectionView porque hasCompletedGymSelection = false")
-                    GymSelectionView { selectedGym in
-                        gymService.selectGym(selectedGym)
+                if profileCheckCompleted {
+                    if showingProfileCompletion {
+                        let _ = print("✅ Mostrando ProfileCompletionView")
+                        ProfileCompletionView {
+                            showingProfileCompletion = false
+                            // Después de completar el perfil, continuar con gym selection
+                        }
+                        .environmentObject(authService)
+                    } else {
+                        let _ = print("🔍 Profile completo, verificando gym selection...")
+                        let _ = print("🔍 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
+                        let _ = print("🔍 hasSelectedGym: \(gymService.hasSelectedGym)")
+                        let _ = print("🔍 currentGym: \(gymService.currentGym?.name ?? "ninguno")")
+                        
+                        if gymService.hasCompletedGymSelection {
+                            let _ = print("✅ Mostrando MainTabView porque hasCompletedGymSelection = true")
+                            MainTabView()
+                                .environmentObject(themeManager)
+                        } else {
+                            let _ = print("✅ Mostrando GymSelectionView porque hasCompletedGymSelection = false")
+                            GymSelectionView { selectedGym in
+                                gymService.selectGym(selectedGym)
+                            }
+                            .environmentObject(themeManager)
+                            .environmentObject(authService)
+                        }
                     }
-                    .environmentObject(themeManager)
-                    .environmentObject(authService)
+                } else {
+                    // Mostrar loading mientras verificamos el perfil
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                            .tint(.blue)
+                        
+                        Text("Checking your profile...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground))
                 }
             } else {
                 let _ = print("🔍 Usuario NO autenticado, mostrando login")
@@ -43,39 +73,47 @@ struct AuthenticatedView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: authService.isAuthenticated)
         .animation(.easeInOut(duration: 0.3), value: gymService.hasCompletedGymSelection)
+        .animation(.easeInOut(duration: 0.3), value: showingProfileCompletion)
         .onAppear {
-            setupGymService()
+            setupServices()
+            checkUserProfile()
         }
         .onChange(of: authService.isAuthenticated) { newValue in
             if newValue {
-                // Usuario recién autenticado, recargar gyms
+                // Usuario recién autenticado, verificar perfil y recargar gyms con auto-selección
+                checkUserProfile()
                 Task {
-                    await gymService.getMyGyms(forceRefresh: true)
+                    await gymService.getMyGyms(forceRefresh: true, autoSelectIfSingle: true)
                 }
+            } else {
+                // Reset states when user logs out
+                profileCheckCompleted = false
+                showingProfileCompletion = false
             }
         }
     }
     
-    private func setupGymService() {
-        print("🔧 AuthenticatedView.setupGymService() iniciado")
+    private func setupServices() {
+        print("🔧 AuthenticatedView.setupServices() iniciado")
         print("🔧 isAuthenticated: \(authService.isAuthenticated)")
         print("🔧 hasSelectedGym: \(gymService.hasSelectedGym)")
         print("🔧 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
         print("🔧 currentGym: \(gymService.currentGym?.name ?? "ninguno")")
         
         gymService.authService = authService
+        profileService.authService = authService
         
         // Si el usuario está autenticado, validar estado del gym
         if authService.isAuthenticated {
-            // Si no hay gym seleccionado, cargar inmediatamente
-            if !gymService.hasSelectedGym {
-                print("🔧 No hay gym seleccionado, cargando gyms...")
+            // Si no se ha completado la selección de gym, cargar con auto-selección
+            if !gymService.hasCompletedGymSelection {
+                print("🔧 Selección de gym no completada, cargando gyms con auto-selección...")
                 Task {
-                    await gymService.getMyGyms(forceRefresh: true)
+                    await gymService.getMyGyms(forceRefresh: true, autoSelectIfSingle: true)
                 }
-            } else {
-                print("🔧 Hay gym seleccionado, validando membresía...")
-                // Si hay gym seleccionado, validar en background
+            } else if gymService.hasSelectedGym {
+                print("🔧 Gym ya seleccionado y completado, validando membresía...")
+                // Si hay gym seleccionado y completado, validar en background
                 Task {
                     // Primero validar el gym actual
                     let isValid = await gymService.validateCurrentGymMembership()
@@ -86,15 +124,37 @@ struct AuthenticatedView: View {
                             gymService.clearGymSelection()
                         }
                     } else {
-                        print("🔧 Gym válido pero NO debería completar selección automáticamente")
-                        // IMPORTANTE: No marcar como completada la selección aquí
-                        // El usuario debe pasar por el flujo de selección
+                        print("🔧 Gym válido y selección completada")
                     }
                 }
             }
         }
         
-        print("🔧 setupGymService() terminado")
+        print("🔧 setupServices() terminado")
+    }
+    
+    private func checkUserProfile() {
+        guard authService.isAuthenticated else {
+            print("🔧 Usuario no autenticado, saltando verificación de perfil")
+            return
+        }
+        
+        print("🔧 Verificando completitud del perfil...")
+        Task {
+            // Cargar el perfil del usuario
+            await profileService.fetchUserProfile()
+            
+            await MainActor.run {
+                let isComplete = profileService.isProfileComplete()
+                print("🔧 Profile complete: \(isComplete)")
+                
+                showingProfileCompletion = !isComplete
+                profileCheckCompleted = true
+                
+                print("🔧 showingProfileCompletion: \(showingProfileCompletion)")
+                print("🔧 profileCheckCompleted: \(profileCheckCompleted)")
+            }
+        }
     }
 }
 

@@ -181,18 +181,20 @@ struct ChatMessage: Identifiable {
     let text: String
     let authorId: String
     let authorName: String
+    let authorAvatarURL: String?
     let timestamp: Date
     let isFromCurrentUser: Bool
     var syncStatus: MessageSyncStatus
     let isRead: Bool
     let attachments: [ChatAttachment]
     
-    init(id: String, conversationId: String, text: String, authorId: String, authorName: String, timestamp: Date, isFromCurrentUser: Bool, syncStatus: MessageSyncStatus = .synced, isRead: Bool = false, attachments: [ChatAttachment] = []) {
+    init(id: String, conversationId: String, text: String, authorId: String, authorName: String, authorAvatarURL: String? = nil, timestamp: Date, isFromCurrentUser: Bool, syncStatus: MessageSyncStatus = .synced, isRead: Bool = false, attachments: [ChatAttachment] = []) {
         self.id = id
         self.conversationId = conversationId
         self.text = text
         self.authorId = authorId
         self.authorName = authorName
+        self.authorAvatarURL = authorAvatarURL
         self.timestamp = timestamp
         self.isFromCurrentUser = isFromCurrentUser
         self.syncStatus = syncStatus

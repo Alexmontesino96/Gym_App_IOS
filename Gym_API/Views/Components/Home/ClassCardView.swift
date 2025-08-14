@@ -426,7 +426,7 @@ struct AdaptiveClassButton: View {
                     .tint(buttonForegroundColor)
                     .scaleEffect(0.8)
             } else {
-                Image(systemName: currentState == .registered ? "checkmark.circle.fill" : "plus.circle.fill")
+                Image(systemName: currentState.config(theme: theme).icon)
                     .font(.system(size: 16, weight: .semibold))
                     .scaleEffect(currentState == .registered ? 1.0 : 0.9)
             }
@@ -444,7 +444,7 @@ struct AdaptiveClassButton: View {
     }
     
     private var buttonMainText: some View {
-        Text(currentState == .registered ? "Joined" : (isLoading || isPreloading ? "Joining..." : "Join"))
+        Text(isLoading || isPreloading ? "Joining..." : currentState.config(theme: theme).text)
             .font(.system(size: 16, weight: .semibold))
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isLoading)
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isPreloading)
@@ -610,11 +610,18 @@ extension AdaptiveClassButton {
     }
     
     private func handleTap() {
+        // Verificar si el botón está deshabilitado según la configuración del estado
+        let config = currentState.config(theme: theme)
+        if config.isDisabled {
+            // No hacer nada si el botón está deshabilitado (live, full, etc.)
+            return
+        }
+        
         if currentState == .registered {
             // Si ya está registrado, mostrar action sheet
             showActionSheet = true
         } else {
-            // Si no está registrado, hacer join con animación mejorada
+            // Si no está registrado y el botón está habilitado, hacer join con animación mejorada
             animationDirection = .joining
             
             // Fase 1: Comprimir ligeramente el botón y activar preloading
@@ -1375,12 +1382,12 @@ struct ClassCardView: View {
                 }
             }
             
-            // Verificar si está en vivo
+            // Verificar si está en vivo - PRIORIDAD ALTA: Si está live, siempre mostrar live
             if now >= gymClass.startTime && now <= gymClass.endTime {
                 return .live
             }
             
-            // Estados basados en participación optimizada
+            // Estados basados en participación optimizada (solo si NO está live)
             switch participationStatus {
             case .registered:
                 return .registered
@@ -1431,12 +1438,12 @@ struct ClassCardView: View {
             return .completed(wasRegistered: wasUserRegisteredForClass)
         }
         
-        // Verificar si está en vivo
+        // Verificar si está en vivo - PRIORIDAD ALTA: Si está live, siempre mostrar live
         if now >= gymClass.startTime && now <= gymClass.endTime {
             return .live
         }
         
-        // Verificar si está registrado (método legacy)
+        // Verificar si está registrado (método legacy) - solo si NO está live
         let isRegistered = classService.isUserRegistered(classId: gymClass.id)
         print("🔍 Usuario registrado en clase \(gymClass.id): \(isRegistered)")
         if isRegistered {

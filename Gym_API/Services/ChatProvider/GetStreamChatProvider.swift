@@ -25,6 +25,11 @@ class GetStreamChatProvider: ChatProvider {
     private var cancellables = Set<AnyCancellable>()
     private var authService: AuthServiceProtocol?
     
+    // Public accessor for current user ID
+    var currentUserId: String? {
+        return currentUser?.id ?? chatClient?.currentUserId
+    }
+    
     init() {
         print("🎮 GetStreamChatProvider inicializado")
     }
@@ -180,9 +185,9 @@ class GetStreamChatProvider: ChatProvider {
         await MainActor.run {
             MessageCacheManager.shared.addMessage(optimisticMessage, to: conversationId)
             
-            // Notificar UI inmediatamente
-            let update = MessageUpdate(type: .new, message: optimisticMessage, conversationId: conversationId)
-            self._messageUpdates.send(update)
+            // NO enviar update de tipo .new aquí porque el mensaje ya fue agregado
+            // de forma optimista en OptimizedChatView antes de llamar a sendMessage
+            // Solo enviaremos .updated cuando cambie el estado a .synced o .failed
         }
         
         do {
@@ -204,6 +209,10 @@ class GetStreamChatProvider: ChatProvider {
             
             await MainActor.run {
                 MessageCacheManager.shared.updateMessage(sentMessage, in: conversationId)
+                
+                // Notificar UI de la actualización del estado
+                let update = MessageUpdate(type: .updated, message: sentMessage, conversationId: conversationId)
+                self._messageUpdates.send(update)
             }
             
             print("✅ Mensaje enviado exitosamente con ID: \(messageId)")
@@ -508,9 +517,17 @@ class GetStreamChatProvider: ChatProvider {
             let apiName = roomNameMap[normalizedChannelId] ?? roomNameMap[channel.cid.id]
             
             if let name = apiName {
+                // Para chats directos, resolver el nombre del usuario opuesto
+                let finalName: String
+                if channel.cid.id.contains("direct_user_") {
+                    finalName = resolveDirectChatName(from: name, channelId: channel.cid.id)
+                } else {
+                    finalName = name
+                }
+                
                 conversation = ChatConversation(
                     id: conversation.id,
-                    name: name, // Usar el nombre de la API
+                    name: finalName, // Usar el nombre resuelto
                     type: conversation.type,
                     members: conversation.members,
                     lastMessage: conversation.lastMessage,
@@ -757,6 +774,7 @@ class GetStreamChatProvider: ChatProvider {
             text: streamMessage.text,
             authorId: streamMessage.author.id,
             authorName: streamMessage.author.name ?? "Usuario",
+            authorAvatarURL: streamMessage.author.imageURL?.absoluteString,
             timestamp: streamMessage.createdAt,
             isFromCurrentUser: streamMessage.isSentByCurrentUser,
             syncStatus: MessageSyncStatus.synced,
@@ -908,6 +926,76 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
             let conversation = convertStreamChannel(channel.item)
             let update = ConversationUpdate(type: .updated, conversation: conversation)
             _conversationUpdates.send(update)
+        }
+    }
+    
+    // MARK: - Private Helper Methods
+    
+    /// Resuelve el nombre para un chat directo extrayendo el usuario opuesto
+    private func resolveDirectChatName(from apiName: String, channelId: String) -> String {
+        // Si no tenemos usuario actual, devolver nombre completo
+        guard let currentUser = currentUser,
+              let currentUserId = Int(currentUser.id.replacingOccurrences(of: "user_", with: "")) else {
+            print("⚠️ No hay usuario actual configurado para resolver nombres de chat directo")
+            return apiName
+        }
+        
+        print("👤 Resolviendo nombre de chat directo para usuario actual: \(currentUserId)")
+        print("📝 Nombre de API original: \(apiName)")
+        print("🔍 Channel ID: \(channelId)")
+        
+        // Extraer IDs de usuario del channel ID
+        let pattern = "direct_user_(\\d+)_user_(\\d+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: channelId, range: NSRange(channelId.startIndex..., in: channelId)) else {
+            print("❌ No se pudo extraer IDs de usuario del channel ID")
+            return apiName
+        }
+        
+        guard let range1 = Range(match.range(at: 1), in: channelId),
+              let range2 = Range(match.range(at: 2), in: channelId),
+              let userId1 = Int(String(channelId[range1])),
+              let userId2 = Int(String(channelId[range2])) else {
+            print("❌ No se pudieron convertir IDs de usuario")
+            return apiName
+        }
+        
+        print("🔍 IDs extraídos: userId1=\(userId1), userId2=\(userId2)")
+        
+        // Determinar el usuario opuesto
+        let otherUserId = (userId1 == currentUserId) ? userId2 : userId1
+        print("🎯 Usuario opuesto: \(otherUserId)")
+        
+        // El apiName viene como "Chat Alex Montesino - Jose Paul Rodriguez"
+        // Necesitamos extraer solo el nombre del usuario opuesto
+        
+        // Remover "Chat " del inicio si existe
+        let cleanName = apiName.replacingOccurrences(of: "Chat ", with: "")
+        
+        // Dividir por " - " para obtener los dos nombres
+        let names = cleanName.components(separatedBy: " - ")
+        if names.count == 2 {
+            // Para un chat "direct_user_10_user_8":
+            // - Si currentUserId == 10, queremos el nombre del userId 8 (segundo usuario)
+            // - Si currentUserId == 8, queremos el nombre del userId 10 (primer usuario)
+            
+            let firstUserName = names[0].trimmingCharacters(in: .whitespaces)
+            let secondUserName = names[1].trimmingCharacters(in: .whitespaces)
+            
+            // Determinar cuál nombre corresponde al usuario opuesto
+            // userId1 corresponde al primer nombre, userId2 al segundo
+            let resolvedName: String
+            if otherUserId == userId1 {
+                resolvedName = firstUserName
+            } else {
+                resolvedName = secondUserName
+            }
+            
+            print("✅ Nombre resuelto: \(resolvedName)")
+            return resolvedName
+        } else {
+            print("⚠️ El formato del nombre de la API no es el esperado: \(apiName)")
+            return apiName
         }
     }
 }

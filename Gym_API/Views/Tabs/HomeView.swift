@@ -82,6 +82,7 @@ struct HomeView: View {
                         // Featured Event (single event with action buttons)
                         if !eventService.events.isEmpty {
                             FeaturedEventSection(events: eventService.events, themeManager: themeManager)
+                                .environmentObject(eventService)
                         }
                         
                         // Recent Activity (completed classes/events)
@@ -122,7 +123,9 @@ struct HomeView: View {
             Task {
                 print("🏠 Iniciando fetchEvents...")
                 await eventService.fetchEvents()
-                print("🏠 fetchEvents completado, iniciando getMyGyms...")
+                print("🏠 fetchEvents completado, iniciando fetchUserParticipations...")
+                await eventService.fetchUserParticipations()
+                print("🏠 fetchUserParticipations completado, iniciando getMyGyms...")
                 await gymService.getMyGyms()
                 print("🏠 getMyGyms completado, iniciando fetchComprehensiveStats...")
                 await userStatsService.fetchComprehensiveStats()
@@ -238,12 +241,94 @@ struct HeroSection: View {
 struct FeaturedEventSection: View {
     let events: [Event]
     let themeManager: ThemeManager
+    @EnvironmentObject var eventService: EventService
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     
     private var featuredEvent: Event? {
         events.filter { $0.startTime > Date() }
               .sorted { $0.startTime < $1.startTime }
               .first
+    }
+    
+    private func isUserRegistered(for event: Event) -> Bool {
+        let isRegistered = eventService.isUserRegistered(eventId: event.id)
+        print("🏠 HomeView: Event \(event.id) (\(event.title)) - Status: \(event.status) - IsRegistered: \(isRegistered)")
+        return isRegistered
+    }
+    
+    private func participationButtonConfig(for event: Event) -> (title: String, icon: String, color: Color) {
+        let isRegistered = isUserRegistered(for: event)
+        
+        print("🏠 HomeView: participationButtonConfig - Event \(event.id) - Status: \(event.status) - IsRegistered: \(isRegistered)")
+        print("🏠 HomeView: Detailed info - Title: '\(event.title)', Status raw: '\(event.status)', Status == .active: \(event.status == .active)")
+        
+        let result: (title: String, icon: String, color: Color)
+        switch event.status {
+        case .active:
+            if isRegistered {
+                result = ("En Vivo", "dot.radiowaves.left.and.right", Color.green)
+            } else {
+                result = ("En Vivo", "dot.radiowaves.left.and.right", Color.gray)
+            }
+        case .scheduled:
+            if isRegistered {
+                result = ("Registrado", "checkmark.circle.fill", Color.green)
+            } else {
+                result = ("Unirse", "plus.circle.fill", Color.dynamicAccent(theme: themeManager.currentTheme))
+            }
+        case .completed:
+            if isRegistered {
+                result = ("Participaste", "checkmark.circle.fill", Color.gray)
+            } else {
+                result = ("Completado", "clock.fill", Color.gray)
+            }
+        case .cancelled:
+            result = ("Cancelado", "xmark.circle.fill", Color.red)
+        }
+        
+        print("🏠 HomeView: Button config result - Title: '\(result.title)', Icon: '\(result.icon)'")
+        return result
+    }
+    
+    private func canPerformAction(for event: Event, isRegistered: Bool) -> Bool {
+        switch event.status {
+        case .scheduled:
+            // Para eventos programados, permitir join/cancel normalmente
+            return true
+        case .active:
+            // Para eventos activos (en vivo), no permitir ninguna acción
+            // El evento ya está en curso
+            return false
+        case .completed, .cancelled:
+            // No permitir acciones en eventos completados o cancelados
+            return false
+        }
+    }
+    
+    private func eventIconName(for status: EventStatus) -> String {
+        switch status {
+        case .active:
+            return "dot.radiowaves.left.and.right"
+        case .scheduled:
+            return "figure.run"
+        case .completed:
+            return "checkmark.circle"
+        case .cancelled:
+            return "xmark.circle"
+        }
+    }
+    
+    private func eventIconBackgroundColor(for status: EventStatus) -> Color {
+        switch status {
+        case .active:
+            return Color.red
+        case .scheduled:
+            return Color.dynamicAccent(theme: themeManager.currentTheme)
+        case .completed:
+            return Color.gray
+        case .cancelled:
+            return Color.red
+        }
     }
     
     private var timeFormatter: DateFormatter {
@@ -311,15 +396,25 @@ struct FeaturedEventSection: View {
                     VStack(spacing: 20) {
                         // Event header with icon
                         HStack(spacing: 16) {
-                            // Event icon
+                            // Event icon (changes based on status)
                             ZStack {
                                 Circle()
-                                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.15))
+                                    .fill(eventIconBackgroundColor(for: event.status).opacity(0.15))
                                     .frame(width: 50, height: 50)
                                 
-                                Image(systemName: "figure.run")
+                                Image(systemName: eventIconName(for: event.status))
                                     .font(.system(size: 24, weight: .semibold))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                    .foregroundColor(eventIconBackgroundColor(for: event.status))
+                                
+                                // Pulsing animation for active events
+                                if event.status == .active {
+                                    Circle()
+                                        .stroke(Color.red.opacity(0.3), lineWidth: 2)
+                                        .frame(width: 50, height: 50)
+                                        .scaleEffect(1.2)
+                                        .opacity(0.7)
+                                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: event.status == .active)
+                                }
                             }
                             
                             VStack(alignment: .leading, spacing: 8) {
@@ -335,17 +430,34 @@ struct FeaturedEventSection: View {
                             
                             Spacer()
                             
-                            // Time until event badge
+                            // Status and time badge
                             VStack(spacing: 4) {
-                                Text(timeUntilEvent)
-                                    .font(.cappedDynamicSystem(size: 11, weight: .bold, maxSize: 14))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
-                                    )
+                                // Status badge for active events
+                                if event.status == .active {
+                                    Text("EN VIVO")
+                                        .font(.cappedDynamicSystem(size: 10, weight: .black, maxSize: 12))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.red)
+                                        )
+                                        .shadow(color: Color.red.opacity(0.3), radius: 2, x: 0, y: 1)
+                                }
+                                
+                                // Time until event badge (only for scheduled events)
+                                if event.status == .scheduled {
+                                    Text(timeUntilEvent)
+                                        .font(.cappedDynamicSystem(size: 11, weight: .bold, maxSize: 14))
+                                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
+                                        )
+                                }
                             }
                         }
                         
@@ -364,23 +476,48 @@ struct FeaturedEventSection: View {
                         
                         // Action buttons
                         HStack(spacing: 12) {
-                            // Join button
-                            Button(action: {
-                                // TODO: Join event action
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 14, weight: .semibold))
-                                    Text("Unirse")
-                                        .font(.cappedDynamicSystem(size: 14, weight: .semibold, maxSize: 18))
+                            // Join/Registered button
+                            if let event = featuredEvent {
+                                let isRegistered = isUserRegistered(for: event)
+                                let buttonConfig = participationButtonConfig(for: event)
+                                
+                                // Capture the loading state from environment object
+                                Button(action: {
+                                    // Validar si la acción es permitida según el estado del evento
+                                    guard canPerformAction(for: event, isRegistered: isRegistered) else {
+                                        return
+                                    }
+                                    
+                                    Task {
+                                        if isRegistered {
+                                            await eventService.cancelEvent(eventId: event.id)
+                                        } else {
+                                            await eventService.joinEvent(eventId: event.id)
+                                        }
+                                    }
+                                }) {
+                                    HStack(spacing: 8) {
+                                        if eventService.isJoiningEvent {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(0.8)
+                                        } else {
+                                            Image(systemName: buttonConfig.icon)
+                                                .font(.system(size: 14, weight: .semibold))
+                                        }
+                                        
+                                        Text(eventService.isJoiningEvent ? "Procesando..." : buttonConfig.title)
+                                            .font(.cappedDynamicSystem(size: 14, weight: .semibold, maxSize: 18))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        Capsule()
+                                            .fill(eventService.isJoiningEvent ? Color.gray : buttonConfig.color)
+                                    )
                                 }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                )
+                                .disabled(eventService.isJoiningEvent || !canPerformAction(for: event, isRegistered: isRegistered))
                             }
                             
                             // Chat button

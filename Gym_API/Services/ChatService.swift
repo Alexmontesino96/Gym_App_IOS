@@ -192,8 +192,8 @@ class ChatService: ObservableObject {
     @Published var gymMembersCache: [Int: UserProfile] = [:] // user_id -> UserProfile
     @Published var isLoadingGymMembers = false
     
-    // MARK: - Current User ID (hardcoded for now, should come from login)
-    private var currentUserId: Int = 10 // TODO: Get from actual login
+    // MARK: - Current User ID (dinámico desde AuthService)
+    private var currentUserId: Int? // Se configura dinámicamente desde el AuthService
     
     // MARK: - Last Messages Cache Properties
     @Published var isRefreshingMessages = false
@@ -216,6 +216,21 @@ class ChatService: ObservableObject {
                 updates()
             }
         }
+    }
+    
+    // MARK: - Configure Current User
+    func setCurrentUserId(_ userId: Int) {
+        print("👤 ChatService: Configurando currentUserId: \(userId)")
+        self.currentUserId = userId
+    }
+    
+    func setCurrentUserIdFromString(_ userIdString: String?) {
+        guard let userIdString = userIdString,
+              let userId = Int(userIdString) else {
+            print("❌ ChatService: No se pudo convertir userIdString a Int: \(userIdString ?? "nil")")
+            return
+        }
+        setCurrentUserId(userId)
     }
     
     // MARK: - Helper for Authenticated Requests
@@ -821,8 +836,27 @@ class ChatService: ObservableObject {
                     
                     // Convertir participantes a UserProfile y actualizar cache
                     var validMembers: [UserProfile] = []
+                    var coachCount = 0
+                    var memberCount = 0
+                    
                     for participant in participants {
-                        print("👤 Participante: \(participant.fullName) - Role: \(participant.role ?? "N/A") - ID: \(participant.id)")
+                        let roleText = participant.role ?? "member"
+                        let gymRoleText = participant.gymRole ?? ""
+                        
+                        // Determinar si es coach
+                        let isCoach = roleText.lowercased().contains("coach") ||
+                                     gymRoleText.lowercased().contains("coach") ||
+                                     roleText.lowercased().contains("trainer") ||
+                                     gymRoleText.lowercased().contains("trainer")
+                        
+                        if isCoach {
+                            coachCount += 1
+                            print("🏃‍♂️ Coach encontrado: \(participant.fullName) - Role: \(roleText) - Gym Role: \(gymRoleText)")
+                        } else {
+                            memberCount += 1
+                        }
+                        
+                        print("👤 Participante: \(participant.fullName) - Role: \(roleText) - Gym Role: \(gymRoleText) - ID: \(participant.id)")
                         
                         // Si no podemos convertir a UserProfile, al menos guardar el nombre
                         if let userProfile = participant.toUserProfile() {
@@ -841,6 +875,8 @@ class ChatService: ObservableObject {
                     }
                     
                     print("✅ Cargados \(participants.count) participantes del gym")
+                    print("   - 🏃‍♂️ Coaches/Trainers: \(coachCount)")
+                    print("   - 👤 Miembros regulares: \(memberCount)")
                     print("✅ Convertidos \(validMembers.count) a UserProfile")
                     print("👤 Nombres en cache: \(self.userNameCache.count)")
                     
@@ -973,7 +1009,8 @@ class ChatService: ObservableObject {
                 let userId2String = String(chatRoom.streamChannelId[range2])
                 
                 if let userId1 = Int(userId1String),
-                   let userId2 = Int(userId2String) {
+                   let userId2 = Int(userId2String),
+                   let currentUserId = currentUserId {
                     
                     // Determinar cuál es el otro usuario
                     let otherUserId = (userId1 == currentUserId) ? userId2 : userId1
@@ -994,8 +1031,13 @@ class ChatService: ObservableObject {
                     return "Loading..."
                 }
                 
-                // Fallback para IDs no válidos
-                let fallbackName = "Chat \(userId1String)-\(userId2String)"
+                // Fallback cuando no hay currentUserId configurado o IDs no válidos
+                let fallbackName: String
+                if currentUserId == nil {
+                    fallbackName = "Direct Message (Login required)"
+                } else {
+                    fallbackName = "Chat \(userId1String)-\(userId2String)"
+                }
                 resolvedDisplayNameCache[chatRoom.streamChannelId] = fallbackName
                 pendingResolutions.remove(chatRoom.streamChannelId)
                 return fallbackName
@@ -1048,7 +1090,7 @@ class ChatService: ObservableObject {
         }
     }
 
-    // MARK: - Get Direct Chat (1:1) - Para miembros
+    // MARK: - Get Direct Chat (1:1) - Para miembros y coaches
     func getDirectChat(withUserId userId: Int) async -> ChatRoom? {
         print("🔗 ChatService: Iniciando getDirectChat con userId: \(userId)")
         print("🔗 ChatService: BaseURL: \(baseURL)")
@@ -1120,6 +1162,10 @@ class ChatService: ObservableObject {
                     }
                     
                     print("💬 Chat directo obtenido exitosamente: \(directChatRoom.streamChannelId)")
+                    
+                    // Actualizar la lista de chat rooms si el nuevo chat no existe
+                    await refreshChatRoomsIfNeeded(with: directChatRoom)
+                    
                     return directChatRoom
                     
                 } else {
@@ -1142,6 +1188,50 @@ class ChatService: ObservableObject {
         }
         
         return nil
+    }
+    
+    // MARK: - Get Direct Chat with Coach (convenience method)
+    func getDirectChatWithCoach(_ coach: UserProfile) async -> ChatRoom? {
+        print("🏃‍♂️ Iniciando chat directo con coach: \(coach.fullName)")
+        return await getDirectChat(withUserId: coach.id)
+    }
+    
+    // MARK: - Get Available Coaches
+    func getAvailableCoaches() async -> [UserProfile] {
+        print("🔍 Obteniendo coaches disponibles...")
+        
+        // Cargar miembros del gym si no están cargados
+        if gymMembersCache.isEmpty {
+            await loadGymMembers()
+        }
+        
+        // Filtrar coaches
+        let allMembers = Array(gymMembersCache.values)
+        let coaches = allMembers.filter { member in
+            let isCoach = member.role.lowercased().contains("coach") ||
+                         member.gymRole?.lowercased().contains("coach") == true ||
+                         member.role.lowercased().contains("trainer") ||
+                         member.gymRole?.lowercased().contains("trainer") == true
+            
+            return isCoach && member.isActive
+        }.sorted { $0.fullName < $1.fullName }
+        
+        print("✅ Coaches encontrados: \(coaches.count)")
+        return coaches
+    }
+    
+    // MARK: - Helper: Refresh Chat Rooms if Needed
+    private func refreshChatRoomsIfNeeded(with newChatRoom: ChatRoom) async {
+        updateOnMainThread {
+            // Verificar si ya existe en la lista
+            if !self.chatRooms.contains(where: { $0.id == newChatRoom.id }) {
+                // Agregar el nuevo chat room al principio de la lista
+                self.chatRooms.insert(newChatRoom, at: 0)
+                print("➕ Nuevo chat room agregado a la lista: \(newChatRoom.displayName)")
+            } else {
+                print("✅ Chat room ya existe en la lista")
+            }
+        }
     }
     
     // MARK: - Join General Channel - Para miembros  
