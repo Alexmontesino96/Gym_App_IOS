@@ -255,7 +255,7 @@ struct UnifiedMessagesView: View {
                     SwipeableConversationRow.withStandardActions(
                         conversation: conversation,
                         themeManager: themeManager,
-                        currentUserId: authService.user?.id,
+                        currentUserId: (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id,
                         onTap: {
                             print("🔘 Tap detectado en conversación: \(conversation.name ?? conversation.id)")
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -421,11 +421,23 @@ struct UnifiedMessagesView: View {
                             print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
                             
                             // Convert ChatRoom to ChatConversation for navigation
+                            // Pre-populate members with the coach and the current user (when available)
+                            var provisionalMembers: [ChatUser] = []
+                            let coachUser = ChatUser(
+                                id: "user_\(selectedCoach.id)",
+                                name: selectedCoach.fullName,
+                                avatarURL: selectedCoach.picture
+                            )
+                            provisionalMembers.append(coachUser)
+                            if let providerUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId {
+                                provisionalMembers.append(ChatUser(id: providerUserId, name: authService.user?.name ?? "Me", avatarURL: authService.user?.picture))
+                            }
+                            
                             let conversation = ChatConversation(
                                 id: directChatRoom.streamChannelId,
                                 name: selectedCoach.fullName,
                                 type: .direct,
-                                members: [],
+                                members: provisionalMembers,
                                 lastMessage: nil,
                                 lastActivity: directChatRoom.effectiveDate,
                                 unreadCount: 0,
@@ -539,6 +551,9 @@ struct UnifiedMessagesView: View {
                 
                 // Obtener token real desde la API
                 await obtenerCredencialesReales(user: user)
+
+                // Precargar miembros del gym para enriquecer avatares en conversaciones
+                await chatService.loadGymMembers()
             }
         } catch {
             errorMessage = "Error de conexión: \(error.localizedDescription)"
@@ -1011,9 +1026,8 @@ struct ConversationAvatarView: View {
         if conversation.type == .direct {
             // Filter to get the other user
             if let currentUserId = currentUserId {
-                // Try to find user that's not the current user
                 return conversation.members.first { user in
-                    !user.id.contains(currentUserId) && user.id != "user_\(currentUserId)"
+                    !isCurrentUser(userId: user.id, currentUserId: currentUserId)
                 }
             } else {
                 // Fallback to first member if we don't have current user ID
@@ -1021,6 +1035,22 @@ struct ConversationAvatarView: View {
             }
         }
         return nil
+    }
+
+    /// Determines if a given member userId refers to the current user, accounting for different ID formats.
+    private func isCurrentUser(userId: String, currentUserId: String) -> Bool {
+        // Common formats:
+        // - Stream member id: "user_123"
+        // - Current user id from provider: "user_123"
+        // - Current user id from Auth0: "auth0|abc" (fallback path)
+        if userId == currentUserId { return true }
+        // Normalize: remove leading "user_" if present
+        let normalizedMember = userId.replacingOccurrences(of: "user_", with: "")
+        let normalizedCurrent = currentUserId.replacingOccurrences(of: "user_", with: "")
+        if normalizedMember == normalizedCurrent { return true }
+        // Also match if member equals "user_\(normalizedCurrent)"
+        if userId == "user_\(normalizedCurrent)" { return true }
+        return false
     }
     
     private var conversationIcon: String {

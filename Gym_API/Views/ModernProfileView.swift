@@ -8,9 +8,12 @@ struct ModernProfileView: View {
     @StateObject private var colorCustomizationManager = ColorCustomizationManager.shared
     @StateObject private var profileService = UserProfileService.shared
     @StateObject private var userStatsService = UserStatsService.shared
+    @StateObject private var profileImageService = ProfileImageService()
     
     @State private var showingSettings = false
     @State private var selectedSection: ProfileSection = .achievements
+    @State private var showingImagePicker = false
+    @State private var selectedImage: UIImage?
     
     // MARK: - Profile Sections
     enum ProfileSection: String, CaseIterable {
@@ -72,7 +75,7 @@ struct ModernProfileView: View {
                 if profileService.isLoading {
                     VStack(spacing: 12) {
                         ProgressView()
-                        Text("Loading profile...")
+                        Text(NSLocalizedString("loading_profile", comment: "Loading profile"))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -82,9 +85,9 @@ struct ModernProfileView: View {
                         Image(systemName: "exclamationmark.triangle")
                             .foregroundColor(.orange)
                             .font(.system(size: 24))
-                        Text("Failed to load profile")
+                        Text(NSLocalizedString("failed_load_profile", comment: "Failed to load profile"))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        Button("Retry") {
+                        Button(NSLocalizedString("retry", comment: "Retry")) {
                             Task { await profileService.fetchUserProfile() }
                         }
                     }
@@ -97,10 +100,22 @@ struct ModernProfileView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView(onThemeChangeRequest: {})
             }
+            .sheet(isPresented: $showingImagePicker) {
+                EnhancedImagePickerSheet(
+                    selectedImage: $selectedImage,
+                    isPresented: $showingImagePicker
+                )
+                .environmentObject(themeManager)
+            }
         }
         .onAppear {
             setupServices()
             loadData()
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage {
+                Task { await uploadProfileImage(image) }
+            }
         }
     }
     
@@ -134,49 +149,55 @@ struct ModernProfileView: View {
                     // Profile Picture (circular, Instagram-style)
                     if let picture = profileService.userProfile?.picture,
                        let url = URL(string: picture) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                .overlay(
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 35))
-                                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
-                                )
-                        }
-                        .frame(width: 80, height: 80)
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle()
-                                .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 3)
-                        )
-                        .accessibilityLabel(Text("Profile picture"))
-                    } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.8),
-                                        colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.6)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                        Button(action: { showingImagePicker = true }) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Circle()
+                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                    .overlay(
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 35))
+                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
+                                    )
+                            }
                             .frame(width: 80, height: 80)
-                            .overlay(
-                                Text(profileService.userProfile?.fullName.prefix(2).uppercased() ?? "??")
-                                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                            )
+                            .clipShape(Circle())
                             .overlay(
                                 Circle()
                                     .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 3)
                             )
-                            .accessibilityLabel(Text("Profile picture placeholder"))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text(NSLocalizedString("change_profile_picture", comment: "Change profile picture")))
+                    } else {
+                        Button(action: { showingImagePicker = true }) {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.8),
+                                            colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.6)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 80, height: 80)
+                                .overlay(
+                                    Text(profileService.userProfile?.fullName.prefix(2).uppercased() ?? "??")
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                )
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 3)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text(NSLocalizedString("change_profile_picture", comment: "Change profile picture")))
                     }
                     
                     // Stats Grid (Instagram-style) - Improved spacing
@@ -188,7 +209,7 @@ struct ModernProfileView: View {
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                 .multilineTextAlignment(.center)
                                 .lineLimit(1)
-                            Text("Workouts")
+                            Text(NSLocalizedString("workouts", comment: "Workouts label"))
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
                                 .multilineTextAlignment(.center)
@@ -216,7 +237,7 @@ struct ModernProfileView: View {
                                     .multilineTextAlignment(.center)
                                     .lineLimit(1)
                             }
-                            Text("Weight")
+                            Text(NSLocalizedString("weight", comment: "Weight label"))
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
                                 .multilineTextAlignment(.center)
@@ -244,7 +265,7 @@ struct ModernProfileView: View {
                                     .multilineTextAlignment(.center)
                                     .lineLimit(1)
                             }
-                            Text("Height")
+                            Text(NSLocalizedString("height", comment: "Height label"))
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
                                 .multilineTextAlignment(.center)
@@ -586,6 +607,7 @@ struct ModernProfileView: View {
         userStatsService.authService = authService
         userStatsService.gymService = GymService.shared
         profileService.authService = authService
+        profileImageService.authService = authService
         colorCustomizationManager.authService = authService
         colorCustomizationManager.profileService = profileService
         
@@ -624,6 +646,16 @@ struct ModernProfileView: View {
             if let profile = profileService.userProfile {
                 colorCustomizationManager.loadColorFromProfile(profile)
             }
+        }
+    }
+}
+
+// MARK: - Upload Image
+extension ModernProfileView {
+    private func uploadProfileImage(_ image: UIImage) async {
+        let success = await profileImageService.uploadProfileImage(image)
+        if success {
+            await profileService.refreshProfile()
         }
     }
 }

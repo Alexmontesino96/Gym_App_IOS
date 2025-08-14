@@ -1,0 +1,13 @@
+"settings" = "Ajustes";
+"loading_profile" = "Cargando perfil...";
+"failed_load_profile" = "No se pudo cargar el perfil";
+"retry" = "Reintentar";
+"workouts" = "Entrenamientos";
+"weight" = "Peso";
+"height" = "Altura";
+"day_streak" = "%d días seguidos";
+"member" = "Miembro";
+"edit_profile" = "Editar Perfil";
+"sign_out" = "Cerrar sesión";
+"change_profile_picture" = "Cambiar foto de perfil";
+"edit_profile_color" = "Editar color del perfil";

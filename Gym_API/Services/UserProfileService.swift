@@ -20,86 +20,8 @@ class UserProfileService: ObservableObject {
     
     private init() {}
     
-    // Función utilitaria para configurar JSONDecoder con formato de fecha correcto
-    private func configuredJSONDecoder() -> JSONDecoder {
-        let decoder = JSONDecoder()
-        
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let container = try decoder.singleValueContainer()
-            let dateString = try container.decode(String.self)
-            
-            // Solución para iOS 18.6+ usando Date.ISO8601FormatStyle
-            if #available(iOS 15.0, *) {
-                // Intentar con diferentes configuraciones de ISO8601FormatStyle
-                let formatStyles: [Date.ISO8601FormatStyle] = [
-                    // Formato con fracciones de segundo
-                    Date.ISO8601FormatStyle(includingFractionalSeconds: true),
-                    // Formato estándar sin fracciones
-                    Date.ISO8601FormatStyle(includingFractionalSeconds: false),
-                    // Formato con zona horaria UTC
-                    Date.ISO8601FormatStyle(timeZone: TimeZone(secondsFromGMT: 0)!),
-                ]
-                
-                for formatStyle in formatStyles {
-                    do {
-                        let date = try formatStyle.parse(dateString)
-                        return date
-                    } catch {
-                        continue
-                    }
-                }
-                
-                // Intentar agregando 'Z' al final si no la tiene
-                if !dateString.hasSuffix("Z") && !dateString.contains("+") && !dateString.dropFirst(10).contains("-") {
-                    let dateStringWithZ = dateString + "Z"
-                    for formatStyle in formatStyles {
-                        do {
-                            let date = try formatStyle.parse(dateStringWithZ)
-                            return date
-                        } catch {
-                            continue
-                        }
-                    }
-                }
-            }
-            
-            // Fallback para versiones anteriores de iOS o si ISO8601FormatStyle falla
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0) // Las fechas del servidor vienen en UTC
-            
-            let dateFormats = [
-                "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS"
-            ]
-            
-            for format in dateFormats {
-                formatter.dateFormat = format
-                if let date = formatter.date(from: dateString) {
-                    return date
-                }
-            }
-            
-            // Último intento: agregar Z si no existe
-            if !dateString.hasSuffix("Z") && !dateString.contains("+") && !dateString.dropFirst(10).contains("-") {
-                let dateStringWithZ = dateString + "Z"
-                for format in dateFormats {
-                    formatter.dateFormat = format
-                    if let date = formatter.date(from: dateStringWithZ) {
-                        return date
-                    }
-                }
-            }
-            
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string '\(dateString)'. This appears to be an iOS 18.6 date decoding issue. Tried multiple formats including ISO8601FormatStyle.")
-        }
-        
-        return decoder
-    }
+    // Shared decoder
+    private func configuredJSONDecoder() -> JSONDecoder { DateDecoding.serverDecoder() }
     
     // MARK: - Get Auth Token
     private func getAuthToken() async -> String? {
@@ -128,8 +50,8 @@ class UserProfileService: ObservableObject {
             return
         }
         
-        // Obtener token de autorización
-        guard let token = await getAuthToken() else {
+        // Crear request autenticada
+        guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: false) else {
             await MainActor.run {
                 self.error = UserProfileError.noAuthToken
                 self.isLoading = false
@@ -137,16 +59,11 @@ class UserProfileService: ObservableObject {
             return
         }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("📱 [UserProfileService] HTTP Status: \(httpResponse.statusCode)")
+                debugLog("📱 [UserProfileService] HTTP Status: \(httpResponse.statusCode)")
                 
                 if httpResponse.statusCode == 200 {
                     do {
@@ -161,23 +78,17 @@ class UserProfileService: ObservableObject {
                             self.error = nil
                         }
                         
-                        print("✅ [UserProfileService] Profile loaded successfully")
-                        print("👤 [UserProfileService] User: \(profile.fullName)")
-                        print("📊 [UserProfileService] Weight: \(profile.weight ?? -1)")
-                        print("📊 [UserProfileService] Height: \(profile.height ?? -1)")
-                        print("📊 [UserProfileService] Age: \(profile.age ?? -1)")
-                        print("📝 [UserProfileService] Bio: '\(profile.bio ?? "nil")'")
-                        print("🎂 [UserProfileService] Birth Date: \(profile.birthDate?.description ?? "nil")")
+                        debugLog("✅ [UserProfileService] Profile loaded successfully")
                         
                     } catch {
-                        print("❌ [UserProfileService] Decoding error: \(error)")
+                        debugLog("❌ [UserProfileService] Decoding error: \(error)")
                         await MainActor.run {
                             self.error = UserProfileError.decodingError(error)
                             self.isLoading = false
                         }
                     }
                 } else {
-                    print("❌ [UserProfileService] HTTP Error: \(httpResponse.statusCode)")
+                    debugLog("❌ [UserProfileService] HTTP Error: \(httpResponse.statusCode)")
                     await MainActor.run {
                         self.error = UserProfileError.httpError(httpResponse.statusCode)
                         self.isLoading = false
@@ -185,7 +96,7 @@ class UserProfileService: ObservableObject {
                 }
             }
         } catch {
-            print("❌ [UserProfileService] Network error: \(error)")
+            debugLog("❌ [UserProfileService] Network error: \(error)")
             await MainActor.run {
                 self.error = UserProfileError.networkError(error)
                 self.isLoading = false

@@ -505,8 +505,9 @@ class GetStreamChatProvider: ChatProvider {
         }
         
         // Convertir canales a nuestro modelo con nombres enriquecidos
-        let conversations = channelListController.channels.map { channel in
-            var conversation = convertStreamChannel(channel)
+        var conversations: [ChatConversation] = []
+        for channel in channelListController.channels {
+            var conversation = await convertStreamChannel(channel)
             
             // Usar el nombre de la API si está disponible
             // Normalizar el ID del canal para buscar en roomNameMap
@@ -537,7 +538,7 @@ class GetStreamChatProvider: ChatProvider {
                 )
             }
             
-            return conversation
+            conversations.append(conversation)
         }
         
         print("✅ Conversaciones convertidas con nombres enriquecidos: \(conversations.count)")
@@ -591,7 +592,7 @@ class GetStreamChatProvider: ChatProvider {
         }
         
         print("✅ Canal creado exitosamente: \(channel.cid)")
-        let conversation = convertStreamChannel(channel)
+        let conversation = await convertStreamChannel(channel)
         print("✅ Conversación convertida: \(conversation.id)")
         
         return conversation
@@ -783,13 +784,30 @@ class GetStreamChatProvider: ChatProvider {
         )
     }
     
-    private func convertStreamChannel(_ streamChannel: StreamChat.ChatChannel) -> ChatConversation {
-        let members = streamChannel.lastActiveMembers.map { member in
-            ChatUser(
-                id: member.id,
-                name: member.name ?? "Usuario",
-                avatarURL: member.imageURL?.absoluteString
-            )
+    private func convertStreamChannel(_ streamChannel: StreamChat.ChatChannel) async -> ChatConversation {
+        // Map Stream members and enrich with app profile pictures if Stream has none
+        let members: [ChatUser] = await withTaskGroup(of: ChatUser.self, returning: [ChatUser].self) { group in
+            for member in streamChannel.lastActiveMembers {
+                group.addTask {
+                    let streamAvatar = member.imageURL?.absoluteString
+                    var finalAvatar = streamAvatar
+                    if finalAvatar == nil || finalAvatar?.isEmpty == true {
+                        let normalized = member.id.replacingOccurrences(of: "user_", with: "")
+                        if let internalId = Int(normalized) {
+                            let pic = await MainActor.run { ChatService.shared.gymMembersCache[internalId]?.picture }
+                            if let p = pic, !p.isEmpty { finalAvatar = p }
+                        }
+                    }
+                    return ChatUser(
+                        id: member.id,
+                        name: member.name ?? "Usuario",
+                        avatarURL: finalAvatar
+                    )
+                }
+            }
+            var result: [ChatUser] = []
+            for await user in group { result.append(user) }
+            return result
         }
         
         let lastMessage = streamChannel.latestMessages.first.map { 
@@ -923,7 +941,7 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
     
     nonisolated func channelController(_ channelController: ChatChannelController, didUpdateChannel channel: EntityChange<StreamChat.ChatChannel>) {
         Task { @MainActor in
-            let conversation = convertStreamChannel(channel.item)
+            let conversation = await convertStreamChannel(channel.item)
             let update = ConversationUpdate(type: .updated, conversation: conversation)
             _conversationUpdates.send(update)
         }

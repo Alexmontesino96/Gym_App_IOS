@@ -102,6 +102,7 @@ struct UnifiedProfileView: View {
                             // Quick Settings & Actions
                             SocialQuickActions(
                                 themeManager: themeManager,
+                                onEditProfileRequest: { showingEditProfile = true },
                                 onSettingsRequest: { showingSettings = true },
                                 onThemeChangeRequest: onThemeChangeRequest,
                                 onGymSelectorRequest: { showingGymSelector = true },
@@ -145,6 +146,10 @@ struct UnifiedProfileView: View {
                     .environmentObject(themeManager)
                     .environmentObject(authService)
                     .environmentObject(profileService)
+            }
+            .sheet(isPresented: $showingEditProfile) {
+                EditProfileSheet()
+                    .environmentObject(themeManager)
             }
             .sheet(isPresented: $showingGymSelector) {
                 UnifiedGymSelectorModal(
@@ -481,6 +486,8 @@ struct SocialStatCard: View {
                 .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                 .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(title): \(value)"))
     }
 }
 
@@ -800,6 +807,8 @@ struct QuickActionCard: View {
             onPress: { isPressed = true },
             onRelease: { isPressed = false }
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(title))
     }
 }
 
@@ -1542,6 +1551,7 @@ struct RecommendationCard: View {
 // MARK: - Social Quick Actions
 struct SocialQuickActions: View {
     let themeManager: ThemeManager
+    let onEditProfileRequest: () -> Void
     let onSettingsRequest: () -> Void
     let onThemeChangeRequest: () -> Void
     let onGymSelectorRequest: () -> Void
@@ -1564,10 +1574,10 @@ struct SocialQuickActions: View {
             // Main action buttons in grid layout
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
                 SocialActionButton(
-                    title: "Edit Profile",
+                    title: NSLocalizedString("edit_profile", comment: "Edit Profile"),
                     icon: "person.crop.circle",
                     color: .blue,
-                    action: {},
+                    action: onEditProfileRequest,
                     themeManager: themeManager
                 )
                 
@@ -1681,6 +1691,8 @@ struct SocialActionButton: View {
             onPress: { isPressed = true },
             onRelease: { isPressed = false }
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(title))
     }
 }
 
