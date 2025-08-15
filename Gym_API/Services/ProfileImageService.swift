@@ -23,24 +23,32 @@ class ProfileImageService: ObservableObject {
     
     // MARK: - Upload Profile Image
     func uploadProfileImage(_ image: UIImage) async -> Bool {
+        let startTime = Date()
         isUploading = true
         uploadError = nil
+        let currentUserIdLog = authService?.user?.id ?? "unknown_user"
+        let currentUserNameLog = authService?.user?.name ?? "Usuario"
+        print("🖼️ Iniciando subida de imagen de perfil | userId=\(currentUserIdLog) name=\(currentUserNameLog)")
+        print("📐 Dimensiones originales: \(Int(image.size.width))x\(Int(image.size.height)) px")
         
         // Validate authentication
         guard let authService = authService else {
             uploadError = "No se encontró servicio de autenticación"
+            print("❌ Upload abortado: sin servicio de autenticación")
             isUploading = false
             return false
         }
         
         guard let token = await authService.getValidAccessToken() else {
             uploadError = "No se encontró token de autorización válido"
+            print("❌ Upload abortado: token inválido o ausente")
             isUploading = false
             return false
         }
         
         // Validate image
         guard validateImage(image) else {
+            print("❌ Validación de imagen fallida: \(uploadError ?? "Razón desconocida")")
             isUploading = false
             return false
         }
@@ -48,17 +56,20 @@ class ProfileImageService: ObservableObject {
         // Comprimir imagen
         guard let imageData = compressImage(image) else {
             uploadError = "Error al procesar la imagen"
+            print("❌ Error al comprimir/redimensionar la imagen")
             isUploading = false
             return false
         }
         
         // Validate compressed image size
         guard validateImageData(imageData) else {
+            print("❌ Validación de tamaño de imagen fallida: \(uploadError ?? "Razón desconocida")")
             isUploading = false
             return false
         }
         
         do {
+            print(String(format: "📦 Tamaño comprimido: %.2f MB", Double(imageData.count) / (1024.0 * 1024.0)))
             let success = try await performUploadWithRetry(imageData: imageData, token: token)
             
             // If upload successful and we have a new image URL, sync with Stream Chat
@@ -67,9 +78,13 @@ class ProfileImageService: ObservableObject {
             }
             
             isUploading = false
+            let elapsed = Date().timeIntervalSince(startTime)
+            print(String(format: "⏱️ Upload finalizado (%@) en %.2fs", success ? "OK" : "FALLÓ", elapsed))
             return success
         } catch {
             uploadError = "Error al subir imagen: \(error.localizedDescription)"
+            let elapsed = Date().timeIntervalSince(startTime)
+            print(String(format: "🚨 Upload lanzó error en %.2fs: %@", elapsed, error.localizedDescription))
             isUploading = false
             return false
         }
@@ -135,6 +150,7 @@ class ProfileImageService: ObservableObject {
         // Agregar header X-Gym-ID
         let gymId = GymService.shared.currentGymId ?? 4
         request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+        print("🏋️‍♂️ Header X-Gym-ID: \(gymId)")
         
         // Crear body multipart
         let httpBody = createMultipartBody(imageData: imageData, boundary: boundary)
@@ -167,8 +183,10 @@ class ProfileImageService: ObservableObject {
             if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let detail = errorData["detail"] as? String {
                 uploadError = detail
+                print("❌ Server error detail: \(detail)")
             } else {
                 uploadError = "Error del servidor: \(httpResponse.statusCode)"
+                print("❌ Server error: status=\(httpResponse.statusCode)")
             }
             return false
         }
@@ -206,13 +224,20 @@ class ProfileImageService: ObservableObject {
             image.draw(in: CGRect(origin: .zero, size: newSize))
             resizedImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
             UIGraphicsEndImageContext()
+            print("🪄 Redimensionada imagen: \(Int(image.size.width))x\(Int(image.size.height)) → \(Int(newSize.width))x\(Int(newSize.height)) px")
         } else {
             resizedImage = image
         }
         
         // Comprimir con calidad ajustable
         let compressionQuality: CGFloat = 0.8
-        return resizedImage.jpegData(compressionQuality: compressionQuality)
+        let data = resizedImage.jpegData(compressionQuality: compressionQuality)
+        if let data = data {
+            print(String(format: "🗜️ Compresión JPEG calidad=%.2f, bytes=%.0f", compressionQuality, Double(data.count)))
+        } else {
+            print("❌ Falló la conversión a JPEG")
+        }
+        return data
     }
     
     // MARK: - Validation Methods
@@ -221,16 +246,10 @@ class ProfileImageService: ObservableObject {
         let minDimension: CGFloat = 100
         if image.size.width < minDimension || image.size.height < minDimension {
             uploadError = "La imagen debe ser al menos de \(Int(minDimension))x\(Int(minDimension)) píxeles"
+            print("⚠️ Imagen demasiado pequeña: \(Int(image.size.width))x\(Int(image.size.height)) px")
             return false
         }
-        
-        // Check maximum dimensions
-        let maxDimension: CGFloat = 4000
-        if image.size.width > maxDimension || image.size.height > maxDimension {
-            uploadError = "La imagen es demasiado grande. Máximo \(Int(maxDimension))x\(Int(maxDimension)) píxeles"
-            return false
-        }
-        
+        // No rechazamos por dimensiones máximas aquí; se redimensiona en compressImage(_:)
         return true
     }
     
@@ -240,6 +259,7 @@ class ProfileImageService: ObservableObject {
         if data.count > maxSizeInBytes {
             let sizeInMB = Double(data.count) / (1024.0 * 1024.0)
             uploadError = String(format: "La imagen es demasiado grande (%.1fMB). Máximo permitido: 10MB", sizeInMB)
+            print(String(format: "⚠️ Archivo demasiado grande: %.2fMB (límite 10MB)", sizeInMB))
             return false
         }
         
@@ -247,6 +267,7 @@ class ProfileImageService: ObservableObject {
         let minSizeInBytes = 1024 // 1KB
         if data.count < minSizeInBytes {
             uploadError = "La imagen es demasiado pequeña o está corrupta"
+            print("⚠️ Archivo demasiado pequeño/corrupto: \(data.count) bytes")
             return false
         }
         

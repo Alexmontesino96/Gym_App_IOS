@@ -254,6 +254,14 @@ let pendingOps = ChatSyncCoordinator.shared.pendingOperations
 let cacheStats = await UnifiedChatCacheManager.shared.refreshCacheStats()
 ```
 
+### Logout y cambio de usuario
+
+- El logout limpia automáticamente el estado de chat:
+  - Desconecta y resetea `ChatProviderManager`.
+  - Elimina cachés de mensajes (`MessageCacheManager.clearAllCache()`).
+  - Borra conversaciones cacheadas (`UserDefaults: CachedConversations`) y mapa de nombres de salas (`ChatRoomNamesCache`).
+- Al iniciar sesión con otro usuario, el sistema vuelve a inicializar el proveedor y carga conversaciones del nuevo usuario.
+
 ### Exportar Reporte de Rendimiento
 
 ```swift

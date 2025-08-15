@@ -263,6 +263,22 @@ struct UnifiedMessagesView: View {
                                 selectedConversation = conversation
                                 showingChat = true
                             }
+                            // Marcar localmente como leído para refrescar el badge en la lista
+                            if let idx = conversations.firstIndex(where: { $0.id == conversation.id }) {
+                                let c = conversations[idx]
+                                let updated = ChatConversation(
+                                    id: c.id,
+                                    name: c.name,
+                                    type: c.type,
+                                    members: c.members,
+                                    lastMessage: c.lastMessage,
+                                    lastActivity: c.lastActivity,
+                                    unreadCount: 0,
+                                    metadata: c.metadata
+                                )
+                                conversations[idx] = updated
+                                saveConversationsToCache(conversations)
+                            }
                             print("📱 Navegando a chat con conversación: \(selectedConversation?.id ?? "nil")")
                             print("🔄 showingChat = \(showingChat)")
                         },

@@ -270,8 +270,12 @@ struct UserHeaderView: View {
         }
         .padding(.top, 10)
         .sheet(isPresented: $showingImagePicker) {
-            ImagePickerSheet(selectedImage: $selectedImage, isPresented: $showingImagePicker)
-                .environmentObject(themeManager)
+            EnhancedImagePickerSheet(
+                selectedImage: $selectedImage,
+                isPresented: $showingImagePicker
+            )
+            .environmentObject(themeManager)
+            .interactiveDismissDisabled(true)
         }
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage {

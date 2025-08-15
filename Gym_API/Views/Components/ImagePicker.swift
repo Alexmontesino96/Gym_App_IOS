@@ -204,8 +204,18 @@ struct EnhancedImagePickerSheet: View {
         NavigationView {
             Group {
                 if let previewImage = tempSelectedImage, showingPreview {
-                    // Preview mode
-                    imagePreviewView(image: previewImage)
+                    // Crop editor mode
+                    CircularImageCropperView(
+                        image: previewImage,
+                        onCancel: {
+                            tempSelectedImage = nil
+                            showingPreview = false
+                        },
+                        onCropped: { cropped in
+                            selectedImage = cropped
+                            isPresented = false
+                        }
+                    )
                 } else {
                     // Picker mode
                     imageSelectionView

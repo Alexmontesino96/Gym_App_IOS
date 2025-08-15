@@ -53,63 +53,89 @@ struct ProfileCompletionView: View {
         VStack(spacing: 0) {
             Spacer()
             
-            VStack(spacing: 32) {
-                // Loading Animation
-                VStack(spacing: 20) {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2), lineWidth: 4)
-                            .frame(width: 80, height: 80)
-                        
-                        Circle()
-                            .trim(from: 0, to: 0.7)
-                            .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), 
-                                    style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                            .frame(width: 80, height: 80)
-                            .rotationEffect(.degrees(-90))
-                            .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: showingIntro)
-                    }
+            VStack(spacing: 40) {
+                // Main Icon with gradient background
+                ZStack {
+                    // Gradient background circle
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.dynamicAccent(theme: themeManager.currentTheme),
+                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(width: 120, height: 120)
+                    .clipShape(Circle())
+                    .shadow(color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), 
+                            radius: 20, x: 0, y: 10)
                     
-                    Image(systemName: "person.crop.circle.fill.badge.plus")
-                        .font(.system(size: 50, weight: .medium))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    Image(systemName: "figure.strengthtraining.traditional")
+                        .font(.system(size: 60, weight: .medium))
+                        .foregroundColor(.white)
                 }
                 
                 // Welcome Message
                 VStack(spacing: 16) {
-                    Text("Creating Your Experience")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text("Complete Your Profile")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .multilineTextAlignment(.center)
                     
-                    Text("We need some basic information to create an amazing personalized experience tailored just for you!")
+                    Text("Help us personalize your fitness journey")
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
-                        .lineLimit(nil)
                 }
+                
+                // Info cards
+                VStack(spacing: 16) {
+                    ProfileInfoRow(icon: "person.fill", text: "Basic Information", theme: themeManager.currentTheme)
+                    ProfileInfoRow(icon: "ruler.fill", text: "Physical Metrics", theme: themeManager.currentTheme)
+                    ProfileInfoRow(icon: "text.quote", text: "About You (Optional)", theme: themeManager.currentTheme)
+                }
+                .padding(.horizontal, 40)
             }
             
             Spacer()
             
-            // Continue Button
-            Button(action: {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                    showingIntro = false
+            // Bottom section with progress and button
+            VStack(spacing: 24) {
+                // Progress dots indicator
+                HStack(spacing: 8) {
+                    ForEach(0..<4) { index in
+                        Circle()
+                            .fill(index == 0 ? 
+                                  Color.dynamicAccent(theme: themeManager.currentTheme) :
+                                  Color.dynamicText(theme: themeManager.currentTheme).opacity(0.2))
+                            .frame(width: 8, height: 8)
+                            .animation(.easeInOut, value: currentStep)
+                    }
                 }
-            }) {
-                Text("Let's Get Started")
-                    .font(.system(size: 18, weight: .semibold))
+                
+                // Continue Button with gradient
+                Button(action: {
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                        showingIntro = false
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Text("Let's Get Started")
+                            .font(.system(size: 18, weight: .semibold))
+                        
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
                     .background(
                         LinearGradient(
-                            colors: [
+                            gradient: Gradient(colors: [
                                 Color.dynamicAccent(theme: themeManager.currentTheme),
                                 Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.8)
-                            ],
+                            ]),
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -117,8 +143,20 @@ struct ProfileCompletionView: View {
                     .cornerRadius(16)
                     .shadow(color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), 
                             radius: 8, x: 0, y: 4)
+                }
+                .padding(.horizontal, 32)
+                
+                // Skip option
+                Button(action: {
+                    // Permitir saltar el onboarding por ahora
+                    onCompletion()
+                }) {
+                    Text("Skip for now")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                        .underline()
+                }
             }
-            .padding(.horizontal, 32)
             .padding(.bottom, 50)
         }
     }
@@ -156,6 +194,9 @@ struct ProfileCompletionView: View {
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             .animation(.easeInOut, value: currentStep)
+            
+            // Spacer para separar el contenido del formulario de los botones
+            Spacer(minLength: 32)
             
             // Navigation Buttons
             VStack(spacing: 16) {
@@ -338,7 +379,8 @@ struct ProfileCompletionView: View {
                 }
             }
             
-            Spacer()
+            // Agregar más espaciado en la vista de estadísticas físicas para separar de los botones
+            Spacer(minLength: 24)
         }
         .padding(.horizontal, 32)
     }
@@ -518,7 +560,44 @@ struct DatePickerSheet: View {
     }
 }
 
+// MARK: - Supporting Views
+struct ProfileInfoRow: View {
+    let icon: String
+    let text: String
+    let theme: ThemeManager.AppTheme
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(Color.dynamicAccent(theme: theme))
+                .frame(width: 30)
+            
+            Text(text)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color.dynamicText(theme: theme).opacity(0.8))
+            
+            Spacer()
+            
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundColor(Color.dynamicText(theme: theme).opacity(0.2))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.dynamicSurface(theme: theme))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.dynamicText(theme: theme).opacity(0.1), lineWidth: 1)
+                )
+        )
+    }
+}
+
 #Preview {
     ProfileCompletionView(onCompletion: {})
         .environmentObject(AuthServiceDirect())
+        .environmentObject(ThemeManager())
 }

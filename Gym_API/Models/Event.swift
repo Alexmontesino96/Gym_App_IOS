@@ -199,7 +199,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
     let goals: String?
     let healthConditions: String?
     let gymRole: String?
-    let qrCode: String
+    let qrCode: String?
     let createdAt: Date
     let updatedAt: Date
     let auth0Id: String

@@ -140,6 +140,7 @@ struct UnifiedProfileView: View {
                     isPresented: $showingImagePicker
                 )
                 .environmentObject(themeManager)
+                .interactiveDismissDisabled(true)
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView(onThemeChangeRequest: onThemeChangeRequest)

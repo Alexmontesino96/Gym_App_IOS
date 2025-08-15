@@ -44,6 +44,8 @@ struct OptimizedChatView: View {
             loadMessages()
             setupServerUpdateListener()
             setupMessageUpdatesListener()
+            // Marcar como leído al entrar al chat
+            markConversationAsRead()
         }
         .onDisappear {
             // Limpiar observers para evitar memory leaks
@@ -382,6 +384,10 @@ struct OptimizedChatView: View {
                     if !isDuplicate {
                         self.messages.append(update.message)
                         print("➕ Nuevo mensaje agregado: \(update.message.id)")
+                        // Si estamos viendo este chat y el mensaje es de otro usuario, marcar leído
+                        if !update.message.isFromCurrentUser {
+                            markConversationAsRead()
+                        }
                     } else {
                         print("⚠️ Ignorando mensaje duplicado: \(update.message.text.prefix(20))...")
                     }
@@ -406,6 +412,20 @@ struct OptimizedChatView: View {
         }
         
         return true
+    }
+
+    /// Marca la conversación como leída en el proveedor (GetStream)
+    private func markConversationAsRead() {
+        let lastMessageId = sortedMessages.last?.id ?? ""
+        Task {
+            guard let provider = chatProviderManager.currentProvider else { return }
+            do {
+                try await provider.markAsRead(messagesUpTo: lastMessageId, in: conversationId)
+                print("✅ Conversación marcada como leída: \(conversationId)")
+            } catch {
+                print("❌ Error al marcar como leído: \(error)")
+            }
+        }
     }
 }
 

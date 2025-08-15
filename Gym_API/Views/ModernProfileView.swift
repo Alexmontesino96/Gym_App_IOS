@@ -106,6 +106,7 @@ struct ModernProfileView: View {
                     isPresented: $showingImagePicker
                 )
                 .environmentObject(themeManager)
+                .interactiveDismissDisabled(true)
             }
         }
         .onAppear {

@@ -32,6 +32,7 @@ struct AuthenticatedView: View {
                             // Después de completar el perfil, continuar con gym selection
                         }
                         .environmentObject(authService)
+                        .environmentObject(themeManager)
                     } else {
                         let _ = print("🔍 Profile completo, verificando gym selection...")
                         let _ = print("🔍 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
@@ -145,6 +146,24 @@ struct AuthenticatedView: View {
             await profileService.fetchUserProfile()
             
             await MainActor.run {
+                // Log detallado del perfil recibido
+                if let profile = profileService.userProfile {
+                    print("🔧 [AuthenticatedView] Perfil cargado desde servidor:")
+                    print("🔧 [AuthenticatedView] - ID: \(profile.id)")
+                    print("🔧 [AuthenticatedView] - Email: \(profile.email)")
+                    print("🔧 [AuthenticatedView] - FirstName: '\(profile.firstName)'")
+                    print("🔧 [AuthenticatedView] - LastName: '\(profile.lastName)'")
+                    print("🔧 [AuthenticatedView] - Height: \(profile.height?.description ?? "nil")")
+                    print("🔧 [AuthenticatedView] - Weight: \(profile.weight?.description ?? "nil")")
+                    print("🔧 [AuthenticatedView] - BirthDate: \(profile.birthDate?.description ?? "nil")")
+                    print("🔧 [AuthenticatedView] - Bio: \(profile.bio?.description ?? "nil")")
+                    print("🔧 [AuthenticatedView] - Auth0ID: \(profile.auth0Id)")
+                    print("🔧 [AuthenticatedView] - CreatedAt: \(profile.createdAt)")
+                    print("🔧 [AuthenticatedView] - UpdatedAt: \(profile.updatedAt)")
+                } else {
+                    print("🔧 [AuthenticatedView] ❌ No se pudo cargar el perfil del usuario")
+                }
+                
                 let isComplete = profileService.isProfileComplete()
                 print("🔧 Profile complete: \(isComplete)")
                 

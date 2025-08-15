@@ -23,6 +23,13 @@ class UserProfileService: ObservableObject {
     // Shared decoder
     private func configuredJSONDecoder() -> JSONDecoder { DateDecoding.serverDecoder() }
     
+    // MARK: - Clear cached profile
+    func clear() {
+        userProfile = nil
+        error = nil
+        isLoading = false
+    }
+    
     // MARK: - Get Auth Token
     private func getAuthToken() async -> String? {
         guard let authService = authService else {
@@ -53,6 +60,7 @@ class UserProfileService: ObservableObject {
         // Crear request autenticada
         guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: false) else {
             await MainActor.run {
+                self.userProfile = nil
                 self.error = UserProfileError.noAuthToken
                 self.isLoading = false
             }
@@ -83,6 +91,7 @@ class UserProfileService: ObservableObject {
                     } catch {
                         debugLog("❌ [UserProfileService] Decoding error: \(error)")
                         await MainActor.run {
+                            self.userProfile = nil
                             self.error = UserProfileError.decodingError(error)
                             self.isLoading = false
                         }
@@ -90,6 +99,7 @@ class UserProfileService: ObservableObject {
                 } else {
                     debugLog("❌ [UserProfileService] HTTP Error: \(httpResponse.statusCode)")
                     await MainActor.run {
+                        self.userProfile = nil
                         self.error = UserProfileError.httpError(httpResponse.statusCode)
                         self.isLoading = false
                     }
@@ -98,6 +108,7 @@ class UserProfileService: ObservableObject {
         } catch {
             debugLog("❌ [UserProfileService] Network error: \(error)")
             await MainActor.run {
+                self.userProfile = nil
                 self.error = UserProfileError.networkError(error)
                 self.isLoading = false
             }
@@ -192,14 +203,91 @@ class UserProfileService: ObservableObject {
     }
     
     /// Verifica si el perfil del usuario tiene los campos básicos completos
+    /// Criterios: nombre/apellido no vacíos, altura/peso > 0, edad dentro de un rango razonable
     func isProfileComplete() -> Bool {
-        guard let profile = userProfile else { return false }
+        guard let profile = userProfile else { 
+            print("🔍 [isProfileComplete] userProfile es nil")
+            return false 
+        }
         
-        return !profile.firstName.isEmpty &&
-               !profile.lastName.isEmpty &&
-               profile.height != nil &&
-               profile.weight != nil &&
-               profile.birthDate != nil
+        print("🔍 [isProfileComplete] Verificando perfil para usuario: \(profile.fullName)")
+        print("🔍 [isProfileComplete] firstName: '\(profile.firstName)'")
+        print("🔍 [isProfileComplete] lastName: '\(profile.lastName)'")
+        print("🔍 [isProfileComplete] height: \(profile.height?.description ?? "nil")")
+        print("🔍 [isProfileComplete] weight: \(profile.weight?.description ?? "nil")")
+        print("🔍 [isProfileComplete] birthDate: \(profile.birthDate?.description ?? "nil")")
+        
+        let firstValid = !profile.firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let lastValid = !profile.lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        
+        print("🔍 [isProfileComplete] firstValid: \(firstValid)")
+        print("🔍 [isProfileComplete] lastValid: \(lastValid)")
+        
+        let heightValid: Bool = {
+            if let h = profile.height { 
+                let valid = h > 0
+                print("🔍 [isProfileComplete] height \(h) > 0: \(valid)")
+                return valid
+            }
+            print("🔍 [isProfileComplete] height es nil")
+            return false
+        }()
+        
+        let weightValid: Bool = {
+            if let w = profile.weight { 
+                let valid = w > 0
+                print("🔍 [isProfileComplete] weight \(w) > 0: \(valid)")
+                return valid
+            }
+            print("🔍 [isProfileComplete] weight es nil")
+            return false
+        }()
+        
+        let ageValid: Bool = {
+            guard let birth = profile.birthDate else { 
+                print("🔍 [isProfileComplete] birthDate es nil")
+                return false 
+            }
+            
+            let now = Date()
+            let calendar = Calendar.current
+            
+            // Usar un cálculo más robusto de edad que maneja bien las zonas horarias
+            let ageComponents = calendar.dateComponents([.year, .month, .day], from: birth, to: now)
+            let years = ageComponents.year ?? 0
+            
+            // También calcular la edad usando solo años para comparar
+            let birthYear = calendar.component(.year, from: birth)
+            let currentYear = calendar.component(.year, from: now)
+            let alternativeAge = currentYear - birthYear
+            
+            // Usar un rango más amplio y flexible para la validación
+            let ageRange = (1...120) // Rango más amplio para evitar falsos negativos
+            let valid = ageRange.contains(years) || ageRange.contains(alternativeAge)
+            
+            print("🔍 [isProfileComplete] birthDate: \(birth)")
+            print("🔍 [isProfileComplete] currentDate: \(now)")
+            print("🔍 [isProfileComplete] calculatedAge (dateComponents): \(years) años")
+            print("🔍 [isProfileComplete] alternativeAge (year difference): \(alternativeAge) años")
+            print("🔍 [isProfileComplete] birthYear: \(birthYear)")
+            print("🔍 [isProfileComplete] currentYear: \(currentYear)")
+            print("🔍 [isProfileComplete] ageRange: \(ageRange)")
+            print("🔍 [isProfileComplete] ageValid: \(valid)")
+            
+            return valid
+        }()
+        
+        let allValid = firstValid && lastValid && heightValid && weightValid && ageValid
+        
+        print("🔍 [isProfileComplete] Resumen:")
+        print("🔍 [isProfileComplete] - firstValid: \(firstValid)")
+        print("🔍 [isProfileComplete] - lastValid: \(lastValid)")
+        print("🔍 [isProfileComplete] - heightValid: \(heightValid)")
+        print("🔍 [isProfileComplete] - weightValid: \(weightValid)")
+        print("🔍 [isProfileComplete] - ageValid: \(ageValid)")
+        print("🔍 [isProfileComplete] - RESULTADO FINAL: \(allValid)")
+        
+        return allValid
     }
     
     /// Actualiza el color de fondo del perfil en el servidor

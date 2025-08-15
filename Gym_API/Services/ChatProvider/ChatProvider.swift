@@ -234,6 +234,19 @@ class ChatProviderManager: ObservableObject {
         
         try await provider.connect(credentials: credentials)
     }
+
+    /// Resetea el estado del chat provider (para logout/cambio de usuario)
+    func reset() async {
+        print("🧹 ChatProviderManager.reset() - limpiando estado del proveedor de chat")
+        // Desconectar proveedor actual
+        await currentProvider?.disconnect()
+        // Limpiar observadores y estado
+        cancellables.removeAll()
+        currentProvider = nil
+        isInitialized = false
+        initializationError = nil
+        print("✅ ChatProviderManager reseteado")
+    }
 }
 
 // MARK: - Provider Types

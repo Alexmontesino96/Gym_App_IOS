@@ -49,6 +49,9 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     @Published var biometricAuthAvailable = false
     @Published var biometricAuthEnabled = false
     
+    // Control de refresh de primer login (para permisos de Auth0)
+    private let firstLoginRefreshKey = "auth0_first_login_refreshed"
+    
     // Biometric authentication context - temporarily disabled
     // private let biometricContext = LAContext()
     
@@ -433,6 +436,37 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         return isAuthenticated
     }
     
+    // MARK: - Primer login: refresh forzado para permisos
+    private func scheduleFirstLoginPermissionsRefresh() {
+        // Ejecutar en background para no bloquear el flujo de UI
+        Task.detached { [weak self] in
+            // Esperar unos segundos para dar tiempo a Actions/Rules en Auth0
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s
+            await self?.performFirstLoginForcedRefreshIfNeeded()
+        }
+    }
+    
+    @MainActor
+    private func performFirstLoginForcedRefreshIfNeeded() async {
+        let alreadyRefreshed = UserDefaults.standard.bool(forKey: firstLoginRefreshKey)
+        guard !alreadyRefreshed else { return }
+        
+        guard let refreshToken = KeychainService.shared.getToken(type: .refreshToken) else {
+            print("⚠️ No hay refresh token para realizar forced refresh post-login")
+            return
+        }
+        
+        print("🔄 Forced refresh post-login para capturar permisos de Auth0 (issue conocido)")
+        do {
+            let newCreds = try await NetworkRetryService.shared.executeTokenRefresh(refreshToken: refreshToken)
+            saveCredentials(newCreds)
+            UserDefaults.standard.set(true, forKey: firstLoginRefreshKey)
+            print("✅ Forced refresh post-login completado. Nuevo access token almacenado.")
+        } catch {
+            print("⚠️ Forced refresh post-login falló: \(error.localizedDescription)")
+        }
+    }
+    
     /// Limpia todos los datos del usuario anterior
     private func clearAllUserData() async {
         print("🧹 Limpiando todos los datos del usuario anterior...")
@@ -448,9 +482,19 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             
             // Limpiar datos de chat
             ChatService.shared.clearAllData()
+
+            // Limpiar caché de mensajes local del chat (per-user)
+            MessageCacheManager.shared.clearAllCache()
+
+            // Borrar conversaciones cacheadas y nombres de salas en UserDefaults
+            UserDefaults.standard.removeObject(forKey: "CachedConversations")
+            UserDefaults.standard.removeObject(forKey: "ChatRoomNamesCache")
             
             // Limpiar datos de clases (si existe instancia)
             ClassService.shared?.clearCache()
+            
+            // Limpiar perfil de usuario cacheado
+            UserProfileService.shared.clear()
             
             // Limpiar datos de eventos se hace via NotificationCenter
             // EventService escucha .userDidLogout y limpia automáticamente
@@ -461,6 +505,9 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             // Limpiar UserDefaults específicos de usuario
             clearUserSpecificDefaults()
         }
+
+        // Resetear proveedor de chat (desconecta y elimina estado)
+        await ChatProviderManager.shared.reset()
         
         print("✅ Datos del usuario anterior limpiados")
     }
@@ -493,7 +540,10 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             "lastChatMessagesUpdate",
             "lastChatMessagesData",
             "CachedMembershipStatus",
-            "CachedMembershipDate"
+            "CachedMembershipDate",
+            // Asegurar que se eliminen claves de chat persistentes
+            "CachedConversations",
+            "ChatRoomNamesCache"
         ]
         
         for key in userDefaultsKeys {
@@ -702,6 +752,12 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             // Save credentials securely
             saveCredentials(credentials)
             saveUserInfo(user)
+            
+            // Marcar que aún no se hizo el refresh de primer login
+            UserDefaults.standard.set(false, forKey: firstLoginRefreshKey)
+            
+            // Programar un refresh forzado para capturar permisos que llegan tarde (issue conocido de Auth0)
+            scheduleFirstLoginPermissionsRefresh()
             
             print("✅ Login exitoso con retry logic")
             print("🔹 Usuario: \(user.name)")
