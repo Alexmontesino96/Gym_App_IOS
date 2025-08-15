@@ -24,6 +24,7 @@ class GetStreamChatProvider: ChatProvider {
     private var channelControllers: [String: ChatChannelController] = [:]
     private var cancellables = Set<AnyCancellable>()
     private var authService: AuthServiceProtocol?
+    private var lastChannelSync: [String: Date] = [:]
     
     // Public accessor for current user ID
     var currentUserId: String? {
@@ -304,15 +305,28 @@ class GetStreamChatProvider: ChatProvider {
             throw ChatProviderError.conversationNotFound
         }
         
-        // Sincronizar canal primero
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            channelController.synchronize { error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+        // Sincronizar canal sólo si no se ha hecho recientemente (evita latencia innecesaria)
+        let now = Date()
+        let needsSync: Bool
+        if let last = lastChannelSync[conversationId] {
+            needsSync = now.timeIntervalSince(last) > 10 // 10s umbral
+        } else {
+            needsSync = true
+        }
+        
+        if needsSync {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                channelController.synchronize { error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        self.lastChannelSync[conversationId] = Date()
+                        continuation.resume()
+                    }
                 }
             }
+        } else {
+            print("⏭️ Omitiendo synchronize reciente para: \(conversationId)")
         }
         
         // Convertir mensajes de Stream a nuestro modelo

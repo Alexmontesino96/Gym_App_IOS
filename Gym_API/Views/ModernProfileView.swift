@@ -618,8 +618,8 @@ struct ModernProfileView: View {
     
     private func loadData() {
         Task {
-            // Cargar perfil primero
-            await profileService.fetchUserProfile()
+            // Cargar perfil primero (evitar recargas innecesarias)
+            await profileService.fetchUserProfileIfStale()
             
             // Asegurar que GymService esté inicializado con los datos del usuario
             await GymService.shared.getMyGyms()

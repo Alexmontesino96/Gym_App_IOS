@@ -194,7 +194,7 @@ struct UnifiedProfileView: View {
     private func loadProfileData() async {
         async let membershipTask = membershipService.getMyMembershipStatus()
         async let gymTask = gymService.getMyGyms()
-        async let profileTask = profileService.fetchUserProfile()
+        async let profileTask = profileService.fetchUserProfileIfStale()
         
         await membershipTask
         await gymTask
@@ -203,7 +203,7 @@ struct UnifiedProfileView: View {
     
     private func refreshProfile() async {
         refreshID = UUID()
-        await profileService.fetchUserProfile()
+        await profileService.fetchUserProfileIfStale(force: true)
         await loadProfileData()
     }
     

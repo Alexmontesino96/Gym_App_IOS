@@ -70,7 +70,9 @@ class ImageLoaderService: ObservableObject {
         request.setValue("*/*", forHTTPHeaderField: "Accept")
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
         
+        #if DEBUG
         print("🔧 [ImageLoader] Request headers: \(request.allHTTPHeaderFields ?? [:])")
+        #endif
         
         URLSession.shared.dataTaskPublisher(for: request)
             .receive(on: DispatchQueue.main)
@@ -87,13 +89,17 @@ class ImageLoaderService: ObservableObject {
                 },
                 receiveValue: { [weak self] data, response in
                     if let httpResponse = response as? HTTPURLResponse {
+                        #if DEBUG
                         print("🌐 [ImageLoader] HTTP Status: \(httpResponse.statusCode)")
                         print("🌐 [ImageLoader] Content-Type: \(httpResponse.allHeaderFields["Content-Type"] ?? "unknown")")
                         print("🌐 [ImageLoader] Content-Length: \(httpResponse.allHeaderFields["Content-Length"] ?? "unknown")")
+                        #endif
                         
                         if httpResponse.statusCode != 200 {
+                            #if DEBUG
                             print("❌ [ImageLoader] HTTP Error: \(httpResponse.statusCode)")
                             print("🔍 [ImageLoader] Response data: \(String(data: data, encoding: .utf8) ?? "No readable data")")
+                            #endif
                             
                             self?.error = ImageLoaderError.httpError(httpResponse.statusCode)
                             return
@@ -101,15 +107,19 @@ class ImageLoaderService: ObservableObject {
                     }
                     
                     if let image = UIImage(data: data) {
+                        #if DEBUG
                         print("✅ [ImageLoader] Image loaded successfully, size: \(image.size)")
+                        #endif
                         self?.image = image
                         // Cache in memory with cost and disk
                         let cost = image.size.width * image.size.height * 4
                         Self.memoryCache.setObject(image, forKey: cacheKey as NSString, cost: Int(cost))
                         self?.saveToDisk(image: image, for: cacheKey)
                     } else {
+                        #if DEBUG
                         print("❌ [ImageLoader] Failed to create image from data")
                         print("🔍 [ImageLoader] Data size: \(data.count) bytes")
+                        #endif
                         self?.error = ImageLoaderError.invalidImageData
                     }
                 }

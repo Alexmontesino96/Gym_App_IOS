@@ -53,8 +53,8 @@ class ProfileImageService: ObservableObject {
             return false
         }
         
-        // Comprimir imagen
-        guard let imageData = compressImage(image) else {
+        // Comprimir imagen en background
+        guard let imageData = await compressImageAsync(image) else {
             uploadError = "Error al procesar la imagen"
             print("❌ Error al comprimir/redimensionar la imagen")
             isUploading = false
@@ -239,6 +239,16 @@ class ProfileImageService: ObservableObject {
         }
         return data
     }
+
+    // Ejecuta la compresión/redimensionado en background para no bloquear UI
+    private func compressImageAsync(_ image: UIImage) async -> Data? {
+        return await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let data = compressImageOffMain(image)
+                cont.resume(returning: data)
+            }
+        }
+    }
     
     // MARK: - Validation Methods
     private func validateImage(_ image: UIImage) -> Bool {
@@ -334,6 +344,30 @@ class ProfileImageService: ObservableObject {
             )
         }
     }
+}
+
+// MARK: - Off-main compression helper (not actor-isolated)
+private func compressImageOffMain(_ image: UIImage) -> Data? {
+    // Redimensionar imagen si es muy grande
+    let maxSize: CGFloat = 1024
+    let resizedImage: UIImage
+    
+    if image.size.width > maxSize || image.size.height > maxSize {
+        let ratio = min(maxSize / image.size.width, maxSize / image.size.height)
+        let newSize = CGSize(width: image.size.width * ratio, height: image.size.height * ratio)
+        
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        resizedImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
+        UIGraphicsEndImageContext()
+    } else {
+        resizedImage = image
+    }
+    
+    // Comprimir con calidad ajustable
+    let compressionQuality: CGFloat = 0.8
+    let data = resizedImage.jpegData(compressionQuality: compressionQuality)
+    return data
 }
 
 // MARK: - Profile Image Error

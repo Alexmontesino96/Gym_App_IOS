@@ -217,9 +217,12 @@ struct HeroSection: View {
                     
                     // User avatar or default icon (cached)
                     Group {
-                        if let user = authService.user, let pictureUrl = user.picture {
-                            let normalizedId = user.id.replacingOccurrences(of: "user_", with: "").replacingOccurrences(of: "auth0|", with: "")
-                            CustomImageView(url: pictureUrl, cacheKey: "avatar_self_\(normalizedId)", size: 56) {
+                        if let urlString = resolvedAvatarURL(authService: authService), !urlString.isEmpty,
+                           let user = authService.user {
+                            let normalizedId = user.id
+                                .replacingOccurrences(of: "user_", with: "")
+                                .replacingOccurrences(of: "auth0|", with: "")
+                            CustomImageView(url: urlString, cacheKey: "avatar_self_\(normalizedId)", size: 56) {
                                 AnyView(
                                     Image(systemName: "person.fill")
                                         .font(.system(size: 28, weight: .semibold))
@@ -243,6 +246,31 @@ struct HeroSection: View {
         .accessibilityLabel("\(greeting), \(userName). \(motivationalQuestion)")
         .accessibilityAddTraits(.isHeader)
     }
+}
+
+// MARK: - Avatar URL Resolution Helper
+@MainActor
+private func resolvedAvatarURL(authService: AuthServiceDirect) -> String? {
+    // Prefer backend profile picture if available
+    if let profilePic = UserProfileService.shared.userProfile?.picture, !profilePic.isEmpty {
+        return cleanAvatarURL(profilePic)
+    }
+    // Fallback to Auth0 user picture
+    if let userPic = authService.user?.picture, !userPic.isEmpty {
+        return cleanAvatarURL(userPic)
+    }
+    // As a last resort, generate a UI Avatar from name
+    let name = authService.user?.name ?? "User"
+    let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+    let bg = String(format: "%06X", abs(name.hashValue) % 0xFFFFFF)
+    return "https://ui-avatars.com/api/?name=\(encoded)&size=128&background=\(bg)&color=fff&format=png"
+}
+
+private func cleanAvatarURL(_ urlString: String) -> String {
+    var s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Remove trailing '?' which some providers append and can break URL parsing
+    while s.hasSuffix("?") { s.removeLast() }
+    return s
 }
 
 

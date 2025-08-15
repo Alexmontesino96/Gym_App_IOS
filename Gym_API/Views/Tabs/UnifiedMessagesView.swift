@@ -635,26 +635,33 @@ struct UnifiedMessagesView: View {
     }
     
     private func saveConversationsToCache(_ conversations: [ChatConversation]) {
-        let cachedConversations = conversations.map { conversation in
-            CachedConversation(
-                id: conversation.id,
-                name: conversation.name,
-                type: conversation.type.rawValue,
-                lastActivity: conversation.lastActivity,
-                lastMessageText: conversation.lastMessage?.text,
-                lastMessageAuthor: conversation.lastMessage?.authorName,
-                unreadCount: conversation.unreadCount
-            )
+        // Debounce guardado para evitar escrituras frecuentes
+        saveCacheDebounceWorkItem?.cancel()
+        let work = DispatchWorkItem { [conversations] in
+            let cachedConversations = conversations.map { conversation in
+                CachedConversation(
+                    id: conversation.id,
+                    name: conversation.name,
+                    type: conversation.type.rawValue,
+                    lastActivity: conversation.lastActivity,
+                    lastMessageText: conversation.lastMessage?.text,
+                    lastMessageAuthor: conversation.lastMessage?.authorName,
+                    unreadCount: conversation.unreadCount
+                )
+            }
+            do {
+                let data = try JSONEncoder().encode(cachedConversations)
+                UserDefaults.standard.set(data, forKey: "CachedConversations")
+                print("💾 Conversaciones guardadas en caché: \(cachedConversations.count)")
+            } catch {
+                print("❌ Error guardando conversaciones en caché: \(error)")
+            }
         }
-        
-        do {
-            let data = try JSONEncoder().encode(cachedConversations)
-            UserDefaults.standard.set(data, forKey: "CachedConversations")
-            print("💾 Conversaciones guardadas en caché: \(cachedConversations.count)")
-        } catch {
-            print("❌ Error guardando conversaciones en caché: \(error)")
-        }
+        saveCacheDebounceWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
+
+    @State private var saveCacheDebounceWorkItem: DispatchWorkItem?
     
     private func refreshConversations() async {
         // Do not refresh if a server update is already in progress

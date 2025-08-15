@@ -11,6 +11,8 @@ class UserProfileService: ObservableObject {
     // MARK: - Private Properties
     private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     private var cancellables = Set<AnyCancellable>()
+    private var lastFetchedAt: Date?
+    var minRefreshInterval: TimeInterval = 300 // 5 minutos por defecto
     
     // MARK: - Dependency Injection
     weak var authService: AuthServiceDirect?
@@ -84,6 +86,7 @@ class UserProfileService: ObservableObject {
                             self.userProfile = profile
                             self.isLoading = false
                             self.error = nil
+                            self.lastFetchedAt = Date()
                         }
                         
                         debugLog("✅ [UserProfileService] Profile loaded successfully")
@@ -117,6 +120,15 @@ class UserProfileService: ObservableObject {
     
     /// Refresca el perfil del usuario
     func refreshProfile() async {
+        await fetchUserProfile()
+    }
+    
+    /// Obtiene el perfil sólo si no existe o está desactualizado
+    func fetchUserProfileIfStale(force: Bool = false) async {
+        if !force, let last = lastFetchedAt, userProfile != nil {
+            let elapsed = Date().timeIntervalSince(last)
+            if elapsed < minRefreshInterval { return }
+        }
         await fetchUserProfile()
     }
     

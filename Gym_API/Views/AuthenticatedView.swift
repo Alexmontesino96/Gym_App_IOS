@@ -142,8 +142,8 @@ struct AuthenticatedView: View {
         
         print("🔧 Verificando completitud del perfil...")
         Task {
-            // Cargar el perfil del usuario
-            await profileService.fetchUserProfile()
+            // Cargar el perfil del usuario (evitar recargas innecesarias)
+            await profileService.fetchUserProfileIfStale()
             
             await MainActor.run {
                 // Log detallado del perfil recibido

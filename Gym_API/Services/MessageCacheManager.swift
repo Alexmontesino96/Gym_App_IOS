@@ -181,11 +181,9 @@ private extension MessageCacheManager {
         do {
             let data = try JSONEncoder().encode(cacheData)
             let fileURL = getCacheFileURL(for: conversationId)
-            try data.write(to: fileURL)
-            
+            try await writeData(data, to: fileURL)
             print("💾 Guardados \(cachedMessages.count) mensajes en caché para: \(conversationId)")
             updateCacheStats()
-            
         } catch {
             print("❌ Error guardando mensajes en caché: \(error)")
             self.errorMessage = "Error guardando caché: \(error.localizedDescription)"
@@ -244,11 +242,9 @@ private extension MessageCacheManager {
         do {
             let data = try JSONEncoder().encode(updatedCache)
             let fileURL = getCacheFileURL(for: conversationId)
-            try data.write(to: fileURL)
-            
+            try await writeData(data, to: fileURL)
             print("💾 Caché actualizado para: \(conversationId)")
             updateCacheStats()
-            
         } catch {
             print("❌ Error agregando mensaje al caché: \(error)")
         }
@@ -274,8 +270,7 @@ private extension MessageCacheManager {
             do {
                 let data = try JSONEncoder().encode(updatedCache)
                 let fileURL = getCacheFileURL(for: conversationId)
-                try data.write(to: fileURL)
-                
+                try await writeData(data, to: fileURL)
                 print("🔄 Mensaje actualizado en caché: \(message.id)")
             } catch {
                 print("❌ Error actualizando mensaje en caché: \(error)")
@@ -290,7 +285,7 @@ private extension MessageCacheManager {
         
         do {
             if fileManager.fileExists(atPath: fileURL.path) {
-                try fileManager.removeItem(at: fileURL)
+                try await removeItem(at: fileURL)
                 print("🗑️ Caché eliminado para: \(conversationId)")
                 updateCacheStats()
             }
@@ -306,7 +301,7 @@ private extension MessageCacheManager {
             let files = try fileManager.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)
             
             for file in files {
-                try fileManager.removeItem(at: file)
+                try await removeItem(at: file)
             }
             
             print("🗑️ Todo el caché eliminado: \(files.count) archivos")
@@ -428,6 +423,7 @@ private extension MessageCacheManager {
         }
         
         do {
+            // Lectura síncrona: esta ruta se usa en UI para obtener caché inmediato
             let data = try Data(contentsOf: fileURL)
             let cache = try JSONDecoder().decode(ConversationMessageCache.self, from: data)
             return cache
@@ -664,5 +660,47 @@ private extension MessageCacheManager {
         }
         
         self.errorMessage = "Error de caché: \(error.localizedDescription)"
+    }
+}
+
+// MARK: - Background IO helpers (non-blocking)
+extension MessageCacheManager {
+    private func writeData(_ data: Data, to url: URL) async throws {
+        try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    try data.write(to: url)
+                    cont.resume()
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func readData(from url: URL) async throws -> Data {
+        try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    let data = try Data(contentsOf: url)
+                    cont.resume(returning: data)
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func removeItem(at url: URL) async throws {
+        try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                    cont.resume()
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
     }
 }
