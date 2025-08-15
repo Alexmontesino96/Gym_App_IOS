@@ -60,35 +60,21 @@ struct HomeRecentActivitySection: View {
         // Verificación de seguridad para evitar crashes
         if !classService.classes.isEmpty && !eventService.events.isEmpty && !recentActivities.isEmpty {
             VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Text("Actividad Reciente")
-                        .font(.cappedDynamicSystem(size: 20, weight: .bold, maxSize: 26))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    
-                    Spacer()
-                    
-                    Text("Últimos 7 días")
-                        .font(.cappedDynamicSystem(size: 12, weight: .medium, maxSize: 16))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.1))
-                        )
-                }
-                .padding(.horizontal, 4)
+                // Header unificado
+                SectionHeaderView(
+                    title: "Actividad Reciente",
+                    ctaTitle: nil,
+                    themeManager: themeManager
+                )
+                .padding(.horizontal, 0)
                 
                 // Activities list
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .shadow(
-                            color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.2 : 0.08),
-                            radius: 4,
-                            x: 0,
-                            y: 2
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
                         )
                     
                     VStack(spacing: 0) {
@@ -106,11 +92,15 @@ struct HomeRecentActivitySection: View {
                     }
                     .padding(16)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 0)
             }
         } else {
-            // Return empty view if no activities or data not loaded
-            EmptyView()
+            // Skeleton si está cargando data
+            if classService.isLoading || eventService.isLoading {
+                ActivityListSkeleton(themeManager: themeManager)
+            } else {
+                EmptyView()
+            }
         }
     }
 }
@@ -218,4 +208,47 @@ struct ActivityRow: View {
     )
     .padding()
     .background(Color.dynamicBackground(theme: .dark))
+}
+
+// MARK: - Activity List Skeleton
+struct ActivityListSkeleton: View {
+    let themeManager: ThemeManager
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            SectionHeaderView(title: "Actividad Reciente", themeManager: themeManager)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                    )
+                VStack(spacing: 12) {
+                    ForEach(0..<4, id: \.self) { index in
+                        HStack(spacing: 12) {
+                            SkeletonView(width: 40, height: 40, cornerRadius: 20)
+                            VStack(alignment: .leading, spacing: 8) {
+                                SkeletonView(width: 160, height: 16, cornerRadius: 4)
+                                SkeletonView(width: 120, height: 14, cornerRadius: 4)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 6) {
+                                SkeletonView(width: 60, height: 12, cornerRadius: 3)
+                                SkeletonView(width: 50, height: 10, cornerRadius: 3)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                        if index < 3 {
+                            Rectangle()
+                                .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+                                .frame(height: 1)
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+        }
+    }
 }
