@@ -57,6 +57,9 @@ struct MainTabView: View {
             // Notification Overlay - Siempre encima de todo
             NotificationOverlay(selectedTab: selectedTab)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openProfileTab)) { _ in
+            selectedTab = 4
+        }
         .onAppear {
             configureTabBarAppearance()
         }

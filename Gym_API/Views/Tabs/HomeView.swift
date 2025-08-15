@@ -107,6 +107,7 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 16)
                 }
+                .safeAreaPadding(.top, 16)
                 // .drawingGroup() // Comentado temporalmente para debug
             }
             .refreshable {
@@ -185,7 +186,7 @@ struct HeroSection: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: dynamicTypeSize.adjustedSpacing(4)) {
                     Text("\(greeting), \(userName).")
-                        .font(.cappedDynamicSystem(size: 32, weight: .bold, maxSize: 42))
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .dynamicTypeSupport(maxLines: 2)
                         .lineLimit(2)
@@ -238,10 +239,17 @@ struct HeroSection: View {
                         }
                     }
                 }
+                .onTapGesture {
+                    // Navegar a la pestaña de perfil
+                    let impact = UIImpactFeedbackGenerator(style: .light)
+                    impact.impactOccurred()
+                    NotificationCenter.default.post(name: .openProfileTab, object: nil)
+                }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Abrir perfil")
             }
         }
         .padding(.horizontal, dynamicTypeSize.adjustedPadding(20))
-        .padding(.top, dynamicTypeSize.adjustedPadding(10))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(greeting), \(userName). \(motivationalQuestion)")
         .accessibilityAddTraits(.isHeader)
@@ -403,21 +411,14 @@ struct FeaturedEventSection: View {
     var body: some View {
         if let event = featuredEvent {
             VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Text(NSLocalizedString("featured_event", comment: "Featured Event"))
-                        .font(.cappedDynamicSystem(size: 20, weight: .bold, maxSize: 26))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    
-                    Spacer()
-                    
-                    NavigationLink(destination: EventsView()) {
-                        Text(NSLocalizedString("view_all", comment: "View all"))
-                            .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    }
-                }
-                .padding(.horizontal, 4)
+                // Header unificado
+                SectionHeaderView(
+                    title: NSLocalizedString("featured_event", comment: "Featured Event"),
+                    ctaTitle: "view_all",
+                    themeManager: themeManager,
+                    onTapCTA: { /* Navegar a lista de eventos - manejado por vista de eventos */ }
+                )
+                .padding(.horizontal, 0)
                 
                 // Event card
                 ZStack {
@@ -459,6 +460,7 @@ struct FeaturedEventSection: View {
                                     .font(.cappedDynamicSystem(size: 20, weight: .bold, maxSize: 26))
                                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                                     .lineLimit(2)
+                                    .minimumScaleFactor(0.9)
                                 
                                 Text(dayFormatter.string(from: event.startTime) + " • " + timeFormatter.string(from: event.startTime))
                                     .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
@@ -591,6 +593,24 @@ struct FeaturedEventSection: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Featured event: \(event.title) on \(dayFormatter.string(from: event.startTime)) at \(timeFormatter.string(from: event.startTime))")
+        } else if eventService.isLoading {
+            EventCardSkeleton()
+                .environmentObject(themeManager)
+        } else {
+            // Empty state placeholder for no events
+            HStack {
+                Image(systemName: "calendar")
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                Text(NSLocalizedString("no_upcoming_events", comment: "No upcoming events"))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
+                Spacer()
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+            )
         }
     }
 }

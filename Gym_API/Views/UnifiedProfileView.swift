@@ -123,6 +123,23 @@ struct UnifiedProfileView: View {
                     ProfileErrorView(themeManager: themeManager)
                 }
             }
+            .safeAreaPadding(.top, 16)
+            // Edit button overlay (top-right)
+            .overlay(alignment: .topTrailing) {
+                Button(action: { showingEditProfile = true }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        )
+                }
+                .padding(.trailing, 16)
+                .accessibilityLabel(Text("Editar perfil"))
+            }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarHidden(true)

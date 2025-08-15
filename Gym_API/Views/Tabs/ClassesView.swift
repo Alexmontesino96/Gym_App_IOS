@@ -21,9 +21,17 @@ struct ClassesView: View {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
                 
                 VStack(spacing: 0) {
+                    // Consistent header title
+                    HStack {
+                        Text("Classes")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
                     // Weekly Date Selector
                     WeeklyDateSelector(selectedDate: $selectedDate)
-                    .padding(.top, 20)
                     .padding(.bottom, 16)
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
                     
@@ -80,8 +88,9 @@ struct ClassesView: View {
                     }
                 }
             }
-            .navigationTitle("Session")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .safeAreaPadding(.top, 16)
         }
         .onAppear {
             Task {

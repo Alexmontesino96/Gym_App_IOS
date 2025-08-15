@@ -14,6 +14,7 @@ struct ModernProfileView: View {
     @State private var selectedSection: ProfileSection = .achievements
     @State private var showingImagePicker = false
     @State private var selectedImage: UIImage?
+    @State private var showingEditProfile = false
     
     // MARK: - Profile Sections
     enum ProfileSection: String, CaseIterable {
@@ -96,6 +97,7 @@ struct ModernProfileView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .safeAreaPadding(.top, 16)
             .navigationBarHidden(true)
             .sheet(isPresented: $showingSettings) {
                 SettingsView(onThemeChangeRequest: {})
@@ -118,6 +120,10 @@ struct ModernProfileView: View {
                 Task { await uploadProfileImage(image) }
             }
         }
+        .sheet(isPresented: $showingEditProfile) {
+            EditProfileSheet()
+                .environmentObject(themeManager)
+        }
     }
     
     // MARK: - Header Section
@@ -127,6 +133,20 @@ struct ModernProfileView: View {
             HStack {
                 Spacer()
                 
+                // Edit Icon
+                Button(action: { showingEditProfile = true }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        )
+                }
+                .accessibilityLabel(Text("Editar perfil"))
+
                 // Settings Icon
                 Button(action: { showingSettings = true }) {
                     Image(systemName: "gearshape.fill")

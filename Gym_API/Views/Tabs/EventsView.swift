@@ -41,7 +41,7 @@ struct EventsView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Eventos")
-                                .font(.system(size: 32, weight: .bold))
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             
                             Text("Connect with your community. Train together.")
@@ -140,6 +140,7 @@ struct EventsView: View {
                         await eventService.fetchEvents()
                     }
                 }
+                .safeAreaPadding(.top, 16)
             }
             .sheet(isPresented: $showingFilterSheet) {
                 EventFilterSheet(selectedFilter: $selectedFilter)

@@ -71,6 +71,7 @@ struct UnifiedMessagesView: View {
                     contentView
                 }
             }
+            .safeAreaPadding(.top, 16)
             .onAppear {
                 initializeIfNeeded()
                 setupMessageUpdateListener()
