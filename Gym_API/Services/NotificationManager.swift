@@ -103,8 +103,8 @@ class NotificationManager: ObservableObject {
             }
         }
         
-        // Limpiar cache después de 30 segundos
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30.0) {
+        // Limpiar cache después de 2 horas para evitar duplicados en diferentes pantallas
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7200.0) {
             self.recentNotifications.remove(notificationId)
         }
     }
@@ -218,23 +218,23 @@ class NotificationManager: ObservableObject {
 // MARK: - Notification Overlay View
 struct NotificationOverlay: View {
     @StateObject private var notificationManager = NotificationManager.shared
-    
+    let selectedTab: Int
+
     var body: some View {
         ZStack {
-            if let notification = notificationManager.currentNotification {
+            if let notification = notificationManager.currentNotification,
+               shouldShow(notification) {
                 VStack {
                     AchievementNotificationView(notification: notification)
                         .padding(.top, 60) // Debajo del navigation bar
-                    
                     Spacer()
                 }
-                .zIndex(1000) // Asegurar que esté encima de todo
+                .zIndex(1000)
                 .transition(.asymmetric(
                     insertion: .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.9)),
                     removal: .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.95))
                 ))
                 .onTapGesture {
-                    // Permitir ocultamiento manual al tocar
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         notificationManager.hideCurrentNotification()
                     }
@@ -253,6 +253,22 @@ struct NotificationOverlay: View {
             }
         }
         .allowsHitTesting(notificationManager.currentNotification != nil)
+    }
+
+    private func shouldShow(_ notification: AchievementNotification) -> Bool {
+        // Mostrar notificaciones de clase completada solo en la pestaña de Clases (index 1)
+        if isClassCompletion(notification) {
+            return selectedTab == 1
+        }
+        return true
+    }
+
+    private func isClassCompletion(_ notification: AchievementNotification) -> Bool {
+        let title = notification.title.lowercased()
+        return title.contains("clase completada") ||
+               title.contains("class completed") ||
+               title.contains("clases completadas") ||
+               title.contains("classes completed")
     }
 }
 

@@ -11,3 +11,9 @@
 "sign_out" = "Cerrar sesión";
 "change_profile_picture" = "Cambiar foto de perfil";
 "edit_profile_color" = "Editar color del perfil";
+"live_badge" = "EN VIVO";
+"live_badge_accessibility" = "Evento en vivo";
+"time_until_event" = "Empieza %@";
+"featured_event" = "Evento Destacado";
+"view_all" = "Ver todos";
+"no_upcoming_events" = "No hay eventos próximos";

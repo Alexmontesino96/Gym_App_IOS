@@ -55,7 +55,7 @@ struct MainTabView: View {
                         Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
             
             // Notification Overlay - Siempre encima de todo
-            NotificationOverlay()
+            NotificationOverlay(selectedTab: selectedTab)
         }
         .onAppear {
             configureTabBarAppearance()

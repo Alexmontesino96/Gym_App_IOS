@@ -5,7 +5,7 @@ struct HomeView: View {
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var authService: AuthServiceDirect
     @StateObject private var gymService = GymService.shared
-    @StateObject private var classService = ClassService()
+    @EnvironmentObject var classService: ClassService
     @StateObject private var profileService = UserProfileService.shared
     @ObservedObject private var userStatsService = UserStatsService.shared
     @State private var currentDate = Date()
@@ -35,11 +35,11 @@ struct HomeView: View {
     }
     
     var body: some View {
-        let _ = print("🏠 HomeView.body evaluado")
-        let _ = print("🏠 UserStatsService isLoading: \(userStatsService.isLoading)")
-        let _ = print("🏠 UserStatsService hasValidStats: \(userStatsService.comprehensiveStats != nil)")
-        let _ = print("🏠 UserStatsService error: \(userStatsService.error?.localizedDescription ?? "ninguno")")
-        let _ = print("🏠 UserStatsService authService configurado: \(userStatsService.authService != nil)")
+        let _ = debugLog("🏠 HomeView.body evaluado")
+        let _ = debugLog("🏠 UserStatsService isLoading: \(userStatsService.isLoading)")
+        let _ = debugLog("🏠 UserStatsService hasValidStats: \(userStatsService.comprehensiveStats != nil)")
+        let _ = debugLog("🏠 UserStatsService error: \(userStatsService.error?.localizedDescription ?? "ninguno")")
+        let _ = debugLog("🏠 UserStatsService authService configurado: \(userStatsService.authService != nil)")
         
         return NavigationStack {
             ZStack {
@@ -83,6 +83,21 @@ struct HomeView: View {
                         if !eventService.events.isEmpty {
                             FeaturedEventSection(events: eventService.events, themeManager: themeManager)
                                 .environmentObject(eventService)
+                        } else {
+                            // Empty state placeholder for no events
+                            HStack {
+                                Image(systemName: "calendar")
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                Text(NSLocalizedString("no_upcoming_events", comment: "No upcoming events"))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
+                                Spacer()
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            )
                         }
                         
                         // Recent Activity (completed classes/events)
@@ -96,6 +111,8 @@ struct HomeView: View {
             }
             .refreshable {
                 await eventService.fetchEvents()
+                await eventService.fetchUserParticipations()
+                await userStatsService.fetchComprehensiveStats()
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -116,40 +133,40 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            print("🏠 HomeView.onAppear iniciado")
+            debugLog("🏠 HomeView.onAppear iniciado")
             currentDate = Date()
             setupServices()
-            print("🏠 setupServices completado, iniciando tareas async")
+            debugLog("🏠 setupServices completado, iniciando tareas async")
             Task {
-                print("🏠 Iniciando fetchEvents...")
+                debugLog("🏠 Iniciando fetchEvents...")
                 await eventService.fetchEvents()
-                print("🏠 fetchEvents completado, iniciando fetchUserParticipations...")
+                debugLog("🏠 fetchEvents completado, iniciando fetchUserParticipations...")
                 await eventService.fetchUserParticipations()
-                print("🏠 fetchUserParticipations completado, iniciando getMyGyms...")
+                debugLog("🏠 fetchUserParticipations completado, iniciando getMyGyms...")
                 await gymService.getMyGyms()
-                print("🏠 getMyGyms completado, iniciando fetchComprehensiveStats...")
+                debugLog("🏠 getMyGyms completado, iniciando fetchComprehensiveStats...")
                 await userStatsService.fetchComprehensiveStats()
-                print("🏠 fetchComprehensiveStats completado")
+                debugLog("🏠 fetchComprehensiveStats completado")
             }
         }
     }
     
     private func setupServices() {
-        print("🏠 setupServices iniciado")
-        print("🏠 Configurando authService en gymService...")
+        debugLog("🏠 setupServices iniciado")
+        debugLog("🏠 Configurando authService en gymService...")
         gymService.authService = authService
-        print("🏠 Configurando authService en classService...")
+        debugLog("🏠 Configurando authService en classService...")
         classService.authService = authService
-        print("🏠 Configurando authService en profileService...")
+        debugLog("🏠 Configurando authService en profileService...")
         profileService.authService = authService
-        print("🏠 Configurando authService en userStatsService...")
+        debugLog("🏠 Configurando authService en userStatsService...")
         userStatsService.authService = authService
-        print("🏠 AuthService configurado en userStatsService: \(userStatsService.authService != nil)")
+        debugLog("🏠 AuthService configurado en userStatsService: \(userStatsService.authService != nil)")
         
         // Setup location service
-        print("🏠 Configurando LocationService...")
+        debugLog("🏠 Configurando LocationService...")
         LocationService.shared.requestLocationPermission()
-        print("🏠 setupServices completado")
+        debugLog("🏠 setupServices completado")
     }
 }
 
@@ -198,31 +215,23 @@ struct HeroSection: View {
                             y: 2
                         )
                     
-                    // User avatar or default icon
+                    // User avatar or default icon (cached)
                     Group {
-                        if let user = authService.user, let pictureUrl = user.picture, let url = URL(string: pictureUrl) {
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .frame(width: 56, height: 56)
-                                        .clipShape(Circle())
-                                case .failure(_), .empty:
+                        if let user = authService.user, let pictureUrl = user.picture {
+                            let normalizedId = user.id.replacingOccurrences(of: "user_", with: "").replacingOccurrences(of: "auth0|", with: "")
+                            CustomImageView(url: pictureUrl, cacheKey: "avatar_self_\(normalizedId)", size: 56) {
+                                AnyView(
                                     Image(systemName: "person.fill")
                                         .font(.system(size: 28, weight: .semibold))
                                         .foregroundColor(.white)
-                                @unknown default:
-                                    Image(systemName: "person.fill")
-                                        .font(.system(size: 28, weight: .semibold))
-                                        .foregroundColor(.white)
-                                }
+                                )
                             }
+                            .accessibilityLabel(Text("Foto de perfil"))
                         } else {
                             Image(systemName: "person.fill")
                                 .font(.system(size: 28, weight: .semibold))
                                 .foregroundColor(.white)
+                                .accessibilityLabel(Text("Foto de perfil por defecto"))
                         }
                     }
                 }
@@ -368,14 +377,14 @@ struct FeaturedEventSection: View {
             VStack(spacing: 16) {
                 // Header
                 HStack {
-                    Text("Evento Destacado")
+                    Text(NSLocalizedString("featured_event", comment: "Featured Event"))
                         .font(.cappedDynamicSystem(size: 20, weight: .bold, maxSize: 26))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     
                     Spacer()
                     
                     NavigationLink(destination: EventsView()) {
-                        Text("Ver todos")
+                        Text(NSLocalizedString("view_all", comment: "View all"))
                             .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                     }
@@ -434,7 +443,7 @@ struct FeaturedEventSection: View {
                             VStack(spacing: 4) {
                                 // Status badge for active events
                                 if event.status == .active {
-                                    Text("EN VIVO")
+                                    Text(NSLocalizedString("live_badge", comment: "Live badge"))
                                         .font(.cappedDynamicSystem(size: 10, weight: .black, maxSize: 12))
                                         .foregroundColor(.white)
                                         .padding(.horizontal, 8)
@@ -444,6 +453,7 @@ struct FeaturedEventSection: View {
                                                 .fill(Color.red)
                                         )
                                         .shadow(color: Color.red.opacity(0.3), radius: 2, x: 0, y: 1)
+                                        .accessibilityLabel(Text(NSLocalizedString("live_badge_accessibility", comment: "Event is live")))
                                 }
                                 
                                 // Time until event badge (only for scheduled events)
@@ -457,6 +467,7 @@ struct FeaturedEventSection: View {
                                             Capsule()
                                                 .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
                                         )
+                                        .accessibilityLabel(Text(String(format: NSLocalizedString("time_until_event", comment: "Time until event"), timeUntilEvent)))
                                 }
                             }
                         }

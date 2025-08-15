@@ -1415,26 +1415,8 @@ struct ClassCardView: View {
         }
         
         // Fallback al comportamiento anterior si no hay datos optimizados
-        
         // Verificar si está completada o ha terminado
         if gymClass.status == .completed || now > gymClass.endTime {
-            if wasUserRegisteredForClass {
-                let notificationKey = "completed_fallback_\(self.gymClass.id)"
-                if !notificationShownForStates.contains(notificationKey) {
-                    print("🎉 [FALLBACK] Requesting completed notification for class \(self.gymClass.id) (\(self.gymClass.name)) - Card: \(self.cardInstanceId) - Key: \(notificationKey)")
-                    notificationShownForStates.insert(notificationKey)
-                    DispatchQueue.main.async {
-                        // NotificationManager maneja la consolidación y deduplicación
-                        NotificationManager.shared.showClassCompletedNotification(classId: self.gymClass.id, className: self.gymClass.name, theme: self.themeManager.currentTheme)
-                        self.hasShownCompletedAnimation = true
-                        
-                        if #available(iOS 13.0, *) {
-                            let notificationFeedback = UINotificationFeedbackGenerator()
-                            notificationFeedback.notificationOccurred(.success)
-                        }
-                    }
-                }
-            }
             return .completed(wasRegistered: wasUserRegisteredForClass)
         }
         

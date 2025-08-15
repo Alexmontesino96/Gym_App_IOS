@@ -30,6 +30,7 @@ struct UnifiedMessagesView: View {
     @State private var showingUserSelector = false
     @State private var showingSearch = false
     @State private var isRefreshing = false
+    @State private var isLoadingConversations = false
     @State private var searchText = ""
     @State private var hasInitialized = false
     @State private var errorMessage: String?
@@ -410,14 +411,13 @@ struct UnifiedMessagesView: View {
                 
                 // Create direct chat with selected coach
                 Task {
-                    do {
-                        let chatService = ChatService.shared
-                        chatService.authService = authService
-                        if let user = authService.user {
-                            chatService.setCurrentUserIdFromString(user.id)
-                        }
-                        
-                        if let directChatRoom = await chatService.getDirectChatWithCoach(selectedCoach) {
+                    let chatService = ChatService.shared
+                    chatService.authService = authService
+                    if let user = authService.user {
+                        chatService.setCurrentUserIdFromString(user.id)
+                    }
+                    
+                    if let directChatRoom = await chatService.getDirectChatWithCoach(selectedCoach) {
                             print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
                             
                             // Convert ChatRoom to ChatConversation for navigation
@@ -469,13 +469,6 @@ struct UnifiedMessagesView: View {
                                 isUpdatingFromServer = false
                             }
                             print("❌ No se pudo crear chat directo con \(selectedCoach.fullName)")
-                        }
-                    } catch {
-                        await MainActor.run {
-                            errorMessage = "Error creando chat: \(error.localizedDescription)"
-                            isUpdatingFromServer = false
-                        }
-                        print("❌ Error creando chat directo: \(error)")
                     }
                 }
             }
@@ -538,31 +531,32 @@ struct UnifiedMessagesView: View {
     private func initializeChatSystem() async {
         guard !chatProviderManager.isInitialized else { return }
         
-        do {
-            // Pasar authService al inicializar el provider
-            await chatProviderManager.initializeProvider(authService: authService)
+        // Pasar authService al inicializar el provider
+        await chatProviderManager.initializeProvider(authService: authService)
+        
+        // Configurar ChatService con el ID del usuario autenticado
+        if let user = authService.user {
+            let chatService = ChatService.shared
+            chatService.authService = authService
+            chatService.setCurrentUserIdFromString(user.id)
+            print("👤 UnifiedMessagesView: ChatService configurado con userId: \(user.id)")
             
-            // Configurar ChatService con el ID del usuario autenticado
-            if let user = authService.user {
-                let chatService = ChatService.shared
-                chatService.authService = authService
-                chatService.setCurrentUserIdFromString(user.id)
-                print("👤 UnifiedMessagesView: ChatService configurado con userId: \(user.id)")
-                
-                // Obtener token real desde la API
-                await obtenerCredencialesReales(user: user)
+            // Obtener token real desde la API
+            await obtenerCredencialesReales(user: user)
 
-                // Precargar miembros del gym para enriquecer avatares en conversaciones
-                await chatService.loadGymMembers()
-            }
-        } catch {
-            errorMessage = "Error de conexión: \(error.localizedDescription)"
-            print("❌ Error inicializando chat: \(error)")
+            // Precargar miembros del gym para enriquecer avatares en conversaciones
+            await chatService.loadGymMembers()
         }
     }
     
     private func loadConversations() async {
         guard chatProviderManager.isInitialized else { return }
+        // Prevent overlapping loads
+        var shouldReturn = false
+        await MainActor.run {
+            if isLoadingConversations { shouldReturn = true } else { isLoadingConversations = true }
+        }
+        if shouldReturn { return }
         
         do {
             let loadedConversations = try await chatProviderManager.getConversations()
@@ -573,14 +567,54 @@ struct UnifiedMessagesView: View {
                 }
                 self.errorMessage = nil
                 
+                // Precargar imágenes de avatar para mejorar performance
+                self.preloadAvatarImages(for: loadedConversations)
+                
                 // Guardar en caché para próxima vez
                 self.saveConversationsToCache(loadedConversations)
+                self.isLoadingConversations = false
             }
         } catch {
             await MainActor.run {
                 self.errorMessage = "Error cargando conversaciones: \(error.localizedDescription)"
+                self.isLoadingConversations = false
             }
             print("❌ Error cargando conversaciones: \(error)")
+        }
+    }
+    
+    private func preloadAvatarImages(for conversations: [ChatConversation]) {
+        var imagesToPreload: [(url: String, cacheKey: String?)] = []
+        let currentUserId = authService.user?.id ?? ""
+        
+        for conversation in conversations {
+            if conversation.type == .direct {
+                // Obtener el otro usuario de los miembros
+                let otherUser = conversation.members.first { $0.id != currentUserId }
+                
+                if let otherUser = otherUser {
+                    if let avatarURL = otherUser.avatarURL, !avatarURL.isEmpty {
+                        // Avatar real del usuario
+                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
+                        imagesToPreload.append((url: avatarURL, cacheKey: "avatar_user_\(normalizedId)"))
+                    } else {
+                        // Avatar generado con UI Avatars
+                        let encodedName = otherUser.name.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed) ?? "User"
+                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
+                        let colorHash = abs(normalizedId.hashValue) % 16777215
+                        let backgroundColor = String(format: "%06X", colorHash)
+                        let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
+                        imagesToPreload.append((url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)"))
+                    }
+                }
+            }
+        }
+        
+        // Precargar en background
+        if !imagesToPreload.isEmpty {
+            DispatchQueue.global(qos: .background).async {
+                ImageLoaderService.preloadImages(urls: imagesToPreload)
+            }
         }
     }
     
@@ -607,9 +641,11 @@ struct UnifiedMessagesView: View {
     }
     
     private func refreshConversations() async {
-        isRefreshing = true
+        // Do not refresh if a server update is already in progress
+        if isLoadingConversations { return }
+        await MainActor.run { isRefreshing = true }
         await loadConversations()
-        isRefreshing = false
+        await MainActor.run { isRefreshing = false }
     }
     
     private func setupMessageUpdateListener() {
@@ -927,6 +963,8 @@ extension UnifiedMessagesView {
             print("🔌 Conectando a GetStream con credenciales reales...")
             try await chatProviderManager.connect(credentials: credentials)
             print("✅ Conectado exitosamente al chat")
+            // Configurar currentUserId interno con el valor del backend para evitar logs con subject Auth0
+            ChatService.shared.setCurrentUserId(tokenResponse.internalUserId)
             
             // Cargar conversaciones después de conectar
             await loadConversations()
@@ -1079,44 +1117,24 @@ struct ConversationAvatarView: View {
             
             // Profile photo or fallback
             Group {
-                if let user = otherUser, let avatarURL = user.avatarURL, !avatarURL.isEmpty, let url = URL(string: avatarURL) {
-                    // Show profile photo
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: size, height: size)
-                                .clipShape(Circle())
-                        case .failure(_), .empty:
-                            fallbackContent
-                        @unknown default:
-                            fallbackContent
-                        }
+                if let user = otherUser, let avatarURL = user.avatarURL, !avatarURL.isEmpty {
+                    // Cached profile photo using ImageLoaderService
+                    let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
+                    CustomImageView(url: avatarURL, cacheKey: "avatar_user_\(normalizedId)", size: size) {
+                        AnyView(fallbackContent)
                     }
                 } else if let user = otherUser {
                     // Generate avatar using UI Avatars service for direct chats
                     let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
-                    let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=random&color=fff&format=png"
+                    // Usar color determinístico basado en el ID del usuario
+                    let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
+                    let colorHash = abs(normalizedId.hashValue) % 16777215
+                    let backgroundColor = String(format: "%06X", colorHash)
+                    let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
                     
-                    if let serviceURL = URL(string: avatarServiceURL) {
-                        AsyncImage(url: serviceURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: size, height: size)
-                                    .clipShape(Circle())
-                            case .failure(_), .empty:
-                                fallbackContent
-                            @unknown default:
-                                fallbackContent
-                            }
-                        }
-                    } else {
-                        fallbackContent
+                    // Usar ID normalizado para clave de caché consistente
+                    CustomImageView(url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)", size: size) {
+                        AnyView(fallbackContent)
                     }
                 } else {
                     fallbackContent
