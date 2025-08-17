@@ -331,8 +331,8 @@ struct ColorOptionButton: View {
         }
         .buttonStyle(PlainButtonStyle())
         .onPressGesture(
-            onPress: { isPressed = true },
-            onRelease: { isPressed = false }
+            onPressed: { isPressed = true },
+            onEnded: { isPressed = false }
         )
     }
 }
