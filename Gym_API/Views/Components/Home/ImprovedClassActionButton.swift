@@ -107,7 +107,6 @@ struct ImprovedGreatJobButton: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.white)
                 .rotationEffect(.degrees(trophyRotation))
-                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
             
             Text("Great Job!")
                 .font(.system(size: 16, weight: .bold))
@@ -169,12 +168,6 @@ struct ImprovedGreatJobButton: View {
                         )
                 }
             }
-        )
-        .shadow(
-            color: Color.dynamicAccent(theme: theme).opacity(0.3),
-            radius: 8,
-            x: 0,
-            y: 4
         )
         .onAppear {
             // Animación inicial sutil
@@ -318,7 +311,6 @@ struct PremiumCompletedBadge: View {
                 Image(systemName: "star.fill")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
             }
         }
         .onAppear {

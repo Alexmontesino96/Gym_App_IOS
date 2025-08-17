@@ -90,12 +90,6 @@ struct NextClassCard: View {
                             RoundedRectangle(cornerRadius: 20)
                                 .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), lineWidth: 1)
                         )
-                        .shadow(
-                            color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.2 : 0.08),
-                            radius: 8,
-                            x: 0,
-                            y: 4
-                        )
                     
                     // Content
                     VStack(spacing: 16) {

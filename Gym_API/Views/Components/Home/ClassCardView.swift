@@ -1311,7 +1311,6 @@ struct ClassCardView: View {
     private var successAnimationBackground: some View {
         RoundedRectangle(cornerRadius: 16)
             .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 4)
     }
     
     // MARK: - Computed Properties

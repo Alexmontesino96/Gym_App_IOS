@@ -452,7 +452,7 @@ extension SmartActionsSection {
             ))
         }
         
-        // Always show Profile
+        // Always show Profile (ModernProfileView)
         actions.append(SmartAction(
             title: "Profile",
             subtitle: "Settings & info",
@@ -461,10 +461,9 @@ extension SmartActionsSection {
             priority: .low,
             type: .navigation,
             destination: AnyView(
-                UnifiedProfileView(onThemeChangeRequest: {})
-                    .environmentObject(themeManager)
+                ModernProfileView()
                     .environmentObject(authService)
-                    .environmentObject(profileService)
+                    .environmentObject(themeManager)
             ),
             action: nil,
             isEnabled: true

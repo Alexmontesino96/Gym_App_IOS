@@ -38,12 +38,6 @@ struct StreakIndicator: View {
         .padding(.vertical, 12)
         .background(
             modernStreakBackground
-                .shadow(
-                    color: Color.dynamicAccent(theme: theme).opacity(theme == .dark ? 0.3 : 0.15),
-                    radius: theme == .dark ? 4 : 3,
-                    x: 0,
-                    y: 2
-                )
         )
         .clipShape(Capsule())
         .overlay(shimmerOverlay.clipShape(Capsule()))
@@ -215,12 +209,6 @@ struct EnhancedStreakIndicator: View {
         .background(enhancedBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(shimmerOverlay)
-        .shadow(
-            color: Color.dynamicAccent(theme: theme).opacity(0.2),
-            radius: 8,
-            x: 0,
-            y: 4
-        )
         .onAppear {
             startEnhancedAnimations()
         }
@@ -387,12 +375,6 @@ struct GreatJobAchievementBadge: View {
                     Circle()
                         .fill(Color.dynamicAccent(theme: theme))
                         .frame(width: 60, height: 60)
-                        .shadow(
-                            color: Color.dynamicAccent(theme: theme).opacity(0.3),
-                            radius: 8,
-                            x: 0,
-                            y: 4
-                        )
                     
                     Image(systemName: achievementType.icon)
                         .font(.system(size: 28, weight: .bold))
@@ -423,12 +405,6 @@ struct GreatJobAchievementBadge: View {
                     RoundedRectangle(cornerRadius: 20)
                         .stroke(Color.dynamicAccent(theme: theme).opacity(0.2), lineWidth: 1)
                 )
-        )
-        .shadow(
-            color: Color.black.opacity(theme == .dark ? 0.3 : 0.1),
-            radius: 12,
-            x: 0,
-            y: 6
         )
         .onAppear {
             startCelebrationAnimation()

@@ -209,12 +209,6 @@ struct HeroSection: View {
                     Circle()
                         .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
                         .frame(width: 60, height: 60)
-                        .shadow(
-                            color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2),
-                            radius: 4,
-                            x: 0,
-                            y: 2
-                        )
                     
                     // User avatar or default icon (cached)
                     Group {
@@ -366,13 +360,13 @@ struct FeaturedEventSection: View {
     private func eventIconBackgroundColor(for status: EventStatus) -> Color {
         switch status {
         case .active:
-            return Color.red
+            return Color.dynamicAccent(theme: themeManager.currentTheme)
         case .scheduled:
             return Color.dynamicAccent(theme: themeManager.currentTheme)
         case .completed:
             return Color.gray
         case .cancelled:
-            return Color.red
+            return Color.dynamicAccent(theme: themeManager.currentTheme)
         }
     }
     
@@ -424,12 +418,6 @@ struct FeaturedEventSection: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .shadow(
-                            color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.2 : 0.08),
-                            radius: 8,
-                            x: 0,
-                            y: 4
-                        )
                     
                     VStack(spacing: 20) {
                         // Event header with icon
@@ -447,7 +435,7 @@ struct FeaturedEventSection: View {
                                 // Pulsing animation for active events
                                 if event.status == .active {
                                     Circle()
-                                        .stroke(Color.red.opacity(0.3), lineWidth: 2)
+                                        .stroke(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), lineWidth: 2)
                                         .frame(width: 50, height: 50)
                                         .scaleEffect(1.2)
                                         .opacity(0.7)
@@ -480,9 +468,8 @@ struct FeaturedEventSection: View {
                                         .padding(.vertical, 3)
                                         .background(
                                             Capsule()
-                                                .fill(Color.red)
+                                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
                                         )
-                                        .shadow(color: Color.red.opacity(0.3), radius: 2, x: 0, y: 1)
                                         .accessibilityLabel(Text(NSLocalizedString("live_badge_accessibility", comment: "Event is live")))
                                 }
                                 
@@ -625,12 +612,6 @@ struct StatCardSkeleton: View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .shadow(
-                    color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.2 : 0.08),
-                    radius: 4,
-                    x: 0,
-                    y: 2
-                )
             
             VStack(spacing: 12) {
                 HStack {

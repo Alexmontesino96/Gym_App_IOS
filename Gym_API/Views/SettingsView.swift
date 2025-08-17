@@ -351,10 +351,12 @@ struct GymSection: View {
 struct ThemeSection: View {
     let themeManager: ThemeManager
     let onThemeChange: () -> Void
+    @State private var showingColorPicker = false
     
     var body: some View {
         SettingsCard(title: "Appearance", themeManager: themeManager) {
             VStack(spacing: 12) {
+                // Theme Toggle
                 Button(action: onThemeChange) {
                     HStack {
                         Image(systemName: themeManager.currentTheme == .light ? "sun.max.fill" : "moon.fill")
@@ -378,8 +380,134 @@ struct ThemeSection: View {
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
                 }
+                
+                Divider()
+                    .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+                
+                // Color Customization
+                Button(action: { showingColorPicker = true }) {
+                    HStack {
+                        Image(systemName: "paintpalette.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Colors")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            
+                            Text("Customize app and profile colors")
+                                .font(.system(size: 12))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        }
+                        
+                        Spacer()
+                        
+                        // Current accent color preview
+                        Circle()
+                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                            )
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                }
+                
+                Divider()
+                    .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+                
+                // Quick Color Presets
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Quick Themes")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(quickThemePresets, id: \.name) { preset in
+                                QuickThemeButton(
+                                    preset: preset,
+                                    isSelected: preset.accentColor == themeManager.accentHex(for: themeManager.currentTheme),
+                                    themeManager: themeManager
+                                ) {
+                                    applyQuickTheme(preset)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                }
             }
         }
+        .sheet(isPresented: $showingColorPicker) {
+            SimpleColorSettingsView()
+                .environmentObject(themeManager)
+        }
+    }
+    
+    // MARK: - Quick Theme Data
+    private var quickThemePresets: [QuickTheme] {
+        [
+            QuickTheme(name: "Red", accentColor: "#C43421", color: Color(red: 0.77, green: 0.20, blue: 0.13)),
+            QuickTheme(name: "Blue", accentColor: "#29B6F6", color: Color(red: 0.16, green: 0.71, blue: 0.96)),
+            QuickTheme(name: "Green", accentColor: "#66BB6A", color: Color(red: 0.40, green: 0.73, blue: 0.42)),
+            QuickTheme(name: "Purple", accentColor: "#9575CD", color: Color(red: 0.58, green: 0.46, blue: 0.80)),
+            QuickTheme(name: "Orange", accentColor: "#FF8C42", color: Color(red: 1.0, green: 0.55, blue: 0.26))
+        ]
+    }
+    
+    private func applyQuickTheme(_ preset: QuickTheme) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            themeManager.setAccentHex(preset.accentColor, for: themeManager.currentTheme)
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+}
+
+// MARK: - Quick Theme Support
+struct QuickTheme {
+    let name: String
+    let accentColor: String
+    let color: Color
+}
+
+struct QuickThemeButton: View {
+    let preset: QuickTheme
+    let isSelected: Bool
+    let themeManager: ThemeManager
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Circle()
+                    .fill(preset.color)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.clear,
+                                lineWidth: 2
+                            )
+                            .frame(width: 36, height: 36)
+                    )
+                
+                Text(preset.name)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(
+                        isSelected ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicTextSecondary(theme: themeManager.currentTheme)
+                    )
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

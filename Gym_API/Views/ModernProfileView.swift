@@ -11,10 +11,14 @@ struct ModernProfileView: View {
     @StateObject private var profileImageService = ProfileImageService()
     
     @State private var showingSettings = false
+    @State private var showingProfileOptions = false
+    @State private var showingColorPicker = false
     @State private var selectedSection: ProfileSection = .achievements
     @State private var showingImagePicker = false
     @State private var selectedImage: UIImage?
     @State private var showingEditProfile = false
+    @State private var showingGymSelector = false
+    @StateObject private var gymService = GymService.shared
     
     // MARK: - Profile Sections
     enum ProfileSection: String, CaseIterable {
@@ -110,6 +114,33 @@ struct ModernProfileView: View {
                 .environmentObject(themeManager)
                 .interactiveDismissDisabled(true)
             }
+            .sheet(isPresented: $showingProfileOptions) {
+                ProfileOptionsSheet(
+                    isPresented: $showingProfileOptions,
+                    onEditProfile: { showingEditProfile = true },
+                    onSettings: { showingSettings = true },
+                    onGymSelector: { showingGymSelector = true },
+                    onCustomizeColors: { showingColorPicker = true },
+                    authService: authService,
+                    gymService: gymService,
+                    themeManager: themeManager
+                )
+            }
+            .sheet(isPresented: $showingEditProfile) {
+                EditProfileSheet()
+                    .environmentObject(themeManager)
+            }
+            .sheet(isPresented: $showingGymSelector) {
+                UnifiedGymSelectorModal(
+                    gymService: gymService,
+                    themeManager: themeManager,
+                    isPresented: $showingGymSelector
+                )
+            }
+            .sheet(isPresented: $showingColorPicker) {
+                SimpleColorSettingsView()
+                    .environmentObject(themeManager)
+            }
         }
         .onAppear {
             setupServices()
@@ -120,204 +151,158 @@ struct ModernProfileView: View {
                 Task { await uploadProfileImage(image) }
             }
         }
-        .sheet(isPresented: $showingEditProfile) {
-            EditProfileSheet()
-                .environmentObject(themeManager)
-        }
     }
     
     // MARK: - Header Section
     private var profileHeader: some View {
-        VStack(spacing: 20) {
-            // Settings Bar
+        VStack(spacing: 24) {
+            // Simple header con opciones
             HStack {
+                if let profile = profileService.userProfile {
+                    Button(action: { showingProfileOptions = true }) {
+                        HStack(spacing: 8) {
+                            Text(shortDisplayName(from: profile))
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
                 Spacer()
-                
-                // Edit Icon
-                Button(action: { showingEditProfile = true }) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                        )
-                }
-                .accessibilityLabel(Text("Editar perfil"))
-
-                // Settings Icon
-                Button(action: { showingSettings = true }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                        )
-                }
-                .accessibilityLabel(Text("Settings"))
             }
             .padding(.horizontal, 20)
             
-            // Instagram-style Profile Layout
-            VStack(spacing: 20) {
-                // Horizontal Profile Section
-                HStack(spacing: 20) {
-                    // Profile Picture (circular, Instagram-style)
-                    if let picture = profileService.userProfile?.picture,
-                       let url = URL(string: picture) {
-                        Button(action: { showingImagePicker = true }) {
+            // Avatar centrado con borde gradiente (como en el diseño original)
+            VStack(spacing: 24) {
+                Button(action: { showingImagePicker = true }) {
+                    ZStack {
+                        // Gradient border ring (más grande y centrado)
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.cyan,
+                                        Color.blue,
+                                        Color.purple,
+                                        Color.pink,
+                                        Color.orange
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 120, height: 120)
+                        
+                        // Avatar interior (GOOD VIBES logo o foto de perfil)
+                        if let picture = profileService.userProfile?.picture,
+                           let url = URL(string: picture) {
                             AsyncImage(url: url) { image in
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
+                                    .frame(width: 110, height: 110)
+                                    .clipShape(Circle())
                             } placeholder: {
                                 Circle()
-                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                    .fill(Color.black)
+                                    .frame(width: 110, height: 110)
                                     .overlay(
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 35))
-                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
+                                        VStack(spacing: 2) {
+                                            Text("GOOD")
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(.yellow)
+                                            Text("VIBES")
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(.pink)
+                                        }
                                     )
                             }
-                            .frame(width: 80, height: 80)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 3)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(NSLocalizedString("change_profile_picture", comment: "Change profile picture")))
-                    } else {
-                        Button(action: { showingImagePicker = true }) {
+                        } else {
                             Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.8),
-                                            colorCustomizationManager.currentBackgroundColor.accentColor.opacity(0.6)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 80, height: 80)
+                                .fill(Color.black)
+                                .frame(width: 110, height: 110)
                                 .overlay(
-                                    Text(profileService.userProfile?.fullName.prefix(2).uppercased() ?? "??")
-                                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white)
+                                    VStack(spacing: 2) {
+                                        Text("GOOD")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.yellow)
+                                        Text("VIBES")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.pink)
+                                    }
                                 )
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 3)
-                                )
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(NSLocalizedString("change_profile_picture", comment: "Change profile picture")))
-                    }
-                    
-                    // Stats Grid (Instagram-style) - Improved spacing
-                    HStack(spacing: 10) {
-                        // Total Workouts
-                        VStack(spacing: 4) {
-                            Text("\(userStatsService.userStats.monthlyClasses)")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(1)
-                            Text(NSLocalizedString("workouts", comment: "Workouts label"))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
-                        
-                        // Subtle divider
-                        Rectangle()
-                            .fill(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.15))
-                            .frame(width: 0.5, height: 30)
-                        
-                        // Weight
-                        VStack(spacing: 4) {
-                            if let weight = profileService.userProfile?.weight {
-                                Text("\(Int(weight)) kg")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(1)
-                            } else {
-                                Text("--")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(1)
-                            }
-                            Text(NSLocalizedString("weight", comment: "Weight label"))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
-                        
-                        // Subtle divider
-                        Rectangle()
-                            .fill(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.15))
-                            .frame(width: 0.5, height: 30)
-                        
-                        // Height
-                        VStack(spacing: 4) {
-                            if let height = profileService.userProfile?.height {
-                                Text("\(Int(height)) cm")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(1)
-                            } else {
-                                Text("--")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(1)
-                            }
-                            Text(NSLocalizedString("height", comment: "Height label"))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
-                                .multilineTextAlignment(.center)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
                     }
                 }
-                .padding(.horizontal, 24)
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Change profile picture"))
                 
-                // User Name and Bio
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(profileService.userProfile?.fullName ?? "Loading...")
-                            .font(.system(size: 16, weight: .semibold))
+                
+                // Clean horizontal stats layout (después del mensaje)
+                HStack(spacing: 40) {
+                    // Total Workouts
+                    VStack(spacing: 2) {
+                        Text("\(userStatsService.userStats.monthlyClasses)")
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        
-                        Spacer()
+                        Text("Workouts")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
                     
-                    if let bio = profileService.userProfile?.bio, !bio.isEmpty {
-                        HStack {
-                            Text(bio)
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.8))
-                                .multilineTextAlignment(.leading)
-                            Spacer()
+                    // Weight
+                    VStack(spacing: 2) {
+                        if let weight = profileService.userProfile?.weight {
+                            Text("\(Int(weight)) kg")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        } else {
+                            Text("63 kg")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         }
+                        Text("Weight")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                    
+                    // Height
+                    VStack(spacing: 2) {
+                        if let height = profileService.userProfile?.height {
+                            Text("\(Int(height)) cm")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        } else {
+                            Text("179 cm")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        }
+                        Text("Height")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
                 }
-                .padding(.horizontal, 24)
+                
+                // User Name and Bio (después de estadísticas, como en el diseño original)
+                VStack(spacing: 8) {
+                    Text(profileService.userProfile?.fullName ?? "Jose Paul Rodriguez")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .multilineTextAlignment(.center)
+                    
+                    // Bio (si existe)
+                    if let bio = profileService.userProfile?.bio, !bio.isEmpty {
+                        Text(bio)
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .lineLimit(3)
+                    }
+                }
                 
                 // Badges (centered and properly spaced)
                 HStack(spacing: 12) {
@@ -412,18 +397,59 @@ struct ModernProfileView: View {
     // MARK: - Achievement Showcase
     private var achievementShowcase: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Your Achievements")
+            Text("Achievements")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .padding(.horizontal, 20)
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(userStatsService.achievements) { achievement in
-                        ProfileAchievementCard(achievement: achievement, theme: themeManager.currentTheme)
+            // Call-to-action card for new users
+            if userStatsService.userStats.monthlyClasses == 0 {
+                VStack(spacing: 16) {
+                    HStack(spacing: 16) {
+                        // Trophy icon
+                        Circle()
+                            .fill(Color.yellow.opacity(0.2))
+                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(.yellow)
+                            )
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Record your first workout")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            
+                            Text("to unlock achievements!")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            
+                            Text("Tip: set a weekly goal to stay on track")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                .padding(.top, 4)
+                        }
+                        
+                        Spacer()
                     }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                    )
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(userStatsService.achievements) { achievement in
+                            ProfileAchievementCard(achievement: achievement, theme: themeManager.currentTheme)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
             }
             
             // Quick Stats - Fixed sizing and alignment
@@ -678,5 +704,15 @@ extension ModernProfileView {
         if success {
             await profileService.refreshProfile()
         }
+    }
+    
+    // Returns first word and, if present, the second word (second given name or first surname)
+    private func shortDisplayName(from profile: UserProfile) -> String {
+        let parts = profile.fullName.split(separator: " ").map(String.init)
+        guard let first = parts.first else { return profile.fullName }
+        if parts.count >= 2 {
+            return first + " " + parts[1]
+        }
+        return first
     }
 }
