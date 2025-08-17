@@ -131,11 +131,14 @@ struct ModernProfileView: View {
                     .environmentObject(themeManager)
             }
             .sheet(isPresented: $showingGymSelector) {
-                UnifiedGymSelectorModal(
-                    gymService: gymService,
-                    themeManager: themeManager,
-                    isPresented: $showingGymSelector
-                )
+                NavigationView {
+                    GymSelectionView { selected in
+                        gymService.selectGym(selected)
+                        showingGymSelector = false
+                    }
+                    .environmentObject(themeManager)
+                    .environmentObject(authService)
+                }
             }
             .sheet(isPresented: $showingColorPicker) {
                 SimpleColorSettingsView()
