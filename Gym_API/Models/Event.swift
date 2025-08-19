@@ -168,6 +168,7 @@ struct EventParticipation: Codable, Identifiable {
     let id: Int
     let eventId: Int
     let memberId: Int
+    let gymId: Int?
     let status: String
     let attended: Bool
     let registeredAt: Date
@@ -177,6 +178,7 @@ struct EventParticipation: Codable, Identifiable {
         case id, status, attended
         case eventId = "event_id"
         case memberId = "member_id"
+        case gymId = "gym_id"
         case registeredAt = "registered_at"
         case updatedAt = "updated_at"
     }
@@ -433,4 +435,4 @@ struct ChatRoomSchema: Codable {
         case streamChannelType = "stream_channel_type"
         case createdAt = "created_at"
     }
-} 
+}

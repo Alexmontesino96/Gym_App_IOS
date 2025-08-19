@@ -6,11 +6,13 @@ struct SettingsView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var profileService: UserProfileService
+    @EnvironmentObject var eventService: EventService
     @ObservedObject private var membershipService = MembershipService.shared
     @StateObject private var oneSignalService = OneSignalService.shared
     @StateObject private var gymService = GymService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showingMyGym = false
+    // Removed bulk registration from Settings; entry now only from event actions
     
     let onThemeChangeRequest: () -> Void
     
@@ -47,6 +49,16 @@ struct SettingsView: View {
                                 membershipService: membershipService,
                                 themeManager: themeManager
                             )
+                            
+                            // Administrative Section (only for admins/owners)
+                            if RolePermissions.isAdminLevel(gymService.currentGym?.userRoleInGym) {
+                                SettingsCard(title: "Administration", themeManager: themeManager) {
+                                    AdminSettingsSection(
+                                        gymService: gymService,
+                                        themeManager: themeManager
+                                    )
+                                }
+                            }
                             
                             // Theme Section
                             ThemeSection(
@@ -93,6 +105,7 @@ struct SettingsView: View {
                 .environmentObject(themeManager)
                 .environmentObject(authService)
         }
+        // Bulk registration sheet removed from Settings
         .onReceive(authService.$isAuthenticated) { isAuthenticated in
             // Configurar AuthService en MembershipService cuando el estado de autenticación cambie
             membershipService.authService = authService
@@ -121,6 +134,7 @@ struct SettingsView: View {
                 }
             }
         }
+        
     }
 }
 
@@ -667,6 +681,65 @@ extension DateFormatter {
 }
 
 // MARK: - Preview
+// MARK: - Admin Settings Section
+struct AdminSettingsSection: View {
+    @ObservedObject var gymService: GymService
+    let themeManager: ThemeManager
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Manage Users
+            SettingsRow(
+                icon: "person.2.fill",
+                title: "Manage Users",
+                value: "View all members",
+                themeManager: themeManager
+            )
+            
+            Divider()
+                .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+            
+            // Bulk registration removed from Settings; access via event options
+            
+            // Gym Settings (only for owners)
+            if RolePermissions.canManageGym(gymService.currentGym?.userRoleInGym) {
+                SettingsRow(
+                    icon: "building.2.fill",
+                    title: "Gym Settings",
+                    value: "Configure gym",
+                    themeManager: themeManager
+                )
+                
+                Divider()
+                    .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+            }
+            
+            // Reports & Analytics
+            if RolePermissions.canViewReports(gymService.currentGym?.userRoleInGym) {
+                SettingsRow(
+                    icon: "chart.bar.fill",
+                    title: "Reports",
+                    value: "View analytics",
+                    themeManager: themeManager
+                )
+                
+                Divider()
+                    .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+            }
+            
+            // Event Management
+            if RolePermissions.canCreateEvents(gymService.currentGym?.userRoleInGym) {
+                SettingsRow(
+                    icon: "calendar.badge.plus",
+                    title: "Event Management",
+                    value: "Manage all events",
+                    themeManager: themeManager
+                )
+            }
+        }
+    }
+}
+
 #Preview {
     SettingsView(onThemeChangeRequest: {})
         .environmentObject(ThemeManager())

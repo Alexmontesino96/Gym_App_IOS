@@ -138,6 +138,10 @@ struct EventDetailContent: View {
                 currentRegistrationState = newRegistrationState
             }
         }
+        // Observa cualquier cambio general en el diccionario y sincroniza el estado local
+        .onReceive(eventService.$userRegistrationStatus) { dict in
+            currentRegistrationState = dict[eventDetail.id]
+        }
     }
     
     // Función para crear el efecto de sacudida

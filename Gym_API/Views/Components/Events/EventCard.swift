@@ -3,12 +3,24 @@ import SwiftUI
 struct EventCard: View {
     let event: Event
     let onChatTap: (() -> Void)?
+    let onEditTap: (() -> Void)?
+    let onDeleteTap: (() -> Void)?
+    let onBulkRegistrationTap: (() -> Void)?
     
     @State private var navigateToDetail = false
     
-    init(event: Event, onChatTap: (() -> Void)? = nil) {
+    init(
+        event: Event, 
+        onChatTap: (() -> Void)? = nil,
+        onEditTap: (() -> Void)? = nil,
+        onDeleteTap: (() -> Void)? = nil,
+        onBulkRegistrationTap: (() -> Void)? = nil
+    ) {
         self.event = event
         self.onChatTap = onChatTap
+        self.onEditTap = onEditTap
+        self.onDeleteTap = onDeleteTap
+        self.onBulkRegistrationTap = onBulkRegistrationTap
     }
     
     var body: some View {
@@ -18,10 +30,16 @@ struct EventCard: View {
             }
             .opacity(0)
             
-            ModernEventCardContent(event: event, onChatTapped: onChatTap ?? {})
-                .onTapGesture {
-                    navigateToDetail = true
-                }
+            ModernEventCardContent(
+                event: event, 
+                onChatTapped: onChatTap ?? {},
+                onEditTapped: onEditTap,
+                onDeleteTapped: onDeleteTap,
+                onBulkRegistrationTapped: onBulkRegistrationTap
+            )
+            .onTapGesture {
+                navigateToDetail = true
+            }
         }
     }
 }
@@ -29,10 +47,18 @@ struct EventCard: View {
 struct ModernEventCardContent: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var eventService: EventService
+    @EnvironmentObject var authService: AuthServiceDirect
+    @StateObject private var gymService = GymService.shared
+    
     let event: Event
     let onChatTapped: () -> Void
+    let onEditTapped: (() -> Void)?
+    let onDeleteTapped: (() -> Void)?
+    let onBulkRegistrationTapped: (() -> Void)?
+    
     @State private var isLoading = false
     @State private var shakeOffset: CGFloat = 0
+    @State private var showingActionSheet = false
     
     // Función para crear el efecto de sacudida
     private func shakeCard() {
@@ -63,6 +89,21 @@ struct ModernEventCardContent: View {
                 shakeOffset = 0
             }
         }
+    }
+    
+    // Verificar si el usuario puede editar/eliminar este evento
+    private var canManageEvent: Bool {
+        let currentRole = gymService.currentGym?.userRoleInGym
+        let currentUserId = authService.user?.id
+        let canEdit = RolePermissions.canEditEvent(currentRole, creatorId: event.creatorId, currentUserId: currentUserId)
+        
+        print("🔍 Debug canManageEvent for event \(event.title):")
+        print("   - currentRole: \(currentRole ?? "nil")")
+        print("   - currentUserId: \(currentUserId ?? "nil")")
+        print("   - event.creatorId: \(event.creatorId)")
+        print("   - canEdit: \(canEdit)")
+        
+        return canEdit
     }
     
     var body: some View {
@@ -153,8 +194,33 @@ struct ModernEventCardContent: View {
         .frame(minHeight: 220)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay(
-            // Indicador circular para eventos completados donde el usuario participó
-            Group {
+            // Top trailing overlay para indicadores y botón de opciones
+            HStack(spacing: 8) {
+                // Botón de opciones (solo si puede gestionar el evento)
+                if canManageEvent && (onEditTapped != nil || onDeleteTapped != nil) {
+                    Button(action: {
+                        print("🎯 Options button tapped for event: \(event.title)")
+                        showingActionSheet = true
+                    }) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.8))
+                                    .shadow(
+                                        color: Color.black.opacity(0.1),
+                                        radius: 2,
+                                        x: 0,
+                                        y: 1
+                                    )
+                            )
+                    }
+                    .contentShape(Circle())
+                }
+                
+                // Indicador circular para eventos completados donde el usuario participó  
                 if event.status == .completed && eventService.isUserRegistered(eventId: event.id) {
                     Circle()
                         .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
@@ -163,13 +229,62 @@ struct ModernEventCardContent: View {
                             Circle()
                                 .stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 2)
                         )
-                        .padding(.top, 12)
-                        .padding(.trailing, 12)
                 }
-            },
+            }
+            .padding(.top, 12)
+            .padding(.trailing, 12),
             alignment: .topTrailing
         )
         .offset(x: shakeOffset)
+        .actionSheet(isPresented: $showingActionSheet) {
+            ActionSheet(
+                title: Text("Opciones del Evento"),
+                message: Text(event.title),
+                buttons: eventActionButtons()
+            )
+        }
+    }
+    
+    // Función para crear los botones del action sheet
+    private func eventActionButtons() -> [ActionSheet.Button] {
+        var buttons: [ActionSheet.Button] = []
+        
+        // Botón de registro masivo (solo ADMIN/OWNER)
+        if let onBulkRegistrationTapped = onBulkRegistrationTapped {
+            let currentRole = gymService.currentGym?.userRoleInGym
+            if RolePermissions.canBulkRegisterUsers(currentRole) {
+                buttons.append(.default(Text("Registro de Usuarios")) {
+                    print("👥 Bulk registration button tapped in ActionSheet for event: \(event.title)")
+                    onBulkRegistrationTapped()
+                })
+            }
+        }
+        
+        // Botón de editar
+        if let onEditTapped = onEditTapped {
+            buttons.append(.default(Text("Editar Evento")) {
+                print("✏️ Edit button tapped in ActionSheet for event: \(event.title)")
+                onEditTapped()
+            })
+        }
+        
+        // Botón de eliminar 
+        if let onDeleteTapped = onDeleteTapped {
+            let currentRole = gymService.currentGym?.userRoleInGym
+            let currentUserId = authService.user?.id
+            let canDelete = RolePermissions.canDeleteEvent(currentRole, creatorId: event.creatorId, currentUserId: currentUserId)
+            
+            if canDelete {
+                buttons.append(.destructive(Text("Eliminar Evento")) {
+                    onDeleteTapped()
+                })
+            }
+        }
+        
+        // Botón de cancelar
+        buttons.append(.cancel())
+        
+        return buttons
     }
     
     @ViewBuilder
@@ -521,8 +636,15 @@ struct EventCardSkeleton: View {
         participantsCount: 5
     )
     
-    EventCard(event: sampleEvent)
-        .environmentObject(ThemeManager())
-        .environmentObject(EventService())
-        .padding()
+    EventCard(
+        event: sampleEvent,
+        onChatTap: { print("Chat tapped") },
+        onEditTap: { print("Edit tapped") },
+        onDeleteTap: { print("Delete tapped") },
+        onBulkRegistrationTap: { print("Bulk registration tapped") }
+    )
+    .environmentObject(ThemeManager())
+    .environmentObject(EventService())
+    .environmentObject(AuthServiceDirect())
+    .padding()
 }

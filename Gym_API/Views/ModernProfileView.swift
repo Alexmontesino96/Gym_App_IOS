@@ -120,7 +120,13 @@ struct ModernProfileView: View {
                     onEditProfile: { showingEditProfile = true },
                     onSettings: { showingSettings = true },
                     onGymSelector: { showingGymSelector = true },
-                    onCustomizeColors: { showingColorPicker = true },
+                    onCustomizeColors: {
+                        // Cerrar el sheet de opciones antes de abrir el de colores
+                        showingProfileOptions = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            showingColorPicker = true
+                        }
+                    },
                     authService: authService,
                     gymService: gymService,
                     themeManager: themeManager
@@ -148,6 +154,11 @@ struct ModernProfileView: View {
         .onAppear {
             setupServices()
             loadData()
+        }
+        .onDisappear {
+            // Asegurar que no quede un sheet pendiente al cambiar de tab
+            showingColorPicker = false
+            showingProfileOptions = false
         }
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage {
@@ -178,123 +189,66 @@ struct ModernProfileView: View {
             }
             .padding(.horizontal, 20)
             
-            // Avatar centrado con borde gradiente (como en el diseño original)
+            // Avatar centrado sin borde
             VStack(spacing: 24) {
                 Button(action: { showingImagePicker = true }) {
-                    ZStack {
-                        // Gradient border ring (más grande y centrado)
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.cyan,
-                                        Color.blue,
-                                        Color.purple,
-                                        Color.pink,
-                                        Color.orange
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 120, height: 120)
-                        
-                        // Avatar interior (GOOD VIBES logo o foto de perfil)
-                        if let picture = profileService.userProfile?.picture,
-                           let url = URL(string: picture) {
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 110, height: 110)
-                                    .clipShape(Circle())
-                            } placeholder: {
-                                Circle()
-                                    .fill(Color.black)
-                                    .frame(width: 110, height: 110)
-                                    .overlay(
-                                        VStack(spacing: 2) {
-                                            Text("GOOD")
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.yellow)
-                                            Text("VIBES")
-                                                .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.pink)
-                                        }
-                                    )
-                            }
-                        } else {
+                    // Avatar sin borde gradiente
+                    if let picture = profileService.userProfile?.picture,
+                       let url = URL(string: picture) {
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 145, height: 145)
+                                .clipShape(Circle())
+                        } placeholder: {
                             Circle()
                                 .fill(Color.black)
-                                .frame(width: 110, height: 110)
+                                .frame(width: 145, height: 145)
                                 .overlay(
-                                    VStack(spacing: 2) {
-                                        Text("GOOD")
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(.yellow)
-                                        Text("VIBES")
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(.pink)
-                                    }
+                                    Text(getUserInitials())
+                                        .font(.system(size: 32, weight: .bold))
+                                        .foregroundColor(.white)
                                 )
                         }
+                    } else {
+                        Circle()
+                            .fill(Color.black)
+                            .frame(width: 145, height: 145)
+                            .overlay(
+                                Text(getUserInitials())
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
                     }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Change profile picture"))
                 
-                
-                // Clean horizontal stats layout (después del mensaje)
-                HStack(spacing: 40) {
-                    // Total Workouts
-                    VStack(spacing: 2) {
-                        Text("\(userStatsService.userStats.monthlyClasses)")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        Text("Workouts")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    
-                    // Weight
-                    VStack(spacing: 2) {
-                        if let weight = profileService.userProfile?.weight {
-                            Text("\(Int(weight)) kg")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        } else {
-                            Text("63 kg")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        }
-                        Text("Weight")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    
-                    // Height
-                    VStack(spacing: 2) {
-                        if let height = profileService.userProfile?.height {
-                            Text("\(Int(height)) cm")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        } else {
-                            Text("179 cm")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        }
-                        Text("Height")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                }
-                
-                // User Name and Bio (después de estadísticas, como en el diseño original)
+                // User Name, Role and Bio
                 VStack(spacing: 8) {
                     Text(profileService.userProfile?.fullName ?? "Jose Paul Rodriguez")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .multilineTextAlignment(.center)
+                    
+                    // User Role below name
+                    Text(profileService.userProfile?.displayRole ?? "Member")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [Color.orange, Color.red]),
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
                     
                     // Bio (si existe)
                     if let bio = profileService.userProfile?.bio, !bio.isEmpty {
@@ -307,7 +261,67 @@ struct ModernProfileView: View {
                     }
                 }
                 
-                // Badges (centered and properly spaced)
+                // Clean horizontal stats layout (MOVIDO ABAJO - después del nombre)
+                HStack(spacing: 40) {
+                    // Total Workouts
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "dumbbell.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            Text("\(userStatsService.userStats.monthlyClasses)")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        }
+                        Text("Workouts")
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                    
+                    // Weight
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "scalemass.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            if let weight = profileService.userProfile?.weight {
+                                Text("\(Int(weight)) kg")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            } else {
+                                Text("63 kg")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            }
+                        }
+                        Text("Weight")
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                    
+                    // Height
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.and.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            if let height = profileService.userProfile?.height {
+                                Text("\(Int(height)) cm")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            } else {
+                                Text("179 cm")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            }
+                        }
+                        Text("Height")
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                }
+                
+                // Badges (centered and properly spaced) - only streak badge now
                 HStack(spacing: 12) {
                     // Streak Badge
                     HStack(spacing: 6) {
@@ -326,26 +340,6 @@ struct ModernProfileView: View {
                             .overlay(
                                 Capsule()
                                     .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-                            )
-                    )
-                    
-                    // Member Badge
-                    HStack(spacing: 6) {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.yellow)
-                        Text(profileService.userProfile?.displayRole ?? "Member")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color.yellow.opacity(0.1))
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
                             )
                     )
                 }
@@ -405,6 +399,10 @@ struct ModernProfileView: View {
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .padding(.horizontal, 20)
             
+            // Loading state: evita parpadeo mostrando datos obsoletos
+            if userStatsService.isLoading && userStatsService.comprehensiveStats == nil {
+                achievementsSkeleton
+            } else {
             // Call-to-action card for new users
             if userStatsService.userStats.monthlyClasses == 0 {
                 VStack(spacing: 16) {
@@ -526,6 +524,26 @@ struct ModernProfileView: View {
                         .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                 )
+            }
+            .padding(.horizontal, 20)
+            }
+        }
+    }
+
+    // Simple skeleton para evitar flicker mientras carga
+    private var achievementsSkeleton: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                ForEach(0..<3, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .frame(width: 140, height: 160)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 0.5)
+                        )
+                        .redacted(reason: .placeholder)
+                }
             }
             .padding(.horizontal, 20)
         }
@@ -666,6 +684,8 @@ struct ModernProfileView: View {
     }
     
     private func loadData() {
+        // Limpiar logros previos para evitar parpadeo con datos antiguos
+        userStatsService.achievements = []
         Task {
             // Cargar perfil primero (evitar recargas innecesarias)
             await profileService.fetchUserProfileIfStale()
@@ -717,5 +737,24 @@ extension ModernProfileView {
             return first + " " + parts[1]
         }
         return first
+    }
+    
+    // Extracts user initials for avatar fallback
+    private func getUserInitials() -> String {
+        let fullName = profileService.userProfile?.fullName ?? "Jose Paul Rodriguez"
+        let parts = fullName.split(separator: " ").map(String.init)
+        
+        if parts.count >= 2 {
+            // First name initial + Last name initial
+            let firstInitial = String(parts[0].prefix(1)).uppercased()
+            let lastInitial = String(parts[parts.count - 1].prefix(1)).uppercased()
+            return firstInitial + lastInitial
+        } else if let first = parts.first {
+            // Solo primera inicial si hay un solo nombre
+            return String(first.prefix(1)).uppercased()
+        } else {
+            // Fallback si no hay nombre
+            return "U"
+        }
     }
 }

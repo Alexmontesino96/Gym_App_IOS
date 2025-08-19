@@ -4,8 +4,10 @@ struct ClassesView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var classService: ClassService
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var gymService = GymService.shared
     @State private var selectedDate = Date()
     @State private var isRefreshing = false
+    @State private var showingCreateSession = false
     
     // Filtered classes based on selected date
     private var filteredClasses: [GymClass] {
@@ -35,55 +37,78 @@ struct ClassesView: View {
                     .padding(.bottom, 16)
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
                     
-                    // Classes Content
-                    if classService.isLoading && !isRefreshing {
-                        Spacer()
-                        ProgressView("Loading classes...")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        Spacer()
-                    } else if filteredClasses.isEmpty {
-                        Spacer()
-                        VStack(spacing: 16) {
-                            if isRefreshing {
-                                ProgressView()
-                                    .scaleEffect(1.2)
-                                    .padding(.bottom, 8)
-                                
-                                Text("Refreshing classes...")
+                    // Classes Content with FAB overlay
+                    ZStack {
+                        if classService.isLoading && !isRefreshing {
+                            VStack {
+                                Spacer()
+                                ProgressView("Loading classes...")
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            } else {
-                                Image(systemName: "calendar.badge.exclamationmark")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                Spacer()
+                            }
+                        } else if filteredClasses.isEmpty {
+                            VStack {
+                                Spacer()
+                                VStack(spacing: 16) {
+                                    if isRefreshing {
+                                        ProgressView()
+                                            .scaleEffect(1.2)
+                                            .padding(.bottom, 8)
+                                        
+                                        Text("Refreshing classes...")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                    } else {
+                                        Image(systemName: "calendar.badge.exclamationmark")
+                                            .font(.system(size: 48))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        
+                                        Text("No classes available")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        
+                                        Text("for \(formatSelectedDate())")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                        
+                                        Text("Try selecting a different date or pull to refresh")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .refreshable {
+                                await refreshClasses()
+                            }
+                        } else {
+                            ScrollView {
+                                LazyVStack(spacing: 16) {
+                                    ForEach(filteredClasses) { gymClass in
+                                        ClassCardView(gymClass: gymClass)
+                                            .padding(.horizontal, 20)
+                                    }
+                                }
+                                .padding(.vertical, 20)
                                 
-                                Text("No classes available")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                
-                                Text("for \(formatSelectedDate())")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                
-                                Text("Try selecting a different date or pull to refresh")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                                Spacer(minLength: 100)
+                            }
+                            .refreshable {
+                                await refreshClasses()
                             }
                         }
-                        Spacer()
-                    } else {
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                ForEach(filteredClasses) { gymClass in
-                                    ClassCardView(gymClass: gymClass)
-                                        .padding(.horizontal, 20)
+                        
+                        // Floating Action Button (always visible for admins and owners)
+                        if RolePermissions.canCreateSessions(gymService.currentGym?.userRoleInGym) {
+                            FABContainer(position: .bottomTrailing) {
+                                FloatingActionButton(
+                                    icon: "plus",
+                                    themeManager: themeManager
+                                ) {
+                                    showingCreateSession = true
                                 }
                             }
-                            .padding(.vertical, 20)
-                        }
-                        .refreshable {
-                            await refreshClasses()
                         }
                     }
                 }
@@ -104,6 +129,12 @@ struct ClassesView: View {
             Task {
                 await classService.loadSessionsForDateIfNeeded(date: newDate)
             }
+        }
+        .sheet(isPresented: $showingCreateSession) {
+            CreateSessionView()
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .environmentObject(classService)
         }
     }
     

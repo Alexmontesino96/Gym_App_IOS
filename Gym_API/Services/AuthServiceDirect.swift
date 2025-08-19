@@ -78,7 +78,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             let credentials = try await Auth0
                 .webAuth()
                 .audience(Auth0Config.audience)
-                .scope("openid profile email")
+                .scope("openid profile email offline_access")
                 .start()
             
             // Obtener información del usuario del ID token
@@ -708,7 +708,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 try await Auth0
                     .webAuth()
                     .audience(Auth0Config.audience)
-                    .scope("openid profile email")
+                    .scope("openid profile email offline_access")
                     .start()
             }
             

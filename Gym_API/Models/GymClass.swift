@@ -7,6 +7,80 @@
 
 import Foundation
 
+// MARK: - Session Creation Model
+struct ClassSessionCreate: Codable {
+    let classId: Int
+    let trainerId: Int
+    let startTime: Date
+    let endTime: Date?
+    let room: String?
+    let isRecurring: Bool = false
+    let recurrencePattern: String?
+    let status: String = "scheduled"
+    let overrideCapacity: Int?
+    let notes: String?
+    let gymId: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case classId = "class_id"
+        case trainerId = "trainer_id"
+        case startTime = "start_time"
+        case endTime = "end_time"
+        case room
+        case isRecurring = "is_recurring"
+        case recurrencePattern = "recurrence_pattern"
+        case status
+        case overrideCapacity = "override_capacity"
+        case notes
+        case gymId = "gym_id"
+    }
+}
+
+// MARK: - Session Response Model
+struct ClassSessionResponse: Codable {
+    let classId: Int
+    let trainerId: Int
+    let startTime: Date
+    let endTime: Date
+    let room: String?
+    let isRecurring: Bool
+    let recurrencePattern: String?
+    let status: String
+    let overrideCapacity: Int?
+    let notes: String?
+    let id: Int
+    let gymId: Int
+    let currentParticipants: Int
+    let createdAt: Date
+    let updatedAt: Date?
+    let createdBy: Int?
+    let timezone: String?
+    let startTimeLocal: Date?
+    let endTimeLocal: Date?
+    
+    enum CodingKeys: String, CodingKey {
+        case classId = "class_id"
+        case trainerId = "trainer_id"
+        case startTime = "start_time"
+        case endTime = "end_time"
+        case room
+        case isRecurring = "is_recurring"
+        case recurrencePattern = "recurrence_pattern"
+        case status
+        case overrideCapacity = "override_capacity"
+        case notes
+        case id
+        case gymId = "gym_id"
+        case currentParticipants = "current_participants"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case createdBy = "created_by"
+        case timezone
+        case startTimeLocal = "start_time_local"
+        case endTimeLocal = "end_time_local"
+    }
+}
+
 // MARK: - Session Models
 struct ClassSession: Codable, Identifiable {
     let classId: Int

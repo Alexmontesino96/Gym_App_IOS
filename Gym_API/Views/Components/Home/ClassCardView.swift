@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import EventKit
 
 // MARK: - Class Action State Management
 enum ClassActionState: Equatable {
@@ -41,7 +42,7 @@ enum ClassActionState: Equatable {
                 icon: "checkmark.circle.fill",
                 primaryColor: Color.dynamicAccent(theme: theme),
                 backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
-                isDisabled: true
+                isDisabled: false // Permitir gestionar la inscripción (action sheet)
             )
         case .full:
             return ActionConfig(
@@ -205,6 +206,7 @@ struct AdaptiveClassButton: View {
     
     @State private var showHint = false
     @State private var showActionSheet = false
+    @State private var calendarNotice: String?
     @State private var buttonScale: CGFloat = 1.0
     @State private var animationDirection: AnimationDirection = .idle
     @State private var isPreloading = false
@@ -405,6 +407,11 @@ struct AdaptiveClassButton: View {
         } message: {
             Text("What would you like to do with this class?")
         }
+        .alert("Calendario", isPresented: Binding(get: { calendarNotice != nil }, set: { if !$0 { calendarNotice = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(calendarNotice ?? "")
+        }
     }
     
     private var buttonContent: some View {
@@ -480,10 +487,7 @@ struct AdaptiveClassButton: View {
             handleCancelWithAnimation()
         }
         Button("Add Reminder") {
-            print("Add reminder tapped")
-        }
-        Button("View Details") {
-            print("View details tapped")
+            addCalendarReminder()
         }
         Button("Cancel", role: .cancel) { }
     }
@@ -673,6 +677,72 @@ extension AdaptiveClassButton {
             animationDirection = .idle
         }
     }
+    
+    private func addCalendarReminder() {
+        let eventStore = EKEventStore()
+        
+        // Verificar permisos de calendario
+        switch EKEventStore.authorizationStatus(for: .event) {
+        case .authorized, .fullAccess, .writeOnly:
+            createCalendarEvent(eventStore: eventStore)
+        case .notDetermined:
+            eventStore.requestAccess(to: .event) { granted, error in
+                DispatchQueue.main.async {
+                    if granted {
+                        self.createCalendarEvent(eventStore: eventStore)
+                    } else {
+                        self.showCalendarPermissionAlert()
+                    }
+                }
+            }
+        case .denied, .restricted:
+            showCalendarPermissionAlert()
+        @unknown default:
+            showCalendarPermissionAlert()
+        }
+    }
+    
+    private func createCalendarEvent(eventStore: EKEventStore) {
+        let event = EKEvent(eventStore: eventStore)
+        
+        // Configurar el evento
+        event.title = "\(gymClass.name) Class"
+        event.notes = "Instructor: \(gymClass.instructor)\nLocation: Gym - \(gymClass.name)"
+        event.startDate = gymClass.startTime
+        event.endDate = gymClass.endTime
+        
+        // Agregar recordatorio 30 minutos antes
+        let alarm = EKAlarm(relativeOffset: -30 * 60) // 30 minutos antes
+        event.addAlarm(alarm)
+        
+        // Usar el calendario por defecto o un calendario escribible
+        let writableCalendars = eventStore.calendars(for: .event).filter { $0.allowsContentModifications }
+        event.calendar = eventStore.defaultCalendarForNewEvents ?? writableCalendars.first ?? eventStore.calendars(for: .event).first
+        
+        do {
+            try eventStore.save(event, span: .thisEvent)
+            
+            // Haptic feedback de éxito
+            if #available(iOS 13.0, *) {
+                let notificationFeedback = UINotificationFeedbackGenerator()
+                notificationFeedback.notificationOccurred(.success)
+            }
+            
+            print("✅ Calendar event created successfully")
+            calendarNotice = "Se agregó el recordatorio en tu calendario."
+            
+        } catch {
+            print("❌ Error creating calendar event: \(error)")
+            calendarNotice = "No se pudo crear el evento en tu calendario. Inténtalo de nuevo."
+        }
+    }
+    
+    private func showCalendarPermissionAlert() {
+        calendarNotice = "Para agregar recordatorios, permite acceso al Calendario en Configuración."
+        print("❌ Calendar permission denied or unavailable")
+    }
+    
+    // View Details functionality removed as requested
 }
 
 /// Badge de completado con animación y diferenciación visual
@@ -1404,7 +1474,7 @@ struct ClassCardView: View {
         
         // Si llegamos aquí con datos optimizados válidos, no ejecutar fallback
         if classService.shouldUseOptimizedParticipationData(),
-           let participationStatus = classService.getParticipationStatus(sessionId: sessionId) {
+           let _ = classService.getParticipationStatus(sessionId: sessionId) {
             print("🛡️ [OPTIMIZED] Preventing fallback execution for class \(self.gymClass.id) - Card: \(self.cardInstanceId)")
             // Los casos no manejados arriba deberían mostrar como disponible por defecto
             if gymClass.currentParticipants >= gymClass.maxParticipants {

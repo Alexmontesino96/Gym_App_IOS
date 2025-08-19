@@ -8,9 +8,19 @@ struct EventsView: View {
     @State private var selectedFilter: EventFilter = .available
     @State private var showingFilterSheet = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var showingCreateEvent = false
+    @State private var selectedEventForEdit: Event?
+    @State private var showingDeleteConfirmation = false
+    @State private var selectedEventForDelete: Event?
+    @State private var showDeleteSuccessMessage = false
+    @State private var deleteSuccessMessage = ""
+    @StateObject private var gymService = GymService.shared
     
     // Estados para navegación de chat desde tarjetas
     @State private var selectedEventForChat: Event?
+    
+    // Estado para registro masivo
+    @State private var selectedEventForBulkRegistration: Event?
     
     var filteredEvents: [Event] {
         let searchFilteredEvents = searchText.isEmpty ? eventService.events : eventService.events.filter { event in
@@ -25,8 +35,9 @@ struct EventsView: View {
         case .past:
             return searchFilteredEvents.filter { $0.startTime <= Date() }
         case .joined:
+            // Usar la fuente de verdad: userRegistrationStatus
             return searchFilteredEvents.filter { event in
-                eventService.userParticipations.contains { $0.eventId == event.id }
+                eventService.userRegistrationStatus[event.id] == true
             }
         }
     }
@@ -102,42 +113,73 @@ struct EventsView: View {
                     .padding(.bottom, 16)
                     .background(Color.dynamicBackground(theme: themeManager.currentTheme))
                     
-                    // Scrollable Events List
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            if filteredEvents.isEmpty {
-                                VStack(spacing: 16) {
-                                    Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    
-                                    Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
-                                        .font(.system(size: 18, weight: .medium))
-                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                        .multilineTextAlignment(.center)
-                                    
-                                    Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-                                        .multilineTextAlignment(.center)
+                    // Events List with FAB
+                    ZStack {
+                        // Scrollable Events List
+                        ScrollView {
+                            LazyVStack(spacing: 16) {
+                                if filteredEvents.isEmpty {
+                                    VStack(spacing: 16) {
+                                        Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
+                                            .font(.system(size: 48))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        
+                                        Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                            .multilineTextAlignment(.center)
+                                        
+                                        Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                                            .multilineTextAlignment(.center)
+                                    }
+                                    .padding(.top, 40)
+                                } else {
+                                    ForEach(filteredEvents) { event in
+                                        EventCard(
+                                            event: event,
+                                            onChatTap: {
+                                                print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
+                                                handleEventChatTap(event: event)
+                                            },
+                                            onEditTap: {
+                                                print("✏️ Edit event tapped: \(event.title)")
+                                                selectedEventForEdit = event
+                                                                                            },
+                                            onDeleteTap: {
+                                                print("🗑️ Delete event tapped: \(event.title)")
+                                                selectedEventForDelete = event
+                                                showingDeleteConfirmation = true
+                                            },
+                                            onBulkRegistrationTap: {
+                                                print("👥 Bulk registration tapped: \(event.title)")
+                                                selectedEventForBulkRegistration = event
+                                            }
+                                        )
+                                        .padding(.horizontal, 20)
+                                    }
                                 }
-                                .padding(.top, 40)
-                            } else {
-                                ForEach(filteredEvents) { event in
-                                    EventCard(event: event, onChatTap: {
-                                        print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
-                                        handleEventChatTap(event: event)
-                                    })
-                                    .padding(.horizontal, 20)
+                                
+                                Spacer(minLength: 100)
+                            }
+                            .padding(.top, 8)
+                        }
+                        .refreshable {
+                            await eventService.fetchEvents()
+                        }
+                        
+                        // Floating Action Button (only for trainers and above)
+                        if RolePermissions.canCreateEvents(gymService.currentGym?.userRoleInGym) {
+                            FABContainer(position: .bottomTrailing) {
+                                FloatingActionButton(
+                                    icon: "plus",
+                                    themeManager: themeManager
+                                ) {
+                                    showingCreateEvent = true
                                 }
                             }
-                            
-                            Spacer(minLength: 100)
                         }
-                        .padding(.top, 8)
-                    }
-                    .refreshable {
-                        await eventService.fetchEvents()
                     }
                 }
                 .safeAreaPadding(.top, 16)
@@ -146,6 +188,12 @@ struct EventsView: View {
                 EventFilterSheet(selectedFilter: $selectedFilter)
                     .presentationDetents([.fraction(0.6)])
                     .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingCreateEvent) {
+                CreateEventView()
+                    .environmentObject(themeManager)
+                    .environmentObject(authService)
+                    .environmentObject(eventService)
             }
         }
         .onAppear {
@@ -161,6 +209,47 @@ struct EventsView: View {
                 authService: authService
             )
             .environmentObject(themeManager)
+        }
+        .sheet(item: $selectedEventForEdit) { event in
+            EditEventView(event: event)
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .environmentObject(eventService)
+        }
+        .sheet(item: $selectedEventForBulkRegistration) { event in
+            BulkRegistrationView(event: event)
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .environmentObject(eventService)
+                .environmentObject(gymService)
+        }
+        .alert("Delete Event", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                if let event = selectedEventForDelete {
+                    Task {
+                        let success = await eventService.deleteEvent(eventId: event.id)
+                        if success {
+                            showDeleteSuccessMessage = true
+                            deleteSuccessMessage = "Event '\(event.title)' deleted successfully"
+                            print("✅ Event deleted successfully")
+                        } else {
+                            print("❌ Failed to delete event")
+                        }
+                    }
+                }
+            }
+        } message: {
+            if let event = selectedEventForDelete {
+                Text("Are you sure you want to delete the event '\(event.title)'? This action cannot be undone.")
+            }
+        }
+        .alert("Success", isPresented: $showDeleteSuccessMessage) {
+            Button("OK") { 
+                showDeleteSuccessMessage = false
+            }
+        } message: {
+            Text(deleteSuccessMessage)
         }
     }
     

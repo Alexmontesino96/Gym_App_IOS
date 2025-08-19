@@ -51,6 +51,8 @@ class UserStatsService: ObservableObject {
     func fetchComprehensiveStats(period: StatsPeriod = .month) async {
         isLoading = true
         error = nil
+        // Evitar mostrar datos obsoletos mientras cargamos
+        achievements = []
         
         guard let token = await authService?.getValidAccessToken() else {
             print("❌ [UserStatsService] Missing auth token")

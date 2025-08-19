@@ -1,4 +1,5 @@
 import SwiftUI
+import Auth0
 
 struct ProfileCompletionView: View {
     @Environment(\.dismiss) private var dismiss
@@ -512,15 +513,6 @@ struct ProfileCompletionView: View {
     }
 }
 
-// MARK: - Custom Text Field Style
-struct CustomTextFieldStyle: TextFieldStyle {
-    func _body(configuration: TextField<Self._Label>) -> some View {
-        configuration
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-    }
-}
 
 // MARK: - Date Picker Sheet
 struct DatePickerSheet: View {

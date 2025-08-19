@@ -20,6 +20,9 @@ class EventService: ObservableObject {
     @Published var userRegistrationStatus: [Int: Bool] = [:]
     @Published var userProfiles: [Int: UserProfile] = [:]
     @Published var userParticipations: [EventParticipation] = []
+    @Published var isCreatingEvent = false
+    @Published var createEventErrorMessage: String?
+    @Published var deleteEventSuccessMessage: String?
     
     private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     private let session = URLSession.shared
@@ -176,11 +179,8 @@ class EventService: ObservableObject {
             // Esperar por los eventos con manejo de cancelación
             let events = try await eventsTask.value
             
-            // Verificar cancelación antes de continuar
-            if Task.isCancelled {
-                print("⚠️ [\(taskID)] Task cancelled after events fetch")
-                throw CancellationError()
-            }
+            // No verificar cancelación aquí - si ya obtuvimos los datos exitosamente, 
+            // deberíamos actualizarlos independientemente del estado de cancelación
             
             // Crear una task dedicada para las participaciones
             let participationsTask = Task {
@@ -295,8 +295,12 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
             // Agregar header X-Gym-ID 
-            let gymId = GymService.shared.currentGymId ?? 4
-            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            // Solo agregar header X-Gym-ID si hay un gym seleccionado
+            if let gymId = GymService.shared.currentGym?.id {
+                request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            } else {
+                print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+            }
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -425,9 +429,12 @@ class EventService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "accept")
         
-        // Agregar header X-Gym-ID
-        let gymId = GymService.shared.currentGym?.id ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+        // Agregar header X-Gym-ID si hay un gym seleccionado
+        if let gymId = GymService.shared.currentGym?.id {
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+        } else {
+            print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+        }
         
         // Agregar token de autorización
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -528,9 +535,12 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
-            // Agregar header X-Gym-ID
-            let gymId = GymService.shared.currentGymId ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            // Agregar header X-Gym-ID si hay un gym seleccionado
+            if let gymId = GymService.shared.currentGym?.id {
+                request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            } else {
+                print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+            }
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -661,9 +671,12 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
-            // Agregar header X-Gym-ID
-            let gymId = GymService.shared.currentGymId ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            // Agregar header X-Gym-ID si hay un gym seleccionado
+            if let gymId = GymService.shared.currentGym?.id {
+                request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            } else {
+                print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+            }
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -772,9 +785,12 @@ class EventService: ObservableObject {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("application/json", forHTTPHeaderField: "accept")
             
-            // Agregar header X-Gym-ID
-            let gymId = GymService.shared.currentGymId ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            // Agregar header X-Gym-ID si hay un gym seleccionado
+            if let gymId = GymService.shared.currentGym?.id {
+                request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            } else {
+                print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+            }
             
             // Agregar token de autorización
             if let token = await getAuthToken() {
@@ -906,8 +922,12 @@ class EventService: ObservableObject {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            let gymId = GymService.shared.currentGymId ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            // Agregar header X-Gym-ID si hay un gym seleccionado
+            if let gymId = GymService.shared.currentGym?.id {
+                request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            } else {
+                print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+            }
             request.httpBody = jsonData
             
             let (data, response) = try await session.data(for: request)
@@ -974,6 +994,11 @@ class EventService: ObservableObject {
                    let user = auth.user,
                    let userId = Int(user.id) {
                     _ = await fetchUserProfile(userId: userId)
+                }
+                
+                // Sincronizar participaciones del usuario para mantener consistencia global
+                Task { [weak self] in
+                    await self?.fetchUserParticipations()
                 }
                 
             } else if httpResponse.statusCode == 400 {
@@ -1074,8 +1099,12 @@ class EventService: ObservableObject {
             request.httpMethod = "DELETE"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            let gymId = GymService.shared.currentGymId ?? 4
-        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            // Agregar header X-Gym-ID si hay un gym seleccionado
+            if let gymId = GymService.shared.currentGym?.id {
+                request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            } else {
+                print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
+            }
             
             let (_, response) = try await session.data(for: request)
             
@@ -1117,6 +1146,11 @@ class EventService: ObservableObject {
                         
                         // Remover la participación de la lista local
                         self.eventParticipations.removeAll { $0.eventId == eventId }
+                    }
+                    
+                    // Refrescar participaciones del usuario para mantener consistencia global
+                    Task { [weak self] in
+                        await self?.fetchUserParticipations()
                     }
                     
                 } else {
@@ -1242,6 +1276,704 @@ class EventService: ObservableObject {
     func refreshEventDetailData(eventId: Int) async {
         print("🔄 Refreshing event detail data for event \(eventId)...")
         await fetchEventDetailData(eventId: eventId)
+    }
+    
+    // MARK: - Create Event
+    func createEvent(_ request: CreateEventRequest) async -> Bool {
+        updateOnMainThread {
+            self.isCreatingEvent = true
+            self.createEventErrorMessage = nil
+        }
+        
+        print("🎉 Creating event: \(request.title)")
+        
+        guard let url = URL(string: "\(baseURL)/events/") else {
+            updateOnMainThread {
+                self.createEventErrorMessage = "URL inválida"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Create authenticated request
+        guard let httpRequest = await HTTPClient.shared.makeRequest(
+            url: url,
+            method: "POST",
+            includeGymHeader: true
+        ) else {
+            updateOnMainThread {
+                self.createEventErrorMessage = "No se pudo crear la solicitud autenticada"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Configure request
+        var urlRequest = httpRequest
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Encode request body
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            urlRequest.httpBody = try encoder.encode(request)
+            
+            print("🎉 Request body created successfully")
+            
+        } catch {
+            updateOnMainThread {
+                self.createEventErrorMessage = "Error al codificar los datos del evento: \(error.localizedDescription)"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Make API call
+        do {
+            let (data, response) = try await session.data(for: urlRequest)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🎉 API Response status: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+                    // Success - decode response (200 or 201 are both valid)
+                    do {
+                        let decoder = configuredJSONDecoder()
+                        let eventResponse = try decoder.decode(CreateEventResponse.self, from: data)
+                        
+                        updateOnMainThread {
+                            self.isCreatingEvent = false
+                        }
+                        
+                        print("✅ Event created successfully: \(eventResponse.title) (ID: \(eventResponse.id))")
+                        
+                        // Refresh events list
+                        await fetchEvents()
+                        await fetchUserParticipations()
+                        
+                        return true
+                        
+                    } catch {
+                        updateOnMainThread {
+                            self.createEventErrorMessage = "Error al procesar la respuesta del servidor: \(error.localizedDescription)"
+                            self.isCreatingEvent = false
+                        }
+                        print("❌ Error decoding event response: \(error)")
+                        return false
+                    }
+                    
+                } else {
+                    // Handle different error status codes
+                    let errorMessage = await handleCreateEventAPIError(data: data, statusCode: httpResponse.statusCode)
+                    
+                    updateOnMainThread {
+                        self.createEventErrorMessage = errorMessage
+                        self.isCreatingEvent = false
+                    }
+                    
+                    return false
+                }
+            }
+            
+        } catch {
+            updateOnMainThread {
+                self.createEventErrorMessage = "Error de conexión: \(error.localizedDescription)"
+                self.isCreatingEvent = false
+            }
+            print("❌ Network error creating event: \(error)")
+            return false
+        }
+        
+        updateOnMainThread {
+            self.createEventErrorMessage = "Error desconocido"
+            self.isCreatingEvent = false
+        }
+        return false
+    }
+    
+    // MARK: - Handle Create Event API Error
+    private func handleCreateEventAPIError(data: Data, statusCode: Int) async -> String {
+        // Try to decode error response
+        if let errorString = String(data: data, encoding: .utf8) {
+            print("❌ Create Event API Error (\(statusCode)): \(errorString)")
+        }
+        
+        switch statusCode {
+        case 400:
+            return "Datos del evento inválidos. Verifica que todos los campos estén correctos."
+        case 401:
+            return "No tienes autorización. Inicia sesión nuevamente."
+        case 403:
+            return "No tienes permisos para crear eventos. Contacta al administrador."
+        case 409:
+            return "Ya existe un evento con estas características."
+        case 422:
+            // Try to decode validation errors
+            do {
+                let decoder = JSONDecoder()
+                let validationError = try decoder.decode(ValidationErrorResponse.self, from: data)
+                let errors = validationError.detail.map { "\($0.msg)" }.joined(separator: ", ")
+                return "Errores de validación: \(errors)"
+            } catch {
+                return "Datos del evento inválidos."
+            }
+        case 500:
+            return "Error del servidor. Intenta nuevamente en unos minutos."
+        default:
+            return "Error inesperado (\(statusCode)). Contacta al soporte."
+        }
+    }
+    
+    // MARK: - Update Event
+    func updateEvent(eventId: Int, request: UpdateEventRequest) async -> Bool {
+        updateOnMainThread {
+            self.isCreatingEvent = true
+            self.createEventErrorMessage = nil
+        }
+        
+        print("🔄 Updating event: \(eventId)")
+        
+        guard let url = URL(string: "\(baseURL)/events/\(eventId)") else {
+            updateOnMainThread {
+                self.createEventErrorMessage = "URL inválida"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Create authenticated request
+        guard let httpRequest = await HTTPClient.shared.makeRequest(
+            url: url,
+            method: "PUT",
+            includeGymHeader: true
+        ) else {
+            updateOnMainThread {
+                self.createEventErrorMessage = "No se pudo crear la solicitud autenticada"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Configure request
+        var urlRequest = httpRequest
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        // Encode request body
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            urlRequest.httpBody = try encoder.encode(request)
+            
+            print("🔄 Update request body created successfully")
+            
+        } catch {
+            updateOnMainThread {
+                self.createEventErrorMessage = "Error al codificar los datos del evento: \(error.localizedDescription)"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Make API call
+        do {
+            let (data, response) = try await session.data(for: urlRequest)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔄 Update API Response status: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 {
+                    // Success - decode response
+                    do {
+                        let decoder = configuredJSONDecoder()
+                        let eventResponse = try decoder.decode(CreateEventResponse.self, from: data)
+                        
+                        updateOnMainThread {
+                            self.isCreatingEvent = false
+                        }
+                        
+                        print("✅ Event updated successfully: \(eventResponse.title) (ID: \(eventResponse.id))")
+                        
+                        // Update the event in the local list
+                        updateOnMainThread {
+                            if let index = self.events.firstIndex(where: { $0.id == eventId }) {
+                                let updatedEvent = Event(
+                                    id: eventResponse.id,
+                                    title: eventResponse.title,
+                                    description: eventResponse.description,
+                                    startTime: eventResponse.startTime,
+                                    endTime: eventResponse.endTime,
+                                    location: eventResponse.location,
+                                    maxParticipants: eventResponse.maxParticipants,
+                                    status: EventStatus(rawValue: eventResponse.status) ?? .scheduled,
+                                    creatorId: eventResponse.creatorId,
+                                    createdAt: eventResponse.createdAt,
+                                    updatedAt: eventResponse.updatedAt,
+                                    participantsCount: eventResponse.participantsCount
+                                )
+                                self.events[index] = updatedEvent
+                            }
+                            
+                            // Update event detail if it's the same event
+                            if let eventDetail = self.eventDetail, eventDetail.id == eventId {
+                                let updatedDetail = EventDetail(
+                                    id: eventResponse.id,
+                                    title: eventResponse.title,
+                                    description: eventResponse.description,
+                                    startTime: eventResponse.startTime,
+                                    endTime: eventResponse.endTime,
+                                    location: eventResponse.location,
+                                    maxParticipants: eventResponse.maxParticipants,
+                                    status: EventStatus(rawValue: eventResponse.status) ?? .scheduled,
+                                    creatorId: eventResponse.creatorId,
+                                    createdAt: eventResponse.createdAt,
+                                    updatedAt: eventResponse.updatedAt,
+                                    participantsCount: eventResponse.participantsCount
+                                )
+                                self.eventDetail = updatedDetail
+                            }
+                        }
+                        
+                        return true
+                        
+                    } catch {
+                        updateOnMainThread {
+                            self.createEventErrorMessage = "Error al procesar la respuesta del servidor: \(error.localizedDescription)"
+                            self.isCreatingEvent = false
+                        }
+                        print("❌ Error decoding update event response: \(error)")
+                        return false
+                    }
+                    
+                } else {
+                    // Handle different error status codes
+                    let errorMessage = await handleUpdateEventAPIError(data: data, statusCode: httpResponse.statusCode)
+                    
+                    updateOnMainThread {
+                        self.createEventErrorMessage = errorMessage
+                        self.isCreatingEvent = false
+                    }
+                    
+                    return false
+                }
+            }
+            
+        } catch {
+            updateOnMainThread {
+                self.createEventErrorMessage = "Error de conexión: \(error.localizedDescription)"
+                self.isCreatingEvent = false
+            }
+            print("❌ Network error updating event: \(error)")
+            return false
+        }
+        
+        updateOnMainThread {
+            self.createEventErrorMessage = "Error desconocido"
+            self.isCreatingEvent = false
+        }
+        return false
+    }
+    
+    // MARK: - Delete Event
+    func deleteEvent(eventId: Int) async -> Bool {
+        updateOnMainThread {
+            self.isCreatingEvent = true
+            self.createEventErrorMessage = nil
+        }
+        
+        print("🗑️ Deleting event: \(eventId)")
+        
+        guard let url = URL(string: "\(baseURL)/events/\(eventId)") else {
+            updateOnMainThread {
+                self.createEventErrorMessage = "URL inválida"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Create authenticated request
+        guard let httpRequest = await HTTPClient.shared.makeRequest(
+            url: url,
+            method: "DELETE",
+            includeGymHeader: true
+        ) else {
+            updateOnMainThread {
+                self.createEventErrorMessage = "No se pudo crear la solicitud autenticada"
+                self.isCreatingEvent = false
+            }
+            return false
+        }
+        
+        // Make API call
+        do {
+            let (_, response) = try await session.data(for: httpRequest)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🗑️ Delete API Response status: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 204 {
+                    // Success - event deleted
+                    updateOnMainThread {
+                        self.isCreatingEvent = false
+                    }
+                    
+                    print("✅ Event deleted successfully: \(eventId)")
+                    
+                    // Remove event from local list and clear detail if needed
+                    updateOnMainThread {
+                        self.events.removeAll { $0.id == eventId }
+                        
+                        if let eventDetail = self.eventDetail, eventDetail.id == eventId {
+                            self.eventDetail = nil
+                        }
+                        
+                        // Remove all participations for this event
+                        self.eventParticipations.removeAll { $0.eventId == eventId }
+                        self.userRegistrationStatus.removeValue(forKey: eventId)
+                    }
+                    
+                    return true
+                    
+                } else {
+                    // Handle different error status codes
+                    let errorMessage = await handleDeleteEventAPIError(statusCode: httpResponse.statusCode)
+                    
+                    updateOnMainThread {
+                        self.createEventErrorMessage = errorMessage
+                        self.isCreatingEvent = false
+                    }
+                    
+                    return false
+                }
+            }
+            
+        } catch {
+            updateOnMainThread {
+                self.createEventErrorMessage = "Error de conexión: \(error.localizedDescription)"
+                self.isCreatingEvent = false
+            }
+            print("❌ Network error deleting event: \(error)")
+            return false
+        }
+        
+        updateOnMainThread {
+            self.createEventErrorMessage = "Error desconocido"
+            self.isCreatingEvent = false
+        }
+        return false
+    }
+    
+    // MARK: - Handle Update Event API Error
+    private func handleUpdateEventAPIError(data: Data, statusCode: Int) async -> String {
+        // Try to decode error response
+        if let errorString = String(data: data, encoding: .utf8) {
+            print("❌ Update Event API Error (\(statusCode)): \(errorString)")
+        }
+        
+        switch statusCode {
+        case 400:
+            return "Datos del evento inválidos. Verifica que todos los campos estén correctos."
+        case 401:
+            return "No tienes autorización. Inicia sesión nuevamente."
+        case 403:
+            return "No tienes permisos para editar este evento."
+        case 404:
+            return "El evento no fue encontrado."
+        case 422:
+            // Try to decode validation errors
+            do {
+                let decoder = JSONDecoder()
+                let validationError = try decoder.decode(ValidationErrorResponse.self, from: data)
+                let errors = validationError.detail.map { "\($0.msg)" }.joined(separator: ", ")
+                return "Errores de validación: \(errors)"
+            } catch {
+                return "Datos del evento inválidos."
+            }
+        case 500:
+            return "Error del servidor. Intenta nuevamente en unos minutos."
+        default:
+            return "Error inesperado (\(statusCode)). Contacta al soporte."
+        }
+    }
+    
+    // MARK: - Handle Delete Event API Error
+    private func handleDeleteEventAPIError(statusCode: Int) async -> String {
+        print("❌ Delete Event API Error (\(statusCode))")
+        
+        switch statusCode {
+        case 401:
+            return "No tienes autorización. Inicia sesión nuevamente."
+        case 403:
+            return "No tienes permisos para eliminar este evento."
+        case 404:
+            return "El evento no fue encontrado."
+        case 500:
+            return "Error del servidor. Intenta nuevamente en unos minutos."
+        default:
+            return "Error inesperado (\(statusCode)). Contacta al soporte."
+        }
+    }
+    
+    // MARK: - Bulk Registration Methods
+    
+    /// Registra múltiples usuarios en un evento (solo ADMIN/OWNER)
+    func bulkRegisterUsersToEvent(eventId: Int, userIds: [Int]) async -> Bool {
+        print("🔄 Iniciando registro masivo para evento \(eventId) con \(userIds.count) usuarios")
+
+        // Verificación defensiva de permisos en cliente (el backend seguirá validando)
+        if !RolePermissions.canBulkRegisterUsers(GymService.shared.currentGym?.userRoleInGym) {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "Permisos insuficientes para realizar el registro masivo"
+            }
+            return false
+        }
+        
+        // Validar que hay usuarios para registrar
+        guard !userIds.isEmpty else {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "No hay usuarios seleccionados para registrar"
+            }
+            return false
+        }
+        
+        // Validar que el URL es válido
+        guard let url = URL(string: "\(baseURL)/events/participation/bulk") else {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "URL inválida"
+            }
+            return false
+        }
+        
+        // Validar que tenemos AuthService
+        guard let authService = authService else {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "No se encontró servicio de autenticación"
+            }
+            return false
+        }
+        
+        // Validar que tenemos token
+        guard let token = await authService.getValidAccessToken() else {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "No se encontró token de autorización válido"
+            }
+            return false
+        }
+        
+        // Validar que tenemos gym ID
+        guard let gymId = GymService.shared.currentGymId else {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "No se encontró ID del gimnasio"
+            }
+            return false
+        }
+        
+        await updateOnMainThread {
+            self.isJoiningEvent = true
+            self.joinEventErrorMessage = nil
+        }
+        
+        do {
+            // Crear el request body
+            let requestBody = BulkEventRegistrationRequest(eventId: eventId, userIds: userIds)
+            let jsonData = try JSONEncoder().encode(requestBody)
+            
+            // Debug: imprimir el JSON que se está enviando
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("📋 Request JSON: \(jsonString)")
+            }
+            
+            // Configurar la petición
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+            request.httpBody = jsonData
+            
+            print("📤 Enviando petición de registro masivo...")
+            print("🎯 URL: \(url)")
+            print("🏢 Gym ID: \(gymId)")
+            print("👥 User IDs: \(userIds)")
+            
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = "Respuesta inválida del servidor"
+                    self.isJoiningEvent = false
+                }
+                return false
+            }
+            
+            print("📥 Respuesta recibida con código: \(httpResponse.statusCode)")
+            
+            switch httpResponse.statusCode {
+            case 201:
+                // Registro exitoso
+                do {
+                    // Debug: mostrar respuesta cruda del servidor para verificar formato
+                    if let rawResponse = String(data: data, encoding: .utf8) {
+                        print("✅ Respuesta 201 del servidor: \(rawResponse)")
+                    }
+                    
+                    let registrations = try configuredJSONDecoder().decode([EventParticipation].self, from: data)
+                    await updateOnMainThread {
+                        self.isJoiningEvent = false
+                        self.joinEventErrorMessage = nil
+                        print("✅ Registro masivo exitoso: \(registrations.count) usuarios registrados")
+                        
+                        // Actualizar las participaciones del evento actual (si están cargadas)
+                        for registration in registrations {
+                            if !self.eventParticipations.contains(where: { $0.id == registration.id }) {
+                                self.eventParticipations.append(registration)
+                            }
+                        }
+
+                        // Actualizar contadores locales del evento
+                        if let index = self.events.firstIndex(where: { $0.id == eventId }) {
+                            self.events[index].participantsCount += registrations.count
+                        }
+                        if let detail = self.eventDetail, detail.id == eventId {
+                            let newCount = detail.participantsCount + registrations.count
+                            self.eventDetail = EventDetail(
+                                id: detail.id,
+                                title: detail.title,
+                                description: detail.description,
+                                startTime: detail.startTime,
+                                endTime: detail.endTime,
+                                location: detail.location,
+                                maxParticipants: detail.maxParticipants,
+                                status: detail.status,
+                                creatorId: detail.creatorId,
+                                createdAt: detail.createdAt,
+                                updatedAt: detail.updatedAt,
+                                participantsCount: newCount
+                            )
+                        }
+
+                        // Si el usuario actual fue parte del registro masivo, actualizar su estado para este evento
+                        if let currentUserIdString = self.authService?.user?.id, let currentUserId = Int(currentUserIdString) {
+                            if userIds.contains(currentUserId) {
+                                self.updateUserRegistrationStatus(eventId: eventId, isRegistered: true)
+                            }
+                        }
+                    }
+
+                    // Refrescar participaciones desde el servidor para asegurar consistencia
+                    await self.fetchEventParticipations(eventId: eventId)
+                    return true
+                } catch {
+                    print("❌ Error decodificando respuesta del servidor: \(error)")
+                    if let decodingError = error as? DecodingError {
+                        print("❌ DecodingError details: \(decodingError)")
+                    }
+                    await updateOnMainThread {
+                        self.joinEventErrorMessage = "Error al procesar la respuesta del servidor: \(error.localizedDescription)"
+                        self.isJoiningEvent = false
+                    }
+                    return false
+                }
+                
+            case 400:
+                // Debug: mostrar respuesta cruda del servidor
+                if let rawResponse = String(data: data, encoding: .utf8) {
+                    print("❌ Error 400 - Respuesta del servidor: \(rawResponse)")
+                }
+                let errorMessage = await handleBulkRegistrationAPIError(data: data, statusCode: httpResponse.statusCode)
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = errorMessage
+                    self.isJoiningEvent = false
+                }
+                return false
+                
+            case 401:
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = "Token de autorización inválido o expirado"
+                    self.isJoiningEvent = false
+                }
+                return false
+                
+            case 403:
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = "Permisos insuficientes para realizar el registro masivo"
+                    self.isJoiningEvent = false
+                }
+                return false
+                
+            case 404:
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = "Evento no encontrado"
+                    self.isJoiningEvent = false
+                }
+                return false
+                
+            case 422:
+                let errorMessage = await handleBulkRegistrationAPIError(data: data, statusCode: httpResponse.statusCode)
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = errorMessage
+                    self.isJoiningEvent = false
+                }
+                return false
+                
+            default:
+                await updateOnMainThread {
+                    self.joinEventErrorMessage = "Error del servidor: \(httpResponse.statusCode)"
+                    self.isJoiningEvent = false
+                }
+                return false
+            }
+            
+        } catch {
+            await updateOnMainThread {
+                self.joinEventErrorMessage = "Error al realizar el registro masivo: \(error.localizedDescription)"
+                self.isJoiningEvent = false
+            }
+            return false
+        }
+    }
+    
+    /// Maneja errores específicos de la API de registro masivo
+    private func handleBulkRegistrationAPIError(data: Data, statusCode: Int) async -> String {
+        print("🔍 Intentando decodificar error del servidor...")
+        
+        // Intentar múltiples formatos de error
+        do {
+            // Intentar formato ValidationErrorResponse
+            let decoder = JSONDecoder()
+            let validationError = try decoder.decode(ValidationErrorResponse.self, from: data)
+            let errors = validationError.detail.map { "\($0.msg)" }.joined(separator: ", ")
+            print("✅ Error decodificado como ValidationError: \(errors)")
+            return "Errores de validación: \(errors)"
+        } catch {
+            print("⚠️ No se pudo decodificar como ValidationError: \(error)")
+        }
+        
+        // Intentar formato de error simple con "detail"
+        do {
+            let decoder = JSONDecoder()
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let detail = json["detail"] as? String {
+                print("✅ Error decodificado con detail: \(detail)")
+                return detail
+            }
+        } catch {
+            print("⚠️ No se pudo decodificar JSON simple: \(error)")
+        }
+        
+        // Mostrar respuesta cruda para debugging
+        if let rawResponse = String(data: data, encoding: .utf8) {
+            print("📄 Respuesta cruda del servidor: \(rawResponse)")
+        }
+        
+        // Fallback a mensajes por defecto basados en código de estado
+        switch statusCode {
+        case 400:
+            return "Solicitud malformada o datos inválidos. Verifique que los usuarios pertenezcan al gimnasio."
+        case 422:
+            return "Error de validación en los datos proporcionados"
+        default:
+            return "Error inesperado (\(statusCode))"
+        }
     }
 }
 

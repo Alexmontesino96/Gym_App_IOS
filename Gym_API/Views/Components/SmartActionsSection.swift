@@ -16,55 +16,99 @@ struct SmartActionsSection: View {
     @State private var smartActions: [SmartAction] = []
     @State private var isLoadingActions = true
     @State private var showingLocationAlert = false
+    @State private var showingCreateEvent = false
+    @StateObject private var gymService = GymService.shared
     
-    // Fixed quick access actions for the horizontal row
+    // Dynamic quick access actions based on user role
     private var quickAccessActions: [SmartAction] {
-        [
-            SmartAction(
-                title: "Chat",
-                subtitle: "Mensajes",
-                icon: "message.circle.fill",
-                color: Color.dynamicAccent(theme: themeManager.currentTheme),
+        var actions: [SmartAction] = []
+        let currentRole = gymService.currentGym?.userRoleInGym
+        
+        // Base actions for all users
+        actions.append(SmartAction(
+            title: "Chat",
+            subtitle: "Mensajes",
+            icon: "message.circle.fill",
+            color: Color.dynamicAccent(theme: themeManager.currentTheme),
+            priority: .high,
+            type: .social,
+            destination: nil,
+            action: { print("Chat tapped") },
+            isEnabled: true
+        ))
+        
+        // Role-specific actions
+        if RolePermissions.canCreateEvents(currentRole) {
+            actions.append(SmartAction(
+                title: "Crear Evento",
+                subtitle: "Nuevo evento",
+                icon: "plus.circle.fill",
+                color: Color.green,
                 priority: .high,
-                type: .social,
-                destination: nil,
-                action: { print("Chat tapped") },
-                isEnabled: true
-            ),
-            SmartAction(
-                title: "Nutrición",
-                subtitle: "Planes",
-                icon: "leaf.circle.fill",
-                color: Color.dynamicAccent(theme: themeManager.currentTheme),
-                priority: .medium,
-                type: .navigation,
-                destination: nil, // TODO: Add nutrition view
-                action: { print("Nutrición tapped") },
-                isEnabled: true
-            ),
-            SmartAction(
-                title: "Calendario",
-                subtitle: "Horarios",
-                icon: "calendar.circle.fill",
-                color: Color.dynamicAccent(theme: themeManager.currentTheme),
-                priority: .medium,
                 type: .navigation,
                 destination: nil,
-                action: { print("Calendario tapped") },
+                action: { showingCreateEvent = true },
                 isEnabled: true
-            ),
-            SmartAction(
-                title: "Progreso",
-                subtitle: "Estadísticas",
-                icon: "chart.line.uptrend.xyaxis.circle.fill",
-                color: Color.dynamicAccent(theme: themeManager.currentTheme),
-                priority: .medium,
+            ))
+        }
+        
+        if RolePermissions.isAdminLevel(currentRole) {
+            actions.append(SmartAction(
+                title: "Gestionar",
+                subtitle: "Administrar",
+                icon: "person.2.circle.fill",
+                color: Color.orange,
+                priority: .high,
                 type: .navigation,
-                destination: nil, // TODO: Add progress view
-                action: { print("Progreso tapped") },
+                destination: nil,
+                action: { print("Admin panel tapped") },
                 isEnabled: true
-            )
-        ]
+            ))
+        }
+        
+        // Fill remaining slots with standard actions
+        if actions.count < 4 {
+            let standardActions = [
+                SmartAction(
+                    title: "Calendario",
+                    subtitle: "Horarios",
+                    icon: "calendar.circle.fill",
+                    color: Color.dynamicAccent(theme: themeManager.currentTheme),
+                    priority: .medium,
+                    type: .navigation,
+                    destination: nil,
+                    action: { print("Calendario tapped") },
+                    isEnabled: true
+                ),
+                SmartAction(
+                    title: "Progreso",
+                    subtitle: "Estadísticas",
+                    icon: "chart.line.uptrend.xyaxis.circle.fill",
+                    color: Color.dynamicAccent(theme: themeManager.currentTheme),
+                    priority: .medium,
+                    type: .navigation,
+                    destination: nil,
+                    action: { print("Progreso tapped") },
+                    isEnabled: true
+                ),
+                SmartAction(
+                    title: "Nutrición",
+                    subtitle: "Planes",
+                    icon: "leaf.circle.fill",
+                    color: Color.dynamicAccent(theme: themeManager.currentTheme),
+                    priority: .low,
+                    type: .navigation,
+                    destination: nil,
+                    action: { print("Nutrición tapped") },
+                    isEnabled: true
+                )
+            ]
+            
+            let slotsToFill = 4 - actions.count
+            actions.append(contentsOf: Array(standardActions.prefix(slotsToFill)))
+        }
+        
+        return Array(actions.prefix(4))
     }
     
     var body: some View {
@@ -132,6 +176,12 @@ struct SmartActionsSection: View {
         }
         .onChange(of: membershipService.membershipStatus) { _ in
             generateSmartActions()
+        }
+        .sheet(isPresented: $showingCreateEvent) {
+            CreateEventView()
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .environmentObject(eventService)
         }
         .alert("Location Permission Required", isPresented: $showingLocationAlert) {
             Button("Settings") {

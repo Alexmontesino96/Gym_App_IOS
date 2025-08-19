@@ -110,5 +110,9 @@
         <string>fetch</string>
         <string>remote-notification</string>
     </array>
+    
+    <!-- Permiso para Calendario (necesario para crear eventos con recordatorio) -->
+    <key>NSCalendarsUsageDescription</key>
+    <string>Gym App necesita acceso a tu calendario para añadir recordatorios de tus clases y eventos.</string>
 </dict>
 </plist>

@@ -10,6 +10,10 @@ struct ProfileOptionsSheet: View {
     let authService: AuthServiceDirect
     let gymService: GymService
     let themeManager: ThemeManager
+    
+    private var currentRole: String? {
+        gymService.currentGym?.userRoleInGym
+    }
 
     var body: some View {
         NavigationView {
@@ -31,6 +35,28 @@ struct ProfileOptionsSheet: View {
                     row(icon: "paintpalette.fill", title: "Customize Colors") {
                         isPresented = false
                         onCustomizeColors()
+                    }
+                    
+                    // Administrative options (only for staff)
+                    if RolePermissions.canManageUsers(currentRole) {
+                        row(icon: "person.2.fill", title: "Manage Members") {
+                            isPresented = false
+                            print("Manage Members tapped - Admin feature")
+                        }
+                    }
+                    
+                    if RolePermissions.canViewReports(currentRole) {
+                        row(icon: "chart.bar.fill", title: "View Reports") {
+                            isPresented = false
+                            print("View Reports tapped - Staff feature")
+                        }
+                    }
+                    
+                    if RolePermissions.canManageGym(currentRole) {
+                        row(icon: "building.2.badge.gearshape", title: "Gym Settings") {
+                            isPresented = false
+                            print("Gym Settings tapped - Owner feature")
+                        }
                     }
 
                     row(icon: "gear", title: "Settings") {
