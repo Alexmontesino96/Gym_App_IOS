@@ -74,33 +74,33 @@ struct AnimatedProfileMetric: View {
             .scaleEffect(scale)
             
             // Value and label on the right
-            VStack(alignment: .leading, spacing: 2) {
-                // Animated value with counter
+            VStack(alignment: .leading, spacing: 4) {
+                // Label on top
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    .opacity(isVisible ? 1 : 0)
+                
+                // Animated value with counter below
                 HStack(spacing: 2) {
                     if numericValue > 0 {
                         Text("\(currentValue)")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 20, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: theme))
                         
                         if !valueSuffix.isEmpty {
                             Text(valueSuffix)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(Color.dynamicText(theme: theme))
                         }
                     } else {
                         Text(value)
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 20, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: theme))
                     }
                 }
                 .opacity(isVisible ? 1 : 0)
                 .offset(y: isVisible ? 0 : 10)
-                
-                // Label
-                Text(label)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                    .opacity(isVisible ? 1 : 0)
             }
         }
         .onAppear {
