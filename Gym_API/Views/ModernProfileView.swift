@@ -19,6 +19,7 @@ struct ModernProfileView: View {
     @State private var showingEditProfile = false
     @State private var showingGymSelector = false
     @StateObject private var gymService = GymService.shared
+    @State private var showProfileCelebration = false
     
     // MARK: - Profile Sections
     enum ProfileSection: String, CaseIterable {
@@ -151,6 +152,18 @@ struct ModernProfileView: View {
                     .environmentObject(themeManager)
             }
         }
+        .overlay(
+            // Profile completion celebration overlay
+            Group {
+                if showProfileCelebration {
+                    ProfileCompletionCelebration(
+                        isShowing: $showProfileCelebration,
+                        theme: themeManager.currentTheme
+                    )
+                    .zIndex(1000)
+                }
+            }
+        )
         .onAppear {
             setupServices()
             loadData()
@@ -259,65 +272,13 @@ struct ModernProfileView: View {
                     }
                 }
                 
-                // Clean horizontal stats layout (MOVIDO ABAJO - después del nombre)
-                HStack(spacing: 40) {
-                    // Total Workouts
-                    VStack(spacing: 4) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "dumbbell.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            Text("\(userStatsService.userStats.monthlyClasses)")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        }
-                        Text("Workouts")
-                            .font(.system(size: 14, weight: .light))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    
-                    // Weight
-                    VStack(spacing: 4) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "scalemass.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            if let weight = profileService.userProfile?.weight {
-                                Text("\(Int(weight)) kg")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            } else {
-                                Text("63 kg")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            }
-                        }
-                        Text("Weight")
-                            .font(.system(size: 14, weight: .light))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                    
-                    // Height
-                    VStack(spacing: 4) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.up.and.down")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            if let height = profileService.userProfile?.height {
-                                Text("\(Int(height)) cm")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            } else {
-                                Text("179 cm")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            }
-                        }
-                        Text("Height")
-                            .font(.system(size: 14, weight: .light))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                }
+                // Animated metrics container replacing the old static layout
+                EnhancedProfileMetricsContainer(
+                    profileService: profileService,
+                    userStatsService: userStatsService,
+                    theme: themeManager.currentTheme,
+                    showCelebration: $showProfileCelebration
+                )
                 
                 // Badges (centered and properly spaced) - only streak badge now
                 HStack(spacing: 12) {
