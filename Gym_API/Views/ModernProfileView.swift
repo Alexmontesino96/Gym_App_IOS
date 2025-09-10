@@ -279,6 +279,7 @@ struct ModernProfileView: View {
                     theme: themeManager.currentTheme,
                     showCelebration: $showProfileCelebration
                 )
+                .padding(.horizontal, 20)
                 
                 // Badges (centered and properly spaced) - only streak badge now
                 HStack(spacing: 12) {
