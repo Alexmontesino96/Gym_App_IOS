@@ -38,25 +38,8 @@ struct ProfileCompletionCelebration: View {
             
             // Main celebration content
             VStack(spacing: 32) {
-                // Trophy with glow
+                // Trophy without glow
                 ZStack {
-                    // Glow effect
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                gradient: Gradient(colors: [
-                                    Color.yellow.opacity(glowIntensity),
-                                    Color.orange.opacity(glowIntensity * 0.5),
-                                    Color.clear
-                                ]),
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 100
-                            )
-                        )
-                        .frame(width: 200, height: 200)
-                        .blur(radius: 20)
-                    
                     // Sparkles around trophy
                     ForEach(0..<8, id: \.self) { index in
                         Image(systemName: "sparkle")
@@ -179,11 +162,6 @@ struct ProfileCompletionCelebration: View {
         }
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(1.3)) {
             trophyRotation = 0
-        }
-        
-        // Glow pulse
-        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true).delay(0.5)) {
-            glowIntensity = 0.8
         }
         
         // Confetti fall

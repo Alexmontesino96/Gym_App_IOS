@@ -34,15 +34,8 @@ struct AnimatedProfileMetric: View {
     
     var body: some View {
         VStack(spacing: 4) {
-            // Animated icon with glow
+            // Animated icon without glow
             ZStack {
-                // Glow effect
-                Circle()
-                    .fill(color.opacity(glowIntensity))
-                    .frame(width: 40, height: 40)
-                    .blur(radius: 8)
-                    .scaleEffect(1.5)
-                
                 // Sparkles
                 ForEach(0..<6, id: \.self) { index in
                     Circle()
@@ -158,11 +151,6 @@ struct AnimatedProfileMetric: View {
             }
             withAnimation(.easeOut(duration: 0.5).delay(0.8)) {
                 sparkleOpacity = 0.0
-            }
-            
-            // Glow pulse
-            withAnimation(.easeInOut(duration: 1.0).repeatCount(2, autoreverses: true).delay(0.2)) {
-                glowIntensity = 0.6
             }
             
             // Counter animation for numeric values

@@ -58,22 +58,15 @@ struct ProfileMetricsContainer: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
                         .stroke(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.dynamicAccent(theme: theme).opacity(glowAnimation ? 0.6 : 0.2),
-                                    Color.dynamicAccent(theme: theme).opacity(glowAnimation ? 0.3 : 0.1)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: glowAnimation ? 2 : 1
+                            Color.dynamicAccent(theme: theme).opacity(0.2),
+                            lineWidth: 1
                         )
                 )
                 .shadow(
-                    color: Color.dynamicAccent(theme: theme).opacity(glowAnimation ? 0.3 : 0.1),
-                    radius: glowAnimation ? 20 : 10,
+                    color: Color.black.opacity(0.1),
+                    radius: 5,
                     x: 0,
-                    y: 5
+                    y: 2
                 )
         )
         .scaleEffect(containerScale)
@@ -93,11 +86,6 @@ struct ProfileMetricsContainer: View {
         withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
             containerScale = 1.0
             containerOpacity = 1.0
-        }
-        
-        // Glow pulse animation
-        withAnimation(.easeInOut(duration: 1.5).repeatCount(2, autoreverses: true).delay(0.5)) {
-            glowAnimation = true
         }
         
         // Check for celebration after metrics load
