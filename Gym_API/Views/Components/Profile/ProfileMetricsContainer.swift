@@ -19,7 +19,7 @@ struct ProfileMetricsContainer: View {
     }
     
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 15) {
             // Workouts metric
             AnimatedProfileMetric(
                 icon: "dumbbell.fill",
@@ -54,8 +54,8 @@ struct ProfileMetricsContainer: View {
             .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 25)
-        .padding(.vertical, 20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(.ultraThinMaterial)
