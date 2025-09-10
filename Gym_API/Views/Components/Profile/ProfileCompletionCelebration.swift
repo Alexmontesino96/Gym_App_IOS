@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 // MARK: - Profile Completion Celebration
 struct ProfileCompletionCelebration: View {
@@ -238,8 +239,8 @@ struct ProfileCompletionCelebration: View {
         let distance: CGFloat = 80
         
         return CGSize(
-            width: cos(angle) * distance * confettiOpacity,
-            height: sin(angle) * distance * confettiOpacity
+            width: CGFloat(cos(angle)) * distance * confettiOpacity,
+            height: CGFloat(sin(angle)) * distance * confettiOpacity
         )
     }
 }

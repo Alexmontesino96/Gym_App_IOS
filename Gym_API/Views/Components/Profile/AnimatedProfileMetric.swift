@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 // MARK: - Animated Profile Metric
 struct AnimatedProfileMetric: View {
@@ -187,8 +188,8 @@ struct AnimatedProfileMetric: View {
         let angle = Double(index) * 60.0 * .pi / 180.0
         let distance: CGFloat = 25
         return CGSize(
-            width: cos(angle) * distance,
-            height: sin(angle) * distance
+            width: CGFloat(cos(angle)) * distance,
+            height: CGFloat(sin(angle)) * distance
         )
     }
 }
