@@ -80,6 +80,8 @@ struct AnimatedProfileMetric: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                     .opacity(isVisible ? 1 : 0)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .lineLimit(1)
                 
                 // Animated value with counter below
                 HStack(spacing: 2) {
@@ -101,6 +103,7 @@ struct AnimatedProfileMetric: View {
                 }
                 .opacity(isVisible ? 1 : 0)
                 .offset(y: isVisible ? 0 : 10)
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
         .onAppear {
