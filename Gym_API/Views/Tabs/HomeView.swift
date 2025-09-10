@@ -8,6 +8,7 @@ struct HomeView: View {
     @EnvironmentObject var classService: ClassService
     @StateObject private var profileService = UserProfileService.shared
     @ObservedObject private var userStatsService = UserStatsService.shared
+    @EnvironmentObject var surveyService: SurveyService
     @State private var currentDate = Date()
     
     private var greeting: String {
@@ -67,6 +68,11 @@ struct HomeView: View {
                         // Next Class Card (if user has upcoming registered classes)
                         NextClassCard(themeManager: themeManager, classService: classService)
                         
+                        // Survey Card (if there are available surveys)
+                        SurveyHomeCard()
+                            .environmentObject(surveyService)
+                            .environmentObject(themeManager)
+                        
                         // Quick Access Actions (4 circular buttons)
                         SmartActionsSection(
                             themeManager: themeManager,
@@ -114,6 +120,7 @@ struct HomeView: View {
                 await eventService.fetchEvents()
                 await eventService.fetchUserParticipations()
                 await userStatsService.fetchComprehensiveStats()
+                await surveyService.getAvailableSurveys()
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -139,15 +146,21 @@ struct HomeView: View {
             setupServices()
             debugLog("🏠 setupServices completado, iniciando tareas async")
             Task {
-                debugLog("🏠 Iniciando fetchEvents...")
-                await eventService.fetchEvents()
+                if eventService.events.isEmpty {
+                    debugLog("🏠 Iniciando fetchEvents (lista vacía)...")
+                    await eventService.fetchEvents()
+                } else {
+                    debugLog("🏠 Omitiendo fetchEvents (ya hay eventos en memoria)")
+                }
                 debugLog("🏠 fetchEvents completado, iniciando fetchUserParticipations...")
                 await eventService.fetchUserParticipations()
                 debugLog("🏠 fetchUserParticipations completado, iniciando getMyGyms...")
                 await gymService.getMyGyms()
                 debugLog("🏠 getMyGyms completado, iniciando fetchComprehensiveStats...")
                 await userStatsService.fetchComprehensiveStats()
-                debugLog("🏠 fetchComprehensiveStats completado")
+                debugLog("🏠 fetchComprehensiveStats completado, iniciando getAvailableSurveys...")
+                await surveyService.getAvailableSurveys()
+                debugLog("🏠 getAvailableSurveys completado")
             }
         }
     }
@@ -163,6 +176,9 @@ struct HomeView: View {
         debugLog("🏠 Configurando authService en userStatsService...")
         userStatsService.authService = authService
         debugLog("🏠 AuthService configurado en userStatsService: \(userStatsService.authService != nil)")
+        debugLog("🏠 Configurando authService en surveyService...")
+        surveyService.authService = authService
+        surveyService.gymService = gymService
         
         // Setup location service
         debugLog("🏠 Configurando LocationService...")
@@ -204,33 +220,37 @@ struct HeroSection: View {
                 Spacer()
                 
                 // User Avatar - positioned at top right
-                ZStack {
-                    // Avatar background with red accent
-                    Circle()
-                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        .frame(width: 60, height: 60)
-                    
-                    // User avatar or default icon (cached)
-                    Group {
-                        if let urlString = resolvedAvatarURL(authService: authService), !urlString.isEmpty,
-                           let user = authService.user {
-                            let normalizedId = user.id
-                                .replacingOccurrences(of: "user_", with: "")
-                                .replacingOccurrences(of: "auth0|", with: "")
-                            CustomImageView(url: urlString, cacheKey: "avatar_self_\(normalizedId)", size: 56) {
+                Group {
+                    if let urlString = resolvedAvatarURL(authService: authService), !urlString.isEmpty,
+                       let user = authService.user {
+                        let normalizedId = user.id
+                            .replacingOccurrences(of: "user_", with: "")
+                            .replacingOccurrences(of: "auth0|", with: "")
+                        CustomImageView(url: urlString, cacheKey: "avatar_self_\(normalizedId)", size: 80) {
                                 AnyView(
                                     Image(systemName: "person.fill")
-                                        .font(.system(size: 28, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .font(.system(size: 40, weight: .semibold))
+                                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        .frame(width: 80, height: 80)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
+                                        )
                                 )
                             }
+                            .clipShape(Circle())
                             .accessibilityLabel(Text("Foto de perfil"))
-                        } else {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 28, weight: .semibold))
-                                .foregroundColor(.white)
-                                .accessibilityLabel(Text("Foto de perfil por defecto"))
-                        }
+                    } else {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 40, weight: .semibold))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .frame(width: 80, height: 80)
+                            .background(
+                                Circle()
+                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1))
+                            )
+                            .clipShape(Circle())
+                            .accessibilityLabel(Text("Foto de perfil por defecto"))
                     }
                 }
                 .onTapGesture {

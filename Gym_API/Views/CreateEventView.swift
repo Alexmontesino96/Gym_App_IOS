@@ -25,6 +25,9 @@ struct CreateEventView: View {
     @State private var showingSuccessAlert = false
     @State private var validationErrors: [String] = []
     
+    // Keyboard / focus management
+    @FocusState private var focusedField: Field?
+    
     // Date formatters
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -70,6 +73,14 @@ struct CreateEventView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
                 }
+                // Dismiss keyboard by dragging the scroll
+                .scrollDismissesKeyboard(.interactively)
+                // Dismiss keyboard by tapping the background
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = nil
+                    hideKeyboard()
+                }
             }
             .navigationTitle("Crear Evento")
             .navigationBarTitleDisplayMode(.inline)
@@ -86,6 +97,14 @@ struct CreateEventView: View {
                         showingTemplateSelector = true
                     }
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                }
+                // Keyboard toolbar
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Listo") {
+                        focusedField = nil
+                        hideKeyboard()
+                    }
                 }
             }
         }
@@ -169,6 +188,7 @@ struct CreateEventView: View {
                 
                 TextField("Nombre del evento", text: $formData.title)
                     .textFieldStyle(CustomTextFieldStyle(themeManager: themeManager))
+                    .focused($focusedField, equals: .title)
             }
             
             // Description
@@ -180,6 +200,7 @@ struct CreateEventView: View {
                 TextField("Describe tu evento", text: $formData.description, axis: .vertical)
                     .textFieldStyle(CustomTextFieldStyle(themeManager: themeManager))
                     .lineLimit(3...6)
+                    .focused($focusedField, equals: .description)
             }
         }
     }
@@ -274,6 +295,7 @@ struct CreateEventView: View {
                 
                 TextField("Ej: Sala de spinning, Gimnasio principal", text: $formData.location)
                     .textFieldStyle(CustomTextFieldStyle(themeManager: themeManager))
+                    .focused($focusedField, equals: .location)
             }
             
             // Max Participants
@@ -286,12 +308,13 @@ struct CreateEventView: View {
                     TextField("20", value: $formData.maxParticipants, format: .number)
                         .textFieldStyle(CustomTextFieldStyle(themeManager: themeManager))
                         .keyboardType(.numberPad)
-                    
-                    Stepper("", value: $formData.maxParticipants, in: 1...200)
-                        .labelsHidden()
-                }
+                        .focused($focusedField, equals: .maxParticipants)
+                
+                Stepper("", value: $formData.maxParticipants, in: 1...200)
+                    .labelsHidden()
             }
         }
+    }
     }
     
     // MARK: - Chat Message Section
@@ -309,6 +332,7 @@ struct CreateEventView: View {
                 TextField("¡Bienvenidos! Estoy emocionado de entrenar con ustedes...", text: $formData.firstMessage, axis: .vertical)
                     .textFieldStyle(CustomTextFieldStyle(themeManager: themeManager))
                     .lineLimit(2...4)
+                    .focused($focusedField, equals: .firstMessage)
             }
         }
     }
@@ -410,6 +434,24 @@ struct CreateEventView: View {
         }
     }
 }
+
+// MARK: - Focusable Fields
+private enum Field: Hashable {
+    case title
+    case description
+    case location
+    case maxParticipants
+    case firstMessage
+}
+
+// MARK: - Keyboard Helper
+#if canImport(UIKit)
+private extension View {
+    func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+#endif
 
 // MARK: - Custom Text Field Style
 struct CustomTextFieldStyle: TextFieldStyle {

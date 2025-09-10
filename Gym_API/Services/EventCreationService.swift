@@ -102,9 +102,9 @@ class EventCreationService: ObservableObject {
                         
                         print("✅ Event created successfully: \(eventResponse.title) (ID: \(eventResponse.id))")
                         
-                        // Refresh events in EventService
+                        // Force refresh events to clear cache and get latest data
                         if let eventService = eventService {
-                            await eventService.fetchEvents()
+                            await eventService.forceRefresh()
                             await eventService.fetchUserParticipations()
                         }
                         

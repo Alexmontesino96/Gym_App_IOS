@@ -30,6 +30,10 @@ class EventService: ObservableObject {
     
     // Para manejar cancelación de peticiones
     private var currentTask: URLSessionDataTask?
+    // Coalesce in-flight user participations request to avoid cancellations
+    private var userParticipationsTask: Task<[EventParticipationWithEvent]?, Never>?
+    // Controla el backoff de reintentos cuando una carga se cancela
+    private var lastEventsRetryAt: Date?
     
     // Función utilitaria para asegurar que las actualizaciones se hagan en el main thread
     private func updateOnMainThread(_ action: @escaping () -> Void) {
@@ -81,6 +85,9 @@ class EventService: ObservableObject {
             self.detailErrorMessage = nil
             self.joinEventErrorMessage = nil
             self.isLoading = true
+            
+            // Clear UserDefaults cache as well
+            self.clearEventsCache()
         }
         
         // Crear una nueva task para el fetch
@@ -103,7 +110,7 @@ class EventService: ObservableObject {
             let container = try decoder.singleValueContainer()
             let string = try container.decode(String.self)
             
-            print("📅 Intentando decodificar fecha: '\(string)'")
+            // Removed verbose date parsing logs - parsing date silently
             
             // Formatters para diferentes formatos de fecha
             let formatter1 = ISO8601DateFormatter()
@@ -116,14 +123,11 @@ class EventService: ObservableObject {
             
             let formatters = [formatter1, formatter2]
             
-            for (index, formatter) in formatters.enumerated() {
+            for formatter in formatters {
                 if let date = formatter.date(from: string) {
-                    print("✅ Fecha decodificada exitosamente con formatter \(index + 1): \(date)")
                     return date
                 }
             }
-            
-            print("❌ No se pudo decodificar la fecha: '\(string)'")
             throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(string)"))
         }
         return decoder
@@ -141,7 +145,7 @@ class EventService: ObservableObject {
     // MARK: - Fetch Events
     func fetchEvents(
         skip: Int = 0,
-        limit: Int = 50,
+        limit: Int = 100,
         status: EventStatus? = nil,
         startDate: Date? = nil,
         endDate: Date? = nil,
@@ -160,58 +164,72 @@ class EventService: ObservableObject {
         }
         
         do {
-            // Crear una task dedicada para el fetch de eventos
-            let eventsTask = Task {
-                print("📡 [\(taskID)] Fetching events data...")
-                return try await fetchEventsData(
-                    skip: skip,
-                    limit: limit,
-                    status: status,
-                    startDate: startDate,
-                    endDate: endDate,
-                    titleContains: titleContains,
-                    locationContains: locationContains,
-                    createdBy: createdBy,
-                    onlyAvailable: onlyAvailable
-                )
-            }
+            // 1) Obtener eventos
+            print("📡 [\(taskID)] Fetching events data...")
+            let events = try await fetchEventsData(
+                skip: skip,
+                limit: limit,
+                status: status,
+                startDate: startDate,
+                endDate: endDate,
+                titleContains: titleContains,
+                locationContains: locationContains,
+                createdBy: createdBy,
+                onlyAvailable: onlyAvailable
+            )
             
-            // Esperar por los eventos con manejo de cancelación
-            let events = try await eventsTask.value
-            
-            // No verificar cancelación aquí - si ya obtuvimos los datos exitosamente, 
-            // deberíamos actualizarlos independientemente del estado de cancelación
-            
-            // Crear una task dedicada para las participaciones
-            let participationsTask = Task {
-                print("📡 [\(taskID)] Fetching user participations...")
-                return await fetchUserParticipationsData()
-            }
-            
-            // Esperar por las participaciones con manejo de cancelación
-            let participations = try await participationsTask.value
-            
-            // Actualizar los eventos
+            // 2) Actualizar UI con eventos inmediatamente
             if let fetchedEvents = events {
                 updateOnMainThread {
-                    // Forzar la actualización completa de la lista
                     let sortedEvents = fetchedEvents.sorted { $0.startTime < $1.startTime }
                     self.events = sortedEvents
-                    print("📱 UI updated with \(sortedEvents.count) events")
+                    print("📱 Events in memory: \(sortedEvents.count)")
                 }
-                print("✅ Successfully fetched \(fetchedEvents.count) events from API")
+                print("✅ Fetch completed: \(fetchedEvents.count) events")
             } else {
                 print("⚠️ No events received from API")
             }
             
-            // Actualizar las participaciones
-            if let userParticipations = participations {
-                updateUserRegistrationStatus(from: userParticipations)
+            // 3) Lanzar carga de participaciones en paralelo (coalesced)
+            Task { [weak self] in
+                guard let self = self else { return }
+                print("📡 [\(taskID)] Fetching user participations (coalesced)...")
+                await self.fetchUserParticipations()
             }
             
         } catch {
             if (error as NSError).code == NSURLErrorCancelled {
                 print("⚠️ Fetch operation cancelled [\(taskID)]")
+                // Programar un reintento ligero si no hay datos actualmente
+                if self.events.isEmpty {
+                    let now = Date()
+                    let minInterval: TimeInterval = 1.0
+                    let canRetry: Bool
+                    if let last = lastEventsRetryAt {
+                        canRetry = now.timeIntervalSince(last) > minInterval
+                    } else {
+                        canRetry = true
+                    }
+                    if canRetry {
+                        lastEventsRetryAt = now
+                        Task { [weak self] in
+                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
+                            await self?.fetchEvents(
+                                skip: skip,
+                                limit: limit,
+                                status: status,
+                                startDate: startDate,
+                                endDate: endDate,
+                                titleContains: titleContains,
+                                locationContains: locationContains,
+                                createdBy: createdBy,
+                                onlyAvailable: onlyAvailable
+                            )
+                        }
+                    } else {
+                        print("⏭️ Skipping immediate retry (recent attempt)")
+                    }
+                }
             } else {
                 print("❌ Error fetching events [\(taskID)]: \(error)")
                 updateOnMainThread {
@@ -220,20 +238,17 @@ class EventService: ObservableObject {
             }
         }
         
-        if !Task.isCancelled {
-            updateOnMainThread {
-                self.isLoading = false
-                print("✅ Fetch operation completed [\(taskID)]")
-            }
-        } else {
-            print("⚠️ Task cancelled, skipping UI update [\(taskID)]")
+        // Finalizar estado de carga incluso si hubo cancelación de sub-tareas
+        updateOnMainThread {
+            self.isLoading = false
+            print("✅ Fetch operation completed [\(taskID)]")
         }
     }
     
     // MARK: - Fetch Events Data (Private)
     private func fetchEventsData(
         skip: Int = 0,
-        limit: Int = 50,
+        limit: Int = 100,
         status: EventStatus? = nil,
         startDate: Date? = nil,
         endDate: Date? = nil,
@@ -297,6 +312,7 @@ class EventService: ObservableObject {
             // Agregar header X-Gym-ID 
             // Solo agregar header X-Gym-ID si hay un gym seleccionado
             if let gymId = GymService.shared.currentGym?.id {
+                print("🏋️ Using X-Gym-ID: \(gymId)")
                 request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
             } else {
                 print("⚠️ No hay gym seleccionado, omitiendo header X-Gym-ID")
@@ -305,10 +321,7 @@ class EventService: ObservableObject {
             // Agregar token de autorización
             if let token = await getAuthToken() {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                print("🔑 Token incluido en petición:")
-                print("🔑 - Tipo: \(token.contains(".") ? (token.components(separatedBy: ".").count == 3 ? "JWT" : "JWE") : "Unknown")")
-                print("🔑 - Primeros 50 chars: \(token.prefix(50))...")
-                print("🔑 - Total length: \(token.count)")
+                // Token included in request
             } else {
                 print("⚠️ No se encontró token de autorización válido")
                 // Esperar un poco más por el token después del login
@@ -335,6 +348,14 @@ class EventService: ObservableObject {
             
             if httpResponse.statusCode == 200 {
                 let fetchedEvents = try configuredJSONDecoder().decode([Event].self, from: data)
+                
+                // Log API response summary
+                print("📊 API Response: \(fetchedEvents.count) events received")
+                print("📊 Event IDs: \(fetchedEvents.map { $0.id }.sorted())")
+                if fetchedEvents.count > 0 {
+                    print("📊 Latest events: \(fetchedEvents.suffix(5).map { "[\($0.id)] \($0.title)" }.joined(separator: ", "))")
+                }
+                
                 return fetchedEvents
                 
             } else {
@@ -404,7 +425,8 @@ class EventService: ObservableObject {
             // Verificar si el error es por cancelación
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 print("⚠️ Petición de eventos cancelada")
-                return nil
+                // Propagar cancelación para que el caller pueda decidir un reintento
+                throw urlError
             }
             throw error
         }
@@ -461,6 +483,10 @@ class EventService: ObservableObject {
             }
             
         } catch {
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                print("⚠️ User participations request cancelled (overlap/refresh)")
+                return nil
+            }
             print("❌ Error fetching user participations: \(error)")
             return nil
         }
@@ -472,23 +498,41 @@ class EventService: ObservableObject {
             // Actualizar el estado de registro para cada evento
             self.userRegistrationStatus.removeAll()
             
+            // Update registration status for all participations
+            var registeredEvents: [Int] = []
             for participation in participations {
                 // Solo considerar participaciones activas (no canceladas)
                 let isRegistered = participation.status == "REGISTERED"
                 self.userRegistrationStatus[participation.eventId] = isRegistered
-                
-                print("📝 User participation - Event ID: \(participation.eventId), Status: \(participation.status), Registered: \(isRegistered)")
+                if isRegistered {
+                    registeredEvents.append(participation.eventId)
+                }
             }
             
-            print("🔍 Updated userRegistrationStatus: \(self.userRegistrationStatus)")
+            print("📝 User registered for events: \(registeredEvents.sorted())")
+            print("📝 Total registration map: \(self.userRegistrationStatus.count) events")
         }
     }
 
     // MARK: - Fetch User Participations (Mantener compatibilidad)
     func fetchUserParticipations() async {
-        if let participations = await fetchUserParticipationsData() {
+        // Coalesce concurrent calls to avoid cancelling each other
+        if let task = userParticipationsTask {
+            print("🔄 Using in-flight user participations task")
+            if let participations = await task.value {
+                updateUserRegistrationStatus(from: participations)
+            }
+            return
+        }
+        let task = Task { [weak self] in
+            return await self?.fetchUserParticipationsData()
+        }
+        userParticipationsTask = task
+        let result = await task.value
+        if let participations = result {
             updateUserRegistrationStatus(from: participations)
         }
+        userParticipationsTask = nil
     }
     
     // MARK: - Fetch Event Detail Data (Optimized)
@@ -701,20 +745,13 @@ class EventService: ObservableObject {
                 throw EventServiceError.invalidResponse
             }
             
-            print("📡 Response status for participations: \(httpResponse.statusCode)")
-            
             if httpResponse.statusCode == 200 {
-                // Logging de la respuesta
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    print("📄 Participations Response: \(jsonString)")
-                }
-                
                 let participations = try configuredJSONDecoder().decode([EventParticipation].self, from: data)
                 updateOnMainThread {
                     self.eventParticipations = participations
                 }
                 
-                print("✅ Successfully fetched \(participations.count) participations")
+                print("✅ Participations: \(participations.count) found")
                 
                 // Verificar el estado de registro del usuario actual
                 checkUserRegistrationFromParticipations(eventId: eventId)
@@ -849,7 +886,7 @@ class EventService: ObservableObject {
     // MARK: - User Registration Status
     func isUserRegistered(eventId: Int) -> Bool {
         let isRegistered = userRegistrationStatus[eventId] ?? false
-        print("🔍 isUserRegistered for event \(eventId): \(isRegistered)")
+        // Removed verbose registration check log
         return isRegistered
     }
     
@@ -1347,8 +1384,8 @@ class EventService: ObservableObject {
                         
                         print("✅ Event created successfully: \(eventResponse.title) (ID: \(eventResponse.id))")
                         
-                        // Refresh events list
-                        await fetchEvents()
+                        // Force refresh events list to clear cache and get latest data
+                        await forceRefresh()
                         await fetchUserParticipations()
                         
                         return true

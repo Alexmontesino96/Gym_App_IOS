@@ -71,7 +71,7 @@ struct ProfileCompletionView: View {
                     .shadow(color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), 
                             radius: 20, x: 0, y: 10)
                     
-                    Image(systemName: "figure.strengthtraining.traditional")
+                    Image(systemName: "figure.walk")
                         .font(.system(size: 60, weight: .medium))
                         .foregroundColor(.white)
                 }

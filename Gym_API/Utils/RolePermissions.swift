@@ -132,6 +132,87 @@ struct RolePermissions {
         return ["OWNER", "ADMIN"].contains(role)
     }
     
+    /// Verifica si el usuario puede editar cualquier sesión de clase
+    /// Solo ADMIN y OWNER pueden editar sesiones de otros
+    static func canEditAnySessions(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN"].contains(role)
+    }
+    
+    /// Verifica si el usuario puede eliminar cualquier sesión de clase
+    /// Solo ADMIN y OWNER pueden eliminar sesiones de otros
+    static func canDeleteAnySessions(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN"].contains(role)
+    }
+    
+    /// Verifica si el usuario puede editar una sesión específica
+    /// El creador de la sesión o ADMIN/OWNER pueden editar
+    static func canEditSession(_ role: String?, creatorId: Int?, currentUserId: String?) -> Bool {
+        // Si es admin/owner, puede editar cualquier sesión
+        if canEditAnySessions(role) {
+            return true
+        }
+        
+        // Si es el creador de la sesión, puede editarla
+        if let creatorId = creatorId,
+           let currentUserId = currentUserId,
+           let currentUserIdInt = Int(currentUserId) {
+            return creatorId == currentUserIdInt
+        }
+        
+        return false
+    }
+    
+    /// Verifica si el usuario puede eliminar una sesión específica
+    /// El creador de la sesión o ADMIN/OWNER pueden eliminar
+    static func canDeleteSession(_ role: String?, creatorId: Int?, currentUserId: String?) -> Bool {
+        // Si es admin/owner, puede eliminar cualquier sesión
+        if canDeleteAnySessions(role) {
+            return true
+        }
+        
+        // Si es el creador de la sesión, puede eliminarla
+        if let creatorId = creatorId,
+           let currentUserId = currentUserId,
+           let currentUserIdInt = Int(currentUserId) {
+            return creatorId == currentUserIdInt
+        }
+        
+        return false
+    }
+    
+    // MARK: - Survey Management Permissions
+    
+    /// Verifica si el usuario puede gestionar encuestas
+    /// OWNER y ADMIN pueden crear y gestionar todas las encuestas
+    /// TRAINER puede crear y ver estadísticas de sus propias encuestas
+    static func canManageSurveys(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN", "TRAINER"].contains(role)
+    }
+    
+    /// Verifica si el usuario puede ver todas las respuestas de encuestas
+    /// Solo OWNER y ADMIN pueden ver respuestas individuales
+    static func canViewAllSurveyResponses(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN"].contains(role)
+    }
+    
+    /// Verifica si el usuario puede exportar datos de encuestas
+    /// Solo OWNER y ADMIN pueden exportar datos
+    static func canExportSurveyData(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN"].contains(role)
+    }
+    
+    /// Verifica si el usuario puede eliminar encuestas
+    /// Solo OWNER y ADMIN pueden eliminar encuestas
+    static func canDeleteSurveys(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN"].contains(role)
+    }
+    
     // MARK: - Role Utilities
     
     /// Obtiene el rol formateado para display
@@ -160,7 +241,7 @@ struct RolePermissions {
         case "ADMIN":
             return "person.badge.key.fill"
         case "TRAINER":
-            return "figure.strengthtraining.traditional"
+            return "figure.walk"
         case "MEMBER":
             return "person.fill"
         default:
@@ -177,12 +258,16 @@ struct RolePermissions {
         if canViewReports(role) { permissions.append("View Reports") }
         if canModerate(role) { permissions.append("Moderate") }
         if canManageUsers(role) { permissions.append("Manage Users") }
+        if canManageSurveys(role) { permissions.append("Manage Surveys") }
+        if canExportSurveyData(role) { permissions.append("Export Survey Data") }
         if canManageSchedule(role) { permissions.append("Manage Schedule") }
         if canManageGym(role) { permissions.append("Manage Gym") }
         if canEditAnyEvent(role) { permissions.append("Edit Any Event") }
         if canCancelAnyEvent(role) { permissions.append("Cancel Any Event") }
         if canBulkRegisterUsers(role) { permissions.append("Bulk Register Users") }
         if canCreateSessions(role) { permissions.append("Create Sessions") }
+        if canEditAnySessions(role) { permissions.append("Edit Any Session") }
+        if canDeleteAnySessions(role) { permissions.append("Delete Any Session") }
         
         return permissions
     }

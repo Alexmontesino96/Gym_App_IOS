@@ -30,7 +30,6 @@ class OnboardingManager: ObservableObject {
         case splash
         case benefits
         case userTypeSelection
-        case existingPages
         case profileSetup
         case permissions
         case complete
@@ -40,7 +39,6 @@ class OnboardingManager: ObservableObject {
             case .splash: return "Welcome"
             case .benefits: return "Benefits"
             case .userTypeSelection: return "User Type"
-            case .existingPages: return "Getting Started"
             case .profileSetup: return "Profile Setup"
             case .permissions: return "Permissions"
             case .complete: return "Complete"
@@ -84,7 +82,6 @@ class OnboardingManager: ObservableObject {
         case splashViewed = "splash_viewed"
         case benefitsViewed = "benefits_viewed"
         case userTypeSelected = "user_type_selected"
-        case existingPagesCompleted = "existing_pages_completed"
         case profileSetupCompleted = "profile_setup_completed"
         case permissionsRequested = "permissions_requested"
         
@@ -93,7 +90,6 @@ class OnboardingManager: ObservableObject {
             case .splashViewed: return "Splash Screen"
             case .benefitsViewed: return "Benefits Overview"
             case .userTypeSelected: return "User Type Selection"
-            case .existingPagesCompleted: return "App Introduction"
             case .profileSetupCompleted: return "Profile Setup"
             case .permissionsRequested: return "Permissions Setup"
             }
@@ -155,7 +151,8 @@ class OnboardingManager: ObservableObject {
         
         if isFirstLaunch {
             showOnboarding = true
-            currentFlow = .splash
+            // Start directly at user type selection for better UX
+            currentFlow = .userTypeSelection
         } else {
             showOnboarding = false
             currentFlow = .complete
@@ -163,6 +160,7 @@ class OnboardingManager: ObservableObject {
         
         print("🎯 OnboardingManager: isFirstLaunch = \(isFirstLaunch)")
         print("🎯 OnboardingManager: completedSteps = \(completedSteps)")
+        print("🎯 OnboardingManager: currentFlow = \(currentFlow.title)")
     }
     
     /// Avanza al siguiente paso del onboarding
@@ -180,15 +178,11 @@ class OnboardingManager: ObservableObject {
             case .userTypeSelection:
                 markStepCompleted(.userTypeSelected)
                 if userType == .newUser {
-                    currentFlow = .existingPages
+                    currentFlow = .profileSetup
                 } else {
                     // Existing user goes directly to login
                     completeOnboarding()
                 }
-                
-            case .existingPages:
-                markStepCompleted(.existingPagesCompleted)
-                currentFlow = .profileSetup
                 
             case .profileSetup:
                 markStepCompleted(.profileSetupCompleted)
@@ -217,11 +211,8 @@ class OnboardingManager: ObservableObject {
             case .userTypeSelection:
                 currentFlow = .benefits
                 
-            case .existingPages:
-                currentFlow = .userTypeSelection
-                
             case .profileSetup:
-                currentFlow = .existingPages
+                currentFlow = .userTypeSelection
                 
             case .permissions:
                 currentFlow = .profileSetup
@@ -372,7 +363,7 @@ struct OnboardingUserProfile {
             switch self {
             case .beginner: return "figure.walk"
             case .intermediate: return "figure.run"
-            case .advanced: return "figure.strengthtraining.traditional"
+            case .advanced: return "figure.walk"
             }
         }
     }

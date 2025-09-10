@@ -107,6 +107,7 @@ struct BenefitsCarouselView: View {
                         .scaleEffect(index == onboardingManager.currentBenefitIndex ? 1.0 : 0.85)
                         .opacity(index == onboardingManager.currentBenefitIndex ? 1.0 : 0.7)
                         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: onboardingManager.currentBenefitIndex)
+                        .zIndex(index == onboardingManager.currentBenefitIndex ? 100 : Double(onboardingManager.benefits.count - abs(index - onboardingManager.currentBenefitIndex)))
                         .opacity(showContent ? 1.0 : 0.0)
                         .scaleEffect(showContent ? 1.0 : 0.3)
                         .animation(.spring(response: 0.8, dampingFraction: 0.8).delay(Double(index) * 0.1), value: showContent)
@@ -125,13 +126,13 @@ struct BenefitsCarouselView: View {
                         }
                 )
             }
-            .frame(height: 420)
-            .clipped()
+            .frame(height: 450) // Aumentado para dar más espacio vertical
+            // Eliminado .clipped() para evitar recortes
             
             // Page dots indicator
             pageDotsIndicator
         }
-        .padding(.vertical, 40)
+        .padding(.vertical, 20) // Reducido el padding para compensar el aumento de altura
     }
     
     // MARK: - Navigation Section
@@ -346,23 +347,24 @@ struct BenefitCard: View {
                 .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                 .shadow(
                     color: isActive 
-                        ? benefit.accentColor.opacity(0.2)
+                        ? benefit.accentColor.opacity(0.3)
                         : Color.black.opacity(0.1),
-                    radius: isActive ? 20 : 10,
+                    radius: isActive ? 25 : 10,
                     x: 0,
-                    y: isActive ? 10 : 5
+                    y: isActive ? 12 : 5
                 )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24)
                 .stroke(
                     isActive 
-                        ? benefit.accentColor.opacity(0.3)
+                        ? benefit.accentColor.opacity(0.4)
                         : Color.clear,
-                    lineWidth: 2
+                    lineWidth: 2.5
                 )
         )
         .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isActive)
+        .zIndex(isActive ? 10 : 0) // Prioridad visual para la tarjeta activa
     }
 }
 

@@ -23,6 +23,7 @@ class ServiceContainer: ObservableObject {
     let profileImageService: ProfileImageService
     let userStatsService: UserStatsService
     let directMessageService: DirectMessageService
+    let surveyService: SurveyService
     
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -33,28 +34,36 @@ class ServiceContainer: ObservableObject {
     
     // MARK: - Initialization
     private init() {
-        // Initialize core services first
-        self.authService = AuthServiceDirect()
-        self.themeManager = ThemeManager()
-        self.oneSignalService = OneSignalService.shared
-        
-        // Initialize feature services
-        self.membershipService = MembershipService.shared
-        self.gymService = GymService.shared
-        self.eventService = EventService()
-        self.classService = ClassService()
-        self.profileService = UserProfileService.shared
-        self.profileImageService = ProfileImageService()
-        self.userStatsService = UserStatsService.shared
-        self.directMessageService = DirectMessageService()
-        
-        // Configure dependencies automatically
-        setupDependencies()
-        
-        // Setup observers
-        setupObservers()
-        
-        print("✅ ServiceContainer inicializado con todas las dependencias configuradas")
+        do {
+            // Initialize core services first with error handling
+            self.authService = AuthServiceDirect()
+            self.themeManager = ThemeManager()
+            self.oneSignalService = OneSignalService.shared
+            
+            // Initialize feature services
+            self.membershipService = MembershipService.shared
+            self.gymService = GymService.shared
+            self.eventService = EventService()
+            self.classService = ClassService()
+            self.profileService = UserProfileService.shared
+            self.profileImageService = ProfileImageService()
+            self.userStatsService = UserStatsService.shared
+            self.directMessageService = DirectMessageService()
+            self.surveyService = SurveyService()
+            
+            // Configure dependencies automatically
+            setupDependencies()
+            
+            // Setup observers
+            setupObservers()
+            
+            print("✅ ServiceContainer inicializado con todas las dependencias configuradas")
+        } catch {
+            print("❌ Error crítico al inicializar ServiceContainer: \(error)")
+            self.initializationError = "Error al inicializar servicios: \(error.localizedDescription)"
+            // Inicializar servicios mínimos para evitar crash
+            fatalError("No se pudo inicializar ServiceContainer: \(error)")
+        }
     }
     
     // MARK: - Dependency Configuration
@@ -70,6 +79,8 @@ class ServiceContainer: ObservableObject {
         profileImageService.authService = authService
         userStatsService.authService = authService
         directMessageService.authService = authService
+        surveyService.authService = authService
+        surveyService.gymService = gymService
         
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
@@ -222,6 +233,7 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.eventService)
             .environmentObject(serviceContainer.classService)
             .environmentObject(serviceContainer.profileService)
+            .environmentObject(serviceContainer.surveyService)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

@@ -31,9 +31,13 @@ struct EventsView: View {
         
         switch selectedFilter {
         case .available:
-            return searchFilteredEvents.filter { $0.startTime > Date() }
+            // Mostrar eventos próximos u ONGOING: status SCHEDULED o ACTIVE y que no hayan terminado
+            let now = Date()
+            return searchFilteredEvents.filter { ([$0.status].contains(.scheduled) || [$0.status].contains(.active)) && $0.endTime > now }
         case .past:
-            return searchFilteredEvents.filter { $0.startTime <= Date() }
+            // Solo eventos finalizados: por tiempo o estado COMPLETED
+            let now = Date()
+            return searchFilteredEvents.filter { $0.endTime <= now || $0.status == .completed }
         case .joined:
             // Usar la fuente de verdad: userRegistrationStatus
             return searchFilteredEvents.filter { event in
@@ -167,6 +171,7 @@ struct EventsView: View {
                         }
                         .refreshable {
                             await eventService.fetchEvents()
+                            await eventService.fetchUserParticipations()
                         }
                         
                         // Floating Action Button (only for trainers and above)
@@ -198,7 +203,16 @@ struct EventsView: View {
         }
         .onAppear {
             Task {
-                await eventService.fetchEvents()
+                if eventService.events.isEmpty {
+                    await eventService.fetchEvents()
+                }
+                await eventService.fetchUserParticipations()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gymChanged)) { _ in
+            Task {
+                await eventService.forceRefresh()
+                await eventService.fetchUserParticipations()
             }
         }
         .sheet(item: $selectedEventForChat) { event in

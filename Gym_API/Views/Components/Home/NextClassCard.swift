@@ -211,7 +211,7 @@ struct NextClassCard: View {
         } else if lowercaseName.contains("climb") {
             return "figure.climbing"
         } else {
-            return "figure.strengthtraining.traditional"
+            return "figure.walk"
         }
     }
 }

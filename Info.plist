@@ -99,7 +99,7 @@
         <dict>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>com.yourdomain.gymapi</string>
+                <string>com.alexmontesino.gymapi</string>
             </array>
         </dict>
     </array>

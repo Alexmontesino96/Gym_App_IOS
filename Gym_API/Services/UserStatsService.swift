@@ -1673,7 +1673,7 @@ enum GoalCategory: String, Codable, CaseIterable {
     var iconName: String {
         switch self {
         case .weight: return "scalemass.fill"
-        case .fitness: return "figure.strengthtraining.traditional"
+        case .fitness: return "figure.walk"
         case .nutrition: return "leaf.fill"
         case .wellness: return "heart.fill"
         case .custom: return "star.fill"

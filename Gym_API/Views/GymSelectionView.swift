@@ -32,15 +32,12 @@ struct GymSelectionView: View {
                     .environmentObject(gymService)
                     .environmentObject(authService)
             } else {
-                // First time user, show onboarding
-                let _ = print("✅ Mostrando OnboardingView (primera vez)")
-                OnboardingView()
-                    .environmentObject(themeManager)
-                    .environmentObject(gymService)
-                    .onDisappear {
-                        // Mark onboarding as completed when user leaves the view
-                        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
-                    }
+                // First time user - this case shouldn't happen anymore
+                // as onboarding is handled by MainOnboardingView
+                let _ = print("⚠️ GymSelectionView: Usuario sin onboarding completado")
+                Text("Please complete onboarding first")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
             }
         } else {
             ZStack {

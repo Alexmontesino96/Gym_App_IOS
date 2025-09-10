@@ -183,7 +183,7 @@ struct ClassTypeIcon: View {
         } else if lowercaseName.contains("climb") {
             return "figure.climbing"
         } else {
-            return "figure.strengthtraining.traditional"
+            return "figure.walk"
         }
     }
     
@@ -928,7 +928,15 @@ struct ClassCardView: View {
     @EnvironmentObject var themeManager: ThemeManager
     let gymClass: GymClass
     @EnvironmentObject var classService: ClassService
+    @StateObject private var gymService = GymService.shared
     @State private var trainerImageURL: String = ""
+    @State private var showingEditSession = false
+    @State private var showingDeleteConfirmation = false
+    @State private var showingDeleteSuccess = false
+    @State private var showingDeleteError = false
+    @State private var deleteErrorMessage = ""
+    @State private var isDeleting = false
+    @State private var showingActionSheet = false
     @State private var cardPressed = false
     @State private var cachedActionState: ClassActionState = .available
     @State private var lastStateUpdateTime: Date = Date()
@@ -946,7 +954,40 @@ struct ClassCardView: View {
         cardContent
             .background(cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(statusBadge, alignment: .topTrailing)
+            .overlay(
+                HStack {
+                    Spacer()
+                    
+                    // Admin menu button
+                    if shouldShowAdminControls {
+                        Button(action: {
+                            showingActionSheet = true
+                        }) {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    Circle()
+                                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.9))
+                                        .shadow(
+                                            color: Color.black.opacity(0.1),
+                                            radius: 2,
+                                            x: 0,
+                                            y: 1
+                                        )
+                                )
+                        }
+                        .contentShape(Circle())
+                    }
+                    
+                    // Status badges
+                    statusBadgeContent
+                }
+                .padding(.top, 12)
+                .padding(.trailing, 12),
+                alignment: .topTrailing
+            )
             .overlay(successAnimation)
             // .overlay(completedCelebration) // Reemplazado por NotificationManager
             .scaleEffect(cardPressed ? 0.98 : 1.0)
@@ -1042,6 +1083,66 @@ struct ClassCardView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showingEditSession) {
+                if let sessionWithClass = createSessionWithClass() {
+                    EditSessionView(sessionToEdit: sessionWithClass)
+                        .environmentObject(themeManager)
+                        .environmentObject(classService.authService ?? AuthServiceDirect())
+                        .environmentObject(classService)
+                }
+            }
+            .alert("Confirm Deletion", isPresented: $showingDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { 
+                    isDeleting = false
+                }
+                Button("Delete Session", role: .destructive) {
+                    deleteSession()
+                }
+            } message: {
+                Text("Are you sure you want to delete this session?\n\nClass: \(gymClass.name)\nTime: \(formattedTimeWithDuration)\n\nNote: If participants are registered, the session will be cancelled instead of deleted.")
+            }
+            .alert("Success", isPresented: $showingDeleteSuccess) {
+                Button("OK") { }
+            } message: {
+                Text("The session has been successfully deleted.")
+            }
+            .alert("Error", isPresented: $showingDeleteError) {
+                Button("OK") { }
+            } message: {
+                Text(deleteErrorMessage.isEmpty ? "Failed to delete the session. Please try again." : deleteErrorMessage)
+            }
+            .actionSheet(isPresented: $showingActionSheet) {
+                ActionSheet(
+                    title: Text("Session Options"),
+                    message: Text("\(gymClass.name)\n\(formattedTimeWithDuration)"),
+                    buttons: sessionActionButtons()
+                )
+            }
+    }
+    
+    // MARK: - Action Sheet Buttons
+    
+    private func sessionActionButtons() -> [ActionSheet.Button] {
+        var buttons: [ActionSheet.Button] = []
+        
+        // Edit button
+        if canEditSession {
+            buttons.append(.default(Text("Edit Session")) {
+                showingEditSession = true
+            })
+        }
+        
+        // Delete button
+        if canDeleteSession {
+            buttons.append(.destructive(Text("Delete Session")) {
+                showingDeleteConfirmation = true
+            })
+        }
+        
+        // Cancel button
+        buttons.append(.cancel())
+        
+        return buttons
     }
     
     // MARK: - Card Content Components
@@ -1150,17 +1251,17 @@ struct ClassCardView: View {
     }
     
     private var bottomSection: some View {
-        HStack(spacing: 8) { // Reducido el spacing para dar más espacio
+        HStack(spacing: 8) {
             instructorInfo
-                .layoutPriority(1) // INVERTIDO: Prioridad menor para que se adapte al botón
-                .frame(maxWidth: .infinity, alignment: .leading) // Usar espacio restante
-                .clipped() // Evitar desbordamiento
+                .layoutPriority(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .clipped()
             
             actionButtonsArea
-                .layoutPriority(2) // INVERTIDO: Prioridad ALTA para el botón - nunca se compromete
-                .fixedSize(horizontal: true, vertical: false) // Mantener tamaño natural del botón
+                .layoutPriority(2)
+                .fixedSize(horizontal: true, vertical: false)
         }
-        .frame(maxWidth: .infinity) // Asegurar que use todo el ancho disponible
+        .frame(maxWidth: .infinity)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentActionState)
     }
     
@@ -1263,6 +1364,125 @@ struct ClassCardView: View {
         }
     }
     
+    // MARK: - Admin Functions
+    
+    private func createSessionWithClass() -> SessionWithClass? {
+        // Create a SessionWithClass from the current GymClass
+        // Create a basic ClassInfo from GymClass data
+        let classInfo = ClassInfo(
+            name: gymClass.name,
+            description: gymClass.description,
+            duration: Int(gymClass.endTime.timeIntervalSince(gymClass.startTime) / 60),
+            maxCapacity: gymClass.maxParticipants,
+            difficultyLevel: DifficultyLevel(rawValue: gymClass.difficulty.rawValue) ?? .beginner,
+            categoryId: nil,
+            categoryEnum: nil,
+            category: nil,
+            isActive: true,
+            gymId: gymService.currentGym?.id ?? 0,
+            id: gymClass.id,
+            createdAt: Date(),
+            updatedAt: nil,
+            createdBy: nil,
+            customCategory: nil
+        )
+        
+        let session = ClassSession(
+            classId: gymClass.id,
+            trainerId: gymClass.trainerId,
+            startTime: gymClass.startTime,
+            endTime: gymClass.endTime,
+            room: nil,
+            isRecurring: false,
+            recurrencePattern: nil,
+            status: gymClass.status == .available ? .scheduled : .cancelled,
+            overrideCapacity: nil,
+            notes: nil,
+            id: gymClass.id,
+            gymId: gymService.currentGym?.id ?? 0,
+            currentParticipants: gymClass.currentParticipants,
+            createdAt: Date(),
+            updatedAt: nil,
+            createdBy: nil,
+            gymTimezone: gymClass.gymTimezone ?? "UTC",
+            timeInfo: TimeInfo(
+                localTime: "",
+                gymTimezone: gymClass.gymTimezone ?? "UTC",
+                isoWithTimezone: "",
+                utcTime: ""
+            )
+        )
+        
+        return SessionWithClass(session: session, classInfo: classInfo)
+    }
+    
+    private func deleteSession() {
+        isDeleting = true
+        deleteErrorMessage = ""
+        
+        Task {
+            let sessionService = SessionCreationService()
+            sessionService.authService = classService.authService
+            sessionService.classService = classService
+            
+            print("🗑️ Deleting session with ID: \(gymClass.id)")
+            let success = await sessionService.deleteSession(sessionId: gymClass.id)
+            
+            await MainActor.run {
+                isDeleting = false
+                
+                if success {
+                    print("✅ Session deleted successfully, refreshing class data")
+                    
+                    // Show success feedback
+                    showingDeleteSuccess = true
+                    
+                    // Haptic feedback
+                    if #available(iOS 13.0, *) {
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.success)
+                    }
+                    
+                    // Refresh the classes after a short delay
+                    Task {
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                        await classService.forceRefreshSessions(date: gymClass.startTime)
+                    }
+                } else {
+                    print("❌ Failed to delete session")
+                    // Get error message from service
+                    deleteErrorMessage = sessionService.deleteSessionErrorMessage ?? "Failed to delete the session"
+                    showingDeleteError = true
+                    
+                    // Error haptic feedback
+                    if #available(iOS 13.0, *) {
+                        let notificationFeedback = UINotificationFeedbackGenerator()
+                        notificationFeedback.notificationOccurred(.error)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Admin Controls
+    
+    private var shouldShowAdminControls: Bool {
+        guard let userRole = gymService.currentGym?.userRoleInGym else { return false }
+        return RolePermissions.canEditAnySessions(userRole) || RolePermissions.canDeleteAnySessions(userRole)
+    }
+    
+    private var canEditSession: Bool {
+        guard let userRole = gymService.currentGym?.userRoleInGym else { return false }
+        // Since GymClass doesn't have createdBy, we'll use the general admin permissions
+        return RolePermissions.canEditAnySessions(userRole)
+    }
+    
+    private var canDeleteSession: Bool {
+        guard let userRole = gymService.currentGym?.userRoleInGym else { return false }
+        // Since GymClass doesn't have createdBy, we'll use the general admin permissions
+        return RolePermissions.canDeleteAnySessions(userRole)
+    }
+    
     // MARK: - Background and Overlays
     
     private var cardBackground: some View {
@@ -1299,7 +1519,7 @@ struct ClassCardView: View {
     }
     
     @ViewBuilder
-    private var statusBadge: some View {
+    private var statusBadgeContent: some View {
         ZStack {
             // Badge para estado registered
             if currentActionState == .registered {

@@ -55,6 +55,7 @@ struct SettingsView: View {
                                 SettingsCard(title: "Administration", themeManager: themeManager) {
                                     AdminSettingsSection(
                                         gymService: gymService,
+                                        authService: authService,
                                         themeManager: themeManager
                                     )
                                 }
@@ -684,7 +685,9 @@ extension DateFormatter {
 // MARK: - Admin Settings Section
 struct AdminSettingsSection: View {
     @ObservedObject var gymService: GymService
+    let authService: AuthServiceDirect
     let themeManager: ThemeManager
+    @State private var showingSurveyManagement = false
     
     var body: some View {
         VStack(spacing: 12) {
@@ -698,6 +701,21 @@ struct AdminSettingsSection: View {
             
             Divider()
                 .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+            
+            // Survey Management (for admins, owners, and trainers)
+            if RolePermissions.canManageSurveys(gymService.currentGym?.userRoleInGym) {
+                Button(action: { showingSurveyManagement = true }) {
+                    SettingsRow(
+                        icon: "doc.text.magnifyingglass",
+                        title: "Survey Management",
+                        value: "Create & manage surveys",
+                        themeManager: themeManager
+                    )
+                }
+                
+                Divider()
+                    .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+            }
             
             // Bulk registration removed from Settings; access via event options
             
@@ -736,6 +754,13 @@ struct AdminSettingsSection: View {
                     themeManager: themeManager
                 )
             }
+        }
+        .sheet(isPresented: $showingSurveyManagement) {
+            SurveyManagementView()
+                .environmentObject(SurveyService.shared)
+                .environmentObject(themeManager)
+                .environmentObject(gymService)
+                .environmentObject(authService)
         }
     }
 }

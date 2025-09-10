@@ -184,8 +184,8 @@ struct AvailableGymsView: View {
         }
         .navigationBarHidden(true)
         .fullScreenCover(isPresented: $showingLogin) {
-            LoginViewDirect()
-                .environmentObject(themeManager)
+            // Login se maneja desde el onboarding principal
+            EmptyView()
         }
     }
 }

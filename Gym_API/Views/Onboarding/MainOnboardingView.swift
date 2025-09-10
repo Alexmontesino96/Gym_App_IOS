@@ -37,13 +37,9 @@ struct MainOnboardingView: View {
                     
                 case .userTypeSelection:
                     UserTypeSelectionView()
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                    
-                case .existingPages:
-                    OnboardingView()
+                        .environmentObject(authService)
+                        .environmentObject(themeManager)
+                        .environmentObject(onboardingManager)
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)

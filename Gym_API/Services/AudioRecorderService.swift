@@ -38,15 +38,9 @@ class AudioRecorderService: NSObject, ObservableObject {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .default)
             try session.setActive(true)
-            
-            // Request permission
-            session.requestRecordPermission { [weak self] granted in
-                if !granted {
-                    Task { @MainActor in
-                        self?.errorMessage = "Permiso de micrófono denegado"
-                    }
-                }
-            }
+
+            // No solicitar permiso automáticamente en inicialización.
+            // El permiso se solicitará justo-in-time en startRecording().
         } catch {
             errorMessage = "Error configurando audio: \(error.localizedDescription)"
         }

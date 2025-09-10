@@ -201,7 +201,7 @@ enum EventTemplate: String, CaseIterable {
     var icon: String {
         switch self {
         case .fitnessClass:
-            return "figure.strengthtraining.traditional"
+            return "figure.walk"
         case .yogaClass:
             return "figure.yoga"
         case .strengthTraining:

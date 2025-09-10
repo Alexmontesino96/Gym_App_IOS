@@ -12,16 +12,45 @@ struct AuthenticatedView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var gymService = GymService.shared
     @StateObject private var profileService = UserProfileService.shared
+    @StateObject private var onboardingManager = OnboardingManager()
     
     @State private var showingProfileCompletion = false
     @State private var profileCheckCompleted = false
+    @State private var initializationError: String?
+    @State private var showOnboarding = false
     
     var body: some View {
         let _ = print("🔍 AuthenticatedView.body evaluado")
         let _ = print("🔍 isAuthenticated: \(authService.isAuthenticated)")
         
         return Group {
-            if authService.isAuthenticated {
+            if let error = initializationError {
+                // Mostrar error de inicialización
+                VStack(spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.red)
+                    
+                    Text("Error de Inicialización")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text(error)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    Button("Reintentar") {
+                        initializationError = nil
+                        setupServices()
+                    }
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+                .padding()
+            } else if authService.isAuthenticated {
                 let _ = print("🔍 Usuario autenticado, verificando profile completion...")
                 
                 if profileCheckCompleted {
@@ -67,9 +96,10 @@ struct AuthenticatedView: View {
                     .background(Color(.systemBackground))
                 }
             } else {
-                let _ = print("🔍 Usuario NO autenticado, mostrando login")
-                LoginViewDirect()
-                    .environmentObject(themeManager)
+                let _ = print("🔍 Usuario NO autenticado")
+                // No mostrar nada aquí - el onboarding se maneja con fullScreenCover
+                Color.clear
+                    .ignoresSafeArea()
             }
         }
         .animation(.easeInOut(duration: 0.3), value: authService.isAuthenticated)
@@ -78,10 +108,18 @@ struct AuthenticatedView: View {
         .onAppear {
             setupServices()
             checkUserProfile()
+            if !authService.isAuthenticated {
+                onboardingManager.checkOnboardingStatus()
+                showOnboarding = onboardingManager.showOnboarding
+            }
         }
         .onChange(of: authService.isAuthenticated) { newValue in
             if newValue {
-                // Usuario recién autenticado, verificar perfil y recargar gyms con auto-selección
+                // Usuario recién autenticado, cerrar onboarding y continuar
+                showOnboarding = false
+                onboardingManager.showOnboarding = false
+                
+                // Verificar perfil y recargar gyms con auto-selección
                 checkUserProfile()
                 Task {
                     await gymService.getMyGyms(forceRefresh: true, autoSelectIfSingle: true)
@@ -90,7 +128,23 @@ struct AuthenticatedView: View {
                 // Reset states when user logs out
                 profileCheckCompleted = false
                 showingProfileCompletion = false
+                
+                // Siempre mostrar onboarding cuando el usuario no está autenticado
+                onboardingManager.checkOnboardingStatus()
+                showOnboarding = true
+                onboardingManager.showOnboarding = true
             }
+        }
+        .onChange(of: onboardingManager.showOnboarding) { newValue in
+            showOnboarding = newValue && !authService.isAuthenticated
+        }
+        // Present onboarding on first launch when not authenticated
+        .fullScreenCover(isPresented: $showOnboarding) {
+            MainOnboardingView()
+                .environmentObject(onboardingManager)
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .environmentObject(gymService)
         }
     }
     

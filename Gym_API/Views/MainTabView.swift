@@ -6,6 +6,8 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var showThemeChangeConfirmation = false
     @State private var pendingTheme: ThemeManager.AppTheme?
+    @State private var showWelcomeAnimation = false
+    @StateObject private var userStatsService = UserStatsService.shared
     
     var body: some View {
         ZStack {
@@ -56,12 +58,26 @@ struct MainTabView: View {
             
             // Notification Overlay - Siempre encima de todo
             NotificationOverlay(selectedTab: selectedTab)
+            
+            // Welcome Animation Overlay
+            if showWelcomeAnimation {
+                WelcomeAnimationOverlay(
+                    isVisible: $showWelcomeAnimation,
+                    userStatsService: userStatsService,
+                    authService: authService
+                )
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .transition(.opacity)
+                .zIndex(100)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openProfileTab)) { _ in
             selectedTab = 4
         }
         .onAppear {
             configureTabBarAppearance()
+            checkAndShowWelcomeAnimation()
         }
         .onChange(of: themeManager.currentTheme) { _, newTheme in
             debugLog("🔄 Tema cambió a: \(newTheme.rawValue)")
@@ -92,6 +108,43 @@ struct MainTabView: View {
     }
     
     // MARK: - Private Methods
+    
+    private func checkAndShowWelcomeAnimation() {
+        // Check if we should show the welcome animation
+        let defaults = UserDefaults.standard
+        let lastWelcomeKey = "lastWelcomeAnimationDate"
+        
+        // Get last shown date
+        let lastShownDate = defaults.object(forKey: lastWelcomeKey) as? Date ?? Date.distantPast
+        
+        // Check if it's a new day
+        let calendar = Calendar.current
+        let isNewDay = !calendar.isDateInToday(lastShownDate)
+        
+        // Show animation only once per day
+        if isNewDay {
+            // Setup services
+            userStatsService.authService = authService
+            
+            // Load stats first
+            Task {
+                await userStatsService.fetchComprehensiveStats()
+                
+                // Show animation after a small delay
+                await MainActor.run {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation(.easeIn(duration: 0.3)) {
+                        showWelcomeAnimation = true
+                    }
+                    
+                    // Update last shown date
+                    defaults.set(Date(), forKey: lastWelcomeKey)
+                    }
+                }
+            }
+        }
+    }
+    
     private func configureTabBarAppearance() {
         debugLog("🎨 Configurando TabBar para tema: \(themeManager.currentTheme.rawValue)")
         

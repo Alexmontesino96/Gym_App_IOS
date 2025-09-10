@@ -31,6 +31,12 @@ class LocationService: NSObject, ObservableObject {
     override init() {
         super.init()
         setupLocationManager()
+        // Sincronizar estado inicial de autorización
+        if #available(iOS 14.0, *) {
+            authorizationStatus = locationManager.authorizationStatus
+        } else {
+            authorizationStatus = CLLocationManager.authorizationStatus()
+        }
     }
     
     private func setupLocationManager() {
@@ -41,9 +47,27 @@ class LocationService: NSObject, ObservableObject {
     }
     
     func requestLocationPermission() {
-        print("📍 Requesting location permission...")
+        // Evitar solicitar repetidamente si ya se determinó el estado
+        let status: CLAuthorizationStatus
+        if #available(iOS 14.0, *) {
+            status = locationManager.authorizationStatus
+        } else {
+            status = CLLocationManager.authorizationStatus()
+        }
+        print("📍 Requesting location permission... (current: \(status.debugDescription))")
         errorMessage = nil
-        locationManager.requestWhenInUseAuthorization()
+        
+        switch status {
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            startLocationUpdates()
+        case .denied, .restricted:
+            // No volver a solicitar automáticamente; mostrar guía si es necesario
+            print("⚠️ Location permission previously denied/restricted; not requesting again")
+        @unknown default:
+            break
+        }
     }
     
     func startLocationUpdates() {

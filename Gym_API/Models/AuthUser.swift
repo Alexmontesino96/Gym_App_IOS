@@ -26,31 +26,3 @@ struct AuthUser: Codable, Equatable {
     }
 }
 
-// MARK: - Extension para convertir a User de SwiftData cuando sea necesario
-extension AuthUser {
-    /// Convierte AuthUser a User de SwiftData
-    /// Requiere un ModelContext activo
-    func toSwiftDataUser() -> User {
-        return User(
-            id: id,
-            email: email,
-            name: name,
-            picture: picture,
-            isCoach: isCoach
-        )
-    }
-}
-
-// MARK: - Extension para User de SwiftData
-extension User {
-    /// Convierte User de SwiftData a AuthUser
-    func toAuthUser() -> AuthUser {
-        return AuthUser(
-            id: id,
-            email: email,
-            name: name,
-            picture: picture,
-            isCoach: isCoach
-        )
-    }
-}

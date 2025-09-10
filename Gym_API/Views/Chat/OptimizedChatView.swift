@@ -436,6 +436,26 @@ struct MessageBubble: View {
     
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            // Avatar for received messages
+            if !message.isFromCurrentUser {
+                if let avatarURL = message.authorAvatarURL, !avatarURL.isEmpty {
+                    AsyncImage(url: URL(string: avatarURL)) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        // Show initials while loading or as fallback
+                        initialAvatar
+                    }
+                    .frame(width: 32, height: 32)
+                    .clipShape(Circle())
+                } else {
+                    // Show initials if no avatar URL
+                    initialAvatar
+                        .frame(width: 32, height: 32)
+                }
+            }
+            
             if message.isFromCurrentUser {
                 Spacer(minLength: 60)
             }
@@ -519,6 +539,23 @@ struct MessageBubble: View {
         } else {
             return themeManager.currentTheme == .dark ? .white : Color.dynamicText(theme: themeManager.currentTheme)
         }
+    }
+    
+    private var initialAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2))
+            
+            Text(getInitials(from: message.authorName))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+        }
+    }
+    
+    private func getInitials(from name: String) -> String {
+        let components = name.components(separatedBy: " ")
+        let initials = components.prefix(2).compactMap { $0.first }.map { String($0) }.joined()
+        return initials.uppercased()
     }
     
     private var bubbleBackground: Color {

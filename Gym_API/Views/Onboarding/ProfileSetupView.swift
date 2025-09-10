@@ -300,7 +300,7 @@ enum ProfileSetupStep: CaseIterable {
     var icon: String {
         switch self {
         case .basicInfo: return "person.circle.fill"
-        case .fitnessLevel: return "figure.strengthtraining.traditional"
+        case .fitnessLevel: return "figure.walk"
         case .goals: return "target"
         case .workoutTypes: return "heart.fill"
         }

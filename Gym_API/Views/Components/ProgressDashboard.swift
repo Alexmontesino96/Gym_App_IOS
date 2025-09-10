@@ -239,7 +239,7 @@ struct FitnessMetricsSection: View {
             
             HStack(spacing: 12) {
                 FitnessMetricCard(
-                    icon: "figure.strengthtraining.traditional",
+                    icon: "figure.walk",
                     title: "Classes",
                     value: "\(fitnessMetrics.classesAttended)",
                     subtitle: fitnessMetrics.classesScheduled > 0 ? "of \(fitnessMetrics.classesScheduled) scheduled" : "none scheduled",
@@ -1084,7 +1084,7 @@ struct GettingStartedSection: View {
                 
                 VStack(spacing: 20) {
                     VStack(spacing: 8) {
-                        Image(systemName: "figure.strengthtraining.traditional")
+                        Image(systemName: "figure.walk")
                             .font(.system(size: 40, weight: .bold))
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                         

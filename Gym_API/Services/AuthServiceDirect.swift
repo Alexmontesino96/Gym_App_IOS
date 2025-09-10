@@ -11,6 +11,13 @@ import Foundation
 import SwiftUI
 import Auth0
 import JWTDecode
+import OneSignalFramework
+
+// MARK: - Auth Mode
+enum AuthMode {
+    case signin
+    case signup
+}
 
 // MARK: - Auth Error
 enum AuthError: LocalizedError {
@@ -45,6 +52,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     @Published var isAuthenticated = false
     @Published var user: AuthUser?
     @Published var isLoading = false
+    @Published var isRefreshingToken = false
     @Published var errorMessage: String?
     @Published var biometricAuthAvailable = false
     @Published var biometricAuthEnabled = false
@@ -52,34 +60,200 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     // Control de refresh de primer login (para permisos de Auth0)
     private let firstLoginRefreshKey = "auth0_first_login_refreshed"
     
+    // Detección de loops de renovación
+    private var tokenRefreshAttempts: Int = 0
+    private var lastTokenRefreshTime: Date?
+    private let maxRefreshAttemptsInWindow = 3
+    private let refreshWindowMinutes: TimeInterval = 5 * 60 // 5 minutos
+    private let offlineAccessGrantedKey = "auth0_offline_access_granted"
+    
+    // Auth0 Credentials Manager para manejo automático de tokens
+    private var credentialsManager: CredentialsManager?
+    
+    // Authorization Code y State para reintentos
+    private var lastAuthorizationCode: String?
+    private var lastAuthorizationState: String?
+    private var lastCodeVerifier: String?
+    private let authCodeKey = "auth0_last_auth_code"
+    private let authStateKey = "auth0_last_auth_state"
+    private let codeVerifierKey = "auth0_last_code_verifier"
+    
+    // Métricas de autenticación
+    private var refreshTokenSuccessCount = 0
+    private var refreshTokenFailureCount = 0
+    private var codeExchangeRetryCount = 0
+    
     // Biometric authentication context - temporarily disabled
     // private let biometricContext = LAContext()
     
     init() {
+        // Initialize Credentials Manager with custom storage
+        setupCredentialsManager()
+        
         // Migrate tokens if needed
         if !KeychainService.shared.hasMigratedToKeychain {
             KeychainService.shared.migrateFromUserDefaults()
         }
+        
+        // Load any saved authorization data
+        loadSavedAuthorizationData()
+        
         // Temporarily disabled: checkBiometricAvailability()
         checkAuthStatus()
     }
     
-    func login() async {
+    private func syncExistingTokensToCredentialsManager() {
+        print("\n🔄 SINCRONIZACIÓN INICIAL DE TOKENS")
+        print("================================")
+        
+        guard let accessToken = KeychainService.shared.getToken(type: .accessToken),
+              !accessToken.isEmpty else {
+            print("ℹ️ No hay tokens existentes en Keychain para sincronizar")
+            print("================================\n")
+            return
+        }
+        
+        print("🔍 Tokens encontrados en Keychain:")
+        print("   - Access Token: \(String(accessToken.prefix(20)))...")
+        
+        let refreshToken = KeychainService.shared.getToken(type: .refreshToken)
+        let idToken = KeychainService.shared.getToken(type: .idToken)
+        
+        // Crear objeto Credentials con los tokens existentes
+        let credentials = Credentials(
+            accessToken: accessToken,
+            tokenType: "Bearer",
+            idToken: idToken ?? "",
+            refreshToken: refreshToken,
+            expiresIn: Date(timeIntervalSinceNow: 3600), // 1 hora por defecto
+            scope: "openid profile email offline_access"
+        )
+        
+        // Guardar en Credentials Manager
+        if let credentialsManager = credentialsManager {
+            let stored = credentialsManager.store(credentials: credentials)
+            if stored {
+                print("✅ Tokens guardados en Credentials Manager")
+                
+                // Verificar que se pueden recuperar
+                credentialsManager.credentials { result in
+                    switch result {
+                    case .success(let creds):
+                        print("✅ VERIFICACIÓN EXITOSA")
+                        print("   - Credentials Manager puede recuperar los tokens")
+                        print("   - Access Token válido: \(String(creds.accessToken.prefix(20)))...")
+                        print("   - Refresh Token presente: \(creds.refreshToken != nil ? "✅" : "❌")")
+                        print("================================\n")
+                    case .failure(let error):
+                        print("❌ VERIFICACIÓN FALLIDA")
+                        print("   - Error: \(error.localizedDescription)")
+                        print("   - Los tokens permanecen en Keychain como respaldo")
+                        print("================================\n")
+                    }
+                }
+            } else {
+                print("⚠️ No se pudieron guardar en Credentials Manager")
+                print("   - Los tokens permanecen solo en Keychain")
+                print("================================\n")
+            }
+        }
+    }
+    
+    private func setupCredentialsManager() {
+        credentialsManager = CredentialsManager(
+            authentication: Auth0.authentication()
+        )
+        
+        // Enable biometric authentication for credentials access if available
+        // credentialsManager?.enableBiometrics(withTitle: "Access your gym account")
+        
+        print("✅ Credentials Manager configurado")
+        print("🔧 Configuración:")
+        print("   - Dominio: \(Auth0Config.domain)")
+        print("   - Cliente ID: \(Auth0Config.clientId)")
+        print("   - Almacenamiento: iOS Keychain (predeterminado)")
+        
+        // Sincronizar tokens existentes del Keychain con Credentials Manager
+        syncExistingTokensToCredentialsManager()
+    }
+    
+    private func loadSavedAuthorizationData() {
+        lastAuthorizationCode = KeychainService.shared.getToken(type: .accessToken) != nil ? 
+            UserDefaults.standard.string(forKey: authCodeKey) : nil
+        lastAuthorizationState = UserDefaults.standard.string(forKey: authStateKey)
+        lastCodeVerifier = UserDefaults.standard.string(forKey: codeVerifierKey)
+        
+        if lastAuthorizationCode != nil {
+            print("📦 Authorization code guardado encontrado")
+        }
+    }
+    
+    func login(mode: AuthMode = .signin) async {
         isLoading = true
         errorMessage = nil
         
+        // Validar configuración antes de intentar login
+        guard validateAuth0Configuration() else {
+            errorMessage = "Configuración de Auth0 inválida. Contacta al soporte."
+            isLoading = false
+            return
+        }
+        
         do {
             print("🔧 Iniciando autenticación con Auth0...")
+            print("🔹 Modo: \(mode == .signup ? "Registro" : "Inicio de sesión")")
             print("🔹 Dominio: \(Auth0Config.domain)")
             print("🔹 Cliente ID: \(Auth0Config.clientId)")
             print("🔹 Audiencia: \(Auth0Config.audience)")
+            print("🔹 Refresh Token Rotation: Habilitado (recomendado)")
+            print("🔹 PKCE: Habilitado (obligatorio para apps móviles)")
             
             // Configurar Auth0 con esquema personalizado y audiencia
-            let credentials = try await Auth0
+            // Solo forzar consentimiento si NUNCA hemos concedido offline_access
+            let neverGrantedOffline = !UserDefaults.standard.bool(forKey: offlineAccessGrantedKey)
+            let needsRefreshToken = KeychainService.shared.getToken(type: .refreshToken) == nil
+            
+            // Log del callback URL esperado
+            let bundleId = Bundle.main.bundleIdentifier ?? "com.alexmontesino.gymapi"
+            let redirectUri = "\(bundleId)://\(Auth0Config.domain)/ios/\(bundleId)/callback"
+            print("🔗 Bundle ID: \(bundleId)")
+            print("🔗 Client ID: \(Auth0Config.clientId)")
+            print("🔗 Redirect URI configurado: \(redirectUri)")
+            
+            var webAuth = Auth0
                 .webAuth()
                 .audience(Auth0Config.audience)
                 .scope("openid profile email offline_access")
-                .start()
+                .redirectURL(URL(string: redirectUri)!)
+            
+            // Añadir screen_hint según el modo
+            var parameters: [String: String] = [:]
+            parameters["screen_hint"] = mode == .signup ? "signup" : "login"
+            
+            if needsRefreshToken && neverGrantedOffline {
+                parameters["prompt"] = "consent" // Forzar consentimiento solo la primera vez
+            }
+            
+            // Habilitar PKCE explícitamente (aunque es default en Auth0 SDK)
+            webAuth = webAuth
+                .parameters(parameters)
+                .useEphemeralSession() // Usar sesión efímera para mayor seguridad
+            
+            print("🔐 Iniciando flujo de autenticación con PKCE...")
+            let credentials = try await webAuth.start()
+            
+            // Guardar las credenciales usando Credentials Manager
+            let stored = credentialsManager?.store(credentials: credentials) ?? false
+            print("📦 Credenciales guardadas en Credentials Manager: \(stored)")
+            // Debug: Log presence of refresh token from Auth0 response (no secrets)
+            #if DEBUG
+            if let rt = credentials.refreshToken {
+                print("🔁 Auth0 login: refresh_token received (length=\(rt.count), head=\(rt.prefix(6))…)")
+                UserDefaults.standard.set(true, forKey: offlineAccessGrantedKey)
+            } else {
+                print("⚠️ Auth0 login: refresh_token NOT present in credentials response")
+            }
+            #endif
             
             // Obtener información del usuario del ID token
             if let jwt = try? decode(jwt: credentials.idToken) {
@@ -127,6 +301,20 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             
         } catch {
             print("🚨 Error en login directo: \(error)")
+            
+            // Log detallado del error para debugging de Auth0
+            print("🔴 Tipo de error: \(type(of: error))")
+            print("🔴 Descripción del error: \(error.localizedDescription)")
+            
+            // Verificar si es un error de cancelación
+            let errorString = "\(error)"
+            if errorString.contains("cancelled") || errorString.contains("a0.session.user_cancelled") || 
+               errorString.contains("userCancelled") || error.localizedDescription.contains("cancelled") {
+                print("ℹ️ Usuario canceló el login")
+                errorMessage = nil // No mostrar error si el usuario canceló
+                isLoading = false
+                return
+            }
             
             // Detectar tipos específicos de errores de red
             if let urlError = error as? URLError {
@@ -210,15 +398,105 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     func checkAuthStatus() {
         print("🔍 Verificando estado de autenticación...")
         
-        // Verificar si hay credenciales válidas en Keychain
-        guard let accessToken = getStoredCredentials(),
-              !isTokenExpired(token: accessToken) else {
-            print("❌ No hay token válido o ha expirado")
-            isAuthenticated = false
-            user = nil
+        Task {
+            await checkAuthStatusAsync()
+        }
+    }
+    
+    private func checkAuthStatusAsync() async {
+        print("\n🔐 VERIFICACIÓN DE ESTADO DE AUTENTICACIÓN")
+        print("==========================================")
+        
+        // Primero intentar con Credentials Manager
+        if let credentialsManager = credentialsManager {
+            print("📱 Paso 1: Intentando Credentials Manager...")
+            
+            let semaphore = DispatchSemaphore(value: 0)
+            var retrievedToken: String?
+            
+            credentialsManager.credentials { result in
+                defer { semaphore.signal() }
+                
+                switch result {
+                case .success(let credentials):
+                    print("✅ Credenciales recuperadas de Credentials Manager")
+                    print("   - Access Token: \(String(credentials.accessToken.prefix(20)))...")
+                    print("   - Token válido hasta: \(credentials.expiresIn)")
+                    // Sincronizar con Keychain si es necesario
+                    Task { @MainActor in
+                        self.syncCredentialsToKeychain(credentials)
+                    }
+                    retrievedToken = credentials.accessToken
+                    
+                case .failure(let error):
+                    print("⚠️ Credentials Manager no tiene credenciales")
+                    print("   - Razón: \(error.localizedDescription)")
+                    print("   - Continuando con Keychain fallback...")
+                }
+            }
+            
+            _ = semaphore.wait(timeout: .now() + 2.0) // Timeout de 2 segundos
+            
+            if let token = retrievedToken {
+                // Verificar si el token está expirado
+                if !isTokenExpired(token: token) {
+                    print("✅ Token válido encontrado en Credentials Manager")
+                    print("==========================================\n")
+                    await setUserFromToken()
+                    return
+                } else {
+                    print("⚠️ Token de Credentials Manager está expirado")
+                }
+            }
+        }
+        
+        // Fallback: Verificar si hay credenciales almacenadas en Keychain
+        print("🔑 Paso 2: Verificando Keychain...")
+        guard let accessToken = getStoredCredentials() else {
+            print("❌ No hay tokens almacenados en ningún sistema")
+            print("   - Credentials Manager: Sin credenciales")
+            print("   - Keychain: Sin tokens")
+            print("   - Estado: Usuario debe iniciar sesión")
+            print("==========================================\n")
+            await MainActor.run {
+                isAuthenticated = false
+                user = nil
+            }
             return
         }
         
+        print("✅ Token encontrado en Keychain")
+        print("   - Access Token: \(String(accessToken.prefix(20)))...")
+        print("==========================================\n")
+        
+        // Si el token está expirado, NO intentar renovación automática al inicio
+        // Solo limpiar las credenciales y requerir login manual
+        if isTokenExpired(token: accessToken) {
+            print("⚠️ Token expirado detectado en checkAuthStatus")
+            print("🔄 Limpiando credenciales expiradas...")
+            
+            // Limpiar tokens expirados
+            clearCredentials()
+            
+            await MainActor.run {
+                isAuthenticated = false
+                user = nil
+                isRefreshingToken = false
+            }
+            
+            print("ℹ️ Usuario debe iniciar sesión nuevamente")
+            return
+        } else {
+            // Token válido, establecer usuario
+            await setUserFromToken()
+        }
+        
+        #if DEBUG
+        KeychainService.shared.debugPrintTokens()
+        #endif
+    }
+    
+    private func setUserFromToken() async {
         // Intentar obtener información del usuario del ID token
         if let idToken = KeychainService.shared.getToken(type: .idToken),
            let jwt = try? decode(jwt: idToken) {
@@ -228,7 +506,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             let userName = jwt["name"].string ?? "Usuario"
             let userPicture = jwt["picture"].string
             
-            let user = AuthUser(
+            let authUser = AuthUser(
                 id: userId,
                 email: userEmail,
                 name: userName,
@@ -236,17 +514,22 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 isCoach: false
             )
             
-            self.user = user
-            self.isAuthenticated = true
-            print("✅ Usuario autenticado desde ID token")
+            await MainActor.run {
+                self.user = authUser
+                self.isAuthenticated = true
+            }
+            
+            print("✅ Usuario autenticado desde ID token: \(userName)")
         } else {
             // Fallback: intentar cargar de UserDefaults (compatibilidad)
             guard let savedUserId = UserDefaults.standard.string(forKey: "saved_user_id"),
                   let savedUserEmail = UserDefaults.standard.string(forKey: "saved_user_email"),
                   let savedUserName = UserDefaults.standard.string(forKey: "saved_user_name") else {
                 print("❌ No hay información de usuario disponible")
-                isAuthenticated = false
-                user = nil
+                await MainActor.run {
+                    isAuthenticated = false
+                    user = nil
+                }
                 return
             }
             
@@ -261,17 +544,16 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 isCoach: savedUserIsCoach
             )
             
-            self.user = savedUser
-            self.isAuthenticated = true
+            await MainActor.run {
+                self.user = savedUser
+                self.isAuthenticated = true
+            }
+            
             print("✅ Usuario autenticado desde UserDefaults (compatibilidad)")
         }
         
-        print("✅ Usuario autenticado desde sesión guardada: \(user?.name ?? "Usuario")")
+        print("✅ Usuario autenticado: \(user?.name ?? "Usuario")")
         print("🔹 Token válido hasta: \(getTokenExpirationDate())")
-        
-        #if DEBUG
-        KeychainService.shared.debugPrintTokens()
-        #endif
     }
     
     // MARK: - Gestión de Credenciales
@@ -283,8 +565,61 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         if let refreshToken = credentials.refreshToken {
             KeychainService.shared.saveToken(refreshToken, type: .refreshToken)
         }
+        
+        // Sincronizar con Credentials Manager de Auth0
+        if let credentialsManager = credentialsManager {
+            let stored = credentialsManager.store(credentials: credentials)
+            print("🔄 Sincronización con Credentials Manager: \(stored ? "✅ Exitosa" : "❌ Falló")")
+            
+            #if DEBUG
+            // Verificar que las credenciales se guardaron correctamente
+            if stored {
+                Task {
+                    do {
+                        _ = try await credentialsManager.credentials()
+                        print("✅ Verificación: Credentials Manager puede recuperar las credenciales")
+                    } catch {
+                        print("⚠️ Verificación: Credentials Manager no puede recuperar las credenciales: \(error)")
+                    }
+                }
+            }
+            #endif
+        } else {
+            print("⚠️ Credentials Manager no está inicializado - usando solo Keychain")
+        }
+        
         // Mantener fecha de login en UserDefaults (no es sensible)
         UserDefaults.standard.set(Date(), forKey: "auth0_login_date")
+    }
+    
+    private func syncCredentialsToKeychain(_ credentials: Credentials) {
+        print("🔄 Sincronizando credenciales de Credentials Manager a Keychain...")
+        
+        // Guardar en Keychain si no existen o son diferentes
+        let existingAccessToken = KeychainService.shared.getToken(type: .accessToken)
+        
+        if existingAccessToken != credentials.accessToken {
+            KeychainService.shared.saveToken(credentials.accessToken, type: .accessToken)
+            print("✅ Access token sincronizado a Keychain")
+        }
+        
+        if !credentials.idToken.isEmpty {
+            let existingIdToken = KeychainService.shared.getToken(type: .idToken)
+            if existingIdToken != credentials.idToken {
+                KeychainService.shared.saveToken(credentials.idToken, type: .idToken)
+                print("✅ ID token sincronizado a Keychain")
+            }
+        }
+        
+        if let refreshToken = credentials.refreshToken, !refreshToken.isEmpty {
+            let existingRefreshToken = KeychainService.shared.getToken(type: .refreshToken)
+            if existingRefreshToken != refreshToken {
+                KeychainService.shared.saveToken(refreshToken, type: .refreshToken)
+                print("✅ Refresh token sincronizado a Keychain")
+            }
+        }
+        
+        print("✅ Sincronización Credentials Manager → Keychain completada")
     }
     
     private func getStoredCredentials() -> String? {
@@ -318,27 +653,75 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     func getValidAccessToken() async -> String? {
         print("🔍 Solicitando token de acceso válido...")
         
-        // Verificar si hay un token válido
-        if let token = getStoredCredentials() {
-            // Verificar si el token ha expirado decodificando el JWT
-            if !isTokenExpired(token: token) {
-                print("✅ Token válido encontrado")
-                return token
-            } else {
-                print("🔄 Token expirado, intentando renovar...")
-                // Intentar renovar el token
-                if let renewedToken = await renewTokenIfNeeded() {
-                    print("✅ Token renovado exitosamente")
-                    return renewedToken
-                } else {
-                    print("❌ Falló la renovación del token")
-                    return nil
-                }
+        // Primero intentar con Credentials Manager (maneja renovación automática)
+        if let credentialsManager = credentialsManager {
+            do {
+                let credentials = try await credentialsManager.credentials()
+                print("✅ Token obtenido de Credentials Manager")
+                
+                // Guardar tokens actualizados en Keychain
+                saveCredentials(credentials)
+                
+                // Actualizar métricas
+                refreshTokenSuccessCount += 1
+                logAuthMetrics()
+                
+                return credentials.accessToken
+            } catch {
+                print("⚠️ Credentials Manager falló: \(error.localizedDescription)")
+                refreshTokenFailureCount += 1
+                
+                // Si falla, continuar con el flujo manual
             }
         }
         
-        print("❌ No hay token almacenado")
-        return nil
+        // Fallback al flujo manual existente
+        guard let token = getStoredCredentials() else {
+            print("❌ No hay token almacenado")
+            return nil
+        }
+        
+        // Si el token está realmente expirado, intentar renovación
+        if isTokenExpired(token: token) {
+            print("🔄 Token expirado, intentando renovar con múltiples estrategias...")
+            
+            // Estrategia 1: Renovar con refresh token
+            if let renewedToken = await renewTokenIfNeeded() {
+                print("✅ Token renovado exitosamente con refresh token")
+                refreshTokenSuccessCount += 1
+                logAuthMetrics()
+                return renewedToken
+            }
+            
+            // Estrategia 2: Intentar con authorization code guardado si existe
+            if let renewedToken = await retryWithAuthorizationCode() {
+                print("✅ Token renovado exitosamente con authorization code")
+                codeExchangeRetryCount += 1
+                logAuthMetrics()
+                return renewedToken
+            }
+            
+            print("❌ Todas las estrategias de renovación fallaron")
+            return nil
+        }
+        
+        // Si el token expira pronto, renovar proactivamente pero devolver el actual si falla
+        if isTokenExpiringSoon(token: token) {
+            print("🔄 Token expira pronto, renovando proactivamente...")
+            if let renewedToken = await renewTokenIfNeeded() {
+                print("✅ Token renovado proactivamente")
+                refreshTokenSuccessCount += 1
+                logAuthMetrics()
+                return renewedToken
+            } else {
+                print("⚠️ Falló renovación proactiva, usando token actual")
+                return token // Usar token actual si la renovación proactiva falla
+            }
+        }
+        
+        // Token válido y no expira pronto
+        print("✅ Token válido encontrado")
+        return token
     }
     
     private func isTokenExpired(token: String) -> Bool {
@@ -357,19 +740,49 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         let expirationDate = Date(timeIntervalSince1970: exp)
         let now = Date()
         
-        // Considerar expirado si queda menos de 5 minutos
-        let bufferTime: TimeInterval = 5 * 60 // 5 minutos
-        let isExpired = now.addingTimeInterval(bufferTime) > expirationDate
+        // Token realmente expirado (sin buffer para evitar falsos positivos)
+        let isExpired = now >= expirationDate
         
         if isExpired {
-            print("❌ Token expirado (expira: \(expirationDate))")
+            print("❌ Token realmente expirado (expiró: \(expirationDate))")
         } else {
             let timeRemaining = expirationDate.timeIntervalSince(now)
             let minutes = Int(timeRemaining / 60)
-            print("✅ Token válido por \(minutes) minutos más")
+            let seconds = Int(timeRemaining.truncatingRemainder(dividingBy: 60))
+            print("✅ Token válido por \(minutes)m \(seconds)s más")
         }
         
         return isExpired
+    }
+    
+    private func isTokenExpiringSoon(token: String) -> Bool {
+        // Decodificar el JWT para obtener la expiración real
+        guard let jwt = try? decode(jwt: token) else {
+            print("⚠️ No se pudo decodificar el JWT para verificar renovación")
+            return true
+        }
+        
+        // Obtener el claim 'exp' del JWT
+        guard let exp = jwt["exp"].double else {
+            print("⚠️ No se encontró el claim 'exp' en el JWT")
+            return true
+        }
+        
+        let expirationDate = Date(timeIntervalSince1970: exp)
+        let now = Date()
+        
+        // Necesita renovación si queda menos de 2 minutos (buffer más conservador)
+        let renewalBufferTime: TimeInterval = 2 * 60 // 2 minutos
+        let needsRenewal = now.addingTimeInterval(renewalBufferTime) > expirationDate
+        
+        if needsRenewal {
+            let timeRemaining = expirationDate.timeIntervalSince(now)
+            let minutes = Int(timeRemaining / 60)
+            let seconds = Int(timeRemaining.truncatingRemainder(dividingBy: 60))
+            print("🔄 Token necesita renovación (expira en \(minutes)m \(seconds)s)")
+        }
+        
+        return needsRenewal
     }
     
     private func getTokenExpirationDate() -> String {
@@ -385,6 +798,13 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     }
     
     private func renewTokenIfNeeded() async -> String? {
+        // Verificar si estamos en un loop de renovación
+        if await isInTokenRefreshLoop() {
+            print("🔴 Detectado loop de renovación de token - aplicando fallback")
+            await handleTokenRefreshLoop()
+            return nil
+        }
+        
         guard let refreshToken = KeychainService.shared.getToken(type: .refreshToken) else {
             print("❌ No hay refresh token disponible en Keychain")
             // Si no hay refresh token, necesitamos re-autenticar
@@ -392,7 +812,17 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             return nil
         }
         
-        print("🔄 Intentando renovar token con retry logic...")
+        // Registrar intento de renovación
+        await recordTokenRefreshAttempt()
+        
+        // Marcar que estamos renovando (si no está ya marcado)
+        await MainActor.run {
+            if !isRefreshingToken {
+                isRefreshingToken = true
+            }
+        }
+        
+        print("🔄 Intentando renovar token con retry logic... (intento \(tokenRefreshAttempts))")
         
         do {
             let credentials = try await NetworkRetryService.shared.executeTokenRefresh(refreshToken: refreshToken)
@@ -400,30 +830,294 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             // Guardar las nuevas credenciales
             saveCredentials(credentials)
             
+            // Reset loop detection en caso de éxito
+            await resetTokenRefreshLoop()
+            
+            await MainActor.run {
+                isRefreshingToken = false
+            }
+            
             print("✅ Token renovado exitosamente con retry logic")
             print("🔹 Nuevo token (primeros 50 chars): \(credentials.accessToken.prefix(50))...")
+            #if DEBUG
+            if let newRT = credentials.refreshToken {
+                print("🔁 Auth0 refresh: new refresh_token received (length=\(newRT.count), head=\(newRT.prefix(6))…)")
+            } else {
+                print("ℹ️ Auth0 refresh: response did not include a new refresh_token (rotation may be disabled or unchanged)")
+            }
+            #endif
             
             return credentials.accessToken
             
         } catch NetworkRetryService.RetryError.maxRetriesExceeded {
             print("❌ Falló renovación después de múltiples intentos")
-            errorMessage = "Error de conexión. Intenta más tarde."
+            await MainActor.run {
+                isRefreshingToken = false
+                errorMessage = "Error de conexión. Intenta más tarde."
+            }
         } catch NetworkRetryService.RetryError.nonRetryableError(let underlyingError) {
             print("❌ Error no recuperable al renovar token: \(underlyingError)")
-            if underlyingError.localizedDescription.contains("invalid_grant") {
-                print("❌ Refresh token inválido, requiere re-login")
-                errorMessage = "Sesión expirada. Inicia sesión nuevamente."
-            } else {
-                errorMessage = "Error de autenticación: \(underlyingError.localizedDescription)"
+            
+            // Manejar errores específicos de Auth0
+            let errorType = categorizeAuth0Error(underlyingError)
+            
+            await MainActor.run {
+                isRefreshingToken = false
+                
+                switch errorType {
+                case .invalidGrant:
+                    print("❌ Refresh token inválido o expirado")
+                    errorMessage = "Tu sesión ha expirado completamente. Por favor, inicia sesión nuevamente."
+                    refreshTokenFailureCount += 1
+                    
+                case .consentRequired:
+                    print("⚠️ Se requiere consentimiento del usuario")
+                    errorMessage = "Necesitas autorizar nuevamente los permisos de la aplicación."
+                    
+                case .networkError:
+                    print("🌐 Error de red al renovar token")
+                    errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente."
+                    
+                case .rateLimited:
+                    print("⏳ Rate limit alcanzado")
+                    errorMessage = "Demasiados intentos. Espera un momento antes de intentar nuevamente."
+                    
+                case .serverError:
+                    print("🔴 Error del servidor Auth0")
+                    errorMessage = "El servicio de autenticación está temporalmente no disponible."
+                    
+                case .unknown:
+                    errorMessage = "Error de autenticación: \(underlyingError.localizedDescription)"
+                }
             }
         } catch {
             print("❌ Error inesperado al renovar token: \(error)")
-            errorMessage = "Error inesperado: \(error.localizedDescription)"
+            await MainActor.run {
+                isRefreshingToken = false
+                errorMessage = "Error inesperado: \(error.localizedDescription)"
+                refreshTokenFailureCount += 1
+            }
         }
         
         // Si falla la renovación, cerrar sesión
         await logout()
         return nil
+    }
+    
+    // MARK: - Loop Detection and Fallback
+    
+    private func isInTokenRefreshLoop() async -> Bool {
+        let now = Date()
+        
+        // Si no hay registro previo, no hay loop
+        guard let lastRefresh = lastTokenRefreshTime else {
+            return false
+        }
+        
+        // Si han pasado más de X minutos desde el último intento, reset
+        if now.timeIntervalSince(lastRefresh) > refreshWindowMinutes {
+            await resetTokenRefreshLoop()
+            return false
+        }
+        
+        // Si hemos hecho demasiados intentos en poco tiempo, es un loop
+        return tokenRefreshAttempts >= maxRefreshAttemptsInWindow
+    }
+    
+    private func recordTokenRefreshAttempt() async {
+        await MainActor.run {
+            tokenRefreshAttempts += 1
+            lastTokenRefreshTime = Date()
+            print("🔄 Registrando intento de renovación #\(tokenRefreshAttempts)")
+        }
+    }
+    
+    private func resetTokenRefreshLoop() async {
+        await MainActor.run {
+            tokenRefreshAttempts = 0
+            lastTokenRefreshTime = nil
+            print("✅ Reset loop detection de renovación de tokens")
+        }
+    }
+    
+    private func handleTokenRefreshLoop() async {
+        print("🔴 Manejando loop de renovación - limpiando tokens y forzando re-login")
+        
+        // Limpiar todos los tokens
+        KeychainService.shared.deleteAllTokens()
+        
+        // Reset de variables de estado
+        await MainActor.run {
+            isAuthenticated = false
+            user = nil
+            isRefreshingToken = false
+            errorMessage = "Se detectó un problema con la sesión. Por favor, inicia sesión nuevamente."
+        }
+        
+        // Reset loop detection
+        await resetTokenRefreshLoop()
+        
+        // Limpiar UserDefaults de usuario
+        UserDefaults.standard.removeObject(forKey: "saved_user_id")
+        UserDefaults.standard.removeObject(forKey: "saved_user_email")
+        UserDefaults.standard.removeObject(forKey: "saved_user_name")
+        UserDefaults.standard.removeObject(forKey: "saved_user_picture")
+        UserDefaults.standard.removeObject(forKey: "saved_user_is_coach")
+        
+        // Limpiar authorization code guardado
+        UserDefaults.standard.removeObject(forKey: authCodeKey)
+        UserDefaults.standard.removeObject(forKey: authStateKey)
+        UserDefaults.standard.removeObject(forKey: codeVerifierKey)
+        
+        print("🔄 Limpieza completa realizada - usuario debe re-autenticarse")
+    }
+    
+    // MARK: - Authorization Code Retry
+    
+    private func retryWithAuthorizationCode() async -> String? {
+        guard let code = lastAuthorizationCode,
+              let verifier = lastCodeVerifier else {
+            print("❌ No hay authorization code guardado para reintentar")
+            return nil
+        }
+        
+        print("🔄 Reintentando con authorization code guardado...")
+        
+        do {
+            // Intentar intercambiar el código por tokens
+            let credentials = try await Auth0
+                .authentication()
+                .codeExchange(
+                    withCode: code,
+                    codeVerifier: verifier,
+                    redirectURI: "\(Bundle.main.bundleIdentifier ?? "com.alexmontesino.gymapi")://\(Auth0Config.domain)/ios/\(Bundle.main.bundleIdentifier ?? "com.alexmontesino.gymapi")/callback"
+                )
+                .start()
+            
+            // Guardar las nuevas credenciales
+            saveCredentials(credentials)
+            credentialsManager?.store(credentials: credentials)
+            
+            // Limpiar el código usado
+            lastAuthorizationCode = nil
+            lastCodeVerifier = nil
+            UserDefaults.standard.removeObject(forKey: authCodeKey)
+            UserDefaults.standard.removeObject(forKey: codeVerifierKey)
+            
+            print("✅ Authorization code exchange exitoso")
+            return credentials.accessToken
+            
+        } catch {
+            print("❌ Falló el intercambio de authorization code: \(error)")
+            
+            // Si el código es inválido o expiró, limpiarlo
+            if error.localizedDescription.contains("invalid_grant") || 
+               error.localizedDescription.contains("expired") {
+                lastAuthorizationCode = nil
+                lastCodeVerifier = nil
+                UserDefaults.standard.removeObject(forKey: authCodeKey)
+                UserDefaults.standard.removeObject(forKey: codeVerifierKey)
+            }
+            
+            return nil
+        }
+    }
+    
+    // MARK: - Authentication Metrics
+    
+    private func logAuthMetrics() {
+        #if DEBUG
+        print("\n📊 Métricas de Autenticación:")
+        print("================================")
+        print("✅ Refresh Token Exitosos: \(refreshTokenSuccessCount)")
+        print("❌ Refresh Token Fallidos: \(refreshTokenFailureCount)")
+        print("🔄 Code Exchange Reintentos: \(codeExchangeRetryCount)")
+        print("📈 Tasa de éxito: \(calculateSuccessRate())%")
+        print("================================\n")
+        #endif
+    }
+    
+    private func calculateSuccessRate() -> String {
+        let total = refreshTokenSuccessCount + refreshTokenFailureCount
+        guard total > 0 else { return "N/A" }
+        let rate = (Double(refreshTokenSuccessCount) / Double(total)) * 100
+        return String(format: "%.1f", rate)
+    }
+    
+    // MARK: - Auth0 Configuration Validation
+    
+    private func validateAuth0Configuration() -> Bool {
+        // Validar que los valores de configuración no estén vacíos
+        guard !Auth0Config.domain.isEmpty,
+              !Auth0Config.clientId.isEmpty,
+              !Auth0Config.audience.isEmpty else {
+            print("❌ Configuración de Auth0 incompleta")
+            return false
+        }
+        
+        // Validar formato del dominio
+        guard Auth0Config.domain.contains(".auth0.com") || 
+              Auth0Config.domain.contains(".us.auth0.com") ||
+              Auth0Config.domain.contains(".eu.auth0.com") ||
+              Auth0Config.domain.contains(".au.auth0.com") else {
+            print("❌ Dominio de Auth0 inválido: \(Auth0Config.domain)")
+            return false
+        }
+        
+        // Validar formato de la audiencia (debe ser una URL)
+        if !Auth0Config.audience.hasPrefix("https://") && 
+           !Auth0Config.audience.hasPrefix("http://") {
+            print("⚠️ Audiencia no parece ser una URL válida: \(Auth0Config.audience)")
+            // No fallar aquí porque algunas APIs usan identificadores custom
+        }
+        
+        print("✅ Configuración de Auth0 validada correctamente")
+        return true
+    }
+    
+    // MARK: - Error Categorization
+    
+    enum Auth0ErrorType {
+        case invalidGrant
+        case consentRequired
+        case networkError
+        case rateLimited
+        case serverError
+        case unknown
+    }
+    
+    private func categorizeAuth0Error(_ error: Error) -> Auth0ErrorType {
+        let errorDescription = error.localizedDescription.lowercased()
+        
+        if errorDescription.contains("invalid_grant") ||
+           errorDescription.contains("refresh token") && errorDescription.contains("expired") {
+            return .invalidGrant
+        }
+        
+        if errorDescription.contains("consent_required") ||
+           errorDescription.contains("consent required") {
+            return .consentRequired
+        }
+        
+        if errorDescription.contains("rate") && errorDescription.contains("limit") ||
+           errorDescription.contains("too many requests") {
+            return .rateLimited
+        }
+        
+        if errorDescription.contains("network") ||
+           errorDescription.contains("connection") ||
+           errorDescription.contains("internet") {
+            return .networkError
+        }
+        
+        if errorDescription.contains("500") ||
+           errorDescription.contains("502") ||
+           errorDescription.contains("503") ||
+           errorDescription.contains("server error") {
+            return .serverError
+        }
+        
+        return .unknown
     }
     
     // MARK: - Métodos de Utilidad
@@ -440,9 +1134,21 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     private func scheduleFirstLoginPermissionsRefresh() {
         // Ejecutar en background para no bloquear el flujo de UI
         Task.detached { [weak self] in
-            // Esperar unos segundos para dar tiempo a Actions/Rules en Auth0
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s
-            await self?.performFirstLoginForcedRefreshIfNeeded()
+            // Esperar más tiempo para evitar conflictos con la autenticación principal
+            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s (aumentado de 2s)
+            
+            // Solo ejecutar si el usuario sigue autenticado y no estamos renovando
+            guard let self = self else { return }
+            
+            await MainActor.run {
+                // No ejecutar si ya estamos renovando tokens o no estamos autenticados
+                if self.isRefreshingToken || !self.isAuthenticated {
+                    print("⏭️ Saltando firstLoginRefresh - token en renovación o no autenticado")
+                    return
+                }
+            }
+            
+            await self.performFirstLoginForcedRefreshIfNeeded()
         }
     }
     
@@ -699,31 +1405,44 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     // MARK: - Enhanced Login with Retry
     
     /// Enhanced login with network retry logic
-    func loginWithRetry() async {
+    func loginWithRetry(mode: AuthMode = .signin) async {
         isLoading = true
         errorMessage = nil
         
         do {
-            let credentials = try await NetworkRetryService.shared.executeWithRetry {
-                try await Auth0
-                    .webAuth()
-                    .audience(Auth0Config.audience)
-                    .scope("openid profile email offline_access")
-                    .start()
+            // NO usar NetworkRetryService para Auth0 - evita reintentos cuando el usuario cancela
+            let neverGrantedOffline = !UserDefaults.standard.bool(forKey: self.offlineAccessGrantedKey)
+            let needsRefreshToken = KeychainService.shared.getToken(type: .refreshToken) == nil
+            var webAuth = Auth0
+                .webAuth()
+                .audience(Auth0Config.audience)
+                .scope("openid profile email offline_access")
+            
+            // Añadir screen_hint según el modo
+            var parameters: [String: String] = [:]
+            parameters["screen_hint"] = mode == .signup ? "signup" : "login"
+            
+            if needsRefreshToken && neverGrantedOffline {
+                parameters["prompt"] = "consent" // Forzar consentimiento solo la primera vez
             }
+            
+            webAuth = webAuth.parameters(parameters)
+            let credentials = try await webAuth.start()
             
             // Process successful login
             await processSuccessfulLogin(credentials)
             
-        } catch NetworkRetryService.RetryError.maxRetriesExceeded {
-            print("❌ Login falló después de múltiples intentos")
-            errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente."
-        } catch NetworkRetryService.RetryError.circuitBreakerOpen {
-            print("❌ Circuit breaker abierto - servicio no disponible")
-            errorMessage = "Servicio temporalmente no disponible. Intenta en unos minutos."
         } catch {
-            print("❌ Error inesperado en login: \(error)")
-            errorMessage = "Error de inicio de sesión: \(error.localizedDescription)"
+            // Verificar si el usuario canceló
+            let errorString = "\(error)"
+            if errorString.contains("cancelled") || errorString.contains("a0.session.user_cancelled") || 
+               errorString.contains("userCancelled") || error.localizedDescription.contains("cancelled") {
+                print("ℹ️ Usuario canceló el login")
+                errorMessage = nil // No mostrar error si el usuario canceló
+            } else {
+                print("❌ Error inesperado en login: \(error)")
+                errorMessage = "Error de inicio de sesión: \(error.localizedDescription)"
+            }
         }
         
         isLoading = false
@@ -752,6 +1471,13 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             // Save credentials securely
             saveCredentials(credentials)
             saveUserInfo(user)
+            #if DEBUG
+            if let rt = credentials.refreshToken {
+                print("🔁 Auth0 login (retry): refresh_token received (length=\(rt.count), head=\(rt.prefix(6))…)")
+            } else {
+                print("⚠️ Auth0 login (retry): refresh_token NOT present in credentials response")
+            }
+            #endif
             
             // Marcar que aún no se hizo el refresh de primer login
             UserDefaults.standard.set(false, forKey: firstLoginRefreshKey)

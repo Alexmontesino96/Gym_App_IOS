@@ -14,8 +14,9 @@ struct UserTypeSelectionView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @State private var showContent = false
     @State private var selectedType: OnboardingManager.UserType? = nil
-    @State private var showLoginView = false
     @State private var buttonScale: [OnboardingManager.UserType: CGFloat] = [:]
+    @State private var isAuthenticating = false
+    @State private var isAuth0InProgress = false // Prevenir múltiples llamadas a Auth0
     
     var body: some View {
         ZStack {
@@ -30,6 +31,30 @@ struct UserTypeSelectionView: View {
             )
             .ignoresSafeArea()
             
+            // Loading overlay when authenticating
+            if isAuthenticating {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                    
+                    Text("Conectando con Auth0...")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                }
+                .padding(40)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .shadow(radius: 20)
+                )
+                .transition(.scale.combined(with: .opacity))
+            }
+            
             VStack(spacing: 0) {
                 // Header section
                 headerSection
@@ -39,6 +64,7 @@ struct UserTypeSelectionView: View {
                 
                 // User type selection buttons
                 selectionSection
+                    .zIndex(100) // Máxima prioridad para la sección de selección
                 
                 // Footer
                 footerSection
@@ -49,11 +75,6 @@ struct UserTypeSelectionView: View {
         .onAppear {
             startInitialAnimation()
             initializeButtonScales()
-        }
-        .fullScreenCover(isPresented: $showLoginView) {
-            LoginViewDirect()
-                .environmentObject(authService)
-                .environmentObject(themeManager)
         }
     }
     
@@ -148,7 +169,7 @@ struct UserTypeSelectionView: View {
     // MARK: - Selection Section
     
     private var selectionSection: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) { // Aumentado el espacio entre botones
             ForEach([OnboardingManager.UserType.newUser, OnboardingManager.UserType.existingUser], id: \.self) { userType in
                 UserTypeButton(
                     userType: userType,
@@ -160,9 +181,11 @@ struct UserTypeSelectionView: View {
                 .scaleEffect(showContent ? 1.0 : 0.8)
                 .opacity(showContent ? 1.0 : 0.0)
                 .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(1.2 + (userType == .newUser ? 0 : 0.2)), value: showContent)
+                .zIndex(selectedType == userType ? 10 : 0) // Mayor prioridad visual al elemento seleccionado
             }
         }
         .padding(.horizontal, 32)
+        .padding(.vertical, 8) // Padding vertical adicional para evitar recortes
     }
     
     // MARK: - Footer Section
@@ -238,6 +261,7 @@ struct UserTypeSelectionView: View {
     
     private func selectUserType(_ type: OnboardingManager.UserType) {
         selectedType = type
+        print("👤 UserTypeSelectionView: Usuario seleccionó \(type.displayName)")
         
         // Button animation
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -256,10 +280,40 @@ struct UserTypeSelectionView: View {
         
         // Handle selection
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            // Prevenir múltiples llamadas simultáneas a Auth0
+            guard !isAuth0InProgress else {
+                print("⚠️ Auth0 ya está en progreso, ignorando llamada duplicada")
+                return
+            }
+            
             if type == .existingUser {
-                showLoginView = true
+                print("🔐 UserTypeSelectionView: Iniciando Auth0 para Sign In")
+                // Llamar directamente a Auth0 con modo signin
+                isAuthenticating = true
+                isAuth0InProgress = true
+                Task {
+                    await authService.loginWithRetry(mode: .signin)
+                    // Siempre resetear el estado de autenticación, sin importar el resultado
+                    await MainActor.run {
+                        isAuthenticating = false
+                        isAuth0InProgress = false
+                        selectedType = nil // Resetear selección para permitir nuevo intento
+                    }
+                }
             } else {
-                onboardingManager.selectUserType(type)
+                print("➕ UserTypeSelectionView: Iniciando Auth0 para Create Account")
+                // Para nuevo usuario, llamar a Auth0 con modo signup
+                isAuthenticating = true
+                isAuth0InProgress = true
+                Task {
+                    await authService.loginWithRetry(mode: .signup)
+                    // Siempre resetear el estado de autenticación, sin importar el resultado
+                    await MainActor.run {
+                        isAuthenticating = false
+                        isAuth0InProgress = false
+                        selectedType = nil // Resetear selección para permitir nuevo intento
+                    }
+                }
             }
         }
     }
@@ -314,11 +368,11 @@ struct UserTypeButton: View {
                     .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                     .shadow(
                         color: isSelected 
-                            ? Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2)
+                            ? Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3)
                             : Color.black.opacity(0.1),
-                        radius: isSelected ? 15 : 8,
+                        radius: isSelected ? 20 : 8,
                         x: 0,
-                        y: isSelected ? 8 : 4
+                        y: isSelected ? 10 : 4
                     )
             )
             .overlay(
@@ -333,6 +387,7 @@ struct UserTypeButton: View {
         }
         .scaleEffect(scale)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isSelected)
+        .zIndex(isSelected ? 1 : 0) // Asegurar que el botón seleccionado tenga prioridad
     }
 }
 

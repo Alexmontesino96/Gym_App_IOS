@@ -479,10 +479,14 @@ struct ModernEventCardContent: View {
     
     // Computed properties para el botón
     private var buttonText: String {
+        let now = Date()
+        let isLive = (event.status == .active) || (event.startTime <= now && event.endTime > now)
         if eventService.isUserRegistered(eventId: event.id) {
             return "Registered"
         } else if event.participantsCount >= event.maxParticipants {
             return "Full"
+        } else if isLive {
+            return "Live"
         } else {
             return "Join"
         }

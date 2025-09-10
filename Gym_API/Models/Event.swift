@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 // MARK: - Event Status
 enum EventStatus: String, CaseIterable, Codable {

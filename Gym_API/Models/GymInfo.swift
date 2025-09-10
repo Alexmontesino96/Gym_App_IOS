@@ -94,7 +94,7 @@ struct GymInfo: Codable, Identifiable, Equatable {
         case "ADMIN":
             return "person.badge.key.fill"
         case "TRAINER":
-            return "figure.strengthtraining.traditional"
+            return "figure.walk"
         case "MEMBER":
             return "person.fill"
         default:

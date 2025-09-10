@@ -172,19 +172,17 @@ struct ModernProfileView: View {
         VStack(spacing: 24) {
             // Simple header con opciones
             HStack {
-                if let profile = profileService.userProfile {
-                    Button(action: { showingProfileOptions = true }) {
-                        HStack(spacing: 8) {
-                            Text(shortDisplayName(from: profile))
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        }
+                Button(action: { showingProfileOptions = true }) {
+                    HStack(spacing: 8) {
+                        Text(gymDisplayName)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
-                    .buttonStyle(.plain)
                 }
+                .buttonStyle(.plain)
                 Spacer()
             }
             .padding(.horizontal, 20)
@@ -458,7 +456,7 @@ struct ModernProfileView: View {
                 // Total Workouts Card
                 VStack(spacing: 12) {
                     HStack(spacing: 8) {
-                        Image(systemName: "figure.strengthtraining.traditional")
+                        Image(systemName: "figure.walk")
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundColor(.blue)
                             .frame(width: 24, height: 24)
@@ -755,6 +753,17 @@ extension ModernProfileView {
         } else {
             // Fallback si no hay nombre
             return "U"
+        }
+    }
+    
+    // Computed property for gym display name in header
+    private var gymDisplayName: String {
+        if let currentGym = gymService.currentGym {
+            return currentGym.name
+        } else if gymService.isLoadingGyms {
+            return "Loading..."
+        } else {
+            return "Select Gym"
         }
     }
 }

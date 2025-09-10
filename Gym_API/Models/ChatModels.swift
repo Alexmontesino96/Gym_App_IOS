@@ -31,13 +31,14 @@ struct ChatMessageData: Identifiable, Codable {
     let text: String
     let authorId: String
     let authorName: String?
+    let authorAvatarURL: String?
     let timestamp: Date
     let channelId: String
     let isFromCurrentUser: Bool
     let attachments: [ChatAttachmentData]
     
     enum CodingKeys: String, CodingKey {
-        case id, text, authorId, authorName, timestamp, channelId, isFromCurrentUser, attachments
+        case id, text, authorId, authorName, authorAvatarURL, timestamp, channelId, isFromCurrentUser, attachments
     }
 }
 

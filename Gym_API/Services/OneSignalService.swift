@@ -12,37 +12,62 @@ class OneSignalService: ObservableObject {
     static let shared = OneSignalService()
     
     private let appId = "57c2285f-1a1a-4431-a5db-7ecd0bab4c5f"
+    private let hasRequestedPushKey = "hasRequestedPushPermission"
     
     private init() {}
     
     func initialize() {
         print("🔔 Inicializando OneSignal...")
         
-        // Remove this method to stop OneSignal Debugging
-        OneSignal.Debug.setLogLevel(.LL_VERBOSE)
+        // Validar App ID antes de inicializar
+        guard !appId.isEmpty else {
+            print("❌ OneSignal App ID está vacío")
+            return
+        }
         
-        // OneSignal initialization
-        OneSignal.initialize(appId, withLaunchOptions: nil)
-        
-        // Check current permission status first
-        checkNotificationPermissionStatus()
-        
-        print("✅ OneSignal inicializado correctamente")
+        do {
+            // Remove this method to stop OneSignal Debugging
+            OneSignal.Debug.setLogLevel(.LL_VERBOSE)
+            
+            // OneSignal initialization con try-catch implícito
+            OneSignal.initialize(appId, withLaunchOptions: nil)
+            
+            // Check current permission status first
+            checkNotificationPermissionStatus()
+            
+            print("✅ OneSignal inicializado correctamente con App ID: \(appId)")
+        } catch {
+            print("❌ Error al inicializar OneSignal: \(error)")
+        }
     }
     
     func checkNotificationPermissionStatus() {
         print("🔔 Verificando estado de permisos de notificaciones...")
-        
-        // Check if already has permission
-        let hasPermission = OneSignal.Notifications.permission
-        print("🔔 Estado actual de permisos: \(hasPermission)")
-        
-        if !hasPermission {
-            // Request permission if not granted
-            requestNotificationPermission()
-        } else {
-            // Check subscription status
-            checkSubscriptionStatus()
+        // Usar API nativa para estado preciso y evitar prompts repetidos
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                let status = settings.authorizationStatus
+                let alreadyRequested = UserDefaults.standard.bool(forKey: self.hasRequestedPushKey)
+                print("🔔 Estado nativo: \(status.rawValue), alreadyRequested=\(alreadyRequested)")
+                
+                switch status {
+                case .authorized, .provisional, .ephemeral:
+                    self.checkSubscriptionStatus()
+                case .denied:
+                    // No volver a solicitar automáticamente si el usuario negó
+                    print("❌ Notificaciones denegadas; no se solicitará automáticamente")
+                case .notDetermined:
+                    // Solicitar solo una vez de forma automática
+                    if !alreadyRequested {
+                        self.requestNotificationPermission()
+                        UserDefaults.standard.set(true, forKey: self.hasRequestedPushKey)
+                    } else {
+                        print("⏭️ Permiso de notificaciones no determinado pero ya solicitado antes; esperando acción del usuario")
+                    }
+                @unknown default:
+                    break
+                }
+            }
         }
     }
     

@@ -119,6 +119,9 @@ struct ClassesView: View {
         }
         .onAppear {
             Task {
+                // Configurar el authService en el classService para operaciones de sesiones
+                classService.authService = authService
+                
                 // Cargar trainers primero para que estén disponibles para las tarjetas
                 await classService.loadTrainers()
                 await classService.loadSessionsForDateIfNeeded(date: selectedDate)
