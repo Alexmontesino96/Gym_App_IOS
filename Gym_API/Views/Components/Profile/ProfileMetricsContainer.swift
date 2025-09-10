@@ -258,13 +258,19 @@ struct ProfileMetricsEditSheet: View {
         isSaving = true
         
         Task {
-            // Update profile with new metrics
-            if var profile = profileService.userProfile {
-                profile.weight = weightValue
-                profile.height = heightValue
-                
-                // Save to backend
-                await profileService.updateProfile(profile)
+            // Update profile with new metrics using the service method
+            let success = await profileService.updateProfile(
+                firstName: nil,
+                lastName: nil,
+                birthDate: nil,
+                height: heightValue,
+                weight: weightValue,
+                bio: nil
+            )
+            
+            if success {
+                // Refresh the profile to get updated data
+                await profileService.fetchUserProfile()
             }
             
             dismiss()
