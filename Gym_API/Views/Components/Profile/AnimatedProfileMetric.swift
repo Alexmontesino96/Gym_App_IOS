@@ -80,15 +80,15 @@ struct AnimatedProfileMetric: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                     .opacity(isVisible ? 1 : 0)
-                    .fixedSize(horizontal: true, vertical: false)
                     .lineLimit(1)
                 
                 // Animated value with counter below
                 HStack(spacing: 2) {
                     if numericValue > 0 {
                         Text("\(currentValue)")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 18, weight: .bold).monospacedDigit())
                             .foregroundColor(Color.dynamicText(theme: theme))
+                            .frame(minWidth: 35, alignment: .trailing)
                         
                         if !valueSuffix.isEmpty {
                             Text(valueSuffix)
@@ -97,13 +97,13 @@ struct AnimatedProfileMetric: View {
                         }
                     } else {
                         Text(value)
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 18, weight: .bold).monospacedDigit())
                             .foregroundColor(Color.dynamicText(theme: theme))
+                            .frame(minWidth: 35, alignment: .leading)
                     }
                 }
                 .opacity(isVisible ? 1 : 0)
                 .offset(y: isVisible ? 0 : 10)
-                .fixedSize(horizontal: true, vertical: false)
             }
         }
         .onAppear {

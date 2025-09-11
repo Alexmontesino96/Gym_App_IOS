@@ -50,7 +50,7 @@ struct ProfileMetricsContainer: View {
                     delay: hasAnimated ? 0 : 0.3,
                     theme: theme
                 )
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 90, maxWidth: .infinity)
                 
                 // Weight metric
                 AnimatedProfileMetric(
@@ -61,7 +61,7 @@ struct ProfileMetricsContainer: View {
                     delay: hasAnimated ? 0 : 0.5,
                     theme: theme
                 )
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 90, maxWidth: .infinity)
                 
                 // Height metric
                 AnimatedProfileMetric(
@@ -72,7 +72,7 @@ struct ProfileMetricsContainer: View {
                     delay: hasAnimated ? 0 : 0.7,
                     theme: theme
                 )
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 90, maxWidth: .infinity)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
