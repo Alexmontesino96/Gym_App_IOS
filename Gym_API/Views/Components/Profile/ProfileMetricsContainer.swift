@@ -40,7 +40,7 @@ struct ProfileMetricsContainer: View {
                 .opacity(containerOpacity)
             
             // Content without scale effect
-            HStack(spacing: 15) {
+            HStack(spacing: 25) {
                 // Workouts metric
                 AnimatedProfileMetric(
                     icon: "dumbbell.fill",
@@ -50,7 +50,7 @@ struct ProfileMetricsContainer: View {
                     delay: hasAnimated ? 0 : 0.3,
                     theme: theme
                 )
-                .frame(minWidth: 90, maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
                 
                 // Weight metric
                 AnimatedProfileMetric(
@@ -61,7 +61,7 @@ struct ProfileMetricsContainer: View {
                     delay: hasAnimated ? 0 : 0.5,
                     theme: theme
                 )
-                .frame(minWidth: 90, maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
                 
                 // Height metric
                 AnimatedProfileMetric(
@@ -72,10 +72,10 @@ struct ProfileMetricsContainer: View {
                     delay: hasAnimated ? 0 : 0.7,
                     theme: theme
                 )
-                .frame(minWidth: 90, maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)  // Margen externo para separar de los bordes

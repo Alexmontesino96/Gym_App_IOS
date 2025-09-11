@@ -33,8 +33,8 @@ struct AnimatedProfileMetric: View {
     }
     
     var body: some View {
-        HStack(spacing: 8) {
-            // Animated icon on the left
+        VStack(spacing: 6) {
+            // Animated icon on top
             ZStack {
                 // Sparkles
                 ForEach(0..<6, id: \.self) { index in
@@ -58,7 +58,7 @@ struct AnimatedProfileMetric: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 40, height: 40)
+                    .frame(width: 36, height: 36)
                     .overlay(
                         Circle()
                             .stroke(color.opacity(0.3), lineWidth: 1)
@@ -66,45 +66,40 @@ struct AnimatedProfileMetric: View {
                 
                 // Animated icon
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(color)
                     .rotationEffect(.degrees(iconRotation))
                     .offset(y: bounceOffset)
             }
             .scaleEffect(scale)
             
-            // Value and label on the right
-            VStack(alignment: .leading, spacing: 4) {
-                // Label on top
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                    .opacity(isVisible ? 1 : 0)
-                    .lineLimit(1)
-                
-                // Animated value with counter below
-                HStack(spacing: 2) {
-                    if numericValue > 0 {
-                        Text("\(currentValue)")
-                            .font(.system(size: 18, weight: .bold).monospacedDigit())
+            // Animated value in the middle
+            HStack(spacing: 2) {
+                if numericValue > 0 {
+                    Text("\(currentValue)")
+                        .font(.system(size: 16, weight: .bold).monospacedDigit())
+                        .foregroundColor(Color.dynamicText(theme: theme))
+                    
+                    if !valueSuffix.isEmpty {
+                        Text(valueSuffix)
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: theme))
-                            .frame(minWidth: 35, alignment: .trailing)
-                        
-                        if !valueSuffix.isEmpty {
-                            Text(valueSuffix)
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: theme))
-                        }
-                    } else {
-                        Text(value)
-                            .font(.system(size: 18, weight: .bold).monospacedDigit())
-                            .foregroundColor(Color.dynamicText(theme: theme))
-                            .frame(minWidth: 35, alignment: .leading)
                     }
+                } else {
+                    Text(value)
+                        .font(.system(size: 16, weight: .bold).monospacedDigit())
+                        .foregroundColor(Color.dynamicText(theme: theme))
                 }
-                .opacity(isVisible ? 1 : 0)
-                .offset(y: isVisible ? 0 : 10)
             }
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 10)
+            
+            // Label at the bottom
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                .opacity(isVisible ? 1 : 0)
+                .lineLimit(1)
         }
         .onAppear {
             animateEntrance()
@@ -179,7 +174,7 @@ struct AnimatedProfileMetric: View {
     
     private func sparkleOffset(for index: Int) -> CGSize {
         let angle = Double(index) * 60.0 * .pi / 180.0
-        let distance: CGFloat = 28
+        let distance: CGFloat = 25
         return CGSize(
             width: CGFloat(cos(angle)) * distance,
             height: CGFloat(sin(angle)) * distance
