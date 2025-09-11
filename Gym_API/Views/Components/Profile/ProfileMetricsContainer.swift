@@ -73,6 +73,7 @@ struct ProfileMetricsContainer: View {
                     y: 2
                 )
         )
+        .padding(.horizontal, 20)  // Margen externo para separar de los bordes
         .scaleEffect(containerScale)
         .opacity(containerOpacity)
         .onAppear {
