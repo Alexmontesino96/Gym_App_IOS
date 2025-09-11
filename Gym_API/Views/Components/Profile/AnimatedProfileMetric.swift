@@ -34,7 +34,14 @@ struct AnimatedProfileMetric: View {
     
     var body: some View {
         VStack(spacing: 6) {
-            // Animated icon on top
+            // Label at the top
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                .opacity(isVisible ? 1 : 0)
+                .lineLimit(1)
+            
+            // Animated icon in the middle (bigger)
             ZStack {
                 // Sparkles
                 ForEach(0..<6, id: \.self) { index in
@@ -58,48 +65,41 @@ struct AnimatedProfileMetric: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .overlay(
                         Circle()
                             .stroke(color.opacity(0.3), lineWidth: 1)
                     )
                 
-                // Animated icon
+                // Animated icon - bigger
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(color)
                     .rotationEffect(.degrees(iconRotation))
                     .offset(y: bounceOffset)
             }
             .scaleEffect(scale)
             
-            // Animated value in the middle
+            // Animated value at the bottom
             HStack(spacing: 2) {
                 if numericValue > 0 {
                     Text("\(currentValue)")
-                        .font(.system(size: 16, weight: .bold).monospacedDigit())
+                        .font(.system(size: 18, weight: .bold).monospacedDigit())
                         .foregroundColor(Color.dynamicText(theme: theme))
                     
                     if !valueSuffix.isEmpty {
                         Text(valueSuffix)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: theme))
                     }
                 } else {
                     Text(value)
-                        .font(.system(size: 16, weight: .bold).monospacedDigit())
+                        .font(.system(size: 18, weight: .bold).monospacedDigit())
                         .foregroundColor(Color.dynamicText(theme: theme))
                 }
             }
             .opacity(isVisible ? 1 : 0)
             .offset(y: isVisible ? 0 : 10)
-            
-            // Label at the bottom
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                .opacity(isVisible ? 1 : 0)
-                .lineLimit(1)
         }
         .onAppear {
             animateEntrance()
@@ -174,7 +174,7 @@ struct AnimatedProfileMetric: View {
     
     private func sparkleOffset(for index: Int) -> CGSize {
         let angle = Double(index) * 60.0 * .pi / 180.0
-        let distance: CGFloat = 25
+        let distance: CGFloat = 30
         return CGSize(
             width: CGFloat(cos(angle)) * distance,
             height: CGFloat(sin(angle)) * distance
