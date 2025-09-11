@@ -8,8 +8,8 @@ struct ProfileMetricsContainer: View {
     let theme: ThemeManager.AppTheme
     @Binding var showCelebration: Bool
     
-    @State private var containerScale = 0.8
     @State private var containerOpacity = 0.0
+    @State private var backgroundScale = 0.9
     @State private var glowAnimation = false
     @State private var hasAnimated = false
     
@@ -19,44 +19,8 @@ struct ProfileMetricsContainer: View {
     }
     
     var body: some View {
-        HStack(spacing: 15) {
-            // Workouts metric
-            AnimatedProfileMetric(
-                icon: "dumbbell.fill",
-                value: "\(workouts)",
-                label: "Workouts",
-                color: Color.dynamicAccent(theme: theme),
-                delay: hasAnimated ? 0 : 0.3,
-                theme: theme
-            )
-            .frame(maxWidth: .infinity)
-            
-            // Weight metric
-            AnimatedProfileMetric(
-                icon: "scalemass.fill",
-                value: weight != nil ? "\(Int(weight!)) kg" : "63 kg",
-                label: "Weight",
-                color: Color.dynamicAccent(theme: theme),
-                delay: hasAnimated ? 0 : 0.5,
-                theme: theme
-            )
-            .frame(maxWidth: .infinity)
-            
-            // Height metric
-            AnimatedProfileMetric(
-                icon: "arrow.up.and.down",
-                value: height != nil ? "\(Int(height!)) cm" : "179 cm",
-                label: "Height",
-                color: Color.dynamicAccent(theme: theme),
-                delay: hasAnimated ? 0 : 0.7,
-                theme: theme
-            )
-            .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .background(
+        ZStack {
+            // Background with its own scale animation
             RoundedRectangle(cornerRadius: 20)
                 .fill(.ultraThinMaterial)
                 .overlay(
@@ -72,24 +36,63 @@ struct ProfileMetricsContainer: View {
                     x: 0,
                     y: 2
                 )
-        )
+                .scaleEffect(backgroundScale)
+                .opacity(containerOpacity)
+            
+            // Content without scale effect
+            HStack(spacing: 15) {
+                // Workouts metric
+                AnimatedProfileMetric(
+                    icon: "dumbbell.fill",
+                    value: "\(workouts)",
+                    label: "Workouts",
+                    color: Color.dynamicAccent(theme: theme),
+                    delay: hasAnimated ? 0 : 0.3,
+                    theme: theme
+                )
+                .frame(maxWidth: .infinity)
+                
+                // Weight metric
+                AnimatedProfileMetric(
+                    icon: "scalemass.fill",
+                    value: weight != nil ? "\(Int(weight!)) kg" : "63 kg",
+                    label: "Weight",
+                    color: Color.dynamicAccent(theme: theme),
+                    delay: hasAnimated ? 0 : 0.5,
+                    theme: theme
+                )
+                .frame(maxWidth: .infinity)
+                
+                // Height metric
+                AnimatedProfileMetric(
+                    icon: "arrow.up.and.down",
+                    value: height != nil ? "\(Int(height!)) cm" : "179 cm",
+                    label: "Height",
+                    color: Color.dynamicAccent(theme: theme),
+                    delay: hasAnimated ? 0 : 0.7,
+                    theme: theme
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+        }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)  // Margen externo para separar de los bordes
-        .scaleEffect(containerScale)
-        .opacity(containerOpacity)
         .onAppear {
             if !hasAnimated {
                 animateContainer()
             } else {
-                containerScale = 1.0
+                backgroundScale = 1.0
                 containerOpacity = 1.0
             }
         }
     }
     
     private func animateContainer() {
-        // Container entrance
+        // Background entrance animation only
         withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
-            containerScale = 1.0
+            backgroundScale = 1.0
             containerOpacity = 1.0
         }
         
