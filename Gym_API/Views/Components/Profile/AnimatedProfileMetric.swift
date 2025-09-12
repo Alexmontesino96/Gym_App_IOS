@@ -107,6 +107,14 @@ struct AnimatedProfileMetric: View {
     }
     
     private func animateEntrance() {
+        // If delay is 0, show immediately without animation
+        if delay == 0 {
+            scale = 1.0
+            isVisible = true
+            currentValue = numericValue
+            return
+        }
+        
         // Staggered entrance based on delay
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             // Scale and visibility

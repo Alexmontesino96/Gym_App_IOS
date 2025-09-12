@@ -11,7 +11,9 @@ struct ProfileMetricsContainer: View {
     @State private var containerOpacity = 0.0
     @State private var backgroundScale = 0.9
     @State private var glowAnimation = false
-    @State private var hasAnimated = false
+    
+    // Use a static variable to track if animation has been shown this session
+    private static var hasAnimatedThisSession = false
     
     // Check if profile is complete
     private var isProfileComplete: Bool {
@@ -47,7 +49,7 @@ struct ProfileMetricsContainer: View {
                     value: "\(workouts)",
                     label: "Workouts",
                     color: Color.dynamicAccent(theme: theme),
-                    delay: hasAnimated ? 0 : 0.3,
+                    delay: Self.hasAnimatedThisSession ? 0 : 0.3,
                     theme: theme
                 )
                 .frame(maxWidth: .infinity)
@@ -58,7 +60,7 @@ struct ProfileMetricsContainer: View {
                     value: weight != nil ? "\(Int(weight!)) kg" : "63 kg",
                     label: "Weight",
                     color: Color.dynamicAccent(theme: theme),
-                    delay: hasAnimated ? 0 : 0.5,
+                    delay: Self.hasAnimatedThisSession ? 0 : 0.5,
                     theme: theme
                 )
                 .frame(maxWidth: .infinity)
@@ -69,7 +71,7 @@ struct ProfileMetricsContainer: View {
                     value: height != nil ? "\(Int(height!)) cm" : "179 cm",
                     label: "Height",
                     color: Color.dynamicAccent(theme: theme),
-                    delay: hasAnimated ? 0 : 0.7,
+                    delay: Self.hasAnimatedThisSession ? 0 : 0.7,
                     theme: theme
                 )
                 .frame(maxWidth: .infinity)
@@ -80,9 +82,11 @@ struct ProfileMetricsContainer: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)  // Margen externo para separar de los bordes
         .onAppear {
-            if !hasAnimated {
+            if !Self.hasAnimatedThisSession {
                 animateContainer()
+                Self.hasAnimatedThisSession = true
             } else {
+                // Show immediately without animation
                 backgroundScale = 1.0
                 containerOpacity = 1.0
             }
@@ -99,7 +103,6 @@ struct ProfileMetricsContainer: View {
         // Check for celebration after metrics load
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             checkForCelebration()
-            hasAnimated = true
         }
     }
     
