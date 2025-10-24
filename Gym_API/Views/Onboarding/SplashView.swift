@@ -119,66 +119,47 @@ struct SplashView: View {
     // MARK: - Animation Logic
     
     private func startSplashAnimation() {
-        // Phase 1: Logo animation (0-1 seconds)
-        withAnimation(.easeOut(duration: 0.8)) {
+        // Versión optimizada sin delays artificiales
+
+        // Phase 1: Logo animation (0-0.5 seconds)
+        withAnimation(.easeOut(duration: 0.5)) {
             logoScale = 1.0
             logoOpacity = 1.0
         }
-        
-        // Phase 2: Title animation (0.5-1.5 seconds)  
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeOut(duration: 0.8)) {
+
+        // Phase 2: Title animation (0.2-0.7 seconds)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.easeOut(duration: 0.5)) {
                 titleOffset = 0
                 titleOpacity = 1.0
             }
         }
-        
-        // Phase 3: Show loading (1.2-2.5 seconds)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation(.easeInOut(duration: 0.5)) {
+
+        // Phase 3: Show loading indicator (0.5 seconds)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.easeInOut(duration: 0.3)) {
                 showProgressText = true
+                progressValue = 0.5
             }
-            
-            // Simulate loading progress
-            animateProgress()
         }
-        
-        // Phase 4: Complete and transition (3.0 seconds)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+
+        // Phase 4: Complete rápidamente (1.0 segundo total)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                progressValue = 1.0
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             completeOnboarding()
         }
     }
     
-    private func animateProgress() {
-        let loadingSteps = [
-            (0.2, "Initializing app..."),
-            (0.4, "Loading your profile..."),
-            (0.6, "Connecting to gyms..."),
-            (0.8, "Preparing your experience..."),
-            (1.0, "Almost ready!")
-        ]
-        
-        for (index, (progress, _)) in loadingSteps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.4) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    progressValue = progress
-                }
-            }
-        }
-    }
-    
     private func getLoadingText() -> String {
-        switch progressValue {
-        case 0.0..<0.3:
-            return "Initializing app..."
-        case 0.3..<0.5:
-            return "Loading your profile..."
-        case 0.5..<0.7:
-            return "Connecting to gyms..."
-        case 0.7..<0.9:
-            return "Preparing your experience..."
-        default:
-            return "Almost ready!"
+        if progressValue < 0.5 {
+            return "Cargando..."
+        } else {
+            return "Casi listo..."
         }
     }
     

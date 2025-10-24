@@ -781,7 +781,7 @@ struct ParticipantsSection: View {
                     ForEach(eventService.eventParticipations) { participation in
                         ParticipantRow(
                             participation: participation,
-                            userProfile: eventService.userProfiles[participation.memberId],
+                            userProfile: UserDataCacheService.shared.userProfiles[participation.memberId],
                             eventDetail: eventService.eventDetail
                         )
                     }

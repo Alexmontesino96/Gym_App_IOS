@@ -15,6 +15,7 @@ struct StreakIndicator: View {
     // Mensajes personalizados basados en el número de días
     private var streakMessage: String {
         switch streakCount {
+        case 0: return "Start today! 🌟"
         case 1: return "First day! Keep it up! 🔥"
         case 2: return "2 day streak! 💪"
         case 3: return "3 day streak! Keep it up! 🔥"
@@ -173,6 +174,7 @@ struct EnhancedStreakIndicator: View {
     
     var streakMessage: String {
         switch streakCount {
+        case 0: return "Start today! 🌟"
         case 1: return "First day! Keep it up! 🔥"
         case 2: return "2 day streak! 💪"
         case 3: return "3 day streak! Keep it up! 🔥"

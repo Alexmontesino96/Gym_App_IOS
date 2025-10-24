@@ -20,7 +20,12 @@ class UserStatsService: ObservableObject {
     @Published var workoutBuddies: [WorkoutBuddy] = []
     @Published var leaderboardPosition: LeaderboardEntry?
     @Published var activityAnalytics: ActivityAnalytics?
-    
+
+    // Comeback/Re-engagement data
+    @Published var lastAttendedClass: String?
+    @Published var lastAttendanceDate: Date?
+    @Published var daysInactive: Int = 0
+
     @Published var isLoading = false
     @Published var error: Error?
     
@@ -134,11 +139,15 @@ class UserStatsService: ObservableObject {
     /// Obtiene el historial de entrenamientos real del usuario (eventos + clases)
     func fetchWorkoutHistory() async {
         // Verificar cache antes de hacer request
-        if isWorkoutHistoryCacheValid() && !workoutHistory.isEmpty {
-            print("✅ [UserStatsService] Usando cache válido para workout history")
+        if isWorkoutHistoryCacheValid() {
+            print("✅ [UserStatsService] Usando cache válido para workout history (\(workoutHistory.count) entradas)")
+            // Asegurar que isLoading esté en false al usar cache
+            await MainActor.run {
+                isLoading = false
+            }
             return
         }
-        
+
         isLoading = true
         
         // Obtener tanto eventos como clases en paralelo
@@ -154,50 +163,66 @@ class UserStatsService: ObservableObject {
         
         // Ordenar por fecha descendente (más reciente primero)
         workoutHistory = combinedHistory.sorted { $0.date > $1.date }
-        
+
         // Actualizar timestamp del cache
         lastWorkoutHistoryUpdate = Date()
-        
+
+        // Calcular días de inactividad después de cargar historial
+        calculateDaysInactive()
+
         print("✅ [UserStatsService] Historial combinado cargado: \(workoutHistory.count) entradas (\(events.count) eventos + \(classes.count) clases)")
-        
+
         isLoading = false
     }
     
     /// Obtiene el historial de eventos del usuario
     private func fetchEventsHistory() async -> [WorkoutHistory] {
         print("🔍 [UserStatsService] Obteniendo historial de eventos...")
-        
+
         guard let token = await authService?.getValidAccessToken() else {
             print("❌ [UserStatsService] Sin token de autenticación para eventos")
             return []
         }
-        
+
         guard let gymId = gymService?.currentGymId else {
             print("❌ [UserStatsService] Sin gym seleccionado para eventos")
             return []
         }
-        
-        guard let url = URL(string: "\(baseURL)/events/participation/me") else {
+
+        let urlString = "\(baseURL)/events/participation/me"
+        print("📡 [UserStatsService] Eventos URL: \(urlString)")
+        print("📡 [UserStatsService] Gym ID: \(gymId)")
+
+        guard let url = URL(string: urlString) else {
             print("❌ [UserStatsService] URL inválida para eventos")
             return []
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
-        
+
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            
+
             if let httpResponse = response as? HTTPURLResponse {
+                print("📡 [UserStatsService] Eventos Response Status: \(httpResponse.statusCode)")
                 if httpResponse.statusCode == 200 {
+                    // Log raw response for debugging
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("📡 [UserStatsService] Eventos Raw Response (first 500 chars): \(String(jsonString.prefix(500)))")
+                    }
+
                     let history = try parseEventsHistoryFromAPI(data)
                     print("✅ [UserStatsService] Historial de eventos cargado: \(history.count) entradas")
                     return history
                 } else {
                     print("❌ [UserStatsService] Error API eventos: \(httpResponse.statusCode)")
+                    if let errorString = String(data: data, encoding: .utf8) {
+                        print("❌ [UserStatsService] Error response: \(errorString)")
+                    }
                     return []
                 }
             }
@@ -205,7 +230,7 @@ class UserStatsService: ObservableObject {
             print("❌ [UserStatsService] Error al obtener eventos: \(error)")
             return []
         }
-        
+
         return []
     }
     
@@ -223,45 +248,56 @@ class UserStatsService: ObservableObject {
             return []
         }
         
-        // Obtener historial del último mes
+        // Obtener historial de los últimos 90 días (límite del API)
         let calendar = Calendar.current
         let endDate = Date()
-        let startDate = calendar.date(byAdding: .month, value: -1, to: endDate) ?? endDate
-        
+        let startDate = calendar.date(byAdding: .day, value: -90, to: endDate) ?? endDate
+
         print("🔍 [UserStatsService] Buscando participaciones entre \(startDate) y \(endDate)")
-        
-        // PASO 1: Asegurar que ClassService tenga las sesiones para este rango de fechas
-        let classService = ClassService.shared
-        await classService?.fetchSessionsByDateRange(startDate: startDate, endDate: endDate)
-        
-        // PASO 2: Obtener las participaciones del usuario
+
+        // Obtener las participaciones del usuario directamente del API
+        // NO llamamos a classService.fetchSessionsByDateRange porque sobrescribe las sesiones
+        // que ClassesView y HomeView están usando para mostrar clases del día actual
         // Formatear fechas para query parameters
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let startDateString = dateFormatter.string(from: startDate)
         let endDateString = dateFormatter.string(from: endDate)
-        
-        guard let url = URL(string: "\(baseURL)/schedule/participation/my-participation-status?start_date=\(startDateString)&end_date=\(endDateString)") else {
+
+        let urlString = "\(baseURL)/schedule/participation/my-participation-status?start_date=\(startDateString)&end_date=\(endDateString)"
+        print("📡 [UserStatsService] Clases URL: \(urlString)")
+        print("📡 [UserStatsService] Gym ID: \(gymId)")
+
+        guard let url = URL(string: urlString) else {
             print("❌ [UserStatsService] URL inválida para historial de participaciones")
             return []
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
-        
+
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            
+
             if let httpResponse = response as? HTTPURLResponse {
+                print("📡 [UserStatsService] Clases Response Status: \(httpResponse.statusCode)")
                 if httpResponse.statusCode == 200 {
+                    // Log raw response for debugging
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("📡 [UserStatsService] Clases Raw Response (first 500 chars): \(String(jsonString.prefix(500)))")
+                    }
+
                     let history = try parseClassesParticipationsFromAPI(data, startDate: startDate, endDate: endDate)
                     print("✅ [UserStatsService] Historial de participaciones cargado: \(history.count) entradas")
                     return history
                 } else {
                     print("❌ [UserStatsService] Error API participaciones: \(httpResponse.statusCode)")
+                    if let errorString = String(data: data, encoding: .utf8) {
+                        print("❌ [UserStatsService] Error response: \(errorString)")
+                    }
                     return []
                 }
             }
@@ -269,7 +305,7 @@ class UserStatsService: ObservableObject {
             print("❌ [UserStatsService] Error al obtener participaciones: \(error)")
             return []
         }
-        
+
         return []
     }
     
@@ -366,43 +402,44 @@ class UserStatsService: ObservableObject {
         let participationResponse = try decoder.decode(ParticipationStatusResponseUserStats.self, from: data)
         print("🔍 [UserStatsService] API devolvió \(participationResponse.participations.count) participaciones en clases")
         
-        // Obtener sessions disponibles desde ClassService para obtener detalles de las clases
-        let classService = ClassService.shared
-        let availableSessions = classService?.sessions ?? []
-        
-        // Convertir a WorkoutHistory
+        // Convertir a WorkoutHistory directamente desde las participaciones
+        // NO usamos ClassService.sessions para evitar sobrescribir las sesiones que
+        // ClassesView y HomeView están usando
         let history = participationResponse.participations.compactMap { participation -> WorkoutHistory? in
             // Filtrar solo participaciones válidas (attended o registered, no cancelled)
             guard participation.status == ParticipationStatusUserStats.attended || participation.status == ParticipationStatusUserStats.registered else {
                 print("🔍 [UserStatsService] Filtrada participación cancelada: sessionId \(participation.sessionId), status: \(participation.status)")
                 return nil
             }
-            
-            // Buscar la sesión correspondiente en las sessions disponibles
-            guard let sessionWithClass = availableSessions.first(where: { $0.session.id == participation.sessionId }) else {
-                print("⚠️ [UserStatsService] No se encontró sesión \(participation.sessionId) en sessions disponibles")
+
+            // Usar fecha de registro como fecha de la participación
+            // Si no hay fecha de registro, filtrar esta participación
+            guard let workoutDate = participation.registrationTime else {
+                print("🔍 [UserStatsService] Filtrada participación sin fecha: sessionId \(participation.sessionId)")
                 return nil
             }
-            
-            let workoutType = mapEventNameToWorkoutType(sessionWithClass.classInfo.name)
-            let duration = sessionWithClass.classInfo.duration
+
+            // Estimar tipo, duración y calorías basándose en el sessionId
+            // Como no tenemos el nombre de la clase, usamos valores genéricos
+            let workoutType = WorkoutType.other
+            let duration = 60 // Duración estándar
             let estimatedCalories = estimateCaloriesForWorkout(duration: duration, type: workoutType)
-            
-            // Usar registrationTime como fecha del workout si está disponible, sino startTime de la sesión
-            let workoutDate = participation.registrationTime ?? sessionWithClass.session.startTime
-            
-            print("✅ [UserStatsService] Incluida participación: \(sessionWithClass.classInfo.name), sessionId: \(participation.sessionId), status: \(participation.status), fecha: \(workoutDate)")
-            
+
+            // Crear un nombre genérico para la clase ya que no tenemos el nombre real
+            let className = "Class Session #\(participation.sessionId)"
+
+            print("✅ [UserStatsService] Incluida participación: \(className), sessionId: \(participation.sessionId), status: \(participation.status), fecha: \(workoutDate)")
+
             return WorkoutHistory(
                 id: participation.sessionId,
                 date: workoutDate,
                 type: workoutType,
                 duration: duration,
                 caloriesBurned: estimatedCalories,
-                className: sessionWithClass.classInfo.name,
-                trainerName: getTrainerName(trainerId: sessionWithClass.session.trainerId),
-                notes: sessionWithClass.session.notes,
-                performance: nil // No hay métricas de performance en participaciones
+                className: className,
+                trainerName: nil, // No tenemos info del trainer
+                notes: nil,
+                performance: nil
             )
         }
         
@@ -677,6 +714,41 @@ class UserStatsService: ObservableObject {
     func fetchWorkoutBuddies() async {
         // TODO: Implementar API real para compañeros de entrenamiento
         workoutBuddies = [] // Sin datos falsos
+    }
+
+    /// Calcula los días de inactividad basado en el historial de entrenamientos
+    func calculateDaysInactive() {
+        guard !workoutHistory.isEmpty else {
+            // Si no hay historial, asumir inactividad desde hace mucho tiempo
+            daysInactive = 30
+            lastAttendedClass = nil
+            lastAttendanceDate = nil
+            return
+        }
+
+        // Obtener el workout más reciente
+        if let mostRecentWorkout = workoutHistory.first {
+            lastAttendedClass = mostRecentWorkout.className
+            lastAttendanceDate = mostRecentWorkout.date
+
+            // Calcular días desde la última asistencia
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            let lastDay = calendar.startOfDay(for: mostRecentWorkout.date)
+
+            if let daysDifference = calendar.dateComponents([.day], from: lastDay, to: today).day {
+                daysInactive = max(0, daysDifference)
+                print("📊 [UserStatsService] Días inactivos calculados: \(daysInactive)")
+                print("📅 [UserStatsService] Última clase: \(mostRecentWorkout.className ?? "Desconocida")")
+                print("📅 [UserStatsService] Fecha última clase: \(mostRecentWorkout.date)")
+            } else {
+                daysInactive = 0
+            }
+        } else {
+            daysInactive = 30
+            lastAttendedClass = nil
+            lastAttendanceDate = nil
+        }
     }
     
     /// Obtiene la posición en el leaderboard

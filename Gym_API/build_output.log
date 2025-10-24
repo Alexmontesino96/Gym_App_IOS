@@ -1,0 +1,5 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Gym_API.xcodeproj -scheme Gym_API -destination id=E25999F3-8778-44D8-81DA-0A6E2A0BBA39 build
+
+2025-10-22 05:36:01.708 xcodebuild[93562:1441838] Writing error result bundle to /var/folders/54/0q57zcg551ldz1f2sptwf_b00000gn/T/ResultBundle_2025-22-10_05-36-0001.xcresult
+xcodebuild: error: 'Gym_API.xcodeproj' does not exist.

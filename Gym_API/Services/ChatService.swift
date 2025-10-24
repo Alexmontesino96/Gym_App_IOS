@@ -188,8 +188,8 @@ class ChatService: ObservableObject {
     private var currentTokenTask: Task<StreamTokenResponse?, Never>?
     
     // MARK: - User Name Resolution
-    @Published var userNameCache: [Int: String] = [:] // user_id -> display_name
-    @Published var gymMembersCache: [Int: UserProfile] = [:] // user_id -> UserProfile
+    // MIGRADO A UserDataCacheService - caché centralizado de usuarios
+    private let userCache = UserDataCacheService.shared
     @Published var isLoadingGymMembers = false
     
     // MARK: - Current User ID (dinámico desde AuthService)
@@ -861,16 +861,15 @@ class ChatService: ObservableObject {
                         // Si no podemos convertir a UserProfile, al menos guardar el nombre
                         if let userProfile = participant.toUserProfile() {
                             validMembers.append(userProfile)
+                            // Guardar en caché centralizado
+                            self.userCache.updateUserProfile(participant.id, profile: userProfile)
                         }
-                        // Siempre guardar el nombre en cache
-                        self.userNameCache[participant.id] = participant.fullName
                     }
                     
                     updateOnMainThread {
                         // Actualizar cache de miembros con los que pudimos convertir
-                        for member in validMembers {
-                            self.gymMembersCache[member.id] = member
-                        }
+                        // Actualizar caché centralizado
+                        self.userCache.updateUserProfiles(validMembers)
                         self.isLoadingGymMembers = false
                     }
                     
@@ -878,7 +877,7 @@ class ChatService: ObservableObject {
                     print("   - 🏃‍♂️ Coaches/Trainers: \(coachCount)")
                     print("   - 👤 Miembros regulares: \(memberCount)")
                     print("✅ Convertidos \(validMembers.count) a UserProfile")
-                    print("👤 Nombres en cache: \(self.userNameCache.count)")
+                    print("👤 Miembros cargados: \(validMembers.count)")
                     
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
@@ -900,25 +899,25 @@ class ChatService: ObservableObject {
 
     // MARK: - Get User By ID
     func getUserById(_ userId: Int) async -> UserProfile? {
-        // Primero verificar cache
-        if let cachedMember = gymMembersCache[userId] {
-            print("📋 Usuario ya en cache: \(userId) -> \(cachedMember.fullName)")
-            return cachedMember
+        // Usar caché centralizado
+        if let profile = await userCache.getUserProfile(userId) {
+            print("📋 Usuario encontrado: \(userId) -> \(profile.fullName)")
+            return profile
         }
-        
-        // Si no está en cache, intentar cargar todos los miembros
-        if !isLoadingGymMembers && gymMembersCache.isEmpty {
-            print("🔄 Cache vacío, cargando todos los miembros del gym...")
+
+        // Si no está en caché y no hemos cargado miembros, cargar
+        if !isLoadingGymMembers {
+            print("🔄 Cargando todos los miembros del gym...")
             await loadGymMembers()
-            
+
             // Verificar de nuevo después de cargar
-            if let cachedMember = gymMembersCache[userId] {
-                print("📋 Usuario encontrado después de cargar cache: \(userId) -> \(cachedMember.fullName)")
-                return cachedMember
+            if let profile = await userCache.getUserProfile(userId) {
+                print("📋 Usuario encontrado después de cargar: \(userId) -> \(profile.fullName)")
+                return profile
             }
         }
-        
-        print("❌ Usuario \(userId) no encontrado en cache de miembros")
+
+        print("❌ Usuario \(userId) no encontrado")
         return nil
     }
 
@@ -926,22 +925,18 @@ class ChatService: ObservableObject {
     func resolveUserNames() async {
         print("🔍 Iniciando resolución de nombres de usuarios...")
         
-        // Cargar todos los miembros del gym si no están cargados
-        if gymMembersCache.isEmpty {
-            await loadGymMembers()
-        }
-        
-        print("✅ Resolución de nombres completada - \(gymMembersCache.count) miembros en cache")
+        // Cargar todos los miembros del gym si es necesario
+        await loadGymMembers()
+
+        print("✅ Resolución de nombres completada")
     }
     
     // MARK: - Resolve User Names from Channel IDs
     func resolveUserNamesFromChannelIds() async {
         print("🔍 Iniciando resolución de nombres desde channel IDs...")
         
-        // Cargar todos los miembros del gym si no están cargados
-        if gymMembersCache.isEmpty {
-            await loadGymMembers()
-        }
+        // Cargar todos los miembros del gym si es necesario
+        await loadGymMembers()
         
         // Extraer todos los IDs únicos de usuarios mencionados en los channel IDs
         var userIds: Set<Int> = []
@@ -1015,8 +1010,9 @@ class ChatService: ObservableObject {
                     // Determinar cuál es el otro usuario
                     let otherUserId = (userId1 == currentUserId) ? userId2 : userId1
                     
-                    // Buscar en el cache de nombres de usuario
-                    if let cachedName = userNameCache[otherUserId] {
+                    // Buscar en caché centralizado (acceso sync para evitar async en esta función)
+                    if let cachedName = userCache.userNames[otherUserId],
+                       !cachedName.starts(with: "Usuario") {
                         let resolvedName = cachedName
                         resolvedDisplayNameCache[chatRoom.streamChannelId] = resolvedName
                         pendingResolutions.remove(chatRoom.streamChannelId)
@@ -1053,11 +1049,8 @@ class ChatService: ObservableObject {
     
     // MARK: - Load Gym Members for Name Resolution
     private func loadGymMembersForResolution(chatRoomId: String, otherUserId: Int) async {
-        // Si ya hay miembros en cache, resolver directamente
-        if !gymMembersCache.isEmpty {
-            await resolveNameFromCache(chatRoomId: chatRoomId, otherUserId: otherUserId)
-            return
-        }
+        // Resolver directamente desde caché centralizado
+        await resolveNameFromCache(chatRoomId: chatRoomId, otherUserId: otherUserId)
         
         // Si ya hay una carga en progreso, esperar
         if isLoadingGymMembers {
@@ -1076,7 +1069,8 @@ class ChatService: ObservableObject {
     private func resolveNameFromCache(chatRoomId: String, otherUserId: Int) async {
         let resolvedName: String
         
-        if let cachedName = userNameCache[otherUserId] {
+        let cachedName = await userCache.getUserName(otherUserId)
+        if !cachedName.starts(with: "Usuario") {
             resolvedName = cachedName
         } else {
             resolvedName = "User \(otherUserId)"
@@ -1200,13 +1194,11 @@ class ChatService: ObservableObject {
     func getAvailableCoaches() async -> [UserProfile] {
         print("🔍 Obteniendo coaches disponibles...")
         
-        // Cargar miembros del gym si no están cargados
-        if gymMembersCache.isEmpty {
-            await loadGymMembers()
-        }
-        
-        // Filtrar coaches
-        let allMembers = Array(gymMembersCache.values)
+        // Cargar miembros del gym si es necesario
+        await loadGymMembers()
+
+        // Obtener todos los miembros del caché centralizado
+        let allMembers = await userCache.getUsers(Array(1...1000)) // Obtener todos los usuarios disponibles
         let coaches = allMembers.filter { member in
             let isCoach = member.role.lowercased().contains("coach") ||
                          member.gymRole?.lowercased().contains("coach") == true ||
@@ -1599,8 +1591,7 @@ class ChatService: ObservableObject {
         
         // Limpiar arrays y cache
         chatRooms = []
-        gymMembersCache = [:]
-        userNameCache = [:]
+        // Caché de usuarios manejado por UserDataCacheService
         lastMessagesCache = [:]
         
         // Limpiar persistencia
@@ -1613,7 +1604,15 @@ class ChatService: ObservableObject {
         errorMessage = nil
         
         // TODO: Desconectar del nuevo sistema de chat si es necesario
-        
+
         print("✅ Datos de chat limpiados")
+    }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ ChatService deinitialized")
+        #endif
+        // Los datos de chat se limpiarán automáticamente con ARC
+        // No podemos modificar propiedades @Published desde deinit en una clase @MainActor
     }
 } 

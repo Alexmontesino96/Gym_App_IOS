@@ -8,7 +8,7 @@ struct ModernProfileView: View {
     @StateObject private var colorCustomizationManager = ColorCustomizationManager.shared
     @StateObject private var profileService = UserProfileService.shared
     @StateObject private var userStatsService = UserStatsService.shared
-    @StateObject private var profileImageService = ProfileImageService()
+    @StateObject private var imageService = UnifiedImageService.shared
     
     @State private var showingSettings = false
     @State private var showingProfileOptions = false
@@ -615,17 +615,79 @@ struct ModernProfileView: View {
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .padding(.horizontal, 20)
-            
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 12) {
-                    ForEach(userStatsService.workoutHistory) { workout in
-                        WorkoutHistoryCard(workout: workout, theme: themeManager.currentTheme)
-                            .padding(.horizontal, 20)
+
+            let _ = print("📊 [ModernProfileView] Training History Debug:")
+            let _ = print("   - isLoading: \(userStatsService.isLoading)")
+            let _ = print("   - workoutHistory.count: \(userStatsService.workoutHistory.count)")
+            let _ = print("   - workoutHistory.isEmpty: \(userStatsService.workoutHistory.isEmpty)")
+
+            if userStatsService.isLoading && userStatsService.workoutHistory.isEmpty {
+                // Mostrar skeleton mientras carga
+                let _ = print("   ⏳ Mostrando skeleton")
+                VStack(spacing: 12) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: 40, height: 40)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(width: 140, height: 16)
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 100, height: 12)
+                            }
+
+                            Spacer()
+
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(width: 50, height: 12)
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        )
                     }
                 }
-                .padding(.bottom, 20)
+                .padding(.horizontal, 20)
+            } else if userStatsService.workoutHistory.isEmpty {
+                // No hay actividad reciente
+                let _ = print("   ❌ No hay actividad reciente")
+                VStack(spacing: 16) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 48))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
+
+                    Text("No recent activity")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
+
+                    Text("Your workout history will appear here")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .padding(.horizontal, 20)
+            } else {
+                // Mostrar historial
+                let _ = print("   ✅ Mostrando historial con \(userStatsService.workoutHistory.count) entradas")
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 12) {
+                        ForEach(userStatsService.workoutHistory) { workout in
+                            WorkoutHistoryCard(workout: workout, theme: themeManager.currentTheme)
+                                .padding(.horizontal, 20)
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+                .frame(maxHeight: 300) // Limitar altura máxima
             }
-            .frame(maxHeight: 300) // Limitar altura máxima
         }
     }
     
@@ -634,7 +696,7 @@ struct ModernProfileView: View {
         userStatsService.authService = authService
         userStatsService.gymService = GymService.shared
         profileService.authService = authService
-        profileImageService.authService = authService
+        imageService.configure(authService: authService)
         colorCustomizationManager.authService = authService
         colorCustomizationManager.profileService = profileService
         
@@ -682,9 +744,11 @@ struct ModernProfileView: View {
 // MARK: - Upload Image
 extension ModernProfileView {
     private func uploadProfileImage(_ image: UIImage) async {
-        let success = await profileImageService.uploadProfileImage(image)
-        if success {
+        do {
+            _ = try await imageService.uploadProfileImage(image)
             await profileService.refreshProfile()
+        } catch {
+            print("Error uploading profile image: \(error)")
         }
     }
     

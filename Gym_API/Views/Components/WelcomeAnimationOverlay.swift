@@ -18,6 +18,7 @@ struct WelcomeAnimationOverlay: View {
     @State private var quoteText = ""
     @State private var cursorOpacity = 1.0
     @State private var backgroundOpacity = 0.0
+    @State private var showSkipHint = false
     
     private let userName: String
     private let userAvatar: String?
@@ -32,24 +33,43 @@ struct WelcomeAnimationOverlay: View {
     init(isVisible: Binding<Bool>, userStatsService: UserStatsService, authService: AuthServiceDirect? = nil) {
         self._isVisible = isVisible
         self.userStatsService = userStatsService
-        
+
         // Get user info from authService (will be injected via environment)
         let auth = authService ?? AuthServiceDirect()
         self.userName = auth.user?.name.components(separatedBy: " ").first ?? "Atleta"
         self.userAvatar = auth.user?.picture
-        self.targetStreak = max(userStatsService.userStats.currentStreak, 3)
-        
-        // Select motivational quote based on time
+
+        // Use real streak value from backend without artificial minimum
+        self.targetStreak = userStatsService.userStats.currentStreak
+
+        // Select motivational quote based on time and streak status
         let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 6..<12:
-            self.motivationalQuote = "El éxito comienza con el primer paso 🌅"
-        case 12..<17:
-            self.motivationalQuote = "Tu única competencia eres tú mismo 💪"
-        case 17..<22:
-            self.motivationalQuote = "Cada gota de sudor cuenta 💧"
-        default:
-            self.motivationalQuote = "El descanso también es progreso 🌙"
+        let hasStreak = userStatsService.userStats.currentStreak > 0
+
+        if !hasStreak {
+            // Special quotes for users starting their journey
+            switch hour {
+            case 6..<12:
+                self.motivationalQuote = "Hoy es el día perfecto para empezar 🌅"
+            case 12..<17:
+                self.motivationalQuote = "Tu primera clase te espera 💪"
+            case 17..<22:
+                self.motivationalQuote = "Comienza tu racha esta noche 🔥"
+            default:
+                self.motivationalQuote = "Mañana será un gran día 🌙"
+            }
+        } else {
+            // Regular quotes for users with active streak
+            switch hour {
+            case 6..<12:
+                self.motivationalQuote = "El éxito comienza con el primer paso 🌅"
+            case 12..<17:
+                self.motivationalQuote = "Tu única competencia eres tú mismo 💪"
+            case 17..<22:
+                self.motivationalQuote = "Cada gota de sudor cuenta 💧"
+            default:
+                self.motivationalQuote = "El descanso también es progreso 🌙"
+            }
         }
     }
     
@@ -117,47 +137,86 @@ struct WelcomeAnimationOverlay: View {
                     .shadow(color: .white.opacity(0.3), radius: 10)
                 }
                 
-                // Streak Counter with Fire
-                HStack(spacing: 12) {
-                    Text("🔥")
-                        .font(.system(size: 40))
-                        .scaleEffect(fireScale)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Racha actual")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                        
-                        HStack(alignment: .bottom, spacing: 4) {
-                            Text("\(currentStreak)")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
-                            
-                            Text("días")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white.opacity(0.8))
+                // Streak Counter with Fire or Start Journey Card
+                if targetStreak > 0 {
+                    // Active Streak Display
+                    HStack(spacing: 12) {
+                        Text("🔥")
+                            .font(.system(size: 40))
+                            .scaleEffect(fireScale)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Racha actual")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+
+                            HStack(alignment: .bottom, spacing: 4) {
+                                Text("\(currentStreak)")
+                                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+
+                                Text("días")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
                         }
                     }
-                }
-                .padding(.horizontal, 30)
-                .padding(.vertical, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.orange.opacity(0.3),
-                                    Color.red.opacity(0.2)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.orange.opacity(0.3),
+                                        Color.red.opacity(0.2)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                } else {
+                    // Start Your Journey Card (for users with 0 streak)
+                    VStack(spacing: 8) {
+                        Text("🌟")
+                            .font(.system(size: 40))
+                            .scaleEffect(fireScale)
+
+                        Text("¡Comienza tu racha!")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+
+                        Text("Reserva tu primera clase y empieza a acumular días")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 10)
+                    }
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 25)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.blue.opacity(0.3),
+                                        Color.purple.opacity(0.2)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                }
                 
                 // Daily Tips
                 VStack(alignment: .leading, spacing: 12) {
@@ -190,32 +249,36 @@ struct WelcomeAnimationOverlay: View {
                 
                 Spacer()
                 
-                // Skip Button
-                Button(action: dismissAnimation) {
-                    Text("Continuar")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .padding(.horizontal, 30)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                        )
+                // Skip Hint (aparece después de 1s)
+                if showSkipHint {
+                    VStack(spacing: 8) {
+                        Image(systemName: "hand.tap.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white.opacity(0.6))
+
+                        Text("Toca para continuar")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .transition(.scale.combined(with: .opacity))
                 }
-                .opacity(backgroundOpacity)
                 
                 Spacer()
             }
+        }
+        .onTapGesture {
+            // Permitir skip con tap
+            dismissAnimation()
         }
         .onAppear {
             startAnimationSequence()
         }
     }
-    
+
     private func startAnimationSequence() {
         // Check if reduce motion is enabled
         let reduceMotion = UIAccessibility.isReduceMotionEnabled
-        
+
         if reduceMotion {
             // Show everything immediately without animations
             showWave = true
@@ -224,85 +287,86 @@ struct WelcomeAnimationOverlay: View {
             tipOpacities = [1, 1, 1]
             quoteText = motivationalQuote
             backgroundOpacity = 1.0
-            
-            // Dismiss after 2 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+
+            // Dismiss after 1.5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 dismissAnimation()
             }
             return
         }
-        
-        // Background fade in
-        withAnimation(.easeIn(duration: 0.3)) {
+
+        // Versión express optimizada con cascada refinada
+        // Timeline total: 2 segundos con animaciones fluidas y escalonadas
+
+        // === Fase 1: Entrada (0-0.5s) ===
+        withAnimation(.easeIn(duration: 0.2)) {
             backgroundOpacity = 1.0
         }
-        
-        // Wave animation
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.6).delay(0.2)) {
-            showWave = true
-        }
-        
-        // Wave rotation
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.5).delay(0.3)) {
-            waveRotation = 30
-        }
-        
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.7)) {
-            waveRotation = 0
-        }
-        
-        // Avatar bounce
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.5)) {
-            avatarScale = 1.2
-        }
-        
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.9)) {
-            avatarScale = 1.0
-        }
-        
-        // Streak counter animation
-        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            if currentStreak < targetStreak {
-                currentStreak += 1
-                
-                // Fire pulse on each increment
-                withAnimation(.easeInOut(duration: 0.1)) {
-                    fireScale = 1.2
-                }
-                withAnimation(.easeInOut(duration: 0.1).delay(0.1)) {
-                    fireScale = 1.0
-                }
-            } else {
-                timer.invalidate()
+
+        // Wave con spring suave
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                self.showWave = true
+                self.waveRotation = 15 // Rotación inicial menor
             }
         }
-        
-        // Tips fade in sequentially
-        for index in 0..<dailyTips.count {
-            withAnimation(.easeIn(duration: 0.5).delay(Double(index) * 0.3 + 1.5)) {
-                tipOpacities[index] = 1.0
+
+        // === Fase 2: Avatar y contenido principal (0.3-0.8s) ===
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Avatar bounce
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                self.avatarScale = 1.15
+            }
+
+            // Wave vuelve a neutral
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                self.waveRotation = 0
             }
         }
-        
-        // Typewriter effect for quote
-        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { timer in
-            if quoteText.count < motivationalQuote.count {
-                let nextIndex = motivationalQuote.index(motivationalQuote.startIndex, offsetBy: quoteText.count)
-                quoteText.append(motivationalQuote[nextIndex])
-            } else {
-                timer.invalidate()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Avatar settle
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                self.avatarScale = 1.0
+            }
+
+            // Streak/Fire appear
+            self.currentStreak = self.targetStreak
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                self.fireScale = 1.15
             }
         }
-        
-        // Cursor blink
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                cursorOpacity = cursorOpacity == 1.0 ? 0.0 : 1.0
+
+        // === Fase 3: Detalles secundarios (0.7-1.2s) ===
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            // Fire settle
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                self.fireScale = 1.0
+            }
+
+            // Tip fade in
+            withAnimation(.easeIn(duration: 0.3)) {
+                self.tipOpacities[0] = 1.0
             }
         }
-        
-        // Auto dismiss after 5 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            // Quote appear (sin typewriter, fade directo)
+            self.quoteText = self.motivationalQuote
+            withAnimation(.easeIn(duration: 0.35)) {
+                self.cursorOpacity = 1.0
+            }
+        }
+
+        // === Fase 4: Skip hint (1.0s) ===
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                self.showSkipHint = true
+            }
+        }
+
+        // === Auto dismiss (2.0s) ===
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             dismissAnimation()
         }
     }

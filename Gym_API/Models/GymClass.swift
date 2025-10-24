@@ -312,10 +312,8 @@ extension SessionWithClass {
     }
     
     var trainerName: String {
-        // Obtener el nombre del trainer desde el ClassService
-        if let classService = ClassService.shared {
-            return classService.getTrainerName(trainerId: session.trainerId)
-        }
+        // NOTE: Trainer name should be fetched asynchronously now
+        // For synchronous access, this returns a placeholder
         return "Coach \(session.trainerId)"
     }
     

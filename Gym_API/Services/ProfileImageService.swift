@@ -242,12 +242,20 @@ class ProfileImageService: ObservableObject {
 
     // Ejecuta la compresión/redimensionado en background para no bloquear UI
     private func compressImageAsync(_ image: UIImage) async -> Data? {
-        return await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let data = compressImageOffMain(image)
-                cont.resume(returning: data)
-            }
+        // Usar BackgroundTaskManager para operaciones pesadas
+        let resized = await BackgroundTaskManager.shared.resizeImage(
+            image,
+            targetSize: CGSize(width: 800, height: 800)
+        )
+
+        guard let resizedImage = resized else {
+            return nil
         }
+
+        return await BackgroundTaskManager.shared.compressImage(
+            resizedImage,
+            quality: 0.8
+        )
     }
     
     // MARK: - Validation Methods

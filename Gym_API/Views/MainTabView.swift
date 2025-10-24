@@ -13,49 +13,69 @@ struct MainTabView: View {
         ZStack {
             TabView(selection: $selectedTab) {
             // Home Tab
-            HomeView()
-                .tabItem {
-                    Image(systemName: selectedTab == 0 ? "house.fill" : "house")
-                    Text("Home")
-                }
-                .tag(0)
-            
-            // Classes Tab
-            ClassesView()
-                .tabItem {
-                    Image(systemName: selectedTab == 1 ? "dumbbell.fill" : "dumbbell")
-                    Text("Classes")
-                }
-                .tag(1)
-            
-            // Events Tab
-            EventsView()
-                .tabItem {
-                    Image(systemName: selectedTab == 2 ? "calendar.circle.fill" : "calendar.circle")
-                    Text("Events")
-                }
-                .tag(2)
-            
-            // Messages Tab
-            UnifiedMessagesView()
-                .tabItem {
-                    Image(systemName: selectedTab == 3 ? "message.fill" : "message")
-                    Text("Messages")
-                }
-                .tag(3)
-            
-            // Profile Tab
-            ModernProfileView()
-                .tabItem {
-                    Image(systemName: selectedTab == 4 ? "person.fill" : "person")
-                    Text("Profile")
-                }
-                .tag(4)
+            AnimatedTabContent(isSelected: selectedTab == 0) {
+                HomeView()
             }
-            .accentColor(themeManager.currentTheme == .dark ? 
-                        Color(red: 0.85, green: 0.2, blue: 0.2) : 
+            .tabItem {
+                Image(systemName: selectedTab == 0 ? "house.fill" : "house")
+                Text("Home")
+            }
+            .tag(0)
+
+            // Classes Tab
+            AnimatedTabContent(isSelected: selectedTab == 1) {
+                ClassesView()
+            }
+            .tabItem {
+                Image(systemName: selectedTab == 1 ? "dumbbell.fill" : "dumbbell")
+                Text("Classes")
+            }
+            .tag(1)
+
+            // Events Tab
+            AnimatedTabContent(isSelected: selectedTab == 2) {
+                EventsView()
+            }
+            .tabItem {
+                Image(systemName: selectedTab == 2 ? "calendar.circle.fill" : "calendar.circle")
+                Text("Events")
+            }
+            .tag(2)
+
+            // Messages Tab
+            AnimatedTabContent(isSelected: selectedTab == 3) {
+                UnifiedMessagesView()
+            }
+            .tabItem {
+                Image(systemName: selectedTab == 3 ? "message.fill" : "message")
+                Text("Messages")
+            }
+            .tag(3)
+
+            // Profile Tab
+            AnimatedTabContent(isSelected: selectedTab == 4) {
+                ModernProfileView()
+            }
+            .tabItem {
+                Image(systemName: selectedTab == 4 ? "person.fill" : "person")
+                Text("Profile")
+            }
+            .tag(4)
+            }
+            .accentColor(themeManager.currentTheme == .dark ?
+                        Color(red: 0.85, green: 0.2, blue: 0.2) :
                         Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
-            
+            .onChange(of: selectedTab) { oldValue, newValue in
+                // Haptic feedback al cambiar de tab
+                let impact = UIImpactFeedbackGenerator(style: .light)
+                impact.impactOccurred()
+
+                // Precargar siguiente tab probable en background
+                Task {
+                    await PreloadService.shared.preloadNextProbableTab(from: newValue)
+                }
+            }
+
             // Notification Overlay - Siempre encima de todo
             NotificationOverlay(selectedTab: selectedTab)
             
@@ -74,6 +94,9 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openProfileTab)) { _ in
             selectedTab = 4
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openClassesTab)) { _ in
+            selectedTab = 1
         }
         .onAppear {
             configureTabBarAppearance()

@@ -808,7 +808,7 @@ class GetStreamChatProvider: ChatProvider {
                     if finalAvatar == nil || finalAvatar?.isEmpty == true {
                         let normalized = member.id.replacingOccurrences(of: "user_", with: "")
                         if let internalId = Int(normalized) {
-                            let pic = await MainActor.run { ChatService.shared.gymMembersCache[internalId]?.picture }
+                            let pic = await UserDataCacheService.shared.getUserProfile(internalId)?.picture
                             if let p = pic, !p.isEmpty { finalAvatar = p }
                         }
                     }

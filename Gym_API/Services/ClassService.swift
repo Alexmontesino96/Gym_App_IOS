@@ -55,7 +55,8 @@ class ClassService: ObservableObject {
     @Published var lastParticipationStatusUpdate: Date?
     
     // MARK: - Private Properties
-    private var trainerMap: [Int: UserPublicProfile] = [:]
+    // MIGRADO A UserDataCacheService - caché de trainers centralizado
+    private let userCache = UserDataCacheService.shared
     
     // MARK: - Date Range Caching
     private var loadedStartDate: Date?
@@ -143,32 +144,11 @@ class ClassService: ObservableObject {
             return
         }
         
-        // Calcular el nuevo rango necesario
+        // Calcular el nuevo rango necesario (siempre 10 días: -3 a +7)
         let today = Date()
-        let selectedDayOffset = calendar.dateComponents([.day], from: today, to: date).day ?? 0
-        
-        var newStartDate: Date
-        var newEndDate: Date
-        
-        if selectedDayOffset < -3 {
-            // Usuario seleccionó fecha muy antigua, extender hacia atrás
-            newStartDate = calendar.date(byAdding: .day, value: selectedDayOffset - 3, to: today) ?? date
-            newEndDate = calendar.date(byAdding: .day, value: 7, to: today) ?? date
-        } else if selectedDayOffset > 7 {
-            // Usuario seleccionó fecha muy futura, extender hacia adelante
-            newStartDate = calendar.date(byAdding: .day, value: -3, to: today) ?? date
-            newEndDate = calendar.date(byAdding: .day, value: selectedDayOffset + 7, to: today) ?? date
-        } else {
-            // Rango estándar inicial
-            newStartDate = calendar.date(byAdding: .day, value: -3, to: today) ?? date
-            newEndDate = calendar.date(byAdding: .day, value: 7, to: today) ?? date
-        }
-        
-        // Si ya tenemos datos, expandir el rango existente en lugar de reemplazar
-        if let existingStart = loadedStartDate, let existingEnd = loadedEndDate {
-            newStartDate = min(newStartDate, existingStart)
-            newEndDate = max(newEndDate, existingEnd)
-        }
+
+        let newStartDate = calendar.date(byAdding: .day, value: -3, to: today) ?? date
+        let newEndDate = calendar.date(byAdding: .day, value: 7, to: today) ?? date
         
         // Fase 1: Cargar sesiones (datos principales)
         await fetchSessionsByDateRange(startDate: newStartDate, endDate: newEndDate)
@@ -403,21 +383,29 @@ class ClassService: ObservableObject {
             if httpResponse.statusCode == 200 {
                 _ = try configuredJSONDecoder().decode(ClassParticipation.self, from: data)
                 print("✅ Successfully registered for class session \(sessionId)")
-                
+
                 await MainActor.run {
                     let oldStatus = self.userRegistrationStatus[sessionId] ?? false
                     var updatedStatus = self.userRegistrationStatus
                     updatedStatus[sessionId] = true
                     self.userRegistrationStatus = updatedStatus
-                    
+
                     // Invalidar cache de participaciones para forzar recarga optimizada
                     self.lastParticipationStatusUpdate = nil
-                    
+
                     print("✅ Estado de registro actualizado para sesión \(sessionId): \(oldStatus) -> true")
                     print("📊 Estado completo de registros: \(self.userRegistrationStatus)")
                     // Forzar actualización de las published properties para UI
                     self.objectWillChange.send()
                     print("🔄 ObjectWillChange enviado para forzar actualización de UI")
+
+                    // Emitir notificación de agendamiento exitoso para ComebackView
+                    NotificationCenter.default.post(
+                        name: .classScheduledSuccessfully,
+                        object: nil,
+                        userInfo: ["sessionId": sessionId]
+                    )
+                    debugLog("✅ [ClassService] Clase agendada - Notificación enviada a ComebackView")
                 }
             } else {
                 let errorMessage = try? JSONDecoder().decode(APIError.self, from: data)
@@ -810,7 +798,10 @@ class ClassService: ObservableObject {
                 _ = await MainActor.run {
                     self.trainers = loadedTrainers
                     // Crear mapeo de ID a trainer
-                    self.trainerMap = Dictionary(uniqueKeysWithValues: loadedTrainers.map { ($0.id, $0) })
+                    // Actualizar caché centralizado con los trainers
+                    for trainer in loadedTrainers {
+                        self.userCache.updatePublicProfile(trainer.id, profile: trainer)
+                    }
                     self.trainersErrorMessage = nil
                     self.authenticationError = false
                     self.trainersLastUpdated = Date() // Actualizar timestamp para forzar refresh
@@ -886,15 +877,12 @@ class ClassService: ObservableObject {
         return Date().timeIntervalSince(lastUpdate) < cacheValidityDuration
     }
     
-    func getTrainerName(trainerId: Int) -> String {
-        if let trainer = trainerMap[trainerId] {
-            return trainer.fullName
-        }
-        return "Coach \(trainerId)"
+    func getTrainerName(trainerId: Int) async -> String {
+        return await userCache.getUserName(trainerId)
     }
-    
-    func getTrainer(trainerId: Int) -> UserPublicProfile? {
-        return trainerMap[trainerId]
+
+    func getTrainer(trainerId: Int) async -> UserPublicProfile? {
+        return await userCache.getTrainer(trainerId)
     }
     
     // MARK: - Clear Cache
@@ -911,7 +899,7 @@ class ClassService: ObservableObject {
         userRegistrationStatus = [:]
         joinClassErrorMessages = [:]
         cancelClassErrorMessages = [:]
-        trainerMap = [:]
+        // Caché de trainers manejado por UserDataCacheService
         
         // Limpiar nuevos datos optimizados
         userParticipations = [:]
@@ -1079,12 +1067,8 @@ extension ClassService {
                 // Calcular endTime basándose en la duración original
                 let duration = sessionWithClass.session.endTime.timeIntervalSince(sessionWithClass.session.startTime)
                 correctEndTime = preciseDate.addingTimeInterval(duration)
-                
-                print("🏗️ ClassService: Parsed iso_with_timezone for class \(sessionWithClass.session.id)")
-                print("🏗️ ISO string: \(sessionWithClass.session.timeInfo.isoWithTimezone)")
-                print("🏗️ Parsed date: \(preciseDate)")
             } else {
-                print("⚠️ ClassService: Failed to parse iso_with_timezone, using original dates")
+                print("⚠️ ClassService: Failed to parse timezone for class \(sessionWithClass.session.id)")
             }
             
             return GymClass(

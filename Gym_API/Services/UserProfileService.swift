@@ -373,6 +373,15 @@ class UserProfileService: ObservableObject {
         error = nil
         isLoading = false
     }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ UserProfileService deinitialized")
+        #endif
+        // Limpiar datos de perfil
+        userProfile = nil
+        error = nil
+    }
 }
 
 // MARK: - User Profile Errors

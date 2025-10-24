@@ -106,21 +106,30 @@ class ImageLoaderService: ObservableObject {
                         }
                     }
                     
-                    if let image = UIImage(data: data) {
-                        #if DEBUG
-                        print("✅ [ImageLoader] Image loaded successfully, size: \(image.size)")
-                        #endif
-                        self?.image = image
-                        // Cache in memory with cost and disk
-                        let cost = image.size.width * image.size.height * 4
-                        Self.memoryCache.setObject(image, forKey: cacheKey as NSString, cost: Int(cost))
-                        self?.saveToDisk(image: image, for: cacheKey)
-                    } else {
+                    // Crear imagen en background thread
+                    Task {
+                        if let image = await BackgroundTaskManager.shared.loadImage(from: data) {
+                            #if DEBUG
+                            print("✅ [ImageLoader] Image loaded successfully, size: \(image.size)")
+                            #endif
+
+                            await MainActor.run {
+                                self?.image = image
+                            }
+
+                            // Cache in memory with cost and disk (en background)
+                            let cost = image.size.width * image.size.height * 4
+                            Self.memoryCache.setObject(image, forKey: cacheKey as NSString, cost: Int(cost))
+                            await self?.saveToDiskAsync(image: image, for: cacheKey)
+                        } else {
                         #if DEBUG
                         print("❌ [ImageLoader] Failed to create image from data")
                         print("🔍 [ImageLoader] Data size: \(data.count) bytes")
                         #endif
-                        self?.error = ImageLoaderError.invalidImageData
+                            await MainActor.run {
+                                self?.error = ImageLoaderError.invalidImageData
+                            }
+                        }
                     }
                 }
             )
@@ -193,6 +202,21 @@ class ImageLoaderService: ObservableObject {
             }
         }
     }
+
+    // Versión asíncrona usando BackgroundTaskManager
+    private func saveToDiskAsync(image: UIImage, for key: String) async {
+        let url = fileURL(for: key)
+
+        // Comprimir imagen en background
+        if let data = await BackgroundTaskManager.shared.compressImage(image, quality: 0.9) {
+            do {
+                try await BackgroundTaskManager.shared.writeToFile(data, at: url)
+                debugLog("💾 [ImageLoader] Saved to disk async: \(key)")
+            } catch {
+                debugLog("❌ [ImageLoader] Failed to save to disk: \(error)")
+            }
+        }
+    }
     
     // Método para limpiar caché antiguo
     private static func cleanOldCache() {
@@ -232,6 +256,15 @@ class ImageLoaderService: ObservableObject {
             let loader = ImageLoaderService()
             loader.loadImage(from: item.url, cacheKeyOverride: item.cacheKey)
         }
+    }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ ImageLoaderService deinitialized")
+        #endif
+        // Limpiar imagen cargada y cancelar suscripciones
+        image = nil
+        cancellables.removeAll()
     }
 }
 

@@ -1112,5 +1112,12 @@ class SurveyService: ObservableObject {
             return false
         }
     }
-    
+
+    deinit {
+        #if DEBUG
+        print("🗑️ SurveyService deinitialized")
+        #endif
+        // Los datos de encuestas se limpiarán automáticamente con ARC
+        // No podemos modificar propiedades @Published desde deinit en una clase @MainActor
+    }
 }

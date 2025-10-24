@@ -57,51 +57,54 @@ struct HomeRecentActivitySection: View {
     }
     
     var body: some View {
-        // Verificación de seguridad para evitar crashes
-        if !classService.classes.isEmpty && !eventService.events.isEmpty && !recentActivities.isEmpty {
-            VStack(spacing: 16) {
-                // Header unificado
-                SectionHeaderView(
-                    title: "Actividad Reciente",
-                    ctaTitle: nil,
-                    themeManager: themeManager
-                )
-                .padding(.horizontal, 0)
-                
-                // Activities list
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                        )
-                    
-                    VStack(spacing: 0) {
-                        ForEach(Array(recentActivities.enumerated()), id: \.element.id) { index, activity in
-                            ActivityRow(activity: activity, themeManager: themeManager)
-                            
-                            // Divider between items (except last)
-                            if index < recentActivities.count - 1 {
-                                Rectangle()
-                                    .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
-                                    .frame(height: 1)
-                                    .padding(.horizontal, 16)
+        // Mostrar skeleton solo si está cargando por primera vez
+        if classService.isLoading || eventService.isLoading {
+            return AnyView(ActivityListSkeleton(themeManager: themeManager))
+        }
+
+        // Si ya terminó de cargar y hay actividades, mostrarlas
+        if !recentActivities.isEmpty {
+            return AnyView(
+                VStack(spacing: 16) {
+                    // Header unificado
+                    SectionHeaderView(
+                        title: "Actividad Reciente",
+                        ctaTitle: nil,
+                        themeManager: themeManager
+                    )
+                    .padding(.horizontal, 0)
+
+                    // Activities list
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                            )
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(recentActivities.enumerated()), id: \.element.id) { index, activity in
+                                ActivityRow(activity: activity, themeManager: themeManager)
+
+                                // Divider between items (except last)
+                                if index < recentActivities.count - 1 {
+                                    Rectangle()
+                                        .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+                                        .frame(height: 1)
+                                        .padding(.horizontal, 16)
+                                }
                             }
                         }
+                        .padding(16)
                     }
-                    .padding(16)
+                    .padding(.horizontal, 0)
                 }
-                .padding(.horizontal, 0)
-            }
-        } else {
-            // Skeleton si está cargando data
-            if classService.isLoading || eventService.isLoading {
-                ActivityListSkeleton(themeManager: themeManager)
-            } else {
-                EmptyView()
-            }
+            )
         }
+
+        // Si no hay actividades, no mostrar nada (EmptyView)
+        return AnyView(EmptyView())
     }
 }
 

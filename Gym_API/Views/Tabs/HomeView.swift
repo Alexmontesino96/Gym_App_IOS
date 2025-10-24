@@ -10,6 +10,8 @@ struct HomeView: View {
     @ObservedObject private var userStatsService = UserStatsService.shared
     @EnvironmentObject var surveyService: SurveyService
     @State private var currentDate = Date()
+    @State private var showComebackView = false
+    @State private var isInitialLoad = true
     
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: currentDate)
@@ -22,7 +24,21 @@ struct HomeView: View {
     }
     
     private var userName: String {
-        authService.user?.name.components(separatedBy: " ").first ?? "Atleta"
+        // Priorizar el nombre del perfil sobre el nombre de Auth0
+        if let firstName = profileService.userProfile?.firstName, !firstName.isEmpty {
+            return firstName
+        }
+        // Fallback a Auth0 name (primer componente)
+        if let auth0Name = authService.user?.name, !auth0Name.isEmpty {
+            let components = auth0Name.components(separatedBy: " ")
+            let firstComponent = components.first ?? ""
+            // Si parece un email, extraer la parte antes del @
+            if firstComponent.contains("@") {
+                return firstComponent.components(separatedBy: "@").first ?? "Atleta"
+            }
+            return firstComponent
+        }
+        return "Atleta"
     }
     
     private var motivationalQuestion: String {
@@ -45,18 +61,46 @@ struct HomeView: View {
         return NavigationStack {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
-                
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 20) {
+
+                // Mostrar skeleton durante carga inicial
+                if isInitialLoad && (eventService.isLoading || userStatsService.isLoading) {
+                    HomeViewSkeleton()
+                        .environmentObject(themeManager)
+                        .transition(.opacity)
+                } else {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 20) {
                         // Hero Section with personalized greeting
                         HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
                         
-                        // Streak Indicator - Siempre mostrar con un valor por defecto
+                        // Streak Indicator o Comeback Card según el estado
                         HStack {
-                            StreakIndicator(
-                                streakCount: max(userStatsService.userStats.currentStreak, 3), // Mínimo 3 días si no hay datos
-                                theme: themeManager.currentTheme
-                            )
+                            if userStatsService.userStats.currentStreak == 0 && userStatsService.daysInactive >= 1 {
+                                // Mostrar card de comeback en lugar del streak indicator
+                                // Solo se oculta si fue marcado como "mostrado" el mismo día (cuando usuario agenda o pospone)
+                                if ComebackView.shouldShowToday() {
+                                    Button(action: {
+                                        showComebackView = true
+                                    }) {
+                                        ComebackCompactCard(
+                                            daysInactive: userStatsService.daysInactive,
+                                            theme: themeManager.currentTheme
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                } else {
+                                    // Mostrar streak indicator vacío cuando fue pospuesto/agendado hoy
+                                    StreakIndicator(
+                                        streakCount: 0,
+                                        theme: themeManager.currentTheme
+                                    )
+                                }
+                            } else {
+                                StreakIndicator(
+                                    streakCount: userStatsService.userStats.currentStreak,
+                                    theme: themeManager.currentTheme
+                                )
+                            }
                             Spacer()
                         }
                         .padding(.horizontal, 20)
@@ -110,17 +154,19 @@ struct HomeView: View {
                         HomeRecentActivitySection(themeManager: themeManager, classService: classService, eventService: eventService)
                         
                         Spacer(minLength: 100)
+                        }
+                        .padding(.horizontal, 16)
                     }
-                    .padding(.horizontal, 16)
+                    .safeAreaPadding(.top, 16)
+                    // .drawingGroup() // Comentado temporalmente para debug
                 }
-                .safeAreaPadding(.top, 16)
-                // .drawingGroup() // Comentado temporalmente para debug
             }
             .refreshable {
                 await eventService.fetchEvents()
                 await eventService.fetchUserParticipations()
                 await userStatsService.fetchComprehensiveStats()
                 await surveyService.getAvailableSurveys()
+                await classService.forceRefreshSessions(date: Date())
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -140,27 +186,96 @@ struct HomeView: View {
                 }
             }
         }
+        .sheet(isPresented: $showComebackView) {
+            ComebackView(
+                daysInactive: userStatsService.daysInactive,
+                userName: userName,
+                lastClass: userStatsService.lastAttendedClass,
+                bestStreak: userStatsService.userStats.totalStreak,
+                onScheduleClass: {
+                    // Navegar a la pestaña de clases
+                    NotificationCenter.default.post(name: .openClassesTab, object: nil)
+                }
+            )
+            .environmentObject(themeManager)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible) // Mostrar indicador de drag
+            .presentationCornerRadius(30)
+            .presentationBackgroundInteraction(.enabled)
+        }
         .onAppear {
             debugLog("🏠 HomeView.onAppear iniciado")
             currentDate = Date()
             setupServices()
             debugLog("🏠 setupServices completado, iniciando tareas async")
             Task {
-                if eventService.events.isEmpty {
-                    debugLog("🏠 Iniciando fetchEvents (lista vacía)...")
-                    await eventService.fetchEvents()
-                } else {
-                    debugLog("🏠 Omitiendo fetchEvents (ya hay eventos en memoria)")
+                debugLog("🏠 Iniciando carga paralela de datos...")
+
+                // Verificar estado inicial en MainActor
+                let eventsIsEmpty = await MainActor.run { eventService.events.isEmpty }
+
+                // Cargar datos en paralelo usando TaskGroup
+                await withTaskGroup(of: Void.self) { group in
+                    // Grupo 1: Events
+                    group.addTask {
+                        if eventsIsEmpty {
+                            debugLog("🏠 [Parallel] Iniciando fetchEvents...")
+                            await eventService.fetchEvents()
+                            debugLog("🏠 [Parallel] fetchEvents completado")
+                        }
+                    }
+
+                    // Grupo 2: User participations
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando fetchUserParticipations...")
+                        await eventService.fetchUserParticipations()
+                        debugLog("🏠 [Parallel] fetchUserParticipations completado")
+                    }
+
+                    // Grupo 3: Gyms
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando getMyGyms...")
+                        await gymService.getMyGyms()
+                        debugLog("🏠 [Parallel] getMyGyms completado")
+                    }
+
+                    // Grupo 4: User stats
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando fetchComprehensiveStats...")
+                        await userStatsService.fetchComprehensiveStats()
+                        debugLog("🏠 [Parallel] fetchComprehensiveStats completado")
+                    }
+
+                    // Grupo 5: Workout history
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando fetchWorkoutHistory...")
+                        await userStatsService.fetchWorkoutHistory()
+                        debugLog("🏠 [Parallel] fetchWorkoutHistory completado")
+                    }
+
+                    // Grupo 6: Surveys
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando getAvailableSurveys...")
+                        await surveyService.getAvailableSurveys()
+                        debugLog("🏠 [Parallel] getAvailableSurveys completado")
+                    }
+
+                    // Grupo 7: Classes (para RecentActivity)
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando loadSessionsForDateIfNeeded...")
+                        await classService.loadSessionsForDateIfNeeded(date: Date())
+                        debugLog("🏠 [Parallel] loadSessionsForDateIfNeeded completado")
+                    }
                 }
-                debugLog("🏠 fetchEvents completado, iniciando fetchUserParticipations...")
-                await eventService.fetchUserParticipations()
-                debugLog("🏠 fetchUserParticipations completado, iniciando getMyGyms...")
-                await gymService.getMyGyms()
-                debugLog("🏠 getMyGyms completado, iniciando fetchComprehensiveStats...")
-                await userStatsService.fetchComprehensiveStats()
-                debugLog("🏠 fetchComprehensiveStats completado, iniciando getAvailableSurveys...")
-                await surveyService.getAvailableSurveys()
-                debugLog("🏠 getAvailableSurveys completado")
+
+                debugLog("🏠 Todas las cargas paralelas completadas")
+
+                // Marcar carga inicial como completada
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        isInitialLoad = false
+                    }
+                }
             }
         }
     }
@@ -175,6 +290,7 @@ struct HomeView: View {
         profileService.authService = authService
         debugLog("🏠 Configurando authService en userStatsService...")
         userStatsService.authService = authService
+        userStatsService.gymService = gymService
         debugLog("🏠 AuthService configurado en userStatsService: \(userStatsService.authService != nil)")
         debugLog("🏠 Configurando authService en surveyService...")
         surveyService.authService = authService

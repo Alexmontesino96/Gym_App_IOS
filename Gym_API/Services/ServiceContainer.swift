@@ -20,7 +20,7 @@ class ServiceContainer: ObservableObject {
     let eventService: EventService
     let classService: ClassService
     let profileService: UserProfileService
-    let profileImageService: ProfileImageService
+    let unifiedImageService = UnifiedImageService.shared // Singleton, no need to initialize
     let userStatsService: UserStatsService
     let directMessageService: DirectMessageService
     let surveyService: SurveyService
@@ -46,7 +46,7 @@ class ServiceContainer: ObservableObject {
             self.eventService = EventService()
             self.classService = ClassService()
             self.profileService = UserProfileService.shared
-            self.profileImageService = ProfileImageService()
+            // UnifiedImageService is a singleton, already initialized
             self.userStatsService = UserStatsService.shared
             self.directMessageService = DirectMessageService()
             self.surveyService = SurveyService()
@@ -76,7 +76,7 @@ class ServiceContainer: ObservableObject {
         eventService.authService = authService
         classService.authService = authService
         profileService.authService = authService
-        profileImageService.authService = authService
+        unifiedImageService.configure(authService: authService)
         userStatsService.authService = authService
         directMessageService.authService = authService
         surveyService.authService = authService
@@ -204,6 +204,16 @@ class ServiceContainer: ObservableObject {
         await profileTask
         
         print("✅ Todos los datos refrescados")
+    }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ ServiceContainer deinitialized")
+        print("📊 Liberando todos los servicios...")
+        #endif
+        // ServiceContainer es singleton, pero si se desinicializa
+        // debemos asegurar cleanup de recursos críticos
+        // Todos los servicios se liberarán automáticamente con ARC
     }
 }
 

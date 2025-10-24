@@ -14,7 +14,7 @@ class ChatPerformanceMonitor: ObservableObject {
     @Published var alerts: [PerformanceAlert] = []
     
     // MARK: - Private Properties
-    private let logger = Logger(subsystem: "com.gymapi.chat", category: "Performance")
+    private let logger = OSLog(subsystem: "com.gymapi.chat", category: "Performance")
     private var operationTimers: [String: Date] = [:]
     private var networkRequests: [NetworkRequest] = []
     private var cacheHitRates: [CacheHitRate] = []
@@ -37,7 +37,7 @@ class ChatPerformanceMonitor: ObservableObject {
         guard !isMonitoring else { return }
         
         isMonitoring = true
-        logger.info("📊 Iniciando monitoreo de rendimiento")
+        os_log("📊 Iniciando monitoreo de rendimiento", log: logger, type: .info)
         
         // Configurar timer para actualizar métricas
         metricsTimer = Timer.scheduledTimer(withTimeInterval: metricsUpdateInterval, repeats: true) { _ in
@@ -56,7 +56,7 @@ class ChatPerformanceMonitor: ObservableObject {
         guard isMonitoring else { return }
         
         isMonitoring = false
-        logger.info("📊 Deteniendo monitoreo de rendimiento")
+        os_log("📊 Deteniendo monitoreo de rendimiento", log: logger, type: .info)
         
         metricsTimer?.invalidate()
         metricsTimer = nil
@@ -70,12 +70,12 @@ class ChatPerformanceMonitor: ObservableObject {
     
     func startOperation(_ operationId: String, type: OperationType) {
         operationTimers[operationId] = Date()
-        logger.debug("⏱️ Iniciando operación: \(operationId) - \(type.rawValue)")
+        os_log("⏱️ Iniciando operación: %@ - %@", log: logger, type: .debug, operationId, type.rawValue)
     }
     
     func endOperation(_ operationId: String, type: OperationType, success: Bool = true) {
         guard let startTime = operationTimers.removeValue(forKey: operationId) else {
-            logger.warning("⚠️ No se encontró tiempo de inicio para operación: \(operationId)")
+            os_log("⚠️ No se encontró tiempo de inicio para operación: %@", log: logger, type: .error, operationId)
             return
         }
         
@@ -95,7 +95,7 @@ class ChatPerformanceMonitor: ObservableObject {
         // Verificar si excede umbrales
         checkPerformanceThresholds(operation)
         
-        logger.debug("✅ Operación completada: \(operationId) - \(duration)ms")
+        os_log("✅ Operación completada: %@ - %dms", log: logger, type: .debug, operationId, Int(duration))
     }
     
     // MARK: - Network Tracking
@@ -117,7 +117,7 @@ class ChatPerformanceMonitor: ObservableObject {
             networkRequests.removeFirst()
         }
         
-        logger.debug("🌐 Request tracked: \(method) \(url) - \(duration)ms")
+        os_log("🌐 Request tracked: %@ %@ - %dms", log: logger, type: .debug, method, url, duration)
     }
     
     // MARK: - Cache Tracking
@@ -133,7 +133,7 @@ class ChatPerformanceMonitor: ObservableObject {
         // Actualizar estadísticas de cache hit rate
         updateCacheHitRate(hit)
         
-        logger.debug("💾 Cache \(hit ? "HIT" : "MISS"): \(key)")
+        os_log("💾 Cache %@: %@", log: logger, type: .debug, hit ? "HIT" : "MISS", key)
     }
     
     // MARK: - Memory Tracking
@@ -335,7 +335,7 @@ class ChatPerformanceMonitor: ObservableObject {
             alerts.removeFirst()
         }
         
-        logger.warning("🚨 Performance Alert: \(alert.message)")
+        os_log("🚨 Performance Alert: %@", log: logger, type: .error, alert.message)
     }
     
     // MARK: - System Observers
@@ -381,7 +381,7 @@ class ChatPerformanceMonitor: ObservableObject {
         cacheHitRates.removeAll()
         memoryUsage.removeAll()
         
-        logger.info("🧹 Métricas de rendimiento limpiadas")
+        os_log("🧹 Métricas de rendimiento limpiadas", log: logger, type: .info)
     }
     
     deinit {

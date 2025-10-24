@@ -11,10 +11,24 @@ import OneSignalFramework
 class OneSignalService: ObservableObject {
     static let shared = OneSignalService()
     
-    private let appId = "57c2285f-1a1a-4431-a5db-7ecd0bab4c5f"
+    private let appId: String
     private let hasRequestedPushKey = "hasRequestedPushPermission"
-    
-    private init() {}
+
+    private init() {
+        // Leer AppId desde Info.plist de forma segura
+        if let appIdFromBundle = Bundle.main.object(forInfoDictionaryKey: "ONESIGNAL_APP_ID") as? String,
+           !appIdFromBundle.isEmpty {
+            self.appId = appIdFromBundle
+        } else {
+            // En desarrollo, usar un valor por defecto (que debe ser reemplazado)
+            #if DEBUG
+            print("⚠️ OneSignal App ID no configurado en Info.plist, usando valor de desarrollo")
+            self.appId = "dev-app-id-not-configured"
+            #else
+            fatalError("❌ OneSignal App ID debe estar configurado en Info.plist para producción")
+            #endif
+        }
+    }
     
     func initialize() {
         print("🔔 Inicializando OneSignal...")
@@ -26,16 +40,18 @@ class OneSignalService: ObservableObject {
         }
         
         do {
-            // Remove this method to stop OneSignal Debugging
+            // Solo habilitar debug logging en desarrollo
+            #if DEBUG
             OneSignal.Debug.setLogLevel(.LL_VERBOSE)
-            
+            #endif
+
             // OneSignal initialization con try-catch implícito
             OneSignal.initialize(appId, withLaunchOptions: nil)
             
             // Check current permission status first
             checkNotificationPermissionStatus()
             
-            print("✅ OneSignal inicializado correctamente con App ID: \(appId)")
+            print("✅ OneSignal inicializado correctamente")
         } catch {
             print("❌ Error al inicializar OneSignal: \(error)")
         }
@@ -134,5 +150,11 @@ class OneSignalService: ObservableObject {
     
     func isSubscribed() -> Bool {
         return OneSignal.User.pushSubscription.optedIn
+    }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ OneSignalService deinitialized")
+        #endif
     }
 }

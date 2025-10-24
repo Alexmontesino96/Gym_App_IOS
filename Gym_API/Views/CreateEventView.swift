@@ -11,7 +11,7 @@ struct CreateEventView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var eventService: EventService
-    @StateObject private var creationService = EventCreationService()
+    @StateObject private var activityService = ScheduledActivityService.shared
     @StateObject private var gymService = GymService.shared
     @Environment(\.dismiss) private var dismiss
     
@@ -84,29 +84,16 @@ struct CreateEventView: View {
             }
             .navigationTitle("Crear Evento")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
-                        dismiss()
-                    }
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            .navigationBarItems(
+                leading: Button("Cancelar") {
+                    dismiss()
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Plantillas") {
-                        showingTemplateSelector = true
-                    }
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme)),
+                trailing: Button("Plantillas") {
+                    showingTemplateSelector = true
                 }
-                // Keyboard toolbar
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Listo") {
-                        focusedField = nil
-                        hideKeyboard()
-                    }
-                }
-            }
+                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+            )
         }
         .sheet(isPresented: $showingTemplateSelector) {
             TemplateSelectionView(selectedTemplate: $selectedTemplate) { template in
@@ -117,26 +104,21 @@ struct CreateEventView: View {
         .alert("Error", isPresented: $showingErrorAlert) {
             Button("OK") { }
         } message: {
-            Text(creationService.errorMessage ?? "Error desconocido")
+            Text(activityService.operationError ?? "Error desconocido")
         }
         .alert("¡Éxito!", isPresented: $showingSuccessAlert) {
             Button("OK") {
                 dismiss()
             }
         } message: {
-            Text(creationService.successMessage ?? "Evento creado")
+            Text("Evento creado exitosamente")
         }
         .onAppear {
             setupServices()
         }
-        .onChange(of: creationService.errorMessage) { _, error in
+        .onChange(of: activityService.operationError) { _, error in
             if error != nil {
                 showingErrorAlert = true
-            }
-        }
-        .onChange(of: creationService.successMessage) { _, success in
-            if success != nil {
-                showingSuccessAlert = true
             }
         }
     }
@@ -363,7 +345,7 @@ struct CreateEventView: View {
             // Create button
             Button(action: createEvent) {
                 HStack {
-                    if creationService.isCreating {
+                    if activityService.isCreating {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(0.9)
@@ -372,7 +354,7 @@ struct CreateEventView: View {
                             .font(.system(size: 18, weight: .semibold))
                     }
                     
-                    Text(creationService.isCreating ? "Creando..." : "Crear Evento")
+                    Text(activityService.isCreating ? "Creando..." : "Crear Evento")
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .foregroundColor(.white)
@@ -381,21 +363,19 @@ struct CreateEventView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(
-                            formData.isValid && !creationService.isCreating 
+                            formData.isValid && !activityService.isCreating 
                                 ? Color.dynamicAccent(theme: themeManager.currentTheme)
                                 : Color.gray
                         )
                 )
             }
-            .disabled(!formData.isValid || creationService.isCreating)
+            .disabled(!formData.isValid || activityService.isCreating)
         }
     }
     
     // MARK: - Helper Methods
     private func setupServices() {
-        creationService.authService = authService
-        creationService.gymService = gymService
-        creationService.eventService = eventService
+        activityService.configure(authService: authService, gymService: gymService)
     }
     
     private func applyTemplate(_ template: EventTemplate) {
@@ -414,22 +394,50 @@ struct CreateEventView: View {
     
     private func createEvent() {
         // Validate form
-        validationErrors = creationService.validateEventData(formData)
+        validationErrors = []
+
+        // Basic validation
+        if formData.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            validationErrors.append("El título es requerido")
+        }
+        if formData.startDate <= Date() {
+            validationErrors.append("La fecha de inicio debe ser futura")
+        }
+        if formData.endDate <= formData.startDate {
+            validationErrors.append("La fecha de fin debe ser después del inicio")
+        }
+
         if !validationErrors.isEmpty {
             return
         }
-        
+
         // Create event
         Task {
-            let request = formData.toCreateEventRequest()
-            let success = await creationService.createEvent(request)
-            
-            if success {
-                // Success is handled by the alert
-                print("✅ Event created successfully")
-            } else {
-                // Error is handled by the alert
-                print("❌ Failed to create event")
+            let request = ActivityCreationRequest(
+                type: .event,
+                title: formData.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                description: formData.description.trimmingCharacters(in: .whitespacesAndNewlines),
+                startTime: formData.startDate,
+                endTime: formData.endDate,
+                location: formData.location.trimmingCharacters(in: .whitespacesAndNewlines),
+                maxParticipants: formData.maxParticipants,
+                instructorId: nil,  // Events don't have instructors
+                isRecurring: false,
+                recurrencePattern: nil,
+                notes: formData.firstMessage.isEmpty ? nil : formData.firstMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+
+            do {
+                let newEventId = try await activityService.createActivity(request)
+                await MainActor.run {
+                    print("✅ Event created successfully with ID: \(newEventId)")
+                    showingSuccessAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    print("❌ Failed to create event: \(error)")
+                    showingErrorAlert = true
+                }
             }
         }
     }

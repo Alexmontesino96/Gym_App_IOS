@@ -251,56 +251,58 @@ struct UnifiedMessagesView: View {
     
     // MARK: - Conversations List
     private var conversationsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 1) {
-                ForEach(filteredConversations) { conversation in
-                    SwipeableConversationRow.withStandardActions(
-                        conversation: conversation,
-                        themeManager: themeManager,
-                        currentUserId: (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id,
-                        onTap: {
-                            print("🔘 Tap detectado en conversación: \(conversation.name ?? conversation.id)")
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                selectedConversation = conversation
-                                showingChat = true
-                            }
-                            // Marcar localmente como leído para refrescar el badge en la lista
-                            if let idx = conversations.firstIndex(where: { $0.id == conversation.id }) {
-                                let c = conversations[idx]
-                                let updated = ChatConversation(
-                                    id: c.id,
-                                    name: c.name,
-                                    type: c.type,
-                                    members: c.members,
-                                    lastMessage: c.lastMessage,
-                                    lastActivity: c.lastActivity,
-                                    unreadCount: 0,
-                                    metadata: c.metadata
-                                )
-                                conversations[idx] = updated
-                                saveConversationsToCache(conversations)
-                            }
-                            print("📱 Navegando a chat con conversación: \(selectedConversation?.id ?? "nil")")
-                            print("🔄 showingChat = \(showingChat)")
-                        },
-                        onMute: {
-                            muteConversation(conversation)
-                        },
-                        onArchive: {
-                            archiveConversation(conversation)
-                        },
-                        onDelete: {
-                            deleteConversation(conversation)
-                        }
-                    )
-                    .onChange(of: showingChat) { isShowing in
-                        if !isShowing {
-                            // Cuando volvemos del chat, NO reordenar automáticamente
-                            // Solo reordenamos si hay cambios reales en lastActivity
-                            print("🔙 Usuario salió del chat de: \\(selectedConversation?.name ?? \"N/A\")")
-                            print("📋 Manteniendo orden actual de conversaciones")
-                        }
+        OptimizedList(
+            items: filteredConversations,
+            spacing: 1,
+            showDividers: false,
+            preloadThreshold: 5,
+            onRefresh: refreshConversations
+        ) { conversation in
+            SwipeableConversationRow.withStandardActions(
+                conversation: conversation,
+                themeManager: themeManager,
+                currentUserId: (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id,
+                onTap: {
+                    print("🔘 Tap detectado en conversación: \(conversation.name ?? conversation.id)")
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        selectedConversation = conversation
+                        showingChat = true
                     }
+                    // Marcar localmente como leído para refrescar el badge en la lista
+                    if let idx = conversations.firstIndex(where: { $0.id == conversation.id }) {
+                        let c = conversations[idx]
+                        let updated = ChatConversation(
+                            id: c.id,
+                            name: c.name,
+                            type: c.type,
+                            members: c.members,
+                            lastMessage: c.lastMessage,
+                            lastActivity: c.lastActivity,
+                            unreadCount: 0,
+                            metadata: c.metadata
+                        )
+                        conversations[idx] = updated
+                        saveConversationsToCache(conversations)
+                    }
+                    print("📱 Navegando a chat con conversación: \(selectedConversation?.id ?? "nil")")
+                    print("🔄 showingChat = \(showingChat)")
+                },
+                onMute: {
+                    muteConversation(conversation)
+                },
+                onArchive: {
+                    archiveConversation(conversation)
+                },
+                onDelete: {
+                    deleteConversation(conversation)
+                }
+            )
+            .onChange(of: showingChat) { isShowing in
+                if !isShowing {
+                    // Cuando volvemos del chat, NO reordenar automáticamente
+                    // Solo reordenamos si hay cambios reales en lastActivity
+                    print("🔙 Usuario salió del chat de: \\(selectedConversation?.name ?? \"N/A\")")
+                    print("📋 Manteniendo orden actual de conversaciones")
                 }
             }
         }

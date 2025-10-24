@@ -1,0 +1,930 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Gym_API.xcodeproj -scheme Gym_API -destination id=E25999F3-8778-44D8-81DA-0A6E2A0BBA39 build
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Auth0: https://github.com/auth0/Auth0.swift @ 2.13.0
+  OneSignalFramework: https://github.com/OneSignal/OneSignal-iOS-SDK @ 5.2.14
+  JWTDecode: https://github.com/auth0/JWTDecode.swift @ 3.3.0
+  SimpleKeychain: https://github.com/auth0/SimpleKeychain.git @ 1.3.0
+  StreamChat: https://github.com/GetStream/stream-chat-swift @ 4.84.0
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:E25999F3-8778-44D8-81DA-0A6E2A0BBA39, OS:17.0.1, name:iPhone 15 Pro }
+{ platform:iOS Simulator, arch:x86_64, id:E25999F3-8778-44D8-81DA-0A6E2A0BBA39, OS:17.0.1, name:iPhone 15 Pro }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (16 targets)
+    Target 'Gym_API' in project 'Gym_API'
+        ➜ Explicit dependency on target 'StreamChat' in project 'StreamChat'
+        ➜ Explicit dependency on target 'JWTDecode' in project 'JWTDecode'
+        ➜ Explicit dependency on target 'StreamChatUI' in project 'StreamChat'
+        ➜ Explicit dependency on target 'Auth0' in project 'Auth0'
+        ➜ Explicit dependency on target 'OneSignalFramework' in project 'OneSignalFramework'
+    Target 'OneSignalFramework' in project 'OneSignalFramework'
+        ➜ Explicit dependency on target 'OneSignalFrameworkWrapper' in project 'OneSignalFramework'
+    Target 'OneSignalFrameworkWrapper' in project 'OneSignalFramework' (no dependencies)
+    Target 'Auth0' in project 'Auth0'
+        ➜ Explicit dependency on target 'Auth0' in project 'Auth0'
+        ➜ Explicit dependency on target 'Auth0_Auth0' in project 'Auth0'
+        ➜ Explicit dependency on target 'SimpleKeychain' in project 'SimpleKeychain'
+        ➜ Explicit dependency on target 'JWTDecode' in project 'JWTDecode'
+    Target 'Auth0' in project 'Auth0'
+        ➜ Explicit dependency on target 'Auth0_Auth0' in project 'Auth0'
+        ➜ Explicit dependency on target 'SimpleKeychain' in project 'SimpleKeychain'
+        ➜ Explicit dependency on target 'JWTDecode' in project 'JWTDecode'
+    Target 'SimpleKeychain' in project 'SimpleKeychain'
+        ➜ Explicit dependency on target 'SimpleKeychain' in project 'SimpleKeychain'
+    Target 'SimpleKeychain' in project 'SimpleKeychain' (no dependencies)
+    Target 'Auth0_Auth0' in project 'Auth0' (no dependencies)
+    Target 'StreamChatUI' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChatUI' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat_StreamChatUI' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat' in project 'StreamChat'
+    Target 'StreamChatUI' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat_StreamChatUI' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat' in project 'StreamChat'
+    Target 'StreamChat_StreamChatUI' in project 'StreamChat' (no dependencies)
+    Target 'JWTDecode' in project 'JWTDecode'
+        ➜ Explicit dependency on target 'JWTDecode' in project 'JWTDecode'
+    Target 'JWTDecode' in project 'JWTDecode' (no dependencies)
+    Target 'StreamChat' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat_StreamChat' in project 'StreamChat'
+    Target 'StreamChat' in project 'StreamChat'
+        ➜ Explicit dependency on target 'StreamChat_StreamChat' in project 'StreamChat'
+    Target 'StreamChat_StreamChat' in project 'StreamChat' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -x objective-c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/momc --dry-run --action generate --swift-version 5 --sdkroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk --iphonesimulator-deployment-target 13.0 --module StreamChat /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/stream-chat-swift/Sources/StreamChat/Database/StreamChatModel.xcdatamodeld /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChat.build/DerivedSources/CoreDataGenerated/StreamChatModel
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -x c -c /dev/null
+
+Build description signature: 50c470e272ba1c0d8ea321e5e31d953e
+Build description path: /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/XCBuildData/50c470e272ba1c0d8ea321e5e31d953e.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk /Users/alexmontesino/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.5-22F76-d5fc8ad4295d2ef488fb7d0f804ce0c4.sdkstatcache
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.5-22F76-d5fc8ad4295d2ef488fb7d0f804ce0c4.sdkstatcache
+
+ProcessInfoPlistFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/StreamChat_StreamChat.bundle/Info.plist /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChat_StreamChat.build/empty-StreamChat_StreamChat.plist (in target 'StreamChat_StreamChat' from project 'StreamChat')
+    cd /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/stream-chat-swift
+    builtin-infoPlistUtility /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChat_StreamChat.build/empty-StreamChat_StreamChat.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/StreamChat_StreamChat.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/Auth0_Auth0.bundle/Info.plist /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0_Auth0.build/empty-Auth0_Auth0.plist (in target 'Auth0_Auth0' from project 'Auth0')
+    cd /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/Auth0.swift
+    builtin-infoPlistUtility /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0_Auth0.build/empty-Auth0_Auth0.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/Auth0_Auth0.bundle/Info.plist
+
+WriteAuxiliaryFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.SwiftConstValuesFileList (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    write-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.SwiftFileList (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    write-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.SwiftFileList
+
+WriteAuxiliaryFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.LinkFileList (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    write-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.LinkFileList
+
+WriteAuxiliaryFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API-OutputFileMap.json (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    write-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API-OutputFileMap.json
+
+ProcessInfoPlistFile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/StreamChat_StreamChatUI.bundle/Info.plist /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChat_StreamChatUI.build/empty-StreamChat_StreamChatUI.plist (in target 'StreamChat_StreamChatUI' from project 'StreamChat')
+    cd /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/stream-chat-swift
+    builtin-infoPlistUtility /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChat_StreamChatUI.build/empty-StreamChat_StreamChatUI.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChat_StreamChatUI.build/assetcatalog_generated_info.plist -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/StreamChat_StreamChatUI.bundle/Info.plist
+
+SwiftDriver StreamChatUI normal arm64 com.apple.xcode.tools.swift.compiler (in target 'StreamChatUI' from project 'StreamChat')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name StreamChatUI -Onone -enforce-exclusivity\=checked @/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/Objects-normal/arm64/StreamChatUI.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -target arm64-apple-ios13.0-simulator -g -module-cache-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -suppress-warnings -index-store-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Index.noindex/DataStore -swift-version 5 -I /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -I /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk/Developer/Library/Frameworks -emit-localized-strings -emit-localized-strings-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.5-22F76-d5fc8ad4295d2ef488fb7d0f804ce0c4.sdkstatcache -output-file-map /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/Objects-normal/arm64/StreamChatUI-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/Objects-normal/arm64/StreamChatUI.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/Objects-normal/arm64/StreamChatUI_const_extract_protocols.json -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/DerivedSources-normal/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/DerivedSources/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/StreamChat.build/Debug-iphonesimulator/StreamChatUI.build/Objects-normal/arm64/StreamChatUI-Swift.h -working-directory /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver Auth0 normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Auth0' from project 'Auth0')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Auth0 -Onone -enforce-exclusivity\=checked @/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/Objects-normal/arm64/Auth0.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DWEB_AUTH_PLATFORM -DPASSKEYS_PLATFORM -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -target arm64-apple-ios14.0-simulator -g -module-cache-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -suppress-warnings -index-store-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Index.noindex/DataStore -swift-version 5 -I /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -I /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.5-22F76-d5fc8ad4295d2ef488fb7d0f804ce0c4.sdkstatcache -output-file-map /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/Objects-normal/arm64/Auth0-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/Objects-normal/arm64/Auth0.swiftmodule -user-module-version 2.13.0 -validate-clang-modules-once -clang-build-session-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name auth0_swift -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/Objects-normal/arm64/Auth0_const_extract_protocols.json -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/DerivedSources-normal/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/DerivedSources/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Auth0.build/Debug-iphonesimulator/Auth0.build/Objects-normal/arm64/Auth0-Swift.h -working-directory /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+ProcessProductPackaging /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_API.entitlements /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app.xcent (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+    Entitlements:
+    
+    {
+}
+    
+    builtin-productPackagingUtility /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_API.entitlements -entitlements -format xml -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app.xcent
+
+ProcessProductPackaging /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_API.entitlements /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app-Simulated.xcent (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+    Entitlements:
+    
+    {
+    "application-identifier" = "3N4T4H2H2F.com.alexmontesino.gymapi";
+    "aps-environment" = development;
+    "com.apple.developer.associated-domains" =     (
+        "applinks:app.gymapi.com"
+    );
+}
+    
+    builtin-productPackagingUtility /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_API.entitlements -entitlements -format xml -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app-Simulated.xcent
+
+ProcessProductPackagingDER /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app.xcent /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app.xcent.der (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    /usr/bin/derq query -f xml -i /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app.xcent -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app.xcent.der --raw
+
+ProcessProductPackagingDER /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app-Simulated.xcent /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app-Simulated.xcent.der (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    /usr/bin/derq query -f xml -i /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app-Simulated.xcent -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API.app-Simulated.xcent.der --raw
+
+SwiftDriver Gym_API normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Gym_API -Onone -enforce-exclusivity\=checked @/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/OneSignalFrameworkWrapper.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Index.noindex/DataStore -swift-version 5 -I /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.5-22F76-d5fc8ad4295d2ef488fb7d0f804ce0c4.sdkstatcache -output-file-map /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API_const_extract_protocols.json -Xcc -iquote -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-generated-files.hmap -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-own-target-headers.hmap -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API-53347c6b55c8bacecf41c7425e043650-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-project-headers.hmap -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/OneSignal-iOS-SDK/OneSignalFrameworkWrapper/include -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources-normal/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API-Swift.h -working-directory /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ E2EEncryptionService.swift,\ AudioRecorderService.swift,\ AuthServiceDirect.swift,\ CacheManager.swift,\ ChatPerformanceMonitor.swift,\ ChatService.swift,\ ComebackCompactCard.swift,\ ComebackCTASection.swift,\ MainTabView.swift,\ ModernProfileView.swift,\ Gym.swift,\ EventListSkeleton.swift,\ ProfileAvatar.swift,\ SurveyResponsesListView.swift,\ StreamConfig.swift,\ DirectMessageService.swift,\ FloatingActionButton.swift,\ SurveyQuestionViews.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/Encryption/E2EEncryptionService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AudioRecorderService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AuthServiceDirect.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/CacheManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatPerformanceMonitor.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackCompactCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackCTASection.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MainTabView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/ModernProfileView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Gym.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventListSkeleton.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ProfileAvatar.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyResponsesListView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/StreamConfig.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/DirectMessageService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Components/FloatingActionButton.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Survey/SurveyQuestionViews.swift (in target 'Gym_API' from project 'Gym_API')
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/Encryption/E2EEncryptionService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AudioRecorderService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/AuthServiceDirect.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/CacheManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatPerformanceMonitor.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackCompactCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackCTASection.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MainTabView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/ModernProfileView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Gym.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventListSkeleton.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ProfileAvatar.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyResponsesListView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/StreamConfig.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/DirectMessageService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Components/FloatingActionButton.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Survey/SurveyQuestionViews.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ ClassListSkeleton.swift,\ NotificationManager.swift,\ OnboardingManager.swift,\ OneSignalService.swift,\ RecentActivitySection.swift,\ UserStats.swift,\ StreakIndicator.swift,\ UnifiedChatView.swift,\ ClassCard.swift,\ SimpleColorSettingsView.swift,\ DateDecoding.swift,\ AuthStateIndicator.swift,\ UnifiedImageService.swift,\ NetworkRetryService.swift,\ SurveyTemplatesView.swift,\ UserSelectorView.swift,\ GymSelectionView.swift,\ Logger.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Classes/ClassListSkeleton.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/NotificationManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/OnboardingManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/OneSignalService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/RecentActivitySection.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/UserStats.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/StreakIndicator.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/UnifiedChatView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/ClassCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/SimpleColorSettingsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/DateDecoding.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Authentication/AuthStateIndicator.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UnifiedImageService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/NetworkRetryService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyTemplatesView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Messages/UserSelectorView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/GymSelectionView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/Logger.swift (in target 'Gym_API' from project 'Gym_API')
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Classes/ClassListSkeleton.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/NotificationManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/OnboardingManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/OneSignalService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/RecentActivitySection.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/UserStats.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/StreakIndicator.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/UnifiedChatView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/ClassCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/SimpleColorSettingsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/DateDecoding.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Authentication/AuthStateIndicator.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UnifiedImageService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/NetworkRetryService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyTemplatesView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Messages/UserSelectorView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/GymSelectionView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/Logger.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ RolePermissions.swift,\ ProgressDashboard.swift,\ AvailableGymsView.swift,\ CreateEventView.swift,\ ContextualActions.swift,\ ThemeManager.swift,\ ClassesView.swift,\ CreateSessionView.swift,\ EditEventView.swift,\ EditProfileSheet.swift,\ ProfileImageService.swift,\ ScheduledActivityService.swift,\ ServiceContainer.swift,\ LocationService.swift,\ MediaUploadService.swift,\ ImprovedClassActionButton.swift,\ ConfettiView.swift,\ SurveyUIComponents.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/RolePermissions.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ProgressDashboard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/AvailableGymsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/CreateEventView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ContextualActions.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/ThemeManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/ClassesView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/CreateSessionView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EditEventView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EditProfileSheet.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ProfileImageService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ScheduledActivityService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainer.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/LocationService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MediaUploadService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/ImprovedClassActionButton.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ConfettiView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Survey/SurveyUIComponents.swift (in target 'Gym_API' from project 'Gym_API')
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/RolePermissions.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ProgressDashboard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/AvailableGymsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/CreateEventView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ContextualActions.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/ThemeManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/ClassesView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/CreateSessionView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EditEventView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EditProfileSheet.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ProfileImageService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ScheduledActivityService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainer.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/LocationService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MediaUploadService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/ImprovedClassActionButton.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ConfettiView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Survey/SurveyUIComponents.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ ThemeModifiers.swift,\ WelcomeAnimationOverlay.swift,\ SplashView.swift,\ UnifiedMessagesView.swift,\ AppNotifications.swift,\ SurveyAdminCard.swift,\ SurveyListView.swift,\ SurveyResponseView.swift,\ SmartActionsSection.swift,\ E2EInfoView.swift,\ Survey.swift,\ Event.swift,\ BackgroundTaskManager.swift,\ AuthUser.swift,\ UnifiedChatService.swift,\ SurveyManagementView.swift,\ NetworkRetryManager.swift,\ GymScheduleView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ThemeModifiers.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/WelcomeAnimationOverlay.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/SplashView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/UnifiedMessagesView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/AppNotifications.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyAdminCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/SurveyListView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/SurveyResponseView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SmartActionsSection.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/E2EInfoView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Survey.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Event.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/BackgroundTaskManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/AuthUser.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UnifiedChatService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyManagementView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/NetworkRetryManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/GymScheduleView.swift (in target 'Gym_API' from project 'Gym_API')
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ThemeModifiers.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/WelcomeAnimationOverlay.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/SplashView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/UnifiedMessagesView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/AppNotifications.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyAdminCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/SurveyListView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/SurveyResponseView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SmartActionsSection.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/E2EInfoView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Survey.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/Event.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/BackgroundTaskManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/AuthUser.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UnifiedChatService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyManagementView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/NetworkRetryManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/GymScheduleView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ AnimatedTabTransition.swift,\ PreloadService.swift,\ AsyncProfileImage.swift,\ BackendImageView.swift,\ EventsViewOptimized.swift,\ ChatProvider.swift,\ BenefitsCarouselView.swift,\ UserDataCacheService.swift,\ ProfileCompletionView.swift,\ ErrorStateView.swift,\ LoginViewDirect.swift,\ GymClassSimple.swift,\ CachedMessageEntity.swift,\ MicroInteractions.swift,\ AuthenticatedView.swift,\ ProfileCompletionCelebration.swift,\ ComebackMessage.swift,\ SettingsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/AnimatedTabTransition.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/PreloadService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/AsyncProfileImage.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/BackendImageView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/EventsViewOptimized.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatProvider/ChatProvider.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/BenefitsCarouselView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UserDataCacheService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/ProfileCompletionView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ErrorStateView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/LoginViewDirect.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClassSimple.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/CoreData/CachedMessageEntity.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/MicroInteractions.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/AuthenticatedView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileCompletionCelebration.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/ComebackMessage.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/SettingsView.swift (in target 'Gym_API' from project 'Gym_API')
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/AnimatedTabTransition.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/PreloadService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/AsyncProfileImage.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/BackendImageView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/EventsViewOptimized.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatProvider/ChatProvider.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/BenefitsCarouselView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UserDataCacheService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/ProfileCompletionView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ErrorStateView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/LoginViewDirect.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClassSimple.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/CoreData/CachedMessageEntity.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/MicroInteractions.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/AuthenticatedView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileCompletionCelebration.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/ComebackMessage.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/SettingsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ Gym_API (in target 'Gym_API' from project 'Gym_API')
+EmitSwiftModule normal arm64 (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ ImageLoaderService.swift,\ GymClass.swift,\ UserTypeSelectionView.swift,\ SectionHeaderView.swift,\ GymInfo.swift,\ GymParticipant.swift,\ EventService.swift,\ AnimatedProfileMetric.swift,\ Gym_APIApp.swift,\ ServiceContainerLazy.swift,\ MembershipService.swift,\ DesignSystem.swift,\ ComebackView.swift,\ EventCard.swift,\ FirebaseChatProvider.swift,\ Auth0Config.swift,\ UserProfileService.swift,\ NextClassCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ImageLoaderService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/UserTypeSelectionView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SectionHeaderView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymInfo.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymParticipant.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/AnimatedProfileMetric.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_APIApp.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MembershipService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/DesignSystem.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatProvider/FirebaseChatProvider.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/Auth0Config.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UserProfileService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/NextClassCard.swift (in target 'Gym_API' from project 'Gym_API')
+Failed frontend command:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend -frontend -c -filelist /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/sources-1 -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ImageLoaderService.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/UserTypeSelectionView.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SectionHeaderView.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymInfo.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymParticipant.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/AnimatedProfileMetric.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_APIApp.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MembershipService.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/DesignSystem.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackView.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventCard.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatProvider/FirebaseChatProvider.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/Auth0Config.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UserProfileService.swift -primary-file /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/NextClassCard.swift -supplementary-output-file-map /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/supplementaryOutputs-8 -emit-localized-strings -emit-localized-strings-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64 -target arm64-apple-ios17.0-simulator -Xllvm -aarch64-use-tbi -enable-objc-interop -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator18.5.sdk -I /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator -no-color-diagnostics -enable-testing -g -debug-info-format\=dwarf -dwarf-version\=4 -module-cache-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -profile-generate -profile-coverage-mapping -swift-version 5 -enforce-exclusivity\=checked -Onone -D DEBUG -serialize-debugging-options -const-gather-protocols-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_API_const_extract_protocols.json -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -empty-abi-descriptor -validate-clang-modules-once -clang-build-session-file /Users/alexmontesino/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -working-directory -Xcc /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift -enable-anonymous-context-mangled-names -file-compilation-dir /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API -Xcc -fmodule-map-file\=/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/OneSignalFrameworkWrapper.modulemap -Xcc -ivfsstatcache -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphonesimulator18.5-22F76-d5fc8ad4295d2ef488fb7d0f804ce0c4.sdkstatcache -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-generated-files.hmap -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-own-target-headers.hmap -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API-53347c6b55c8bacecf41c7425e043650-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Gym_API-project-headers.hmap -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/OneSignal-iOS-SDK/OneSignalFrameworkWrapper/include -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources-normal/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources/arm64 -Xcc -I/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources -Xcc -DDEBUG\=1 -module-name Gym_API -frontend-parseable-output -disable-clang-spi -target-sdk-version 18.5 -target-sdk-name iphonesimulator18.5 -external-plugin-path /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server -external-plugin-path /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/local/lib/swift/host/plugins\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server -in-process-plugin-server-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/libSwiftInProcPluginServer.dylib -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/lib/swift/host/plugins -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/ImageLoaderService.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/GymClass.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/UserTypeSelectionView.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/SectionHeaderView.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/GymInfo.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/GymParticipant.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/EventService.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/AnimatedProfileMetric.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_APIApp.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/ServiceContainerLazy.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/MembershipService.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/DesignSystem.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/ComebackView.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/EventCard.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/FirebaseChatProvider.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Auth0Config.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/UserProfileService.o -o /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/NextClassCard.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/ImageLoaderService.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/GymClass.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/UserTypeSelectionView.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/SectionHeaderView.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/GymInfo.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/GymParticipant.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/EventService.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/AnimatedProfileMetric.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Gym_APIApp.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/ServiceContainerLazy.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/MembershipService.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/DesignSystem.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/ComebackView.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/EventCard.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/FirebaseChatProvider.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/Auth0Config.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/UserProfileService.o -index-unit-output-path /Gym_API.build/Debug-iphonesimulator/Gym_API.build/Objects-normal/arm64/NextClassCard.o -index-store-path /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Index.noindex/DataStore -index-system-modules
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ImageLoaderService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ImageLoaderService.swift:117:33: warning: reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode
+                                self?.image = image
+                                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ImageLoaderService.swift:130:33: warning: reference to captured var 'self' in concurrently-executing code; this is an error in the Swift 6 language mode
+                                self?.error = ImageLoaderError.invalidImageData
+                                ^
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift:317:20: error: 'async' call in a function that does not support concurrency
+            return classService.getTrainerName(trainerId: session.trainerId)
+                   ^
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/UserTypeSelectionView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SectionHeaderView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymInfo.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymParticipant.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:59:19: warning: call to main actor-isolated instance method 'clearEventsOnLogout()' in a synchronous nonisolated context; this is an error in the Swift 6 language mode
+            self?.clearEventsOnLogout()
+                  ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1215:10: note: calls to instance method 'clearEventsOnLogout()' from outside of its actor context are implicitly asynchronous
+    func clearEventsOnLogout() {
+         ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1747:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1755:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1763:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1771:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1779:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1787:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1793:9: warning: no 'async' operations occur within 'await' expression
+        await updateOnMainThread {
+        ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1824:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1843:21: warning: no 'async' operations occur within 'await' expression
+                    await updateOnMainThread {
+                    ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1893:21: warning: no 'async' operations occur within 'await' expression
+                    await updateOnMainThread {
+                    ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1906:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1913:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1920:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1927:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1935:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1942:17: warning: no 'async' operations occur within 'await' expression
+                await updateOnMainThread {
+                ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1950:13: warning: no 'async' operations occur within 'await' expression
+            await updateOnMainThread {
+            ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift:1964:17: warning: initialization of immutable value 'decoder' was never used; consider replacing with assignment to '_' or removing it
+            let decoder = JSONDecoder()
+            ~~~~^~~~~~~
+            _
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/AnimatedProfileMetric.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_APIApp.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift:222:19: warning: constant 'membershipTask' inferred to have type '()', which may be unexpected
+        async let membershipTask = membershipService.getMyMembershipStatus()
+                  ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift:222:19: note: add an explicit type annotation to silence this warning
+        async let membershipTask = membershipService.getMyMembershipStatus()
+                  ^
+                                : ()
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift:223:19: warning: constant 'gymTask' inferred to have type '()', which may be unexpected
+        async let gymTask = gymService.getMyGyms()
+                  ^
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift:223:19: note: add an explicit type annotation to silence this warning
+        async let gymTask = gymService.getMyGyms()
+                  ^
+                         : ()
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MembershipService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/DesignSystem.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+/Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventCard.swift:28:13: warning: 'init(destination:isActive:label:)' was deprecated in iOS 16.0: use NavigationLink(value:label:), or navigationDestination(isPresented:destination:), inside a NavigationStack or NavigationSplitView
+            NavigationLink(destination: EventDetailView(eventId: event.id), isActive: $navigateToDetail) {
+            ^
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatProvider/FirebaseChatProvider.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/Auth0Config.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UserProfileService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/NextClassCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ ImagePicker.swift,\ AccessibilityExtensions.swift,\ OptimizedChatView.swift,\ ProfileSetupView.swift,\ EventsView.swift,\ GymDetail.swift,\ GymService.swift,\ EditSessionView.swift,\ EventChatView.swift,\ OptimizedAsyncImage.swift,\ ProfileMetricsContainer.swift,\ HomeView.swift,\ CreateEventRequest.swift,\ MainOnboardingView.swift,\ LazyLoadingHelpers.swift,\ CircularImageCropperView.swift,\ ThemeSettingsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ImagePicker.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/AccessibilityExtensions.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/OptimizedChatView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/ProfileSetupView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/EventsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymDetail.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/GymService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EditSessionView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EventChatView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/OptimizedAsyncImage.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileMetricsContainer.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/HomeView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/CreateEventRequest.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/MainOnboardingView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/LazyLoadingHelpers.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/CircularImageCropperView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/ThemeSettingsView.swift (in target 'Gym_API' from project 'Gym_API')
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/ImagePicker.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/AccessibilityExtensions.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/OptimizedChatView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/ProfileSetupView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/EventsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymDetail.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/GymService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EditSessionView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/EventChatView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/OptimizedAsyncImage.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileMetricsContainer.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Tabs/HomeView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/CreateEventRequest.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/MainOnboardingView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/LazyLoadingHelpers.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/CircularImageCropperView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/ThemeSettingsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ ModernProfileComponents.swift,\ ProfileColorPicker.swift,\ ExportOptionsView.swift,\ KeychainService.swift,\ QuestionEditorView.swift,\ ProfileOptionsSheet.swift,\ CoachRowView.swift,\ RecentActivityCard.swift,\ ProfileStatsSkeleton.swift,\ SkeletonView.swift,\ MessageCacheModels.swift,\ StreamConnectionTestView.swift,\ CoreDataManager.swift,\ SurveyService.swift,\ MessageCacheManager.swift,\ LastActivityCard.swift,\ GeneratedAssetSymbols.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ModernProfileComponents.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileColorPicker.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/ExportOptionsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/KeychainService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/QuestionEditorView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileOptionsSheet.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/CoachRowView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/RecentActivityCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileStatsSkeleton.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SkeletonView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/MessageCacheModels.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/StreamConnectionTestView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/CoreData/CoreDataManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/SurveyService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MessageCacheManager.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/LastActivityCard.swift /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Gym_API' from project 'Gym_API')
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ModernProfileComponents.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileColorPicker.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/ExportOptionsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/KeychainService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/QuestionEditorView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileOptionsSheet.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/CoachRowView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/RecentActivityCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/ProfileStatsSkeleton.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SkeletonView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/MessageCacheModels.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/StreamConnectionTestView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/CoreData/CoreDataManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/SurveyService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MessageCacheManager.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/LastActivityCard.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/Build/Intermediates.noindex/Gym_API.build/Debug-iphonesimulator/Gym_API.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 Compiling\ Logging.swift,\ HomeViewSkeleton.swift,\ UserSelectorComponents.swift,\ SurveyCreatorView.swift,\ SurveyStatisticsView.swift,\ MediaPickerView.swift,\ LoadingAnimations.swift,\ RoleRestrictedView.swift,\ AnimationThrottle.swift,\ MembershipStatusWidget.swift,\ ChatModels.swift,\ ComebackHeroSection.swift,\ MyGymView.swift,\ PermissionsSetupView.swift,\ QuickAccessGrid.swift,\ GymUserService.swift,\ HTTPClient.swift,\ BulkRegistrationView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/Logging.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/HomeViewSkeleton.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Messages/UserSelectorComponents.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyCreatorView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyStatisticsView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/MediaPickerView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/LoadingAnimations.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Components/RoleRestrictedView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/AnimationThrottle.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/MembershipStatusWidget.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/ChatModels.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackHeroSection.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MyGymView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/PermissionsSetupView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/QuickAccess/QuickAccessGrid.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/GymUserService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/HTTPClient.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/BulkRegistrationView.swift (in target 'Gym_API' from project 'Gym_API')
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/Logging.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/HomeViewSkeleton.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Messages/UserSelectorComponents.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyCreatorView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Survey/Admin/SurveyStatisticsView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Chat/MediaPickerView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/LoadingAnimations.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Components/RoleRestrictedView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/AnimationThrottle.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/MembershipStatusWidget.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/ChatModels.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackHeroSection.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/MyGymView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/PermissionsSetupView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/QuickAccess/QuickAccessGrid.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/GymUserService.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/HTTPClient.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/BulkRegistrationView.swift (in target 'Gym_API' from project 'Gym_API')
+    cd /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ StreamChatUI (in target 'StreamChatUI' from project 'StreamChat')
+Command SwiftEmitModule failed with a nonzero exit code
+
+** BUILD FAILED **
+
+
+The following build commands failed:
+	SwiftCompile normal arm64 Compiling\ ImageLoaderService.swift,\ GymClass.swift,\ UserTypeSelectionView.swift,\ SectionHeaderView.swift,\ GymInfo.swift,\ GymParticipant.swift,\ EventService.swift,\ AnimatedProfileMetric.swift,\ Gym_APIApp.swift,\ ServiceContainerLazy.swift,\ MembershipService.swift,\ DesignSystem.swift,\ ComebackView.swift,\ EventCard.swift,\ FirebaseChatProvider.swift,\ Auth0Config.swift,\ UserProfileService.swift,\ NextClassCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ImageLoaderService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Onboarding/UserTypeSelectionView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/SectionHeaderView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymInfo.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymParticipant.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/EventService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Profile/AnimatedProfileMetric.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Gym_APIApp.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ServiceContainerLazy.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/MembershipService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Utils/DesignSystem.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Comeback/ComebackView.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Events/EventCard.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/ChatProvider/FirebaseChatProvider.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Config/Auth0Config.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Services/UserProfileService.swift /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Views/Components/Home/NextClassCard.swift (in target 'Gym_API' from project 'Gym_API')
+	SwiftCompile normal arm64 /Users/alexmontesino/Documents/GYM-API-IOS/Gym_API/Gym_API/Models/GymClass.swift (in target 'Gym_API' from project 'Gym_API')
+	SwiftEmitModule normal arm64 Emitting\ module\ for\ StreamChatUI (in target 'StreamChatUI' from project 'StreamChat')
+	Building project Gym_API with scheme Gym_API
+(4 failures)

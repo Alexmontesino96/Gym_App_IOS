@@ -1494,6 +1494,14 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             return
         }
     }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ AuthServiceDirect deinitialized")
+        #endif
+        // Los tokens y datos se limpiarán automáticamente con ARC
+        // No podemos modificar propiedades desde deinit en una clase @MainActor
+    }
 }
 
 // MARK: - Errores de Autenticación

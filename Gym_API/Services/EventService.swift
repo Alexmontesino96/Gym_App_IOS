@@ -18,7 +18,7 @@ class EventService: ObservableObject {
     @Published var joinEventErrorMessage: String?
     @Published var isJoiningEvent = false
     @Published var userRegistrationStatus: [Int: Bool] = [:]
-    @Published var userProfiles: [Int: UserProfile] = [:]
+    // MIGRADO A UserDataCacheService - ya no se necesita caché local
     @Published var userParticipations: [EventParticipation] = []
     @Published var isCreatingEvent = false
     @Published var createEventErrorMessage: String?
@@ -27,6 +27,7 @@ class EventService: ObservableObject {
     private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     private let session = URLSession.shared
     weak var authService: AuthServiceDirect?
+    private let userCache = UserDataCacheService.shared
     
     // Para manejar cancelación de peticiones
     private var currentTask: URLSessionDataTask?
@@ -80,7 +81,7 @@ class EventService: ObservableObject {
             self.events.removeAll()
             self.eventDetail = nil
             self.userRegistrationStatus.removeAll()
-            self.userProfiles.removeAll()
+            // Caché limpiado por UserDataCacheService cuando sea necesario
             self.errorMessage = nil
             self.detailErrorMessage = nil
             self.joinEventErrorMessage = nil
@@ -805,8 +806,8 @@ class EventService: ObservableObject {
     
     // MARK: - Fetch User Profile
     func fetchUserProfile(userId: Int) async -> UserProfile? {
-        // Verificar si ya tenemos el perfil en cache
-        if let cachedProfile = userProfiles[userId] {
+        // Usar UserDataCacheService para obtener perfil (con caché automático)
+        if let cachedProfile = await userCache.getUserProfile(userId) {
             print("📋 Using cached profile for user \(userId)")
             return cachedProfile
         }
@@ -851,7 +852,8 @@ class EventService: ObservableObject {
                 let userProfile = try configuredJSONDecoder().decode(UserProfile.self, from: data)
                 
                 // Guardar en cache
-                userProfiles[userId] = userProfile
+                // Guardar en caché centralizado
+                userCache.updateUserProfile(userId, profile: userProfile)
                 
                 print("✅ Successfully fetched profile for user \(userId): \(userProfile.fullName)")
                 return userProfile
@@ -1218,7 +1220,7 @@ class EventService: ObservableObject {
             self.eventDetail = nil
             self.eventParticipations = []
             self.userRegistrationStatus = [:]
-            self.userProfiles = [:]
+            // Caché manejado por UserDataCacheService
             
             // Resetear estados de loading
             self.isLoading = false
@@ -1445,15 +1447,7 @@ class EventService: ObservableObject {
         case 409:
             return "Ya existe un evento con estas características."
         case 422:
-            // Try to decode validation errors
-            do {
-                let decoder = JSONDecoder()
-                let validationError = try decoder.decode(ValidationErrorResponse.self, from: data)
-                let errors = validationError.detail.map { "\($0.msg)" }.joined(separator: ", ")
-                return "Errores de validación: \(errors)"
-            } catch {
-                return "Datos del evento inválidos."
-            }
+            return "Datos del evento inválidos."
         case 500:
             return "Error del servidor. Intenta nuevamente en unos minutos."
         default:
@@ -1716,15 +1710,7 @@ class EventService: ObservableObject {
         case 404:
             return "El evento no fue encontrado."
         case 422:
-            // Try to decode validation errors
-            do {
-                let decoder = JSONDecoder()
-                let validationError = try decoder.decode(ValidationErrorResponse.self, from: data)
-                let errors = validationError.detail.map { "\($0.msg)" }.joined(separator: ", ")
-                return "Errores de validación: \(errors)"
-            } catch {
-                return "Datos del evento inválidos."
-            }
+            return "Datos del evento inválidos."
         case 500:
             return "Error del servidor. Intenta nuevamente en unos minutos."
         default:
@@ -1973,18 +1959,6 @@ class EventService: ObservableObject {
     private func handleBulkRegistrationAPIError(data: Data, statusCode: Int) async -> String {
         print("🔍 Intentando decodificar error del servidor...")
         
-        // Intentar múltiples formatos de error
-        do {
-            // Intentar formato ValidationErrorResponse
-            let decoder = JSONDecoder()
-            let validationError = try decoder.decode(ValidationErrorResponse.self, from: data)
-            let errors = validationError.detail.map { "\($0.msg)" }.joined(separator: ", ")
-            print("✅ Error decodificado como ValidationError: \(errors)")
-            return "Errores de validación: \(errors)"
-        } catch {
-            print("⚠️ No se pudo decodificar como ValidationError: \(error)")
-        }
-        
         // Intentar formato de error simple con "detail"
         do {
             let decoder = JSONDecoder()
@@ -2011,6 +1985,14 @@ class EventService: ObservableObject {
         default:
             return "Error inesperado (\(statusCode))"
         }
+    }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ EventService deinitialized")
+        #endif
+        // Los arrays se limpiarán automáticamente con ARC
+        // No podemos modificar propiedades @Published desde deinit en una clase @MainActor
     }
 }
 

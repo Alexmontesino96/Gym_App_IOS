@@ -112,7 +112,7 @@ struct MediaPickerView: View {
                     
                     do {
                         try data.write(to: tempURL)
-                        let thumbnail = await MediaUploadService.shared.generateVideoThumbnail(from: tempURL)
+                        let thumbnail = await UnifiedImageService.shared.generateVideoThumbnail(from: tempURL)
                         loadedMedia.append(MediaItem(type: .video(tempURL, thumbnail: thumbnail)))
                     } catch {
                         print("Error guardando video: \(error)")

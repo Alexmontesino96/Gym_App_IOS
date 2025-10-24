@@ -273,28 +273,15 @@ struct CoachSelectorView: View {
         // Load gym members
         await chatService.loadGymMembers()
         
+        // Get all coaches from the service
+        let allCoaches = await chatService.getAvailableCoaches()
+
         await MainActor.run {
-            // Filter coaches from gym members
-            let allMembers = Array(chatService.gymMembersCache.values)
-            
-            // Filter for coaches - look for coach role in either role or gymRole
-            self.coaches = allMembers.filter { member in
-                let isCoach = member.role.lowercased().contains("coach") ||
-                             member.gymRole?.lowercased().contains("coach") == true ||
-                             member.role.lowercased().contains("trainer") ||
-                             member.gymRole?.lowercased().contains("trainer") == true
-                
-                // Exclude current user if they are also a coach
-                let isCurrentUser = member.auth0Id == authService.user?.id
-                
-                return isCoach && !isCurrentUser
-            }
-            
-            // Sort alphabetically by name
-            self.coaches.sort { $0.fullName < $1.fullName }
-            
+            // Use the filtered coaches from service
+            self.coaches = allCoaches
+
             self.isLoading = false
-            
+
             print("✅ Coaches cargados: \(self.coaches.count)")
             for coach in self.coaches {
                 print("   - \(coach.fullName) (\(coach.role)) - Gym Role: \(coach.gymRole ?? "N/A")")

@@ -119,59 +119,59 @@ struct EventsView: View {
                     
                     // Events List with FAB
                     ZStack {
-                        // Scrollable Events List
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                if filteredEvents.isEmpty {
-                                    VStack(spacing: 16) {
-                                        Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
-                                            .font(.system(size: 48))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                        
-                                        Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
-                                            .font(.system(size: 18, weight: .medium))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                            .multilineTextAlignment(.center)
-                                        
-                                        Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-                                            .multilineTextAlignment(.center)
-                                    }
-                                    .padding(.top, 40)
-                                } else {
-                                    ForEach(filteredEvents) { event in
-                                        EventCard(
-                                            event: event,
-                                            onChatTap: {
-                                                print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
-                                                handleEventChatTap(event: event)
-                                            },
-                                            onEditTap: {
-                                                print("✏️ Edit event tapped: \(event.title)")
-                                                selectedEventForEdit = event
-                                                                                            },
-                                            onDeleteTap: {
-                                                print("🗑️ Delete event tapped: \(event.title)")
-                                                selectedEventForDelete = event
-                                                showingDeleteConfirmation = true
-                                            },
-                                            onBulkRegistrationTap: {
-                                                print("👥 Bulk registration tapped: \(event.title)")
-                                                selectedEventForBulkRegistration = event
-                                            }
-                                        )
-                                        .padding(.horizontal, 20)
-                                    }
+                        // Scrollable Events List using OptimizedList
+                        if filteredEvents.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+
+                                Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    .multilineTextAlignment(.center)
+
+                                Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.top, 40)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            OptimizedList(
+                                items: filteredEvents,
+                                spacing: 16,
+                                showDividers: false,
+                                preloadThreshold: 5,
+                                onRefresh: {
+                                    await eventService.fetchEvents()
+                                    await eventService.fetchUserParticipations()
                                 }
-                                
-                                Spacer(minLength: 100)
+                            ) { event in
+                                EventCard(
+                                    event: event,
+                                    onChatTap: {
+                                        print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
+                                        handleEventChatTap(event: event)
+                                    },
+                                    onEditTap: {
+                                        print("✏️ Edit event tapped: \(event.title)")
+                                        selectedEventForEdit = event
+                                    },
+                                    onDeleteTap: {
+                                        print("🗑️ Delete event tapped: \(event.title)")
+                                        selectedEventForDelete = event
+                                        showingDeleteConfirmation = true
+                                    },
+                                    onBulkRegistrationTap: {
+                                        print("👥 Bulk registration tapped: \(event.title)")
+                                        selectedEventForBulkRegistration = event
+                                    }
+                                )
+                                .padding(.horizontal, 20)
                             }
                             .padding(.top, 8)
-                        }
-                        .refreshable {
-                            await eventService.fetchEvents()
-                            await eventService.fetchUserParticipations()
                         }
                         
                         // Floating Action Button (only for trainers and above)

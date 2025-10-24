@@ -6,19 +6,19 @@ import EventKit
 enum ClassActionState: Equatable {
     case available
     case registered
-    case full 
+    case full
     case live
     case completed(wasRegistered: Bool)
     case attended
     case cancelled
-    
+
     struct ActionConfig {
         let text: String
         let icon: String
         let primaryColor: Color
         let backgroundColor: Color
         let isDisabled: Bool
-        
+
         init(text: String, icon: String, primaryColor: Color, backgroundColor: Color? = nil, isDisabled: Bool = false) {
             self.text = text
             self.icon = icon
@@ -27,7 +27,7 @@ enum ClassActionState: Equatable {
             self.isDisabled = isDisabled
         }
     }
-    
+
     func config(theme: ThemeManager.AppTheme) -> ActionConfig {
         switch self {
         case .available:
@@ -42,7 +42,7 @@ enum ClassActionState: Equatable {
                 icon: "checkmark.circle.fill",
                 primaryColor: Color.dynamicAccent(theme: theme),
                 backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
-                isDisabled: false // Permitir gestionar la inscripción (action sheet)
+                isDisabled: false
             )
         case .full:
             return ActionConfig(
@@ -64,7 +64,7 @@ enum ClassActionState: Equatable {
                 icon: "checkmark.seal.fill",
                 primaryColor: Color.dynamicAccent(theme: theme),
                 backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
-                isDisabled: false // Permitir ver estadísticas de la clase
+                isDisabled: false
             )
         case .completed(let wasRegistered):
             if wasRegistered {
@@ -73,7 +73,7 @@ enum ClassActionState: Equatable {
                     icon: "trophy.fill",
                     primaryColor: Color.dynamicAccent(theme: theme),
                     backgroundColor: Color.dynamicAccent(theme: theme).opacity(0.15),
-                    isDisabled: false // Permitir ver detalles/estadísticas
+                    isDisabled: false
                 )
             } else {
                 return ActionConfig(
@@ -103,14 +103,14 @@ struct StatsPill: View {
     let icon: String?
     let color: Color
     let theme: ThemeManager.AppTheme
-    
+
     init(_ text: String, icon: String? = nil, color: Color, theme: ThemeManager.AppTheme) {
         self.text = text
         self.icon = icon
         self.color = color
         self.theme = theme
     }
-    
+
     var body: some View {
         HStack(spacing: 4) {
             if let icon = icon {
@@ -138,7 +138,7 @@ struct StatsPill: View {
 struct LiveIndicator: View {
     let theme: ThemeManager.AppTheme
     @State private var isPulsing = false
-    
+
     var body: some View {
         HStack(spacing: 4) {
             Circle()
@@ -147,7 +147,7 @@ struct LiveIndicator: View {
                 .scaleEffect(isPulsing ? 1.2 : 1.0)
                 .opacity(isPulsing ? 0.7 : 1.0)
                 .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isPulsing)
-            
+
             Text("LIVE")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(Color.dynamicAccent(theme: theme))
@@ -162,10 +162,10 @@ struct LiveIndicator: View {
 struct ClassTypeIcon: View {
     let className: String
     let theme: ThemeManager.AppTheme
-    
+
     private var fitnessIcon: String {
         let lowercaseName = className.lowercased()
-        
+
         if lowercaseName.contains("box") {
             return "figure.boxing"
         } else if lowercaseName.contains("yoga") {
@@ -186,7 +186,7 @@ struct ClassTypeIcon: View {
             return "figure.walk"
         }
     }
-    
+
     var body: some View {
         Image(systemName: fitnessIcon)
             .font(.system(size: 20, weight: .semibold))
@@ -926,6 +926,7 @@ struct CompletedCelebrationView: View {
 // MARK: - Main Class Card View
 struct ClassCardView: View {
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authService: AuthServiceDirect
     let gymClass: GymClass
     @EnvironmentObject var classService: ClassService
     @StateObject private var gymService = GymService.shared
@@ -949,177 +950,90 @@ struct ClassCardView: View {
     
     // Identificador único para esta instancia de la tarjeta
     private let cardInstanceId = UUID().uuidString
-    
-    var body: some View {
-        cardContent
-            .background(cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                HStack {
-                    Spacer()
-                    
-                    // Admin menu button
-                    if shouldShowAdminControls {
-                        Button(action: {
-                            showingActionSheet = true
-                        }) {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                .frame(width: 32, height: 32)
-                                .background(
-                                    Circle()
-                                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.9))
-                                        .shadow(
-                                            color: Color.black.opacity(0.1),
-                                            radius: 2,
-                                            x: 0,
-                                            y: 1
-                                        )
-                                )
-                        }
-                        .contentShape(Circle())
-                    }
-                    
-                    // Status badges
-                    statusBadgeContent
-                }
-                .padding(.top, 12)
-                .padding(.trailing, 12),
-                alignment: .topTrailing
-            )
+
+    // MARK: - Main Card View (Split for compiler optimization)
+    private var mainCard: some View {
+        baseCard
+            .overlay(adminMenuOverlay, alignment: .topTrailing)
             .overlay(successAnimation)
-            // .overlay(completedCelebration) // Reemplazado por NotificationManager
             .scaleEffect(cardPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0), value: cardPressed)
-            .onAppear {
-                print("🔍 ClassCardView onAppear - Clase: \(gymClass.name)")
-                print("🔍 AuthService configurado: \(classService.authService != nil)")
-                print("🔍 Trainers en cache: \(classService.trainers.count)")
-                
-                // Inicializar wasRegisteredBefore para evitar animación en primera carga
-                let currentRegistrationStatus = classService.userRegistrationStatus[gymClass.id] ?? false
-                wasRegisteredBefore = currentRegistrationStatus
-                
-                // Inicializar estado de acción
-                updateActionStateAsync()
-                
-                // Cargar trainers si no están cargados o hay error de autenticación
-                if classService.trainers.isEmpty || classService.authenticationError {
-                    print("🔍 Cargando trainers porque el cache está vacío o hay error de auth")
-                    // Solo cargar si no está ya cargando para evitar requests duplicados
-                    if !classService.isLoadingTrainers {
-                        Task {
-                            await classService.loadTrainers()
-                            updateTrainerImage()
-                        }
-                    } else {
-                        // Si ya está cargando, solo esperar y actualizar cuando termine
-                        print("🔄 Ya se están cargando los trainers, esperando...")
-                    }
-                } else {
-                    print("🔍 Usando trainers del cache")
-                    updateTrainerImage()
-                }
-            }
-            .onChange(of: classService.trainers.count) { _, _ in
-                updateTrainerImage()
-            }
-            .onChange(of: classService.trainersLastUpdated) { _, _ in
-                // Actualizar cuando se refresquen los trainers
-                updateTrainerImage()
-            }
-            .onChange(of: classService.userRegistrationStatus) { oldValue, newValue in
-                // Detectar cuando el usuario se registra exitosamente
-                let wasRegistered = oldValue[gymClass.id] ?? false
-                let isNowRegistered = newValue[gymClass.id] ?? false
-                
-                if !wasRegistered && isNowRegistered && !wasRegisteredBefore {
-                    // Mostrar animación de éxito con mismo timing que botón
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showSuccessAnimation = true
-                    }
-                    
-                    // Haptic feedback
-                    if #available(iOS 13.0, *) {
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
-                    }
-                    
-                    // Auto-hide después de 2 segundos con misma animación
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            showSuccessAnimation = false
-                        }
-                    }
-                    
-                    wasRegisteredBefore = true
-                }
-                
-                updateActionStateAsync()
-            }
-            .onChange(of: classService.joiningClassIds.count) { _, _ in
-                // Solo actualizar si esta clase específica terminó su operación
-                if !classService.joiningClassIds.contains(gymClass.id) && !needsStateUpdate {
-                    debounceStateUpdate()
-                }
-            }
-            .onTapGesture {
-                // Micro-animación de tap
-                withAnimation(.easeInOut(duration: 0.1)) {
-                    cardPressed = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.easeInOut(duration: 0.1)) {
-                        cardPressed = false
-                    }
-                }
-                
-                // Si hay error de autenticación, intentar recargar trainers
-                if classService.authenticationError {
-                    print("🔄 Reintentando cargar trainers después de tap en tarjeta con error de auth")
-                    Task {
-                        await classService.loadTrainers()
-                    }
-                }
-            }
-            .sheet(isPresented: $showingEditSession) {
-                if let sessionWithClass = createSessionWithClass() {
-                    EditSessionView(sessionToEdit: sessionWithClass)
-                        .environmentObject(themeManager)
-                        .environmentObject(classService.authService ?? AuthServiceDirect())
-                        .environmentObject(classService)
-                }
-            }
-            .alert("Confirm Deletion", isPresented: $showingDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { 
-                    isDeleting = false
-                }
-                Button("Delete Session", role: .destructive) {
-                    deleteSession()
-                }
-            } message: {
-                Text("Are you sure you want to delete this session?\n\nClass: \(gymClass.name)\nTime: \(formattedTimeWithDuration)\n\nNote: If participants are registered, the session will be cancelled instead of deleted.")
-            }
-            .alert("Success", isPresented: $showingDeleteSuccess) {
-                Button("OK") { }
-            } message: {
-                Text("The session has been successfully deleted.")
-            }
-            .alert("Error", isPresented: $showingDeleteError) {
-                Button("OK") { }
-            } message: {
-                Text(deleteErrorMessage.isEmpty ? "Failed to delete the session. Please try again." : deleteErrorMessage)
-            }
-            .actionSheet(isPresented: $showingActionSheet) {
-                ActionSheet(
-                    title: Text("Session Options"),
-                    message: Text("\(gymClass.name)\n\(formattedTimeWithDuration)"),
-                    buttons: sessionActionButtons()
-                )
-            }
+            .modifier(CardSheetsModifier(
+                showingEditSession: $showingEditSession,
+                showingDeleteConfirmation: $showingDeleteConfirmation,
+                showingDeleteSuccess: $showingDeleteSuccess,
+                showingDeleteError: $showingDeleteError,
+                showingActionSheet: $showingActionSheet,
+                gymClass: gymClass,
+                formattedTimeWithDuration: formattedTimeWithDuration,
+                deleteErrorMessage: deleteErrorMessage,
+                createSessionWithClass: createSessionWithClass,
+                deleteSession: deleteSession,
+                sessionActionButtons: sessionActionButtons,
+                themeManager: themeManager,
+                classService: classService
+            ))
     }
-    
+
+    // MARK: - Base Card
+    private var baseCard: some View {
+        ZStack {
+            cardContent
+                .background(cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    // MARK: - Admin Menu Overlay
+    private var adminMenuOverlay: some View {
+        HStack {
+            Spacer()
+
+            // Admin menu button
+            if shouldShowAdminControls {
+                Button(action: {
+                    showingActionSheet = true
+                }) {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.9))
+                                .shadow(
+                                    color: Color.black.opacity(0.1),
+                                    radius: 2,
+                                    x: 0,
+                                    y: 1
+                                )
+                        )
+                }
+                .contentShape(Circle())
+            }
+
+            // Status badges
+            statusBadgeContent
+        }
+        .padding(.top, 12)
+        .padding(.trailing, 12)
+    }
+
+    var body: some View {
+        mainCard
+            .modifier(CardLifecycleModifier(
+                gymClass: gymClass,
+                classService: classService,
+                cardPressed: $cardPressed,
+                showSuccessAnimation: $showSuccessAnimation,
+                wasRegisteredBefore: $wasRegisteredBefore,
+                updateActionStateAsync: updateActionStateAsync,
+                updateTrainerImage: updateTrainerImage,
+                debounceStateUpdate: debounceStateUpdate,
+                needsStateUpdate: needsStateUpdate
+            ))
+    }
+
     // MARK: - Action Sheet Buttons
     
     private func sessionActionButtons() -> [ActionSheet.Button] {
@@ -1419,41 +1333,43 @@ struct ClassCardView: View {
     private func deleteSession() {
         isDeleting = true
         deleteErrorMessage = ""
-        
+
         Task {
-            let sessionService = SessionCreationService()
-            sessionService.authService = classService.authService
-            sessionService.classService = classService
-            
-            print("🗑️ Deleting session with ID: \(gymClass.id)")
-            let success = await sessionService.deleteSession(sessionId: gymClass.id)
-            
-            await MainActor.run {
-                isDeleting = false
-                
-                if success {
+            let activityService = ScheduledActivityService.shared
+            // Configure activityService with authService and gymService
+            activityService.configure(authService: authService, gymService: gymService)
+
+            print("🗑️ Cancelling session with ID: \(gymClass.id)")
+
+            do {
+                try await activityService.cancelActivity(id: gymClass.id, type: .gymClass)
+
+                await MainActor.run {
+                    isDeleting = false
                     print("✅ Session deleted successfully, refreshing class data")
-                    
+
                     // Show success feedback
                     showingDeleteSuccess = true
-                    
+
                     // Haptic feedback
                     if #available(iOS 13.0, *) {
                         let notificationFeedback = UINotificationFeedbackGenerator()
                         notificationFeedback.notificationOccurred(.success)
                     }
-                    
+
                     // Refresh the classes after a short delay
                     Task {
                         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                         await classService.forceRefreshSessions(date: gymClass.startTime)
                     }
-                } else {
-                    print("❌ Failed to delete session")
-                    // Get error message from service
-                    deleteErrorMessage = sessionService.deleteSessionErrorMessage ?? "Failed to delete the session"
+                }
+            } catch {
+                await MainActor.run {
+                    isDeleting = false
+                    print("❌ Failed to delete session: \(error)")
+                    deleteErrorMessage = error.localizedDescription
                     showingDeleteError = true
-                    
+
                     // Error haptic feedback
                     if #available(iOS 13.0, *) {
                         let notificationFeedback = UINotificationFeedbackGenerator()
@@ -1814,35 +1730,37 @@ struct ClassCardView: View {
     private func updateTrainerImage() {
         print("🔍 Actualizando imagen del trainer ID: \(gymClass.trainerId)")
         print("🔍 Trainers disponibles: \(classService.trainers.count)")
-        
-        if let trainer = classService.getTrainer(trainerId: gymClass.trainerId) {
-            let pictureURL = trainer.picture ?? ""
-            print("✅ Trainer encontrado: \(trainer.fullName)")
-            print("🔍 Picture URL original: '\(pictureURL)'")
+
+        Task {
+            if let trainer = await classService.getTrainer(trainerId: gymClass.trainerId) {
+                let pictureURL = trainer.picture ?? ""
+                print("✅ Trainer encontrado: \(trainer.fullName)")
+                print("🔍 Picture URL original: '\(pictureURL)'")
             
-            // Validar que la URL no esté vacía y sea válida
-            if !pictureURL.isEmpty, URL(string: pictureURL) != nil {
-                print("✅ URL válida, actualizando imagen")
-                // Solo actualizar si la URL cambió para evitar recargas innecesarias
-                if trainerImageURL != pictureURL {
-                    DispatchQueue.main.async {
-                        self.trainerImageURL = pictureURL
+                // Validar que la URL no esté vacía y sea válida
+                if !pictureURL.isEmpty, URL(string: pictureURL) != nil {
+                    print("✅ URL válida, actualizando imagen")
+                    // Solo actualizar si la URL cambió para evitar recargas innecesarias
+                    if trainerImageURL != pictureURL {
+                        await MainActor.run {
+                            self.trainerImageURL = pictureURL
+                        }
+                    }
+                } else {
+                    print("⚠️ URL inválida o vacía, usando placeholder")
+                    if !trainerImageURL.isEmpty {
+                        await MainActor.run {
+                            self.trainerImageURL = ""
+                        }
                     }
                 }
             } else {
-                print("⚠️ URL inválida o vacía, usando placeholder")
+                print("❌ Trainer no encontrado para ID: \(gymClass.trainerId)")
+                print("🔍 Trainers en cache: \(classService.trainers.map { "ID: \($0.id), Name: \($0.fullName)" }.joined(separator: ", "))")
                 if !trainerImageURL.isEmpty {
-                    DispatchQueue.main.async {
+                    await MainActor.run {
                         self.trainerImageURL = ""
                     }
-                }
-            }
-        } else {
-            print("❌ Trainer no encontrado para ID: \(gymClass.trainerId)")
-            print("🔍 Trainers en cache: \(classService.trainers.map { "ID: \($0.id), Name: \($0.fullName)" }.joined(separator: ", "))")
-            if !trainerImageURL.isEmpty {
-                DispatchQueue.main.async {
-                    self.trainerImageURL = ""
                 }
             }
         }
@@ -1898,6 +1816,170 @@ struct ClassCardView: View {
         let classHasEnded = now > gymClass.endTime || gymClass.status == .completed
         
         return isCurrentlyRegistered || (wasRegisteredBefore && classHasEnded)
+    }
+}
+
+// MARK: - ViewModifiers for Compiler Optimization
+
+struct CardSheetsModifier: ViewModifier {
+    @Binding var showingEditSession: Bool
+    @Binding var showingDeleteConfirmation: Bool
+    @Binding var showingDeleteSuccess: Bool
+    @Binding var showingDeleteError: Bool
+    @Binding var showingActionSheet: Bool
+    let gymClass: GymClass
+    let formattedTimeWithDuration: String
+    let deleteErrorMessage: String
+    let createSessionWithClass: () -> SessionWithClass?
+    let deleteSession: () -> Void
+    let sessionActionButtons: () -> [ActionSheet.Button]
+    let themeManager: ThemeManager
+    let classService: ClassService
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showingEditSession) {
+                EditSessionView()
+                    .environmentObject(themeManager)
+                    .environmentObject(classService.authService ?? AuthServiceDirect())
+                    .environmentObject(classService)
+            }
+            .alert("Confirm Deletion", isPresented: $showingDeleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete Session", role: .destructive) {
+                    deleteSession()
+                }
+            } message: {
+                Text("Are you sure you want to delete this session?\n\nClass: \(gymClass.name)\nTime: \(formattedTimeWithDuration)\n\nNote: If participants are registered, the session will be cancelled instead of deleted.")
+            }
+            .alert("Success", isPresented: $showingDeleteSuccess) {
+                Button("OK") { }
+            } message: {
+                Text("The session has been successfully deleted.")
+            }
+            .alert("Error", isPresented: $showingDeleteError) {
+                Button("OK") { }
+            } message: {
+                Text(deleteErrorMessage.isEmpty ? "Failed to delete the session. Please try again." : deleteErrorMessage)
+            }
+            .actionSheet(isPresented: $showingActionSheet) {
+                ActionSheet(
+                    title: Text("Session Options"),
+                    message: Text("\(gymClass.name)\n\(formattedTimeWithDuration)"),
+                    buttons: sessionActionButtons()
+                )
+            }
+    }
+}
+
+// MARK: - CardLifecycleModifier
+struct CardLifecycleModifier: ViewModifier {
+    let gymClass: GymClass
+    let classService: ClassService
+    @Binding var cardPressed: Bool
+    @Binding var showSuccessAnimation: Bool
+    @Binding var wasRegisteredBefore: Bool
+    let updateActionStateAsync: () -> Void
+    let updateTrainerImage: () -> Void
+    let debounceStateUpdate: () -> Void
+    let needsStateUpdate: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                handleOnAppear()
+            }
+            .onChange(of: classService.trainers.count) { _, _ in
+                updateTrainerImage()
+            }
+            .onChange(of: classService.trainersLastUpdated) { _, _ in
+                updateTrainerImage()
+            }
+            .onChange(of: classService.userRegistrationStatus) { oldValue, newValue in
+                handleRegistrationChange(oldValue: oldValue, newValue: newValue)
+            }
+            .onChange(of: classService.joiningClassIds.count) { _, _ in
+                handleJoiningClassChange()
+            }
+            .onTapGesture {
+                handleTapGesture()
+            }
+    }
+
+    private func handleOnAppear() {
+        print("🔍 ClassCardView onAppear - Clase: \(gymClass.name)")
+        print("🔍 AuthService configurado: \(classService.authService != nil)")
+        print("🔍 Trainers en cache: \(classService.trainers.count)")
+
+        let currentRegistrationStatus = classService.userRegistrationStatus[gymClass.id] ?? false
+        wasRegisteredBefore = currentRegistrationStatus
+
+        updateActionStateAsync()
+
+        if classService.trainers.isEmpty || classService.authenticationError {
+            print("🔍 Cargando trainers porque el cache está vacío o hay error de auth")
+            if !classService.isLoadingTrainers {
+                Task {
+                    await classService.loadTrainers()
+                    updateTrainerImage()
+                }
+            } else {
+                print("🔄 Ya se están cargando los trainers, esperando...")
+            }
+        } else {
+            print("🔍 Usando trainers del cache")
+            updateTrainerImage()
+        }
+    }
+
+    private func handleRegistrationChange(oldValue: [Int: Bool], newValue: [Int: Bool]) {
+        let wasRegistered = oldValue[gymClass.id] ?? false
+        let isNowRegistered = newValue[gymClass.id] ?? false
+
+        if !wasRegistered && isNowRegistered && !wasRegisteredBefore {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                showSuccessAnimation = true
+            }
+
+            if #available(iOS 13.0, *) {
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showSuccessAnimation = false
+                }
+            }
+
+            wasRegisteredBefore = true
+        }
+
+        updateActionStateAsync()
+    }
+
+    private func handleJoiningClassChange() {
+        if !classService.joiningClassIds.contains(gymClass.id) && !needsStateUpdate {
+            debounceStateUpdate()
+        }
+    }
+
+    private func handleTapGesture() {
+        withAnimation(.easeInOut(duration: 0.1)) {
+            cardPressed = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.easeInOut(duration: 0.1)) {
+                cardPressed = false
+            }
+        }
+
+        if classService.authenticationError {
+            print("🔄 Reintentando cargar trainers después de tap en tarjeta con error de auth")
+            Task {
+                await classService.loadTrainers()
+            }
+        }
     }
 }
 

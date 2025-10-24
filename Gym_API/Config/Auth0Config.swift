@@ -7,25 +7,43 @@
 
 import Foundation
 
-/// Loads Auth0 configuration from Auth0.plist at runtime.
-/// Do not hardcode secrets in source code.
+/// Loads Auth0 configuration from Auth0.plist at runtime for sensitive data.
+/// Public configuration can be in Info.plist for easier environment management.
 struct Auth0Config {
     private static let plistName = "Auth0"
 
-    /// Domain from Auth0.plist (e.g., dev-xxxx.us.auth0.com)
+    /// Domain from Auth0.plist or Info.plist (e.g., dev-xxxx.us.auth0.com)
     static var domain: String {
-        value(forKey: "Domain") ?? ""
+        // Primero intentar desde Info.plist (para configuración por ambiente)
+        if let domainFromInfo = Bundle.main.object(forInfoDictionaryKey: "AUTH0_DOMAIN") as? String,
+           !domainFromInfo.isEmpty {
+            return domainFromInfo
+        }
+        // Fallback a Auth0.plist
+        return value(forKey: "Domain") ?? ""
     }
 
-    /// Client ID from Auth0.plist
+    /// Client ID from Auth0.plist or Info.plist
     static var clientId: String {
-        value(forKey: "ClientId") ?? ""
+        // Primero intentar desde Info.plist (para configuración por ambiente)
+        if let clientIdFromInfo = Bundle.main.object(forInfoDictionaryKey: "AUTH0_CLIENT_ID") as? String,
+           !clientIdFromInfo.isEmpty {
+            return clientIdFromInfo
+        }
+        // Fallback a Auth0.plist
+        // NOTA: El ClientID correcto según documentación es OuJ6IKE0lJSdaMG6jaW04jfptsMRbyvp
+        return value(forKey: "ClientId") ?? "OuJ6IKE0lJSdaMG6jaW04jfptsMRbyvp"
     }
 
     /// API audience. Kept as a non-secret constant or can be moved to Info.plist.
     static var audience: String {
+        // Primero intentar desde Info.plist
+        if let audienceFromInfo = Bundle.main.object(forInfoDictionaryKey: "AUTH0_AUDIENCE") as? String,
+           !audienceFromInfo.isEmpty {
+            return audienceFromInfo
+        }
         // If "Audience" is present in Auth0.plist, use it; else default.
-        value(forKey: "Audience") ?? "https://gymapi"
+        return value(forKey: "Audience") ?? "https://gymapi"
     }
 
     /// Issuer derived from domain

@@ -650,6 +650,14 @@ class GymService: ObservableObject {
         
         return nil
     }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ GymService deinitialized")
+        #endif
+        // Las propiedades se limpiarán automáticamente con ARC
+        // No podemos modificar propiedades @Published desde deinit en una clase @MainActor
+    }
 }
 
 // MARK: - Notification Names

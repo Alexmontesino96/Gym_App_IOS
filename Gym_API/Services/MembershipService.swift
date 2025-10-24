@@ -323,4 +323,12 @@ class MembershipService: ObservableObject {
         clearMembershipData()
         await getMyMembershipStatus()
     }
+
+    deinit {
+        #if DEBUG
+        print("🗑️ MembershipService deinitialized")
+        #endif
+        // Las propiedades @Published se limpiarán automáticamente con ARC
+        // No podemos llamar a clearMembershipData() desde deinit porque está en MainActor
+    }
 }

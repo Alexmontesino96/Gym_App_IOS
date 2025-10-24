@@ -12,9 +12,24 @@ struct ClassesView: View {
     // Filtered classes based on selected date
     private var filteredClasses: [GymClass] {
         let calendar = Calendar.current
-        return classService.classes.filter { gymClass in
+        let filtered = classService.classes.filter { gymClass in
             calendar.isDate(gymClass.startTime, inSameDayAs: selectedDate)
         }
+
+        // Debug logging
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        print("🔍 [ClassesView] Filtrado de clases:")
+        print("   - Total sesiones: \(classService.sessions.count)")
+        print("   - Total clases convertidas: \(classService.classes.count)")
+        print("   - Fecha seleccionada: \(formatter.string(from: selectedDate))")
+        print("   - Clases filtradas: \(filtered.count)")
+        for gymClass in classService.classes {
+            let matches = calendar.isDate(gymClass.startTime, inSameDayAs: selectedDate)
+            print("   - Clase '\(gymClass.name)' - Start: \(formatter.string(from: gymClass.startTime)) - Matches: \(matches)")
+        }
+
+        return filtered
     }
     
     var body: some View {
@@ -83,20 +98,18 @@ struct ClassesView: View {
                                 await refreshClasses()
                             }
                         } else {
-                            ScrollView {
-                                LazyVStack(spacing: 16) {
-                                    ForEach(filteredClasses) { gymClass in
-                                        ClassCardView(gymClass: gymClass)
-                                            .padding(.horizontal, 20)
-                                    }
-                                }
-                                .padding(.vertical, 20)
-                                
-                                Spacer(minLength: 100)
+                            // Using OptimizedList for better performance
+                            OptimizedList(
+                                items: filteredClasses,
+                                spacing: 16,
+                                showDividers: false,
+                                preloadThreshold: 5,
+                                onRefresh: refreshClasses
+                            ) { gymClass in
+                                ClassCardView(gymClass: gymClass)
+                                    .padding(.horizontal, 20)
                             }
-                            .refreshable {
-                                await refreshClasses()
-                            }
+                            .padding(.vertical, 20)
                         }
                         
                         // Floating Action Button (always visible for admins and owners)
@@ -121,10 +134,16 @@ struct ClassesView: View {
             Task {
                 // Configurar el authService en el classService para operaciones de sesiones
                 classService.authService = authService
-                
+
                 // Cargar trainers primero para que estén disponibles para las tarjetas
                 await classService.loadTrainers()
-                await classService.loadSessionsForDateIfNeeded(date: selectedDate)
+
+                // Solo cargar sesiones si no hay ninguna cargada
+                // HomeView ya carga las sesiones en paralelo
+                if classService.sessions.isEmpty {
+                    await classService.loadSessionsForDateIfNeeded(date: selectedDate)
+                }
+
                 await classService.fetchMyClasses() // Cargar estado de registro del usuario
             }
         }
