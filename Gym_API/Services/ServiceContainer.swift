@@ -18,13 +18,16 @@ class ServiceContainer: ObservableObject {
     let membershipService: MembershipService
     let gymService: GymService
     let eventService: EventService
+    let eventPaymentService: EventPaymentService
     let classService: ClassService
     let profileService: UserProfileService
     let unifiedImageService = UnifiedImageService.shared // Singleton, no need to initialize
     let userStatsService: UserStatsService
     let directMessageService: DirectMessageService
     let surveyService: SurveyService
-    
+    let workspaceContextService: WorkspaceContextService
+    let storyService: StoryService
+
     // MARK: - Published Properties
     @Published var isInitialized = false
     @Published var initializationError: String?
@@ -44,13 +47,16 @@ class ServiceContainer: ObservableObject {
             self.membershipService = MembershipService.shared
             self.gymService = GymService.shared
             self.eventService = EventService()
+            self.eventPaymentService = EventPaymentService.shared
             self.classService = ClassService()
             self.profileService = UserProfileService.shared
             // UnifiedImageService is a singleton, already initialized
             self.userStatsService = UserStatsService.shared
             self.directMessageService = DirectMessageService()
             self.surveyService = SurveyService()
-            
+            self.workspaceContextService = WorkspaceContextService.shared
+            self.storyService = StoryService()
+
             // Configure dependencies automatically
             setupDependencies()
             
@@ -74,6 +80,7 @@ class ServiceContainer: ObservableObject {
         membershipService.authService = authService
         gymService.authService = authService
         eventService.authService = authService
+        eventPaymentService.authService = authService
         classService.authService = authService
         profileService.authService = authService
         unifiedImageService.configure(authService: authService)
@@ -81,7 +88,9 @@ class ServiceContainer: ObservableObject {
         directMessageService.authService = authService
         surveyService.authService = authService
         surveyService.gymService = gymService
-        
+        workspaceContextService.authService = authService
+        storyService.authService = authService
+
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
         // Mark as initialized
@@ -155,29 +164,34 @@ class ServiceContainer: ObservableObject {
     /// Carga datos iniciales después de la autenticación
     private func loadInitialData() async {
         print("📊 Cargando datos iniciales...")
-        
+
         async let membershipTask = membershipService.getMyMembershipStatus()
         // NOTA: No cargar gyms aquí para no interferir con la lógica de auto-selección en AuthenticatedView
         // async let gymTask = gymService.getMyGyms()
         async let trainersTask = classService.loadTrainers()
-        
+        async let contextTask = workspaceContextService.fetchContext()
+
         await membershipTask
         // await gymTask
         await trainersTask
-        
+        await contextTask
+
         print("✅ Datos iniciales cargados (sin gyms - se cargan en AuthenticatedView)")
     }
     
     /// Limpia datos del usuario después del logout
     private func clearUserData() {
         print("🧹 Limpiando datos de usuario...")
-        
+
         // Clear gym selection
         gymService.clearGymSelection()
-        
+
         // Clear membership data
         membershipService.clearMembershipData()
-        
+
+        // Clear workspace context
+        workspaceContextService.clearContext()
+
         print("✅ Datos de usuario limpiados")
     }
     
@@ -232,7 +246,7 @@ extension EnvironmentValues {
 // MARK: - ServiceContainer View Modifier
 struct ServiceContainerModifier: ViewModifier {
     let serviceContainer = ServiceContainer.shared
-    
+
     func body(content: Content) -> some View {
         content
             .environmentObject(serviceContainer.authService)
@@ -241,9 +255,11 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.membershipService)
             .environmentObject(serviceContainer.gymService)
             .environmentObject(serviceContainer.eventService)
+            .environmentObject(serviceContainer.eventPaymentService)
             .environmentObject(serviceContainer.classService)
             .environmentObject(serviceContainer.profileService)
             .environmentObject(serviceContainer.surveyService)
+            .environmentObject(serviceContainer.workspaceContextService)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

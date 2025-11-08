@@ -9,9 +9,14 @@ struct HomeView: View {
     @StateObject private var profileService = UserProfileService.shared
     @ObservedObject private var userStatsService = UserStatsService.shared
     @EnvironmentObject var surveyService: SurveyService
+    @StateObject private var paymentService = EventPaymentService.shared  // Add payment service
     @State private var currentDate = Date()
     @State private var showComebackView = false
     @State private var isInitialLoad = true
+    @State private var showingPaymentSheet = false  // For payment modal
+    @State private var currentPaymentIntent: PaymentIntent?  // Current payment to process
+    @State private var currentParticipationId: Int?  // Track participation ID for payment
+    @State private var selectedEventForPayment: Event?  // Track event for payment
     
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: currentDate)
@@ -72,7 +77,13 @@ struct HomeView: View {
                         VStack(spacing: 20) {
                         // Hero Section with personalized greeting
                         HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
-                        
+
+                        // Stories Bar - Nueva funcionalidad de historias
+                        StoriesBar()
+                            .environmentObject(ServiceContainer.shared.storyService)
+                            .environmentObject(authService)
+                            .environmentObject(themeManager)
+
                         // Streak Indicator o Comeback Card según el estado
                         HStack {
                             if userStatsService.userStats.currentStreak == 0 && userStatsService.daysInactive >= 1 {
@@ -131,8 +142,16 @@ struct HomeView: View {
                         
                         // Featured Event (single event with action buttons)
                         if !eventService.events.isEmpty {
-                            FeaturedEventSection(events: eventService.events, themeManager: themeManager)
-                                .environmentObject(eventService)
+                            FeaturedEventSection(
+                                events: eventService.events,
+                                themeManager: themeManager,
+                                paymentService: paymentService,
+                                showingPaymentSheet: $showingPaymentSheet,
+                                currentPaymentIntent: $currentPaymentIntent,
+                                currentParticipationId: $currentParticipationId,
+                                selectedEventForPayment: $selectedEventForPayment
+                            )
+                            .environmentObject(eventService)
                         } else {
                             // Empty state placeholder for no events
                             HStack {
@@ -170,21 +189,19 @@ struct HomeView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        themeManager.toggleTheme()
-                    }) {
-                        Image(systemName: themeManager.currentTheme == .dark ? "sun.max.fill" : "moon.fill")
-                            .font(.system(size: 18))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    }
-                    .accessibilityLabel("Toggle theme")
-                    .accessibilityHint("Switch between light and dark mode")
-                    .accessibilityValue("Current theme: \(themeManager.currentTheme.displayName)")
-                    .accessibleTouchTarget()
+            .navigationBarItems(
+                trailing: Button(action: {
+                    themeManager.toggleTheme()
+                }) {
+                    Image(systemName: themeManager.currentTheme == .dark ? "sun.max.fill" : "moon.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 }
-            }
+                .accessibilityLabel("Toggle theme")
+                .accessibilityHint("Switch between light and dark mode")
+                .accessibilityValue("Current theme: \(themeManager.currentTheme.displayName)")
+                .accessibleTouchTarget()
+            )
         }
         .sheet(isPresented: $showComebackView) {
             ComebackView(
@@ -202,6 +219,34 @@ struct HomeView: View {
             .presentationDragIndicator(.visible) // Mostrar indicador de drag
             .presentationCornerRadius(30)
             .presentationBackgroundInteraction(.enabled)
+        }
+        .sheet(item: Binding(
+            get: { currentPaymentIntent },
+            set: { currentPaymentIntent = $0 }
+        )) { paymentIntent in
+            // Payment sheet for paid events
+            let _ = print("💳 [HomeView] Sheet presenting")
+            let _ = print("💳 [HomeView] currentPaymentIntent: \(currentPaymentIntent != nil ? "exists" : "nil")")
+            let _ = print("💳 [HomeView] currentParticipationId: \(currentParticipationId ?? -1)")
+            let _ = print("💳 [HomeView] selectedEventForPayment: \(selectedEventForPayment?.title ?? "nil")")
+
+            EventPaymentView(
+                paymentIntent: paymentIntent,
+                participationId: currentParticipationId,
+                event: selectedEventForPayment,
+                onPaymentComplete: { success in
+                    currentPaymentIntent = nil
+                    currentParticipationId = nil
+                    selectedEventForPayment = nil
+                    if success {
+                        // Payment successful - refresh event data
+                        // Note: EventService will be refreshed when view reappears
+                    }
+                }
+            )
+            .environmentObject(themeManager)
+            .environmentObject(paymentService)
+            .environmentObject(eventService)
         }
         .onAppear {
             debugLog("🏠 HomeView.onAppear iniciado")
@@ -418,6 +463,13 @@ struct FeaturedEventSection: View {
     let themeManager: ThemeManager
     @EnvironmentObject var eventService: EventService
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    // Payment-related properties
+    let paymentService: EventPaymentService
+    @Binding var showingPaymentSheet: Bool
+    @Binding var currentPaymentIntent: PaymentIntent?
+    @Binding var currentParticipationId: Int?
+    @Binding var selectedEventForPayment: Event?
     
     private var featuredEvent: Event? {
         events.filter { $0.startTime > Date() }
@@ -537,21 +589,39 @@ struct FeaturedEventSection: View {
             return "En \(minutes)m"
         }
     }
-    
+
     var body: some View {
-        if let event = featuredEvent {
-            VStack(spacing: 16) {
-                // Header unificado
-                SectionHeaderView(
-                    title: NSLocalizedString("featured_event", comment: "Featured Event"),
-                    ctaTitle: "view_all",
-                    themeManager: themeManager,
-                    onTapCTA: { /* Navegar a lista de eventos - manejado por vista de eventos */ }
-                )
-                .padding(.horizontal, 0)
-                
-                // Event card
-                ZStack {
+        Group {
+            if let event = featuredEvent {
+                featuredEventContent(event: event)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func featuredEventContent(event: Event) -> some View {
+        VStack(spacing: 16) {
+            featuredEventHeader()
+            featuredEventCard(event: event)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Featured event: \(event.title) on \(dayFormatter.string(from: event.startTime)) at \(timeFormatter.string(from: event.startTime))")
+    }
+
+    @ViewBuilder
+    private func featuredEventHeader() -> some View {
+        SectionHeaderView(
+            title: NSLocalizedString("featured_event", comment: "Featured Event"),
+            ctaTitle: "view_all",
+            themeManager: themeManager,
+            onTapCTA: { /* Navegar a lista de eventos - manejado por vista de eventos */ }
+        )
+        .padding(.horizontal, 0)
+    }
+
+    @ViewBuilder
+    private func featuredEventCard(event: Event) -> some View {
+        ZStack {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                     
@@ -653,10 +723,65 @@ struct FeaturedEventSection: View {
                                     }
                                     
                                     Task {
+                                        print("💰 HomeView: Button action - Event \(event.id) '\(event.title)' - isPaid: \(event.isPaid ?? false) - isRegistered: \(isRegistered)")
+
                                         if isRegistered {
-                                            await eventService.cancelEvent(eventId: event.id)
+                                            // Cancel registration (could include refund for paid events)
+                                            if event.isPaid == true {
+                                                let refundResult = await paymentService.cancelWithRefund(eventId: event.id)
+                                                if refundResult?.success == true {
+                                                    await eventService.fetchEvents()
+                                                }
+                                            } else {
+                                                await eventService.cancelEvent(eventId: event.id)
+                                            }
                                         } else {
-                                            await eventService.joinEvent(eventId: event.id)
+                                            // Join event - check if it's a paid event
+                                            if event.isPaid == true {
+                                                // Paid event - needs payment process
+                                                print("💳 Calling registerForPaidEvent for event \(event.id)")
+                                                if let participation = await paymentService.registerForPaidEvent(eventId: event.id) {
+                                                    print("✅ Got participation response: paymentRequired=\(participation.paymentRequired ?? false), clientSecret=\(participation.paymentClientSecret != nil)")
+                                                    if participation.paymentRequired == true,
+                                                       let clientSecret = participation.paymentClientSecret {
+                                                        // Set up payment intent and show payment sheet
+                                                        print("🎫 Setting up payment sheet with amount: \(participation.paymentAmount ?? 0)")
+                                                        print("🎫 clientSecret: \(clientSecret.prefix(20))...")
+                                                        print("🎫 participationId: \(participation.id)")
+                                                        print("🎫 event: \(event.title)")
+                                                        await MainActor.run {
+                                                            print("🎫 [MainActor] Creating PaymentIntent...")
+                                                            currentPaymentIntent = PaymentIntent(
+                                                                clientSecret: clientSecret,
+                                                                paymentIntentId: participation.paymentIntentId ?? "",
+                                                                stripeAccountId: participation.stripeAccountId,
+                                                                amount: participation.paymentAmount ?? 0,
+                                                                currency: participation.paymentCurrency ?? "EUR",
+                                                                paymentDeadline: participation.paymentDeadline
+                                                            )
+                                                            print("🎫 [MainActor] currentPaymentIntent set: \(currentPaymentIntent != nil)")
+                                                            currentParticipationId = participation.id
+                                                            print("🎫 [MainActor] currentParticipationId set: \(currentParticipationId ?? -1)")
+                                                            selectedEventForPayment = event
+                                                            print("🎫 [MainActor] selectedEventForPayment set: \(selectedEventForPayment?.title ?? "nil")")
+
+                                                            // Open sheet immediately - capture list in sheet closure handles state correctly
+                                                            showingPaymentSheet = true
+                                                            print("✅ [MainActor] Payment sheet should now be showing: showingPaymentSheet=\(showingPaymentSheet)")
+                                                            print("✅ [MainActor] currentPaymentIntent final check: \(currentPaymentIntent != nil)")
+                                                        }
+                                                    } else {
+                                                        // Registration successful without payment required
+                                                        print("ℹ️ Payment not required, fetching events")
+                                                        await eventService.fetchEvents()
+                                                    }
+                                                } else {
+                                                    print("❌ registerForPaidEvent returned nil")
+                                                }
+                                            } else {
+                                                // Free event - regular join
+                                                await eventService.joinEvent(eventId: event.id)
+                                            }
                                         }
                                     }
                                 }) {
@@ -713,31 +838,8 @@ struct FeaturedEventSection: View {
                     .padding(24)
                 }
                 .padding(.horizontal, 4)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Featured event: \(event.title) on \(dayFormatter.string(from: event.startTime)) at \(timeFormatter.string(from: event.startTime))")
-        } else if eventService.isLoading {
-            EventCardSkeleton()
-                .environmentObject(themeManager)
-        } else {
-            // Empty state placeholder for no events
-            HStack {
-                Image(systemName: "calendar")
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                Text(NSLocalizedString("no_upcoming_events", comment: "No upcoming events"))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
-                Spacer()
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-            )
         }
     }
-}
-
 
 // MARK: - StatCardSkeleton Component
 struct StatCardSkeleton: View {
