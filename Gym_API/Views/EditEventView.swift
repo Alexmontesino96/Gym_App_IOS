@@ -391,7 +391,15 @@ struct ConsistentTextFieldStyle: TextFieldStyle {
         creatorId: 1,
         createdAt: Date(),
         updatedAt: Date(),
-        participantsCount: 5
+        participantsCount: 5,
+        isPaid: false,
+        priceCents: nil,
+        currency: nil,
+        refundPolicy: nil,
+        refundDeadlineHours: nil,
+        partialRefundPercentage: nil,
+        stripeProductId: nil,
+        stripePriceId: nil
     )
     
     EditEventView(event: sampleEvent)

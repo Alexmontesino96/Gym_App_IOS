@@ -25,8 +25,10 @@ struct StoriesBar: View {
                     hasActiveStory: hasMyActiveStory,
                     onTap: {
                         if hasMyActiveStory {
+                            print("DEBUG:👤 StoriesBar: Abriendo mis stories activas")
                             showingMyStories = true
                         } else {
+                            print("DEBUG:➕ StoriesBar: Abriendo creador de stories")
                             showingStoryCreator = true
                         }
                     }
@@ -56,11 +58,13 @@ struct StoriesBar: View {
         .frame(height: 100)
         .background(Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.5))
         .onAppear {
+            print("DEBUG:📸 StoriesBar: Vista apareció, obteniendo feed")
             Task {
                 await storyService.fetchStoriesFeed()
             }
         }
         .refreshable {
+            print("DEBUG:🔄 StoriesBar: Actualizando feed de stories")
             await storyService.fetchStoriesFeed(forceRefresh: true)
         }
         .fullScreenCover(isPresented: $showingStoryViewer) {

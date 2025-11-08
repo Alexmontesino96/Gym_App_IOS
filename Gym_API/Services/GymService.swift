@@ -20,7 +20,7 @@ class GymService: ObservableObject {
         print("🏋️ GymService init complete - currentGym: \(currentGym?.name ?? "ninguno")")
     }
     
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceProtocol?
     

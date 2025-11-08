@@ -26,20 +26,22 @@ class OnboardingManager: ObservableObject {
     
     // MARK: - Enums
     
-    enum OnboardingFlow: CaseIterable {
+    enum OnboardingFlow: String, CaseIterable, Codable {
         case splash
         case benefits
-        case userTypeSelection
-        case profileSetup
+        case authGate
+        case welcomeAuthenticated
+        case profileEnhancement
         case permissions
         case complete
-        
+
         var title: String {
             switch self {
             case .splash: return "Welcome"
             case .benefits: return "Benefits"
-            case .userTypeSelection: return "User Type"
-            case .profileSetup: return "Profile Setup"
+            case .authGate: return "Authentication"
+            case .welcomeAuthenticated: return "Welcome"
+            case .profileEnhancement: return "Profile Enhancement"
             case .permissions: return "Permissions"
             case .complete: return "Complete"
             }
@@ -52,10 +54,10 @@ class OnboardingManager: ObservableObject {
         }
     }
     
-    enum UserType {
+    enum UserType: String, Codable {
         case newUser
         case existingUser
-        
+
         var displayName: String {
             switch self {
             case .newUser: return "Create Account"
@@ -78,7 +80,7 @@ class OnboardingManager: ObservableObject {
         }
     }
     
-    enum OnboardingStep: String, CaseIterable {
+    enum OnboardingStep: String, CaseIterable, Codable {
         case splashViewed = "splash_viewed"
         case benefitsViewed = "benefits_viewed"
         case userTypeSelected = "user_type_selected"
@@ -148,16 +150,24 @@ class OnboardingManager: ObservableObject {
     func checkOnboardingStatus() {
         isFirstLaunch = !UserDefaults.standard.hasCompletedOnboarding
         loadCompletedSteps()
-        
+
         if isFirstLaunch {
-            showOnboarding = true
-            // Start directly at user type selection for better UX
-            currentFlow = .userTypeSelection
+            // Intentar restaurar estado guardado
+            restoreState()
+
+            // Si no hay estado guardado o es el primer paso, empezar desde splash
+            if currentFlow == .complete || currentFlow == .splash {
+                showOnboarding = true
+                currentFlow = .splash
+            } else {
+                // Continuar desde donde se quedó
+                showOnboarding = true
+            }
         } else {
             showOnboarding = false
             currentFlow = .complete
         }
-        
+
         print("🎯 OnboardingManager: isFirstLaunch = \(isFirstLaunch)")
         print("🎯 OnboardingManager: completedSteps = \(completedSteps)")
         print("🎯 OnboardingManager: currentFlow = \(currentFlow.title)")
@@ -170,31 +180,32 @@ class OnboardingManager: ObservableObject {
             case .splash:
                 markStepCompleted(.splashViewed)
                 currentFlow = .benefits
-                
+
             case .benefits:
                 markStepCompleted(.benefitsViewed)
-                currentFlow = .userTypeSelection
-                
-            case .userTypeSelection:
-                markStepCompleted(.userTypeSelected)
-                if userType == .newUser {
-                    currentFlow = .profileSetup
-                } else {
-                    // Existing user goes directly to login
-                    completeOnboarding()
-                }
-                
-            case .profileSetup:
+                currentFlow = .authGate
+
+            case .authGate:
+                // Auth handled by AuthGateView, this shouldn't be called
+                break
+
+            case .welcomeAuthenticated:
+                // User can choose to enhance profile or skip
+                currentFlow = .profileEnhancement
+
+            case .profileEnhancement:
                 markStepCompleted(.profileSetupCompleted)
                 currentFlow = .permissions
-                
+
             case .permissions:
                 markStepCompleted(.permissionsRequested)
                 completeOnboarding()
-                
+
             case .complete:
                 break
             }
+
+            saveCurrentState()
         }
     }
     
@@ -204,22 +215,28 @@ class OnboardingManager: ObservableObject {
             switch currentFlow {
             case .splash:
                 break
-                
+
             case .benefits:
                 currentFlow = .splash
-                
-            case .userTypeSelection:
+
+            case .authGate:
                 currentFlow = .benefits
-                
-            case .profileSetup:
-                currentFlow = .userTypeSelection
-                
+
+            case .welcomeAuthenticated:
+                // Can't go back after auth
+                break
+
+            case .profileEnhancement:
+                currentFlow = .welcomeAuthenticated
+
             case .permissions:
-                currentFlow = .profileSetup
-                
+                currentFlow = .profileEnhancement
+
             case .complete:
                 break
             }
+
+            saveCurrentState()
         }
     }
     
@@ -234,32 +251,69 @@ class OnboardingManager: ObservableObject {
     func selectUserType(_ type: UserType) {
         userType = type
         print("🎯 OnboardingManager: Usuario seleccionó tipo: \(type)")
-        
+
         // Track analytics
         trackAnalyticsEvent("user_type_selected", parameters: [
             "user_type": type == .newUser ? "new" : "existing"
         ])
-        
+
         nextStep()
+    }
+
+    /// Maneja autenticación exitosa de Auth0
+    func handleAuthenticationSuccess(user: AuthUser) {
+        print("🎯 OnboardingManager: Autenticación exitosa para \(user.email)")
+
+        // Guardar datos de Auth0 en perfil de onboarding
+        if !user.name.isEmpty {
+            let components = user.name.components(separatedBy: " ")
+            userProfile.firstName = components.first ?? ""
+            userProfile.lastName = components.dropFirst().joined(separator: " ")
+        }
+        userProfile.email = user.email
+
+        // Marcar paso de auth como completado
+        markStepCompleted(.userTypeSelected)
+
+        // Avanzar a welcome
+        withAnimation(.easeInOut(duration: 0.4)) {
+            currentFlow = .welcomeAuthenticated
+        }
+
+        saveCurrentState()
+    }
+
+    /// Omite el profile enhancement y va a permissions
+    func skipProfileEnhancement() {
+        print("🎯 OnboardingManager: Usuario omitió profile enhancement")
+
+        withAnimation(.easeInOut(duration: 0.4)) {
+            currentFlow = .permissions
+        }
+
+        saveCurrentState()
     }
     
     /// Completa el onboarding y guarda el estado
     func completeOnboarding() {
         UserDefaults.standard.hasCompletedOnboarding = true
         saveCompletedSteps()
-        
+
+        // Limpiar estado guardado ya que completó
+        clearState()
+
         withAnimation(.easeInOut(duration: 0.5)) {
             showOnboarding = false
             currentFlow = .complete
         }
-        
+
         // Track completion analytics
         trackAnalyticsEvent("onboarding_completed", parameters: [
             "user_type": userType == .newUser ? "new" : "existing",
             "completed_steps": completedSteps.count,
             "total_time": Date().timeIntervalSince1970 // Could track actual time
         ])
-        
+
         print("✅ OnboardingManager: Onboarding completado")
     }
     
@@ -326,6 +380,59 @@ class OnboardingManager: ObservableObject {
         // TODO: Implementar analytics real (Firebase, Mixpanel, etc.)
         print("📊 Analytics: \(event) - \(parameters)")
     }
+
+    // MARK: - State Persistence
+
+    private let stateKey = "onboarding_current_state_v2"
+
+    /// Guarda el estado actual del onboarding
+    func saveCurrentState() {
+        let state = OnboardingState(
+            currentFlow: currentFlow,
+            userType: userType,
+            userProfile: userProfile,
+            completedSteps: Array(completedSteps),
+            currentBenefitIndex: currentBenefitIndex
+        )
+
+        if let encoded = try? JSONEncoder().encode(state) {
+            UserDefaults.standard.set(encoded, forKey: stateKey)
+            print("💾 OnboardingManager: Estado guardado")
+        }
+    }
+
+    /// Restaura el estado guardado del onboarding
+    func restoreState() {
+        guard let data = UserDefaults.standard.data(forKey: stateKey),
+              let state = try? JSONDecoder().decode(OnboardingState.self, from: data) else {
+            print("ℹ️ OnboardingManager: No hay estado guardado")
+            return
+        }
+
+        currentFlow = state.currentFlow
+        userType = state.userType
+        userProfile = state.userProfile
+        completedSteps = Set(state.completedSteps)
+        currentBenefitIndex = state.currentBenefitIndex
+
+        print("🔄 OnboardingManager: Estado restaurado - \(currentFlow.title)")
+    }
+
+    /// Limpia el estado guardado
+    func clearState() {
+        UserDefaults.standard.removeObject(forKey: stateKey)
+        print("🗑️ OnboardingManager: Estado limpiado")
+    }
+
+    // MARK: - State Model
+
+    private struct OnboardingState: Codable {
+        let currentFlow: OnboardingFlow
+        let userType: UserType?
+        let userProfile: OnboardingUserProfile
+        let completedSteps: [OnboardingStep]
+        let currentBenefitIndex: Int
+    }
 }
 
 // MARK: - Data Models
@@ -339,14 +446,15 @@ struct OnboardingBenefit: Identifiable {
     let accentColor: Color
 }
 
-struct OnboardingUserProfile {
+struct OnboardingUserProfile: Codable {
     var firstName: String = ""
     var lastName: String = ""
+    var email: String = ""
     var fitnessLevel: FitnessLevel = .beginner
     var goals: Set<FitnessGoal> = []
     var preferredWorkoutTypes: Set<WorkoutType> = []
-    
-    enum FitnessLevel: String, CaseIterable {
+
+    enum FitnessLevel: String, CaseIterable, Codable {
         case beginner = "Beginner"
         case intermediate = "Intermediate"
         case advanced = "Advanced"
@@ -368,7 +476,7 @@ struct OnboardingUserProfile {
         }
     }
     
-    enum FitnessGoal: String, CaseIterable {
+    enum FitnessGoal: String, CaseIterable, Codable, Hashable {
         case loseWeight = "Lose Weight"
         case buildMuscle = "Build Muscle"
         case improveEndurance = "Improve Endurance"
@@ -388,7 +496,7 @@ struct OnboardingUserProfile {
         }
     }
     
-    enum WorkoutType: String, CaseIterable {
+    enum WorkoutType: String, CaseIterable, Codable, Hashable {
         case weightLifting = "Weight Lifting"
         case cardio = "Cardio"
         case yoga = "Yoga"

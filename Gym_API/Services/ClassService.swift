@@ -67,7 +67,7 @@ class ClassService: ObservableObject {
     private var currentMyClassesTask: Task<Void, Never>?
     private var currentTrainersTask: Task<Void, Never>?
     
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceDirect?
     

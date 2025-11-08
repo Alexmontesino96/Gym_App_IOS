@@ -18,8 +18,8 @@ class SurveyService: ObservableObject {
     @Published var successMessage: String?
     @Published var needsSurveyRefresh = false
     @Published var isPublishing = false
-    
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+
+    private let baseURL = apiBaseURL
     weak var authService: AuthServiceDirect?
     weak var gymService: GymService?
     

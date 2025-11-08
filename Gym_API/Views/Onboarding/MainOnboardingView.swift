@@ -27,16 +27,16 @@ struct MainOnboardingView: View {
                             insertion: .scale.combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)
                         ))
-                    
+
                 case .benefits:
                     BenefitsCarouselView()
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)
                         ))
-                    
-                case .userTypeSelection:
-                    UserTypeSelectionView()
+
+                case .authGate:
+                    AuthGateView()
                         .environmentObject(authService)
                         .environmentObject(themeManager)
                         .environmentObject(onboardingManager)
@@ -44,21 +44,33 @@ struct MainOnboardingView: View {
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)
                         ))
-                    
-                case .profileSetup:
-                    ProfileSetupView()
+
+                case .welcomeAuthenticated:
+                    WelcomeAuthenticatedView()
+                        .environmentObject(authService)
+                        .environmentObject(themeManager)
+                        .environmentObject(onboardingManager)
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+
+                case .profileEnhancement:
+                    ProfileEnhancementView()
+                        .environmentObject(themeManager)
+                        .environmentObject(onboardingManager)
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)
                         ))
-                    
+
                 case .permissions:
                     PermissionsSetupView()
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)
                         ))
-                    
+
                 case .complete:
                     CompletionView()
                         .transition(.scale.combined(with: .opacity))
@@ -268,10 +280,11 @@ struct CompletionView: View {
     }
     
     private func completeOnboardingFlow() {
-        // This will hide the onboarding flow and show the main app
-        withAnimation(.easeInOut(duration: 0.8)) {
-            onboardingManager.showOnboarding = false
-        }
+        // Mark onboarding as fully complete and persist to UserDefaults
+        onboardingManager.completeOnboarding()
+
+        // The onboardingManager.completeOnboarding() already sets showOnboarding = false
+        // So no need to set it again here
     }
 }
 

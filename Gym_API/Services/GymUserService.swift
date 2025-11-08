@@ -4,7 +4,7 @@ import Foundation
 class GymUserService: ObservableObject {
     static let shared = GymUserService()
 
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceDirect?
 

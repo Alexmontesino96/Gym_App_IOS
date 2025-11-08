@@ -9,7 +9,8 @@
 
 import SwiftUI
 
-struct CreateSessionView: View {
+// Temporary placeholder - remove when implementation is fixed
+struct CreateSessionView_PLACEHOLDER: View {
     var body: some View {
         Text("Create Session View - Coming Soon")
             .font(.title2)
@@ -17,9 +18,8 @@ struct CreateSessionView: View {
     }
 }
 
-/*
-// Original implementation - needs refactoring
-struct CreateSessionView_OLD: View {
+// Restored implementation
+struct CreateSessionView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var classService: ClassService
@@ -45,7 +45,7 @@ struct CreateSessionView_OLD: View {
         guard let classId = selectedClassId else { return nil }
         return activityService.availableClasses.first { $0.id == classId }
     }
-    
+
     // Computed property for selected trainer
     private var selectedTrainer: UserPublicProfile? {
         guard let trainerId = selectedTrainerId else { return nil }
@@ -100,17 +100,14 @@ struct CreateSessionView_OLD: View {
             }
             .navigationTitle("Create Session")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            .navigationBarItems(
+                leading: Button("Cancel") {
+                    dismiss()
                 }
-            }
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            )
         }
         .onAppear {
-            activityService.authService = authService
             Task {
                 await activityService.loadAvailableClasses()
                 await activityService.loadTrainers()
@@ -119,7 +116,7 @@ struct CreateSessionView_OLD: View {
         .alert("Error", isPresented: $showingErrorAlert) {
             Button("OK") { }
         } message: {
-            Text(activityService.errorMessage ?? "An error occurred")
+            Text(activityService.operationError ?? "An error occurred")
         }
         .alert("Success", isPresented: $showingSuccessAlert) {
             Button("OK") {
@@ -409,4 +406,3 @@ struct CreateSessionView_OLD: View {
         .environmentObject(AuthServiceDirect())
         .environmentObject(ClassService())
 }
-*/

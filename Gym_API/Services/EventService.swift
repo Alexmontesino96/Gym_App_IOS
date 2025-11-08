@@ -24,7 +24,7 @@ class EventService: ObservableObject {
     @Published var createEventErrorMessage: String?
     @Published var deleteEventSuccessMessage: String?
     
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceDirect?
     private let userCache = UserDataCacheService.shared
@@ -498,19 +498,23 @@ class EventService: ObservableObject {
         updateOnMainThread {
             // Actualizar el estado de registro para cada evento
             self.userRegistrationStatus.removeAll()
-            
+
             // Update registration status for all participations
             var registeredEvents: [Int] = []
+            var pendingPaymentEvents: [Int] = []
             for participation in participations {
-                // Solo considerar participaciones activas (no canceladas)
+                // Solo considerar "registrado" si el estado es REGISTERED
                 let isRegistered = participation.status == "REGISTERED"
                 self.userRegistrationStatus[participation.eventId] = isRegistered
                 if isRegistered {
                     registeredEvents.append(participation.eventId)
+                } else if participation.status == "PENDING_PAYMENT" {
+                    pendingPaymentEvents.append(participation.eventId)
                 }
             }
-            
+
             print("📝 User registered for events: \(registeredEvents.sorted())")
+            print("💳 User with pending payment for events: \(pendingPaymentEvents.sorted())")
             print("📝 Total registration map: \(self.userRegistrationStatus.count) events")
         }
     }
@@ -900,16 +904,51 @@ class EventService: ObservableObject {
     
     private func checkUserRegistrationFromParticipations(eventId: Int) {
         guard let user = authService?.user else { return }
-        
+
         // Convertir el ID del usuario de string a int si es necesario
         let userId = Int(user.id) ?? 0
-        
+
         // Verificar si el usuario ya está registrado en las participaciones
+        // IMPORTANTE: Solo considerar registrado si el estado NO es:
+        // - PENDING_PAYMENT (esperando pago)
+        // - CANCELLED (cancelado)
+        // - WAITLIST (en lista de espera)
         let isRegistered = eventParticipations.contains { participation in
-            participation.eventId == eventId && participation.memberId == userId
+            let isUserParticipation = participation.eventId == eventId && participation.memberId == userId
+
+            // Si es la participación del usuario, verificar el estado
+            if isUserParticipation {
+                // Estados que NO cuentan como "registrado"
+                let notRegisteredStates: [EventParticipationStatus] = [
+                    .pendingPayment,  // Pago pendiente - NO está registrado hasta que pague
+                    .cancelled,       // Cancelado - obviamente no está registrado
+                    .waitlist         // En lista de espera - no está registrado todavía
+                ]
+
+                // Solo está registrado si NO está en uno de estos estados
+                return !notRegisteredStates.contains(participation.status)
+            }
+
+            return false
         }
-        
+
         updateUserRegistrationStatus(eventId: eventId, isRegistered: isRegistered)
+    }
+
+    // MARK: - Get Pending Payment Participation
+    /// Obtiene la participación con pago pendiente del usuario para un evento específico
+    func getPendingPaymentParticipation(eventId: Int) -> EventParticipation? {
+        guard let user = authService?.user else { return nil }
+
+        let userId = Int(user.id) ?? 0
+
+        return eventParticipations.first { participation in
+            participation.eventId == eventId &&
+            participation.memberId == userId &&
+            participation.status == .pendingPayment &&
+            participation.paymentRequired == true &&
+            participation.paymentClientSecret != nil
+        }
     }
     
     // MARK: - Join Event
@@ -1022,7 +1061,15 @@ class EventService: ObservableObject {
                             creatorId: eventDetail.creatorId,
                             createdAt: eventDetail.createdAt,
                             updatedAt: eventDetail.updatedAt,
-                            participantsCount: eventDetail.participantsCount + 1
+                            participantsCount: eventDetail.participantsCount + 1,
+                            isPaid: eventDetail.isPaid,
+                            priceCents: eventDetail.priceCents,
+                            currency: eventDetail.currency,
+                            refundPolicy: eventDetail.refundPolicy,
+                            refundDeadlineHours: eventDetail.refundDeadlineHours,
+                            partialRefundPercentage: eventDetail.partialRefundPercentage,
+                            stripeProductId: eventDetail.stripeProductId,
+                            stripePriceId: eventDetail.stripePriceId
                         )
                         self.eventDetail = updatedDetail
                     }
@@ -1178,7 +1225,15 @@ class EventService: ObservableObject {
                                 creatorId: eventDetail.creatorId,
                                 createdAt: eventDetail.createdAt,
                                 updatedAt: eventDetail.updatedAt,
-                                participantsCount: max(0, eventDetail.participantsCount - 1)
+                                participantsCount: max(0, eventDetail.participantsCount - 1),
+                                isPaid: eventDetail.isPaid,
+                                priceCents: eventDetail.priceCents,
+                                currency: eventDetail.currency,
+                                refundPolicy: eventDetail.refundPolicy,
+                                refundDeadlineHours: eventDetail.refundDeadlineHours,
+                                partialRefundPercentage: eventDetail.partialRefundPercentage,
+                                stripeProductId: eventDetail.stripeProductId,
+                                stripePriceId: eventDetail.stripePriceId
                             )
                             self.eventDetail = updatedDetail
                         }
@@ -1258,7 +1313,7 @@ class EventService: ObservableObject {
     private func createMockEvents() -> [Event] {
         let calendar = Calendar.current
         let now = Date()
-        
+
         return [
             Event(
                 id: 1,
@@ -1272,7 +1327,15 @@ class EventService: ObservableObject {
                 creatorId: 1,
                 createdAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
                 updatedAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-                participantsCount: 12
+                participantsCount: 12,
+                isPaid: false,
+                priceCents: nil,
+                currency: nil,
+                refundPolicy: nil,
+                refundDeadlineHours: nil,
+                partialRefundPercentage: nil,
+                stripeProductId: nil,
+                stripePriceId: nil
             ),
             Event(
                 id: 2,
@@ -1286,7 +1349,15 @@ class EventService: ObservableObject {
                 creatorId: 2,
                 createdAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
                 updatedAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-                participantsCount: 8
+                participantsCount: 8,
+                isPaid: false,
+                priceCents: nil,
+                currency: nil,
+                refundPolicy: nil,
+                refundDeadlineHours: nil,
+                partialRefundPercentage: nil,
+                stripeProductId: nil,
+                stripePriceId: nil
             ),
             Event(
                 id: 3,
@@ -1300,7 +1371,15 @@ class EventService: ObservableObject {
                 creatorId: 3,
                 createdAt: calendar.date(byAdding: .day, value: -3, to: now) ?? now,
                 updatedAt: calendar.date(byAdding: .day, value: -3, to: now) ?? now,
-                participantsCount: 15
+                participantsCount: 15,
+                isPaid: false,
+                priceCents: nil,
+                currency: nil,
+                refundPolicy: nil,
+                refundDeadlineHours: nil,
+                partialRefundPercentage: nil,
+                stripeProductId: nil,
+                stripePriceId: nil
             )
         ]
     }
@@ -1539,11 +1618,19 @@ class EventService: ObservableObject {
                                     creatorId: eventResponse.creatorId,
                                     createdAt: eventResponse.createdAt,
                                     updatedAt: eventResponse.updatedAt,
-                                    participantsCount: eventResponse.participantsCount
+                                    participantsCount: eventResponse.participantsCount,
+                                    isPaid: eventResponse.isPaid,
+                                    priceCents: eventResponse.priceCents,
+                                    currency: eventResponse.currency,
+                                    refundPolicy: eventResponse.refundPolicy,
+                                    refundDeadlineHours: eventResponse.refundDeadlineHours,
+                                    partialRefundPercentage: eventResponse.partialRefundPercentage,
+                                    stripeProductId: eventResponse.stripeProductId,
+                                    stripePriceId: eventResponse.stripePriceId
                                 )
                                 self.events[index] = updatedEvent
                             }
-                            
+
                             // Update event detail if it's the same event
                             if let eventDetail = self.eventDetail, eventDetail.id == eventId {
                                 let updatedDetail = EventDetail(
@@ -1558,7 +1645,15 @@ class EventService: ObservableObject {
                                     creatorId: eventResponse.creatorId,
                                     createdAt: eventResponse.createdAt,
                                     updatedAt: eventResponse.updatedAt,
-                                    participantsCount: eventResponse.participantsCount
+                                    participantsCount: eventResponse.participantsCount,
+                                    isPaid: eventResponse.isPaid,
+                                    priceCents: eventResponse.priceCents,
+                                    currency: eventResponse.currency,
+                                    refundPolicy: eventResponse.refundPolicy,
+                                    refundDeadlineHours: eventResponse.refundDeadlineHours,
+                                    partialRefundPercentage: eventResponse.partialRefundPercentage,
+                                    stripeProductId: eventResponse.stripeProductId,
+                                    stripePriceId: eventResponse.stripePriceId
                                 )
                                 self.eventDetail = updatedDetail
                             }
@@ -1870,7 +1965,15 @@ class EventService: ObservableObject {
                                 creatorId: detail.creatorId,
                                 createdAt: detail.createdAt,
                                 updatedAt: detail.updatedAt,
-                                participantsCount: newCount
+                                participantsCount: newCount,
+                                isPaid: detail.isPaid,
+                                priceCents: detail.priceCents,
+                                currency: detail.currency,
+                                refundPolicy: detail.refundPolicy,
+                                refundDeadlineHours: detail.refundDeadlineHours,
+                                partialRefundPercentage: detail.partialRefundPercentage,
+                                stripeProductId: detail.stripeProductId,
+                                stripePriceId: detail.stripePriceId
                             )
                         }
 

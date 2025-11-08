@@ -73,8 +73,8 @@ class DirectMessageService: ObservableObject {
     @Published var allUsers: [UserProfile] = []
     @Published var isLoadingUsers = false
     @Published var usersErrorMessage: String?
-    
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+
+    private let baseURL = apiBaseURL
     var authService: AuthServiceDirect?
     
     // MARK: - Direct Chat Room Creation/Retrieval

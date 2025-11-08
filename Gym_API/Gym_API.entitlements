@@ -8,5 +8,9 @@
 	<array>
 		<string>applinks:app.gymapi.com</string>
 	</array>
+	<key>com.apple.developer.in-app-payments</key>
+	<array>
+		<string>merchant.gym</string>
+	</array>
 </dict>
 </plist>

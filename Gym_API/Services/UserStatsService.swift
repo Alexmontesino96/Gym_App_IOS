@@ -30,7 +30,7 @@ class UserStatsService: ObservableObject {
     @Published var error: Error?
     
     // MARK: - Private Properties
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Cache Properties
@@ -49,7 +49,29 @@ class UserStatsService: ObservableObject {
         // Inicializar sin generar datos mock
         // Los datos se cargan cuando se llaman explícitamente los métodos fetch
     }
-    
+
+    // MARK: - Clear/Reset Methods
+
+    /// Limpia todos los datos y estado del servicio (usado en logout)
+    func clear() {
+        userStats = .empty
+        comprehensiveStats = nil
+        achievements = []
+        workoutHistory = []
+        personalGoals = []
+        workoutBuddies = []
+        leaderboardPosition = nil
+        activityAnalytics = nil
+        lastAttendedClass = nil
+        lastAttendanceDate = nil
+        daysInactive = 0
+        isLoading = false
+        error = nil
+        lastWorkoutHistoryUpdate = nil
+        lastActivityAnalyticsUpdate = nil
+        print("🧹 UserStatsService: Datos limpiados")
+    }
+
     // MARK: - Public Methods
     
     /// Obtiene estadísticas completas del usuario

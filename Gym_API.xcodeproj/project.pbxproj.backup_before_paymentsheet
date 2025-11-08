@@ -17,7 +17,6 @@
 		FDFDAE602EAFA49D004B8F8D /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE5F2EAFA49D004B8F8D /* StripeCardScan */; };
 		FDFDAE622EAFA49D004B8F8D /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE612EAFA49D004B8F8D /* StripeConnect */; };
 		FDFDAE642EAFA49D004B8F8D /* StripeFinancialConnections in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE632EAFA49D004B8F8D /* StripeFinancialConnections */; };
-		FDFDAE662EAFA4A0004B8F8D /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE652EAFA4A0004B8F8D /* StripePaymentSheet */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,7 +56,6 @@
 				FDB0B0062E27A90F0029E82C /* OneSignalFramework in Frameworks */,
 				FDFDAE5C2EAFA49D004B8F8D /* Stripe in Frameworks */,
 				FDFDAE5E2EAFA49D004B8F8D /* StripeApplePay in Frameworks */,
-				FDFDAE662EAFA4A0004B8F8D /* StripePaymentSheet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,7 +110,6 @@
 				FDFDAE5F2EAFA49D004B8F8D /* StripeCardScan */,
 				FDFDAE612EAFA49D004B8F8D /* StripeConnect */,
 				FDFDAE632EAFA49D004B8F8D /* StripeFinancialConnections */,
-				FDFDAE652EAFA4A0004B8F8D /* StripePaymentSheet */,
 			);
 			productName = Gym_API;
 			productReference = FDDBA1112E257F9900E6034C /* Gym_API.app */;
@@ -476,11 +473,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FDFDAE5A2EAFA49D004B8F8D /* XCRemoteSwiftPackageReference "stripe-ios" */;
 			productName = StripeFinancialConnections;
-		};
-		FDFDAE652EAFA4A0004B8F8D /* StripePaymentSheet */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FDFDAE5A2EAFA49D004B8F8D /* XCRemoteSwiftPackageReference "stripe-ios" */;
-			productName = StripePaymentSheet;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

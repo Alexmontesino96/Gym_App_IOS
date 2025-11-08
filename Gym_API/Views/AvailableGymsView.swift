@@ -24,6 +24,18 @@ struct AvailableGymsView: View {
             (gym.description?.localizedCaseInsensitiveContains(searchText) ?? false)
         }
     }
+
+    var gyms: [Gym] {
+        filteredGyms.filter { gym in
+            gym.type == nil || gym.type?.lowercased() == "gym"
+        }
+    }
+
+    var personalTrainers: [Gym] {
+        filteredGyms.filter { gym in
+            gym.type?.lowercased() == "personal_trainer"
+        }
+    }
     
     var body: some View {
         let _ = print("🔍 AvailableGymsView - authService.isAuthenticated: \(authService.isAuthenticated)")
@@ -123,17 +135,17 @@ struct AvailableGymsView: View {
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else if filteredGyms.isEmpty {
+                    } else if gyms.isEmpty && personalTrainers.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: searchText.isEmpty ? "building.2" : "magnifyingglass")
                                 .font(.system(size: 48))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            
-                            Text(searchText.isEmpty ? "No gyms available" : "No gyms found")
+
+                            Text(searchText.isEmpty ? "No gyms or trainers available" : "No results found")
                                 .font(.system(size: 18, weight: .medium))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            
-                            Text(searchText.isEmpty ? "Check back later for new gyms" : "Try different search terms")
+
+                            Text(searchText.isEmpty ? "Check back later" : "Try different search terms")
                                 .font(.system(size: 14))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
                                 .multilineTextAlignment(.center)
@@ -141,22 +153,62 @@ struct AvailableGymsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         ScrollView {
-                            LazyVStack(spacing: 16) {
-                                ForEach(Array(filteredGyms.enumerated()), id: \.element.id) { index, gym in
-                                    GymCard(gym: gym) {
-                                        selectedGym = gym
-                                        showingGymDetail = true
-                                    }
-                                    .padding(.horizontal, 20)
-                                    .scaleEffect(isAnimating ? 1.0 : 0.8)
-                                    .opacity(isAnimating ? 1.0 : 0.0)
-                                    .animation(
-                                        .spring(response: 0.6, dampingFraction: 0.8)
-                                        .delay(Double(index) * 0.1),
-                                        value: isAnimating
+                            LazyVStack(spacing: 0) {
+                                // Gyms Section
+                                if !gyms.isEmpty {
+                                    SectionHeader(
+                                        title: "Gyms",
+                                        count: gyms.count,
+                                        icon: "building.2.fill",
+                                        theme: themeManager.currentTheme
                                     )
+
+                                    LazyVStack(spacing: 16) {
+                                        ForEach(Array(gyms.enumerated()), id: \.element.id) { index, gym in
+                                            GymCard(gym: gym, isPersonalTrainer: false) {
+                                                selectedGym = gym
+                                                showingGymDetail = true
+                                            }
+                                            .padding(.horizontal, 20)
+                                            .scaleEffect(isAnimating ? 1.0 : 0.8)
+                                            .opacity(isAnimating ? 1.0 : 0.0)
+                                            .animation(
+                                                .spring(response: 0.6, dampingFraction: 0.8)
+                                                .delay(Double(index) * 0.1),
+                                                value: isAnimating
+                                            )
+                                        }
+                                    }
+                                    .padding(.bottom, 24)
                                 }
-                                
+
+                                // Personal Trainers Section
+                                if !personalTrainers.isEmpty {
+                                    SectionHeader(
+                                        title: "Personal Trainers",
+                                        count: personalTrainers.count,
+                                        icon: "person.fill",
+                                        theme: themeManager.currentTheme
+                                    )
+
+                                    LazyVStack(spacing: 16) {
+                                        ForEach(Array(personalTrainers.enumerated()), id: \.element.id) { index, gym in
+                                            GymCard(gym: gym, isPersonalTrainer: true) {
+                                                selectedGym = gym
+                                                showingGymDetail = true
+                                            }
+                                            .padding(.horizontal, 20)
+                                            .scaleEffect(isAnimating ? 1.0 : 0.8)
+                                            .opacity(isAnimating ? 1.0 : 0.0)
+                                            .animation(
+                                                .spring(response: 0.6, dampingFraction: 0.8)
+                                                .delay(Double(index + gyms.count) * 0.1),
+                                                value: isAnimating
+                                            )
+                                        }
+                                    }
+                                }
+
                                 Spacer(minLength: 100)
                             }
                             .padding(.top, 8)
@@ -192,18 +244,38 @@ struct AvailableGymsView: View {
 
 struct GymCard: View {
     let gym: Gym
+    let isPersonalTrainer: Bool
     let onTap: () -> Void
     @EnvironmentObject var themeManager: ThemeManager
-    
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(gym.name)
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            .multilineTextAlignment(.leading)
+                        // Badge for Personal Trainer
+                        if isPersonalTrainer {
+                            Text("PERSONAL TRAINER")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                )
+                        }
+
+                        HStack(spacing: 8) {
+                            Image(systemName: isPersonalTrainer ? "person.fill" : "building.2.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+
+                            Text(gym.name)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        }
+                        .multilineTextAlignment(.leading)
                         
                         if let address = gym.address {
                             HStack(spacing: 6) {
@@ -634,6 +706,36 @@ struct ContactRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
         )
+    }
+}
+
+// MARK: - Section Header
+
+struct SectionHeader: View {
+    let title: String
+    let count: Int
+    let icon: String
+    let theme: ThemeManager.AppTheme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+
+            Text(title.uppercased())
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+
+            Text("(\(count))")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .padding(.top, 8)
     }
 }
 

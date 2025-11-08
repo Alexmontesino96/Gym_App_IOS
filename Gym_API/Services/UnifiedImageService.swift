@@ -449,7 +449,7 @@ final class UnifiedImageService: ObservableObject {
 
     /// Perform profile image upload
     private func performProfileUpload(imageData: Data, token: String) async throws -> String {
-        let endpoint = "\(baseURL)/users/profile-image"
+        let endpoint = "\(baseURL)/users/profile/image"
         guard let url = URL(string: endpoint) else {
             throw ImageError.invalidURL
         }
@@ -462,11 +462,15 @@ final class UnifiedImageService: ObservableObject {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+        // Add X-Gym-ID header
+        let gymId = GymService.shared.currentGymId ?? 4
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+
         var body = Data()
 
         // Add image data
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"profileImage\"; filename=\"profile.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"profile.jpg\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         body.append(imageData)
         body.append("\r\n".data(using: .utf8)!)
@@ -486,11 +490,11 @@ final class UnifiedImageService: ObservableObject {
 
         // Parse response
         struct UploadResponse: Decodable {
-            let imageUrl: String
+            let picture: String
         }
 
         let uploadResponse = try JSONDecoder().decode(UploadResponse.self, from: data)
-        return uploadResponse.imageUrl
+        return uploadResponse.picture
     }
 
     /// Sync profile image with StreamChat

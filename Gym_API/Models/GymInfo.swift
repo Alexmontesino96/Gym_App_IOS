@@ -23,12 +23,19 @@ struct GymInfo: Codable, Identifiable, Equatable {
     let updatedAt: Date
     let userEmail: String
     let userRoleInGym: String
-    
+
+    // Workspace type fields
+    let type: String?
+    let isPersonalTrainer: Bool?
+    let maxClients: Int?
+    let specialties: [String]?
+    let certifications: [[String: String]]?
+
     // Computed property for backward compatibility
     var address: String {
         return addressValue
     }
-    
+
     enum CodingKeys: String, CodingKey {
         case name, subdomain, phone, email, description, timezone, id
         case addressValue = "address"
@@ -38,6 +45,11 @@ struct GymInfo: Codable, Identifiable, Equatable {
         case updatedAt = "updated_at"
         case userEmail = "user_email"
         case userRoleInGym = "user_role_in_gym"
+        case type
+        case isPersonalTrainer = "is_personal_trainer"
+        case maxClients = "max_clients"
+        case specialties = "trainer_specialties"
+        case certifications = "trainer_certifications"
     }
     
     // Custom decoder to handle both string and array for address and nullable fields
@@ -60,7 +72,14 @@ struct GymInfo: Codable, Identifiable, Equatable {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         userEmail = try container.decode(String.self, forKey: .userEmail)
         userRoleInGym = try container.decode(String.self, forKey: .userRoleInGym)
-        
+
+        // Decode workspace type fields (optional for backward compatibility)
+        type = try container.decodeIfPresent(String.self, forKey: .type)
+        isPersonalTrainer = try container.decodeIfPresent(Bool.self, forKey: .isPersonalTrainer)
+        maxClients = try container.decodeIfPresent(Int.self, forKey: .maxClients)
+        specialties = try container.decodeIfPresent([String].self, forKey: .specialties)
+        certifications = try container.decodeIfPresent([[String: String]].self, forKey: .certifications)
+
         // Handle address that can be null, string or array
         if let addressString = try? container.decode(String.self, forKey: .addressValue) {
             addressValue = addressString
@@ -111,8 +130,15 @@ struct GymInfo: Codable, Identifiable, Equatable {
     var statusText: String {
         return isActive ? "Active" : "Inactive"
     }
-    
+
     var statusColor: String {
         return isActive ? "green" : "red"
+    }
+
+    var workspaceTypeDisplay: String {
+        if isPersonalTrainer == true {
+            return "Personal Trainer"
+        }
+        return type?.capitalized ?? "Gym"
     }
 }

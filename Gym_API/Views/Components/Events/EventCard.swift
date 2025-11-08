@@ -6,21 +6,24 @@ struct EventCard: View {
     let onEditTap: (() -> Void)?
     let onDeleteTap: (() -> Void)?
     let onBulkRegistrationTap: (() -> Void)?
-    
+    let onPaymentRequired: ((PaymentIntent, Int, Event) -> Void)?
+
     @State private var navigateToDetail = false
-    
+
     init(
-        event: Event, 
+        event: Event,
         onChatTap: (() -> Void)? = nil,
         onEditTap: (() -> Void)? = nil,
         onDeleteTap: (() -> Void)? = nil,
-        onBulkRegistrationTap: (() -> Void)? = nil
+        onBulkRegistrationTap: (() -> Void)? = nil,
+        onPaymentRequired: ((PaymentIntent, Int, Event) -> Void)? = nil
     ) {
         self.event = event
         self.onChatTap = onChatTap
         self.onEditTap = onEditTap
         self.onDeleteTap = onDeleteTap
         self.onBulkRegistrationTap = onBulkRegistrationTap
+        self.onPaymentRequired = onPaymentRequired
     }
     
     var body: some View {
@@ -31,11 +34,12 @@ struct EventCard: View {
             .opacity(0)
             
             ModernEventCardContent(
-                event: event, 
+                event: event,
                 onChatTapped: onChatTap ?? {},
                 onEditTapped: onEditTap,
                 onDeleteTapped: onDeleteTap,
-                onBulkRegistrationTapped: onBulkRegistrationTap
+                onBulkRegistrationTapped: onBulkRegistrationTap,
+                onPaymentRequired: onPaymentRequired
             )
             .onTapGesture {
                 navigateToDetail = true
@@ -49,12 +53,13 @@ struct ModernEventCardContent: View {
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var authService: AuthServiceDirect
     @StateObject private var gymService = GymService.shared
-    
+
     let event: Event
     let onChatTapped: () -> Void
     let onEditTapped: (() -> Void)?
     let onDeleteTapped: (() -> Void)?
     let onBulkRegistrationTapped: (() -> Void)?
+    let onPaymentRequired: ((PaymentIntent, Int, Event) -> Void)?
     
     @State private var isLoading = false
     @State private var shakeOffset: CGFloat = 0
@@ -120,14 +125,27 @@ struct ModernEventCardContent: View {
                 
                 // Contenido principal
                 VStack(alignment: .leading, spacing: 8) {
-                    // Header: Badge + Título
+                    // Header: Badge + Título + Precio
                     VStack(alignment: .leading, spacing: 12) {
-                        // Badge FITNESS EVENT
-                        Text("FITNESS EVENT")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            .tracking(1.2)
-                        
+                        // Badge FITNESS EVENT y Precio
+                        HStack {
+                            Text("FITNESS EVENT")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                .tracking(1.2)
+
+                            Spacer()
+
+                            // Mostrar precio si el evento es de pago
+                            if event.isPaid == true || event.formattedPrice != nil {
+                                PriceTag(
+                                    price: event.formattedPrice,
+                                    isPaid: event.isPaid ?? false,
+                                    size: .medium
+                                )
+                            }
+                        }
+
                         // Título principal
                         Text(event.title)
                             .font(.system(size: 24, weight: .bold))
@@ -391,6 +409,51 @@ struct ModernEventCardContent: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
                             .scaleEffect(0.8)
+                    } else if let pendingParticipation = eventService.getPendingPaymentParticipation(eventId: event.id) {
+                        // Usuario con pago pendiente: Botón "Completar Pago"
+                        Button(action: {
+                            print("💳 Completing pending payment for event: \(event.title)")
+                            print("💳 Participation ID: \(pendingParticipation.id)")
+                            if let clientSecret = pendingParticipation.paymentClientSecret {
+                                // Extract paymentIntentId from clientSecret if not provided
+                                let extractedPaymentIntentId: String
+                                if let backendPaymentIntentId = pendingParticipation.paymentIntentId, !backendPaymentIntentId.isEmpty {
+                                    extractedPaymentIntentId = backendPaymentIntentId
+                                } else {
+                                    let components = clientSecret.components(separatedBy: "_secret_")
+                                    extractedPaymentIntentId = components.first ?? ""
+                                    print("⚠️ [EventCard] Backend did not provide paymentIntentId for pending payment")
+                                    print("✅ [EventCard] Extracted from clientSecret: \(extractedPaymentIntentId)")
+                                }
+
+                                self.onPaymentRequired?(
+                                    PaymentIntent(
+                                        clientSecret: clientSecret,
+                                        paymentIntentId: extractedPaymentIntentId,
+                                        stripeAccountId: pendingParticipation.stripeAccountId,
+                                        amount: pendingParticipation.paymentAmount ?? 0,
+                                        currency: pendingParticipation.paymentCurrency ?? "USD",
+                                        paymentDeadline: pendingParticipation.paymentDeadline
+                                    ),
+                                    pendingParticipation.id,
+                                    event
+                                )
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "creditcard.fill")
+                                    .font(.system(size: 16))
+
+                                Text("Completar Pago")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange)
+                        )
                     } else if eventService.isUserRegistered(eventId: event.id) {
                         // Usuario registrado: Chat + Cancel
                         HStack(spacing: 0) {
@@ -406,12 +469,12 @@ struct ModernEventCardContent: View {
                                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                             }
                             .frame(maxWidth: 44, maxHeight: .infinity)
-                            
+
                             // Divider
                             Rectangle()
                                 .fill(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.5))
                                 .frame(width: 0.5, height: 24)
-                            
+
                             // Botón Cancel (60%)
                             Button(action: {
                                 if !isLoading {
@@ -436,10 +499,42 @@ struct ModernEventCardContent: View {
                         // Usuario no registrado: botón único
                         Button(action: {
                             if event.participantsCount < event.maxParticipants && !isLoading {
-                                print("🎯 Joining event: \(event.title)")
+                                print("🎯 Joining event: \(event.title) - isPaid: \(event.isPaid ?? false)")
                                 isLoading = true
                                 Task {
-                                    await eventService.joinEvent(eventId: event.id)
+                                    // Check if event requires payment
+                                    if event.isPaid == true {
+                                        print("💳 This is a paid event, using payment flow")
+                                        print("🔍 EventCard onPaymentRequired callback is: \(self.onPaymentRequired != nil ? "CONNECTED ✅" : "NIL ❌")")
+                                        // Use payment service for paid events
+                                        if let participation = await EventPaymentService.shared.registerForPaidEvent(eventId: event.id) {
+                                            print("✅ EventCard: Got participation response from backend")
+                                            if participation.paymentRequired == true,
+                                               let paymentIntent = EventPaymentService.shared.currentPaymentIntent {
+                                                // Use the PaymentIntent from the service which has the extracted paymentIntentId
+                                                print("✅ EventCard: Using PaymentIntent from service with ID: \(paymentIntent.paymentIntentId)")
+                                                await MainActor.run {
+                                                    self.onPaymentRequired?(
+                                                        paymentIntent,
+                                                        participation.id,
+                                                        event
+                                                    )
+                                                }
+                                            } else {
+                                                // Registration successful without payment
+                                                await eventService.fetchEvents()
+                                            }
+                                        } else {
+                                            // Backend returned error (likely 400 - already registered)
+                                            // Load event participations to check for PENDING_PAYMENT
+                                            print("⚠️ Registration failed, loading event participations to check status...")
+                                            await eventService.fetchEventParticipations(eventId: event.id)
+                                        }
+                                    } else {
+                                        print("🆓 This is a free event, using regular join")
+                                        // Free event - use regular join
+                                        await eventService.joinEvent(eventId: event.id)
+                                    }
                                     try? await Task.sleep(nanoseconds: 500_000_000)
                                     withAnimation(.easeInOut(duration: 0.3)) {
                                         isLoading = false
@@ -450,7 +545,7 @@ struct ModernEventCardContent: View {
                             HStack(spacing: 8) {
                                 Image(systemName: event.participantsCount >= event.maxParticipants ? "person.fill.xmark" : "person.fill.checkmark")
                                     .font(.system(size: 16))
-                                
+
                                 Text(buttonText)
                                     .font(.system(size: 16, weight: .semibold))
                             }
@@ -637,7 +732,15 @@ struct EventCardSkeleton: View {
         creatorId: 1,
         createdAt: Date(),
         updatedAt: Date(),
-        participantsCount: 5
+        participantsCount: 5,
+        isPaid: true,
+        priceCents: 2999,
+        currency: "EUR",
+        refundPolicy: .fullRefund,
+        refundDeadlineHours: 24,
+        partialRefundPercentage: nil,
+        stripeProductId: nil,
+        stripePriceId: nil
     )
     
     EventCard(

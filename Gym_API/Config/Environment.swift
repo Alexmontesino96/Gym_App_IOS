@@ -43,8 +43,8 @@ enum AppEnvironment {
     var baseURL: String {
         switch self {
         case .development:
-            // URL de desarrollo local o servidor de desarrollo
-            return "https://dev.gymapi-eh6m.onrender.com/api/v1"
+            // URL de desarrollo - usa la misma URL de producción
+            return "https://gymapi-eh6m.onrender.com/api/v1"
         case .staging:
             // URL de staging para pruebas
             return "https://staging.gymapi-eh6m.onrender.com/api/v1"

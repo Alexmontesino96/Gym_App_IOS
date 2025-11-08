@@ -10,14 +10,16 @@ import SwiftUI
 struct AuthenticatedView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var workspaceContext: WorkspaceContextService
     @StateObject private var gymService = GymService.shared
     @StateObject private var profileService = UserProfileService.shared
     @StateObject private var onboardingManager = OnboardingManager()
-    
+
     @State private var showingProfileCompletion = false
     @State private var profileCheckCompleted = false
     @State private var initializationError: String?
     @State private var showOnboarding = false
+    @State private var contextLoaded = false
     
     var body: some View {
         let _ = print("🔍 AuthenticatedView.body evaluado")
@@ -67,11 +69,37 @@ struct AuthenticatedView: View {
                         let _ = print("🔍 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
                         let _ = print("🔍 hasSelectedGym: \(gymService.hasSelectedGym)")
                         let _ = print("🔍 currentGym: \(gymService.currentGym?.name ?? "ninguno")")
-                        
+
                         if gymService.hasCompletedGymSelection {
-                            let _ = print("✅ Mostrando MainTabView porque hasCompletedGymSelection = true")
-                            MainTabView()
-                                .environmentObject(themeManager)
+                            if !contextLoaded {
+                                // Mostrar loading mientras carga el contexto
+                                let _ = print("⏳ Cargando workspace context...")
+                                VStack(spacing: 16) {
+                                    ProgressView()
+                                        .scaleEffect(1.2)
+                                        .tint(.blue)
+
+                                    Text("Loading workspace...")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color(.systemBackground))
+                            } else {
+                                // Routing based on workspace type
+                                let _ = print("✅ Context loaded - Workspace type: \(workspaceContext.workspaceType)")
+                                let _ = print("✅ Is Personal Trainer: \(workspaceContext.isPersonalTrainer)")
+
+                                if workspaceContext.isPersonalTrainer {
+                                    let _ = print("✅ Mostrando TrainerMainTabView para Personal Trainer")
+                                    TrainerMainTabView()
+                                        .environmentObject(themeManager)
+                                } else {
+                                    let _ = print("✅ Mostrando MainTabView para Gym tradicional")
+                                    MainTabView()
+                                        .environmentObject(themeManager)
+                                }
+                            }
                         } else {
                             let _ = print("✅ Mostrando GymSelectionView porque hasCompletedGymSelection = false")
                             GymSelectionView { selectedGym in
@@ -96,29 +124,39 @@ struct AuthenticatedView: View {
                     .background(Color(.systemBackground))
                 }
             } else {
-                let _ = print("🔍 Usuario NO autenticado")
-                // No mostrar nada aquí - el onboarding se maneja con fullScreenCover
-                Color.clear
-                    .ignoresSafeArea()
+                let _ = print("🔍 Usuario NO autenticado - Mostrando LoginViewDirect")
+                // Mostrar pantalla de login directamente
+                LoginViewDirect()
+                    .environmentObject(authService)
+                    .environmentObject(themeManager)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: authService.isAuthenticated)
         .animation(.easeInOut(duration: 0.3), value: gymService.hasCompletedGymSelection)
         .animation(.easeInOut(duration: 0.3), value: showingProfileCompletion)
+        .animation(.easeInOut(duration: 0.3), value: contextLoaded)
         .onAppear {
             setupServices()
             checkUserProfile()
-            if !authService.isAuthenticated {
+            // Solo mostrar onboarding completo en primer lanzamiento (isFirstLaunch)
+            // En logout, se muestra LoginViewDirect directamente
+            if !authService.isAuthenticated && onboardingManager.isFirstLaunch {
                 onboardingManager.checkOnboardingStatus()
                 showOnboarding = onboardingManager.showOnboarding
             }
         }
         .onChange(of: authService.isAuthenticated) { newValue in
             if newValue {
-                // Usuario recién autenticado, cerrar onboarding y continuar
-                showOnboarding = false
-                onboardingManager.showOnboarding = false
-                
+                // Usuario recién autenticado
+                // IMPORTANTE: NO cerrar onboarding si está en progreso (nuevo flujo Auth-First)
+                // Solo cerrar si NO es primer lanzamiento (i.e., login normal)
+                if !onboardingManager.isFirstLaunch || !onboardingManager.showOnboarding {
+                    // Login normal (no onboarding), cerrar cualquier onboarding
+                    showOnboarding = false
+                    onboardingManager.showOnboarding = false
+                }
+                // Si está en onboarding de primer lanzamiento, dejar que continúe
+
                 // Verificar perfil y recargar gyms con auto-selección
                 checkUserProfile()
                 Task {
@@ -128,17 +166,29 @@ struct AuthenticatedView: View {
                 // Reset states when user logs out
                 profileCheckCompleted = false
                 showingProfileCompletion = false
-                
-                // Siempre mostrar onboarding cuando el usuario no está autenticado
-                onboardingManager.checkOnboardingStatus()
-                showOnboarding = true
-                onboardingManager.showOnboarding = true
+                contextLoaded = false
+
+                // NO mostrar onboarding en logout - solo en primer lanzamiento
+                // El LoginViewDirect se muestra directamente en el body
+                showOnboarding = false
+                onboardingManager.showOnboarding = false
+            }
+        }
+        .onChange(of: gymService.hasCompletedGymSelection) { newValue in
+            if newValue {
+                // When gym selection is completed, load workspace context
+                Task {
+                    await loadWorkspaceContext()
+                }
             }
         }
         .onChange(of: onboardingManager.showOnboarding) { newValue in
-            showOnboarding = newValue && !authService.isAuthenticated
+            // Mostrar onboarding según OnboardingManager
+            // IMPORTANTE: En nuevo flujo Auth-First, el usuario puede estar autenticado
+            // durante el onboarding, así que NO verificar !authService.isAuthenticated
+            showOnboarding = newValue
         }
-        // Present onboarding on first launch when not authenticated
+        // Present onboarding on first launch (new Auth-First flow: user authenticates during onboarding)
         .fullScreenCover(isPresented: $showOnboarding) {
             MainOnboardingView()
                 .environmentObject(onboardingManager)
@@ -180,6 +230,10 @@ struct AuthenticatedView: View {
                         }
                     } else {
                         print("🔧 Gym válido y selección completada")
+                        // Load workspace context if not already loaded
+                        if !contextLoaded {
+                            await loadWorkspaceContext()
+                        }
                     }
                 }
             }
@@ -227,6 +281,18 @@ struct AuthenticatedView: View {
                 print("🔧 showingProfileCompletion: \(showingProfileCompletion)")
                 print("🔧 profileCheckCompleted: \(profileCheckCompleted)")
             }
+        }
+    }
+
+    private func loadWorkspaceContext() async {
+        print("🏢 Loading workspace context...")
+        await workspaceContext.fetchContext()
+
+        await MainActor.run {
+            contextLoaded = true
+            print("✅ Workspace context loaded successfully")
+            print("🏢 Workspace type: \(workspaceContext.workspaceType)")
+            print("🏢 Is Personal Trainer: \(workspaceContext.isPersonalTrainer)")
         }
     }
 }

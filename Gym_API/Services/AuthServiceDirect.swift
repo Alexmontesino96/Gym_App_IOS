@@ -638,7 +638,13 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
     private func clearCredentials() {
         // Limpiar tokens de Keychain
         KeychainService.shared.deleteAllTokens()
-        
+
+        // Limpiar Credentials Manager de Auth0
+        if let credentialsManager = credentialsManager {
+            _ = credentialsManager.clear()
+            print("✅ Credentials Manager limpiado")
+        }
+
         // Limpiar datos no sensibles de UserDefaults
         UserDefaults.standard.removeObject(forKey: "auth0_login_date")
         UserDefaults.standard.removeObject(forKey: "saved_user_id")
@@ -1201,10 +1207,13 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             
             // Limpiar perfil de usuario cacheado
             UserProfileService.shared.clear()
-            
+
+            // Limpiar estadísticas de usuario
+            UserStatsService.shared.clear()
+
             // Limpiar datos de eventos se hace via NotificationCenter
             // EventService escucha .userDidLogout y limpia automáticamente
-            
+
             // Limpiar OneSignal
             OneSignalService.shared.logout()
             

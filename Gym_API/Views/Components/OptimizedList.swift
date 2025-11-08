@@ -69,7 +69,6 @@ struct OptimizedList<Item: Identifiable, Content: View>: View {
                     emptyStateView
                 }
             }
-            .padding(.horizontal, DesignSystem.Spacing.md)
         }
         .refreshable {
             if let onRefresh = onRefresh {

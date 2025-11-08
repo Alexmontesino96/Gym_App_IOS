@@ -227,6 +227,10 @@ final class ScheduledActivityService: ObservableObject {
     @Published var isUpdating = false
     @Published var operationError: String?
 
+    // Classes and Trainers for Creation
+    @Published var availableClasses: [ClassInfo] = []
+    @Published var trainers: [UserPublicProfile] = []
+
     // MARK: - Private Properties
 
     private let baseURL = apiBaseURL
@@ -797,4 +801,24 @@ private func flexibleDateDecoder(_ decoder: Decoder) throws -> Date {
     }
 
     throw ActivityServiceError.decodingError
+}
+
+// MARK: - Load Methods for Creation Forms
+
+extension ScheduledActivityService {
+    func loadAvailableClasses() async {
+        // TODO: Implement actual API call to fetch available classes
+        // For now, use mock data
+        await MainActor.run {
+            self.availableClasses = []
+        }
+    }
+
+    func loadTrainers() async {
+        // TODO: Implement actual API call to fetch trainers
+        // For now, use mock data
+        await MainActor.run {
+            self.trainers = []
+        }
+    }
 }

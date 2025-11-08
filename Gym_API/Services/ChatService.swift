@@ -155,7 +155,7 @@ class ChatService: ObservableObject {
         print("🔧 ChatService singleton inicializado")
     }
     
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceProtocol?
     

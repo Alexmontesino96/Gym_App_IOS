@@ -12,8 +12,8 @@ class ProfileImageService: ObservableObject {
     @Published var isUploading = false
     @Published var uploadError: String?
     @Published var profileImageURL: String?
-    
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceDirect?
     

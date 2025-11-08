@@ -44,16 +44,20 @@ class StoryService: ObservableObject {
             return
         }
 
+        print("DEBUG: 📱 StoryService: Obteniendo feed de stories (filter: \(filter.rawValue))")
+
         isLoading = true
         errorMessage = nil
 
         do {
             guard let token = await authService?.getValidAccessToken() else {
+                print("DEBUG: ❌ StoryService: Error obteniendo token para feed")
                 throw NSError(domain: "StoryService", code: 401,
                              userInfo: [NSLocalizedDescriptionKey: "No authentication token"])
             }
 
             let url = URL(string: "\(baseURL)/stories/feed")!
+            print("DEBUG: 🔗 StoryService: URL del feed: \(url.absoluteString)")
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
             components.queryItems = [
                 URLQueryItem(name: "filter_type", value: filter.rawValue),
@@ -77,17 +81,22 @@ class StoryService: ObservableObject {
                 decoder.dateDecodingStrategy = .iso8601
                 let feedResponse = try decoder.decode(StoryFeedResponse.self, from: data)
 
+                print("DEBUG: ✅ StoryService: Feed obtenido exitosamente - \(feedResponse.userStories.count) usuarios con stories")
+
                 await MainActor.run {
                     self.feedStories = feedResponse.userStories
                     self.feedCache = feedResponse.userStories
                     self.cacheTimestamp = Date()
                     self.isLoading = false
+                    print("DEBUG:💾 StoryService: Feed guardado en caché")
                 }
             } else {
+                print("DEBUG:❌ StoryService: Error HTTP \(httpResponse.statusCode) al obtener feed")
                 throw NSError(domain: "StoryService", code: httpResponse.statusCode,
                              userInfo: [NSLocalizedDescriptionKey: "Failed to fetch stories"])
             }
         } catch {
+            print("DEBUG:❌ StoryService: Error obteniendo feed: \(error.localizedDescription)")
             await MainActor.run {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false
@@ -105,15 +114,21 @@ class StoryService: ObservableObject {
         privacy: StoryPrivacy = .public,
         duration: Int = 24
     ) async -> Story? {
+        print("DEBUG:📸 StoryService: Iniciando creación de story tipo: \(type.rawValue)")
+        print("DEBUG:📊 StoryService: Privacidad: \(privacy.rawValue), Duración: \(duration)h")
+
         isUploading = true
         uploadProgress = 0.0
         errorMessage = nil
 
         do {
             guard let token = await authService?.getValidAccessToken() else {
+                print("DEBUG:❌ StoryService: No se pudo obtener token de autenticación")
                 throw NSError(domain: "StoryService", code: 401,
                              userInfo: [NSLocalizedDescriptionKey: "No authentication token"])
             }
+
+            print("DEBUG:✅ StoryService: Token obtenido correctamente")
 
             let url = URL(string: "\(baseURL)/stories/")!
             var request = URLRequest(url: url)
@@ -222,8 +237,13 @@ class StoryService: ObservableObject {
 
     // MARK: - Mark Story as Viewed
     func markAsViewed(storyId: Int, duration: Int? = nil) async {
+        print("DEBUG:👁️ StoryService: Marcando story \(storyId) como visto")
+
         do {
-            guard let token = await authService?.getValidAccessToken() else { return }
+            guard let token = await authService?.getValidAccessToken() else {
+                print("DEBUG:⚠️ StoryService: No se pudo obtener token para marcar como visto")
+                return
+            }
 
             let url = URL(string: "\(baseURL)/stories/\(storyId)/view")!
             var request = URLRequest(url: url)
@@ -254,10 +274,16 @@ class StoryService: ObservableObject {
 
     // MARK: - Add Reaction
     func addReaction(storyId: Int, emoji: String, message: String? = nil) async -> Bool {
+        print("DEBUG:💪 StoryService: Añadiendo reacción \(emoji) a story \(storyId)")
+
         do {
-            guard let token = await authService?.getValidAccessToken() else { return false }
+            guard let token = await authService?.getValidAccessToken() else {
+                print("DEBUG:⚠️ StoryService: No se pudo obtener token para añadir reacción")
+                return false
+            }
 
             guard FitnessEmoji.isValid(emoji) else {
+                print("DEBUG:❌ StoryService: Emoji no válido: \(emoji)")
                 errorMessage = "Emoji no válido"
                 return false
             }

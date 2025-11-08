@@ -60,7 +60,17 @@ struct CreateEventResponse: Codable {
     let createdAt: Date
     let updatedAt: Date
     let participantsCount: Int
-    
+
+    // Monetization fields
+    let isPaid: Bool?
+    let priceCents: Int?
+    let currency: String?
+    let refundPolicy: RefundPolicyType?
+    let refundDeadlineHours: Int?
+    let partialRefundPercentage: Int?
+    let stripeProductId: String?
+    let stripePriceId: String?
+
     enum CodingKeys: String, CodingKey {
         case title, description, location, status, id
         case startTime = "start_time"
@@ -70,6 +80,15 @@ struct CreateEventResponse: Codable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case participantsCount = "participants_count"
+        // Monetization keys
+        case isPaid = "is_paid"
+        case priceCents = "price_cents"
+        case currency
+        case refundPolicy = "refund_policy"
+        case refundDeadlineHours = "refund_deadline_hours"
+        case partialRefundPercentage = "partial_refund_percentage"
+        case stripeProductId = "stripe_product_id"
+        case stripePriceId = "stripe_price_id"
     }
 }
 

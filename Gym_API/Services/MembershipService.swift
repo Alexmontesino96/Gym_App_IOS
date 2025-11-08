@@ -132,7 +132,7 @@ class MembershipService: ObservableObject {
         print("🔧 MembershipService singleton inicializado")
     }
     
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private let session = URLSession.shared
     weak var authService: AuthServiceDirect?
     

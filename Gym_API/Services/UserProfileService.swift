@@ -9,7 +9,7 @@ class UserProfileService: ObservableObject {
     @Published var error: Error?
     
     // MARK: - Private Properties
-    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
+    private let baseURL = apiBaseURL
     private var cancellables = Set<AnyCancellable>()
     private var lastFetchedAt: Date?
     var minRefreshInterval: TimeInterval = 300 // 5 minutos por defecto

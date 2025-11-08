@@ -421,12 +421,16 @@ struct StoryCreatorView: View {
 
     // MARK: - Actions
     private func publishStory() {
+        print("DEBUG:📤 StoryCreator: Iniciando publicación de story")
+        print("DEBUG:📊 StoryCreator: Tipo: \(selectedType.rawValue), Privacidad: \(privacy.rawValue)")
+
         isPublishing = true
 
         Task {
             var workoutData: WorkoutData? = nil
 
             if selectedType == .workout {
+                print("DEBUG:🏋️ StoryCreator: Preparando datos de workout")
                 workoutData = WorkoutData(
                     exercise: exercise,
                     weight: Double(weight),

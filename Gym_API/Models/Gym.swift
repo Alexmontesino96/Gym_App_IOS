@@ -11,7 +11,8 @@ struct Gym: Codable, Identifiable {
     let description: String?
     let timezone: String
     let isActive: Bool
-    
+    let type: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case name
@@ -23,5 +24,6 @@ struct Gym: Codable, Identifiable {
         case description
         case timezone
         case isActive = "is_active"
+        case type
     }
 }

@@ -21,7 +21,14 @@ struct EventsView: View {
     
     // Estado para registro masivo
     @State private var selectedEventForBulkRegistration: Event?
-    
+
+    // Estados para pagos
+    @State private var showEventPayment = false
+    @State private var currentPaymentIntent: PaymentIntent?
+    @State private var currentParticipationId: Int?
+    @State private var currentPaymentEvent: Event?
+    @EnvironmentObject var paymentService: EventPaymentService
+
     var filteredEvents: [Event] {
         let searchFilteredEvents = searchText.isEmpty ? eventService.events : eventService.events.filter { event in
             event.title.localizedCaseInsensitiveContains(searchText) ||
@@ -139,39 +146,53 @@ struct EventsView: View {
                             .padding(.top, 40)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         } else {
-                            OptimizedList(
-                                items: filteredEvents,
-                                spacing: 16,
-                                showDividers: false,
-                                preloadThreshold: 5,
-                                onRefresh: {
-                                    await eventService.fetchEvents()
-                                    await eventService.fetchUserParticipations()
-                                }
-                            ) { event in
-                                EventCard(
-                                    event: event,
-                                    onChatTap: {
-                                        print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
-                                        handleEventChatTap(event: event)
-                                    },
-                                    onEditTap: {
-                                        print("✏️ Edit event tapped: \(event.title)")
-                                        selectedEventForEdit = event
-                                    },
-                                    onDeleteTap: {
-                                        print("🗑️ Delete event tapped: \(event.title)")
-                                        selectedEventForDelete = event
-                                        showingDeleteConfirmation = true
-                                    },
-                                    onBulkRegistrationTap: {
-                                        print("👥 Bulk registration tapped: \(event.title)")
-                                        selectedEventForBulkRegistration = event
+                            ScrollView {
+                                LazyVStack(spacing: 16) {
+                                    ForEach(filteredEvents) { event in
+                                        EventCard(
+                                            event: event,
+                                            onChatTap: {
+                                                print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
+                                                handleEventChatTap(event: event)
+                                            },
+                                            onEditTap: {
+                                                print("✏️ Edit event tapped: \(event.title)")
+                                                selectedEventForEdit = event
+                                            },
+                                            onDeleteTap: {
+                                                print("🗑️ Delete event tapped: \(event.title)")
+                                                selectedEventForDelete = event
+                                                showingDeleteConfirmation = true
+                                            },
+                                            onBulkRegistrationTap: {
+                                                print("👥 Bulk registration tapped: \(event.title)")
+                                                selectedEventForBulkRegistration = event
+                                            },
+                                            onPaymentRequired: { paymentIntent, participationId, event in
+                                                print("💳 Payment required for event: \(event.title)")
+                                                print("💳 PaymentIntent: amount=\(paymentIntent.amount), participationId=\(participationId)")
+
+                                                // Set state variables and open sheet
+                                                // Using capture list in sheet closure to ensure state is captured correctly
+                                                print("💳 Setting payment state variables...")
+                                                currentPaymentIntent = paymentIntent
+                                                currentParticipationId = participationId
+                                                currentPaymentEvent = event
+                                                print("💳 State variables set: \(currentPaymentIntent != nil), \(currentParticipationId != nil), \(currentPaymentEvent != nil)")
+                                                print("💳 Opening sheet now...")
+                                                showEventPayment = true
+                                            }
+                                        )
+                                        .padding(.horizontal, 20)
                                     }
-                                )
-                                .padding(.horizontal, 20)
+                                }
+                                .padding(.top, 8)
+                                .padding(.bottom, 80)
                             }
-                            .padding(.top, 8)
+                            .refreshable {
+                                await eventService.fetchEvents()
+                                await eventService.fetchUserParticipations()
+                            }
                         }
                         
                         // Floating Action Button (only for trainers and above)
@@ -236,6 +257,51 @@ struct EventsView: View {
                 .environmentObject(authService)
                 .environmentObject(eventService)
                 .environmentObject(gymService)
+        }
+        .sheet(item: Binding(
+            get: { currentPaymentIntent },
+            set: { currentPaymentIntent = $0 }
+        )) { paymentIntent in
+            let _ = print("🔥 [EventsView] Sheet presenting")
+            let _ = print("🔥 [EventsView] currentPaymentIntent exists: \(currentPaymentIntent != nil)")
+            let _ = print("🔥 [EventsView] currentParticipationId: \(currentParticipationId ?? -1)")
+            let _ = print("🔥 [EventsView] currentPaymentEvent: \(currentPaymentEvent?.title ?? "nil")")
+
+            if let participationId = currentParticipationId,
+               let event = currentPaymentEvent {
+                let _ = print("🔥 [EventsView] About to create EventPaymentView")
+                let _ = print("🔥 [EventsView] themeManager exists: \(String(describing: themeManager))")
+                let _ = print("🔥 [EventsView] paymentService exists: \(String(describing: paymentService))")
+
+                EventPaymentView(
+                    paymentIntent: paymentIntent,
+                    participationId: participationId,
+                    event: event,
+                    onPaymentComplete: { success in
+                        currentPaymentIntent = nil
+                        currentParticipationId = nil
+                        currentPaymentEvent = nil
+
+                        if success {
+                            Task {
+                                await eventService.fetchEvents()
+                                await eventService.fetchUserParticipations()
+                            }
+                        }
+                    }
+                )
+                .environmentObject(themeManager)
+                .environmentObject(paymentService)
+                .environmentObject(eventService)
+            } else {
+                let _ = print("❌ [EventsView] Sheet opened but missing participation or event data")
+                let _ = print("   - participationId: \(currentParticipationId != nil)")
+                let _ = print("   - event: \(currentPaymentEvent != nil)")
+
+                Text("Error: Missing payment data")
+                    .foregroundColor(.red)
+                    .font(.system(size: 20, weight: .bold))
+            }
         }
         .alert("Delete Event", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }

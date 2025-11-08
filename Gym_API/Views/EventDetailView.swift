@@ -6,10 +6,14 @@ struct EventDetailView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var themeManager: ThemeManager
+    @StateObject private var paymentService = EventPaymentService()
     @Environment(\.dismiss) private var dismiss
-    
+
     let eventId: Int
     @State private var initialRegistrationState: Bool?
+    @State private var showingPaymentSheet = false
+    @State private var currentPaymentIntent: PaymentIntent?
+    @State private var currentParticipationId: Int?
     
     var body: some View {
         ZStack {
@@ -19,10 +23,14 @@ struct EventDetailView: View {
                     ModernLoadingView()
                 } else if let eventDetail = eventService.eventDetail {
                     EventDetailContent(
-                        eventDetail: eventDetail, 
-                        eventService: eventService, 
+                        eventDetail: eventDetail,
+                        eventService: eventService,
+                        paymentService: paymentService,
                         authService: authService,
-                        initialRegistrationState: initialRegistrationState
+                        initialRegistrationState: initialRegistrationState,
+                        showingPaymentSheet: $showingPaymentSheet,
+                        currentPaymentIntent: $currentPaymentIntent,
+                        currentParticipationId: $currentParticipationId
                     )
                 } else if let errorMessage = eventService.detailErrorMessage {
                     ModernErrorView(
@@ -52,10 +60,34 @@ struct EventDetailView: View {
         .onAppear {
             // Capturar el estado inicial antes de cargar
             initialRegistrationState = eventService.isUserRegistered(eventId: eventId)
-            
+
             eventService.authService = authService
+            paymentService.authService = authService
             Task {
                 await eventService.fetchEventDetailData(eventId: eventId)
+            }
+        }
+        .sheet(isPresented: $showingPaymentSheet) {
+            if let paymentIntent = currentPaymentIntent {
+                EventPaymentView(
+                    paymentIntent: paymentIntent,
+                    participationId: currentParticipationId,
+                    event: nil,  // No tenemos acceso al objeto Event aquí, solo eventDetail
+                    onPaymentComplete: { success in
+                        showingPaymentSheet = false
+                        currentPaymentIntent = nil
+                        currentParticipationId = nil
+                        if success {
+                            // Actualizar datos del evento solo si el pago fue exitoso
+                            // fetchEventDetailData() actualizará automáticamente el estado de registro
+                            Task {
+                                await eventService.fetchEventDetailData(eventId: eventId)
+                            }
+                        }
+                        // Si success == false (usuario canceló), no actualizar nada
+                    }
+                )
+                .environmentObject(themeManager)
             }
         }
     }
@@ -65,12 +97,16 @@ struct EventDetailContent: View {
     @EnvironmentObject var themeManager: ThemeManager
     let eventDetail: EventDetail
     @ObservedObject var eventService: EventService
+    @ObservedObject var paymentService: EventPaymentService
     let authService: AuthServiceDirect
     let initialRegistrationState: Bool?
     @State private var showingEventChat = false
     @State private var selectedChatEvent: Event?
     @State private var currentRegistrationState: Bool?
     @State private var shakeOffset: CGFloat = 0
+    @Binding var showingPaymentSheet: Bool
+    @Binding var currentPaymentIntent: PaymentIntent?
+    @Binding var currentParticipationId: Int?
     
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -82,7 +118,18 @@ struct EventDetailContent: View {
                 if !eventDetail.description.isEmpty {
                     EventDescriptionSection(description: eventDetail.description)
                 }
-                
+
+                // Refund Policy Section - Mostrar si es evento de pago
+                if eventDetail.isPaid == true,
+                   let refundPolicy = eventDetail.refundPolicy {
+                    RefundInfoCard(
+                        policy: refundPolicy,
+                        deadlineHours: eventDetail.refundDeadlineHours,
+                        percentage: eventDetail.partialRefundPercentage
+                    )
+                    .padding(.horizontal, 20)
+                }
+
                 // Event Details Section
                 EventDetailsSection(eventDetail: eventDetail)
                 
@@ -90,11 +137,15 @@ struct EventDetailContent: View {
                 EventActionButtons(
                     eventDetail: eventDetail,
                     eventService: eventService,
+                    paymentService: paymentService,
                     authService: authService,
                     currentRegistrationState: $currentRegistrationState,
                     shakeOffset: $shakeOffset,
                     showingEventChat: $showingEventChat,
-                    selectedChatEvent: $selectedChatEvent
+                    selectedChatEvent: $selectedChatEvent,
+                    showingPaymentSheet: $showingPaymentSheet,
+                    currentPaymentIntent: $currentPaymentIntent,
+                    currentParticipationId: $currentParticipationId
                 )
                 
                 // Participants Section
@@ -181,7 +232,7 @@ struct EventDetailContent: View {
 struct EventHeaderCard: View {
     @EnvironmentObject var themeManager: ThemeManager
     let eventDetail: EventDetail
-    
+
     var body: some View {
         VStack(spacing: 20) {
             // Status Badge and Title Section
@@ -189,8 +240,16 @@ struct EventHeaderCard: View {
                 HStack {
                     EventStatusBadge(status: eventDetail.status)
                     Spacer()
+                    // Mostrar precio si es evento de pago
+                    if eventDetail.isPaid == true || eventDetail.formattedPrice != nil {
+                        PriceTag(
+                            price: eventDetail.formattedPrice,
+                            isPaid: eventDetail.isPaid ?? false,
+                            size: .large
+                        )
+                    }
                 }
-                
+
                 HStack {
                     Text(eventDetail.title)
                         .font(.system(size: 28, weight: .bold))
@@ -200,7 +259,7 @@ struct EventHeaderCard: View {
                     Spacer()
                 }
             }
-            
+
             // Event Image - Now more prominent
             ModernEventImageView()
         }
@@ -355,11 +414,15 @@ struct EventActionButtons: View {
     @EnvironmentObject var themeManager: ThemeManager
     let eventDetail: EventDetail
     @ObservedObject var eventService: EventService
+    @ObservedObject var paymentService: EventPaymentService
     let authService: AuthServiceDirect
     @Binding var currentRegistrationState: Bool?
     @Binding var shakeOffset: CGFloat
     @Binding var showingEventChat: Bool
     @Binding var selectedChatEvent: Event?
+    @Binding var showingPaymentSheet: Bool
+    @Binding var currentPaymentIntent: PaymentIntent?
+    @Binding var currentParticipationId: Int?
     
     var body: some View {
         VStack(spacing: 12) {
@@ -369,17 +432,50 @@ struct EventActionButtons: View {
                     shakeView()
                     return
                 }
-                
+
                 Task {
                     let wasRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
-                    
+
                     if wasRegistered {
-                        await eventService.cancelEvent(eventId: eventDetail.id)
+                        // Cancelar registro, puede incluir reembolso
+                        if eventDetail.isPaid == true {
+                            let refundResult = await paymentService.cancelWithRefund(eventId: eventDetail.id)
+                            if refundResult?.success == true {
+                                await eventService.fetchEventDetailData(eventId: eventDetail.id)
+                            }
+                        } else {
+                            await eventService.cancelEvent(eventId: eventDetail.id)
+                        }
                     } else {
-                        await eventService.joinEvent(eventId: eventDetail.id)
+                        // Registrarse en el evento
+                        if eventDetail.isPaid == true {
+                            // Evento de pago - necesita proceso de pago
+                            if let participation = await paymentService.registerForPaidEvent(eventId: eventDetail.id) {
+                                if participation.paymentRequired == true,
+                                   let clientSecret = participation.paymentClientSecret {
+                                    currentPaymentIntent = PaymentIntent(
+                                        clientSecret: clientSecret,
+                                        paymentIntentId: participation.paymentIntentId ?? "",
+                                        stripeAccountId: participation.stripeAccountId,
+                                        amount: participation.paymentAmount ?? 0,
+                                        currency: participation.paymentCurrency ?? "EUR",
+                                        paymentDeadline: participation.paymentDeadline
+                                    )
+                                    currentParticipationId = participation.id
+                                    showingPaymentSheet = true
+                                    // NO actualizar estado aquí - esperar a que se complete el pago
+                                } else {
+                                    // Registro exitoso sin pago requerido
+                                    await eventService.fetchEventDetailData(eventId: eventDetail.id)
+                                    currentRegistrationState = eventService.isUserRegistered(eventId: eventDetail.id)
+                                }
+                            }
+                        } else {
+                            // Evento gratuito
+                            await eventService.joinEvent(eventId: eventDetail.id)
+                            currentRegistrationState = eventService.isUserRegistered(eventId: eventDetail.id)
+                        }
                     }
-                    
-                    currentRegistrationState = eventService.isUserRegistered(eventId: eventDetail.id)
                 }
             }) {
                 HStack(spacing: 12) {
@@ -419,7 +515,15 @@ struct EventActionButtons: View {
                         creatorId: 0,
                         createdAt: Date(),
                         updatedAt: Date(),
-                        participantsCount: eventDetail.participantsCount
+                        participantsCount: eventDetail.participantsCount,
+                        isPaid: eventDetail.isPaid,
+                        priceCents: eventDetail.priceCents,
+                        currency: eventDetail.currency,
+                        refundPolicy: eventDetail.refundPolicy,
+                        refundDeadlineHours: eventDetail.refundDeadlineHours,
+                        partialRefundPercentage: eventDetail.partialRefundPercentage,
+                        stripeProductId: eventDetail.stripeProductId,
+                        stripePriceId: eventDetail.stripePriceId
                     )
                     showingEventChat = true
                 }) {
@@ -527,12 +631,22 @@ struct EventActionButtons: View {
         case .cancelled:
             return "Evento Cancelado"
         case .scheduled, .active:
-            if currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id) {
+            let isRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
+            if isRegistered {
+                // Si está registrado y es de pago, mostrar posibilidad de reembolso
+                if eventDetail.isPaid == true && eventDetail.canStillRefund {
+                    return "Cancelar con Reembolso"
+                }
                 return "Cancelar Registro"
             } else if eventDetail.isFullyBooked {
                 return "Evento Lleno"
             } else {
-                return "Unirse (\(eventDetail.participantsCount)/\(eventDetail.maxParticipants))"
+                // Mostrar precio si es de pago
+                if eventDetail.isPaid == true, let price = eventDetail.formattedPrice {
+                    return "Registrarse - \(price)"
+                } else {
+                    return "Unirse (\(eventDetail.participantsCount)/\(eventDetail.maxParticipants))"
+                }
             }
         }
     }

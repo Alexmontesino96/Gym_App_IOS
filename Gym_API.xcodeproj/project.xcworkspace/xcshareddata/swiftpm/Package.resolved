@@ -1,5 +1,5 @@
 {
-  "originHash" : "89f7257a230895f98dc0a49788dc8abfef979572320f1360d927507f570d3a0e",
+  "originHash" : "67e7b0fded50888a13fae6cdfe3e43c3e0f749806bc5fd837a169a401f7ae665",
   "pins" : [
     {
       "identity" : "auth0.swift",
@@ -44,6 +44,15 @@
       "state" : {
         "revision" : "487d3d263c4caa5ae482083036091a93bc1978e1",
         "version" : "4.84.0"
+      }
+    },
+    {
+      "identity" : "stripe-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/stripe/stripe-ios",
+      "state" : {
+        "revision" : "13c2a048315dd17fc77e53ee3ad70abdd9fa0da8",
+        "version" : "24.24.4"
       }
     }
   ],

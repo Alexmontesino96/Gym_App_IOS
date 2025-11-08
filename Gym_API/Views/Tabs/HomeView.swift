@@ -73,111 +73,115 @@ struct HomeView: View {
                         .environmentObject(themeManager)
                         .transition(.opacity)
                 } else {
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(spacing: 20) {
-                        // Hero Section with personalized greeting
-                        HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
-
-                        // Stories Bar - Nueva funcionalidad de historias
-                        StoriesBar()
+                    VStack(spacing: 0) {
+                        // Instagram Stories Bar - Diseño exacto de Instagram
+                        InstagramStoriesBar()
                             .environmentObject(ServiceContainer.shared.storyService)
                             .environmentObject(authService)
                             .environmentObject(themeManager)
+                            .zIndex(1) // Mantener encima del scroll
 
-                        // Streak Indicator o Comeback Card según el estado
-                        HStack {
-                            if userStatsService.userStats.currentStreak == 0 && userStatsService.daysInactive >= 1 {
-                                // Mostrar card de comeback en lugar del streak indicator
-                                // Solo se oculta si fue marcado como "mostrado" el mismo día (cuando usuario agenda o pospone)
-                                if ComebackView.shouldShowToday() {
-                                    Button(action: {
-                                        showComebackView = true
-                                    }) {
-                                        ComebackCompactCard(
-                                            daysInactive: userStatsService.daysInactive,
+                        // Contenido scrolleable
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 20) {
+                                // Hero Section with personalized greeting
+                                HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
+
+                                // Streak Indicator o Comeback Card según el estado
+                                HStack {
+                                    if userStatsService.userStats.currentStreak == 0 && userStatsService.daysInactive >= 1 {
+                                        // Mostrar card de comeback en lugar del streak indicator
+                                        // Solo se oculta si fue marcado como "mostrado" el mismo día (cuando usuario agenda o pospone)
+                                        if ComebackView.shouldShowToday() {
+                                            Button(action: {
+                                                showComebackView = true
+                                            }) {
+                                                ComebackCompactCard(
+                                                    daysInactive: userStatsService.daysInactive,
+                                                    theme: themeManager.currentTheme
+                                                )
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        } else {
+                                            // Mostrar streak indicator vacío cuando fue pospuesto/agendado hoy
+                                            StreakIndicator(
+                                                streakCount: 0,
+                                                theme: themeManager.currentTheme
+                                            )
+                                        }
+                                    } else {
+                                        StreakIndicator(
+                                            streakCount: userStatsService.userStats.currentStreak,
                                             theme: themeManager.currentTheme
                                         )
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                                .transition(.asymmetric(
+                                    insertion: .scale.combined(with: .opacity),
+                                    removal: .opacity
+                                ))
+
+                                // Next Class Card (if user has upcoming registered classes)
+                                NextClassCard(themeManager: themeManager, classService: classService)
+
+                                // Survey Card (if there are available surveys)
+                                SurveyHomeCard()
+                                    .environmentObject(surveyService)
+                                    .environmentObject(themeManager)
+
+                                // Quick Access Actions (4 circular buttons)
+                                SmartActionsSection(
+                                    themeManager: themeManager,
+                                    authService: authService,
+                                    eventService: eventService,
+                                    classService: classService,
+                                    profileService: profileService,
+                                    userStatsService: userStatsService,
+                                    membershipService: MembershipService.shared,
+                                    locationService: LocationService.shared
+                                )
+
+                                // Featured Event (single event with action buttons)
+                                if !eventService.events.isEmpty {
+                                    FeaturedEventSection(
+                                        events: eventService.events,
+                                        themeManager: themeManager,
+                                        paymentService: paymentService,
+                                        showingPaymentSheet: $showingPaymentSheet,
+                                        currentPaymentIntent: $currentPaymentIntent,
+                                        currentParticipationId: $currentParticipationId,
+                                        selectedEventForPayment: $selectedEventForPayment
+                                    )
+                                    .environmentObject(eventService)
                                 } else {
-                                    // Mostrar streak indicator vacío cuando fue pospuesto/agendado hoy
-                                    StreakIndicator(
-                                        streakCount: 0,
-                                        theme: themeManager.currentTheme
+                                    // Empty state placeholder for no events
+                                    HStack {
+                                        Image(systemName: "calendar")
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                        Text(NSLocalizedString("no_upcoming_events", comment: "No upcoming events"))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                            .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
+                                        Spacer()
+                                    }
+                                    .padding(12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
                                     )
                                 }
-                            } else {
-                                StreakIndicator(
-                                    streakCount: userStatsService.userStats.currentStreak,
-                                    theme: themeManager.currentTheme
-                                )
+
+                                // Recent Activity (completed classes/events)
+                                HomeRecentActivitySection(themeManager: themeManager, classService: classService, eventService: eventService)
+
+                                Spacer(minLength: 100)
                             }
-                            Spacer()
+                            .padding(.horizontal, 16)
                         }
-                        .padding(.horizontal, 20)
-                        .transition(.asymmetric(
-                            insertion: .scale.combined(with: .opacity),
-                            removal: .opacity
-                        ))
-                        
-                        // Next Class Card (if user has upcoming registered classes)
-                        NextClassCard(themeManager: themeManager, classService: classService)
-                        
-                        // Survey Card (if there are available surveys)
-                        SurveyHomeCard()
-                            .environmentObject(surveyService)
-                            .environmentObject(themeManager)
-                        
-                        // Quick Access Actions (4 circular buttons)
-                        SmartActionsSection(
-                            themeManager: themeManager,
-                            authService: authService,
-                            eventService: eventService,
-                            classService: classService,
-                            profileService: profileService,
-                            userStatsService: userStatsService,
-                            membershipService: MembershipService.shared,
-                            locationService: LocationService.shared
-                        )
-                        
-                        // Featured Event (single event with action buttons)
-                        if !eventService.events.isEmpty {
-                            FeaturedEventSection(
-                                events: eventService.events,
-                                themeManager: themeManager,
-                                paymentService: paymentService,
-                                showingPaymentSheet: $showingPaymentSheet,
-                                currentPaymentIntent: $currentPaymentIntent,
-                                currentParticipationId: $currentParticipationId,
-                                selectedEventForPayment: $selectedEventForPayment
-                            )
-                            .environmentObject(eventService)
-                        } else {
-                            // Empty state placeholder for no events
-                            HStack {
-                                Image(systemName: "calendar")
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                Text(NSLocalizedString("no_upcoming_events", comment: "No upcoming events"))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
-                                Spacer()
-                            }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                            )
-                        }
-                        
-                        // Recent Activity (completed classes/events)
-                        HomeRecentActivitySection(themeManager: themeManager, classService: classService, eventService: eventService)
-                        
-                        Spacer(minLength: 100)
-                        }
-                        .padding(.horizontal, 16)
+                        .safeAreaPadding(.top, 16)
+                        // .drawingGroup() // Comentado temporalmente para debug
                     }
-                    .safeAreaPadding(.top, 16)
-                    // .drawingGroup() // Comentado temporalmente para debug
                 }
             }
             .refreshable {
@@ -324,7 +328,10 @@ struct HomeView: View {
             }
         }
     }
-    
+}
+
+// MARK: - Helper Methods
+extension HomeView {
     private func setupServices() {
         debugLog("🏠 setupServices iniciado")
         debugLog("🏠 Configurando authService en gymService...")
