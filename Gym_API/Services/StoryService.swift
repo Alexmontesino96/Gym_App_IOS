@@ -29,7 +29,8 @@ class StoryService: ObservableObject {
     // MARK: - Cache
     private var feedCache: [UserStoryGroup]?
     private var cacheTimestamp: Date?
-    private let cacheValidityDuration: TimeInterval = 60 // 1 minute
+    private var cachedGymId: Int? // Track which gym the cache is for
+    private let cacheValidityDuration: TimeInterval = 300 // 5 minutes
 
     init() {
         print("DEBUG: StoryService initialized")
@@ -37,11 +38,32 @@ class StoryService: ObservableObject {
 
     // MARK: - Fetch Stories Feed
     func fetchStoriesFeed(filter: StoryFilter = .all, forceRefresh: Bool = false) async {
+        let currentGymId = GymService.shared.currentGymId
+        print("DEBUG: 📸 StoryService.fetchStoriesFeed called (gym: \(currentGymId ?? 0), forceRefresh: \(forceRefresh))")
+
         // Check cache if not forcing refresh
-        if !forceRefresh, let cached = feedCache, let timestamp = cacheTimestamp,
-           Date().timeIntervalSince(timestamp) < cacheValidityDuration {
-            self.feedStories = cached
-            return
+        if !forceRefresh {
+            if let cached = feedCache, let timestamp = cacheTimestamp, let cachedGym = cachedGymId {
+                let cacheAge = Date().timeIntervalSince(timestamp)
+                let gymMatches = cachedGym == currentGymId
+                print("DEBUG: 💾 Cache found - Age: \(Int(cacheAge))s / Valid: \(Int(cacheValidityDuration))s / Gym matches: \(gymMatches)")
+
+                if cacheAge < cacheValidityDuration && gymMatches {
+                    print("DEBUG: ✅ Using cached stories (\(cached.count) users)")
+                    await MainActor.run {
+                        self.feedStories = cached
+                    }
+                    return
+                } else if !gymMatches {
+                    print("DEBUG: 🏋️ Gym changed (cached: \(cachedGym), current: \(currentGymId ?? 0)), fetching fresh data")
+                } else {
+                    print("DEBUG: ⏰ Cache expired, fetching fresh data")
+                }
+            } else {
+                print("DEBUG: ❌ No cache available")
+            }
+        } else {
+            print("DEBUG: 🔄 Force refresh requested, bypassing cache")
         }
 
         print("DEBUG: 📱 StoryService: Obteniendo feed de stories (filter: \(filter.rawValue))")
@@ -69,6 +91,14 @@ class StoryService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+                print("DEBUG: 🏋️ StoryService: X-Gym-ID agregado: \(gymId)")
+            } else {
+                print("DEBUG: ⚠️ StoryService: X-Gym-ID no disponible")
+            }
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -78,7 +108,34 @@ class StoryService: ObservableObject {
 
             if httpResponse.statusCode == 200 {
                 let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+
+                    // Backend format: "2025-11-09T09:24:12.747377" (with microseconds, no timezone)
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+                    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+                    dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+
+                    if let date = dateFormatter.date(from: dateString) {
+                        return date
+                    }
+
+                    // Fallback: try without microseconds
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let date = dateFormatter.date(from: dateString) {
+                        return date
+                    }
+
+                    // Fallback: try ISO8601 with Z
+                    let isoFormatter = ISO8601DateFormatter()
+                    if let date = isoFormatter.date(from: dateString) {
+                        return date
+                    }
+
+                    throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateString)")
+                }
                 let feedResponse = try decoder.decode(StoryFeedResponse.self, from: data)
 
                 print("DEBUG: ✅ StoryService: Feed obtenido exitosamente - \(feedResponse.userStories.count) usuarios con stories")
@@ -87,8 +144,9 @@ class StoryService: ObservableObject {
                     self.feedStories = feedResponse.userStories
                     self.feedCache = feedResponse.userStories
                     self.cacheTimestamp = Date()
+                    self.cachedGymId = currentGymId
                     self.isLoading = false
-                    print("DEBUG:💾 StoryService: Feed guardado en caché")
+                    print("DEBUG:💾 StoryService: Feed guardado en caché (gym: \(currentGymId ?? 0), \(feedResponse.userStories.count) users)")
                 }
             } else {
                 print("DEBUG:❌ StoryService: Error HTTP \(httpResponse.statusCode) al obtener feed")
@@ -130,10 +188,15 @@ class StoryService: ObservableObject {
 
             print("DEBUG:✅ StoryService: Token obtenido correctamente")
 
-            let url = URL(string: "\(baseURL)/stories/")!
+            let url = URL(string: "\(baseURL)/stories")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+            }
 
             // Create form data
             let boundary = UUID().uuidString
@@ -203,8 +266,7 @@ class StoryService: ObservableObject {
             }
 
             if httpResponse.statusCode == 201 || httpResponse.statusCode == 200 {
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
+                let decoder = DateDecoding.serverDecoder()
                 let story = try decoder.decode(Story.self, from: data)
 
                 await MainActor.run {
@@ -251,6 +313,11 @@ class StoryService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+            }
+
             var body: [String: Any] = ["device_info": "iOS"]
             if let duration = duration {
                 body["view_duration_seconds"] = duration
@@ -294,6 +361,11 @@ class StoryService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+            }
+
             let body: [String: Any] = [
                 "emoji": emoji,
                 "message": message ?? ""
@@ -330,6 +402,11 @@ class StoryService: ObservableObject {
             request.httpMethod = "GET"
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+            }
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse,
@@ -353,6 +430,11 @@ class StoryService: ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "DELETE"
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+            }
 
             let (_, response) = try await URLSession.shared.data(for: request)
 
@@ -389,6 +471,11 @@ class StoryService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+            // Agregar X-Gym-ID header requerido
+            if let gymId = GymService.shared.currentGymId {
+                request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+            }
+
             let reportRequest = StoryReportRequest(reason: reason, description: description)
             request.httpBody = try JSONEncoder().encode(reportRequest)
 
@@ -415,18 +502,26 @@ class StoryService: ObservableObject {
         for (index, group) in feedStories.enumerated() {
             if let storyIndex = group.stories.firstIndex(where: { $0.id == storyId }) {
                 var updatedStories = group.stories
-                var updatedStory = updatedStories[storyIndex]
 
-                // Create a new story with updated hasViewed
-                // Note: Since Story is struct, we need to recreate it
-                // This is a simplified version - in production you'd properly copy all fields
+                // Actualizar hasViewed en el story
+                updatedStories[storyIndex].hasViewed = true
+
+                // Recalcular hasUnseen: true si hay alguna historia sin ver y activa
+                let hasUnseen = updatedStories.contains { story in
+                    !story.hasViewed && story.isActive
+                }
+
+                // Crear un nuevo UserStoryGroup con los valores actualizados
                 feedStories[index] = UserStoryGroup(
                     userId: group.userId,
                     userName: group.userName,
                     userAvatar: group.userAvatar,
-                    hasUnseen: group.hasUnseen,
+                    hasUnseen: hasUnseen,
                     stories: updatedStories
                 )
+
+                print("DEBUG:✅ Story \(storyId) marcada como vista. hasUnseen: \(hasUnseen)")
+                return
             }
         }
     }
@@ -436,10 +531,13 @@ class StoryService: ObservableObject {
         // Implementation would update the hasReacted flag
     }
 
+
     // MARK: - Clear Cache
     func clearCache() {
         feedCache = nil
         cacheTimestamp = nil
+        cachedGymId = nil
+        print("DEBUG:🧹 StoryService: Cache cleared")
     }
 
     deinit {

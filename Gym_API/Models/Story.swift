@@ -89,24 +89,24 @@ struct WorkoutData: Codable {
 // MARK: - Story Model
 struct Story: Identifiable, Codable {
     let id: Int
-    let gymId: Int
-    let userId: Int
+    let gymId: Int?  // Opcional porque el backend puede no enviarlo
+    let userId: Int?  // Opcional - viene en el nivel de user_stories
     let storyType: StoryType
     let caption: String?
-    let privacy: StoryPrivacy
+    let privacy: StoryPrivacy?  // Opcional con default
     let mediaUrl: String?
     let thumbnailUrl: String?
     let workoutData: WorkoutData?
     let viewCount: Int
     let reactionCount: Int
     let isPinned: Bool
-    let isExpired: Bool
-    let isOwnStory: Bool
-    let hasViewed: Bool
-    let hasReacted: Bool
+    let isExpired: Bool?  // Opcional - se puede calcular
+    let isOwnStory: Bool?  // Opcional con default
+    var hasViewed: Bool  // Mutable para permitir actualizaciones locales
+    let hasReacted: Bool?  // Opcional con default
     let createdAt: Date
     let expiresAt: Date
-    let userInfo: StoryUserInfo
+    let userInfo: StoryUserInfo?  // Opcional - viene en el nivel de user_stories
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -132,7 +132,8 @@ struct Story: Identifiable, Codable {
 
     // Computed properties
     var isActive: Bool {
-        !isExpired && expiresAt > Date()
+        let expired = isExpired ?? (expiresAt < Date())
+        return !expired && expiresAt > Date()
     }
 
     var timeRemaining: String {
