@@ -111,30 +111,29 @@ struct CreatePostView: View {
                 PhotosPicker(
                     selection: $selectedItems,
                     maxSelectionCount: 10,
-                    matching: .images,
-                    label: {
-                        VStack(spacing: 12) {
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 48))
-                                .foregroundColor(.gray.opacity(0.5))
+                    matching: .images
+                ) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray.opacity(0.5))
 
-                            Text("Seleccionar imágenes")
-                                .font(.system(size: 16, weight: .semibold))
+                        Text("Seleccionar imágenes")
+                            .font(.system(size: 16, weight: .semibold))
 
-                            Text("Hasta 10 imágenes")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
-                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                        )
+                        Text("Hasta 10 imágenes")
+                            .font(.system(size: 14))
+                            .foregroundColor(.gray)
                     }
-                )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+                    )
+                }
             } else {
                 // Images grid
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -180,24 +179,23 @@ struct CreatePostView: View {
                         PhotosPicker(
                             selection: $selectedItems,
                             maxSelectionCount: 10 - viewModel.selectedImages.count,
-                            matching: .images,
-                            label: {
-                                VStack(spacing: 8) {
-                                    Image(systemName: "plus.circle")
-                                        .font(.system(size: 32))
-                                    Text("Agregar")
-                                        .font(.system(size: 12))
-                                }
-                                .foregroundColor(.gray)
-                                .frame(width: 110, height: 110)
-                                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1, dash: [5])
-                                )
+                            matching: .images
+                        ) {
+                            VStack(spacing: 8) {
+                                Image(systemName: "plus.circle")
+                                    .font(.system(size: 32))
+                                Text("Agregar")
+                                    .font(.system(size: 12))
                             }
-                        )
+                            .foregroundColor(.gray)
+                            .frame(width: 110, height: 110)
+                            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1, dash: [5])
+                            )
+                        }
                     }
                 }
             }
