@@ -20,9 +20,9 @@ struct StoryViewerContainer: View {
     @State private var currentStoryIndex: Int = 0
     @State private var progress: CGFloat = 0
     @State private var isPaused = false
-    @State private var dragOffset: CGSize = .zero
     @State private var timer: Timer?
     @State private var showingReactionPicker = false
+    @State private var contentOpacity: Double = 1.0
 
     private let storyDuration: TimeInterval = 5.0 // 5 seconds per story
 
@@ -43,6 +43,7 @@ struct StoryViewerContainer: View {
                    let currentStory = currentStory {
                     StoryContentView(story: currentStory)
                         .ignoresSafeArea()
+                        .opacity(contentOpacity)
 
                     // Overlay UI
                     VStack(spacing: 0) {
@@ -55,7 +56,7 @@ struct StoryViewerContainer: View {
                                 progress: progress
                             )
                             .padding(.horizontal, 8)
-                            .padding(.top, geometry.safeAreaInsets.top + 8)
+                            .padding(.top, 8)
 
                             // User header
                             StoryHeaderView(
@@ -63,45 +64,20 @@ struct StoryViewerContainer: View {
                                 story: currentStory,
                                 onClose: { dismiss() }
                             )
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 8)
                         }
+                        .background(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.7), Color.clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
 
                         Spacer()
 
-                        // Bottom section with reactions
-                        VStack(spacing: 16) {
-                            // Caption if exists
-                            if let caption = currentStory.caption, !caption.isEmpty {
-                                Text(caption)
-                                    .font(.body)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(.ultraThinMaterial)
-                                    )
-                            }
-
-                            // Reaction bar
-                            StoryReactionBar(
-                                story: currentStory,
-                                onReaction: { emoji in
-                                    Task {
-                                        await storyService.addReaction(
-                                            storyId: currentStory.id,
-                                            emoji: emoji
-                                        )
-                                    }
-                                },
-                                onMessage: {
-                                    // TODO: Implement message functionality
-                                }
-                            )
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, geometry.safeAreaInsets.bottom + 20)
+                        // Bottom area handled via overlay pinned to bottom
                     }
                 }
 
@@ -129,40 +105,109 @@ struct StoryViewerContainer: View {
             .gesture(
                 DragGesture()
                     .onChanged { value in
-                        dragOffset = value.translation
                         if abs(value.translation.width) > 50 || abs(value.translation.height) > 50 {
                             pauseStory()
                         }
                     }
                     .onEnded { value in
-                        withAnimation(.spring()) {
-                            // Swipe down to dismiss
-                            if value.translation.height > 100 {
-                                dismiss()
-                            }
-                            // Swipe left/right to change user
-                            else if value.translation.width > 100 {
-                                previousUser()
-                            } else if value.translation.width < -100 {
-                                nextUser()
-                            }
-
-                            dragOffset = .zero
+                        // Swipe down to dismiss
+                        if value.translation.height > 150 {
+                            dismiss()
+                        }
+                        // Swipe left/right to change user
+                        else if value.translation.width > 100 {
+                            previousUser()
+                        } else if value.translation.width < -100 {
+                            nextUser()
                         }
                         resumeStory()
                     }
             )
-            .offset(dragOffset)
-            .onLongPressGesture(minimumDuration: 0.1, pressing: { pressing in
+            .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
                 if pressing {
                     pauseStory()
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        contentOpacity = 0.7
+                    }
+                    // Haptic feedback
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
                 } else {
                     resumeStory()
+                    withAnimation(.easeIn(duration: 0.15)) {
+                        contentOpacity = 1.0
+                    }
                 }
             }, perform: {})
+            // Bottom overlay: caption (if any) + reaction dock pinned to bottom
+            .overlay(alignment: .bottom) {
+                if let currentUser = currentUserStory, let s = currentStory {
+                    VStack(spacing: 10) {
+                        if let caption = s.caption, !caption.isEmpty {
+                            Text(caption)
+                                .font(.body)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(.ultraThinMaterial)
+                                )
+                        }
+
+                        StoryReactionBar(
+                            story: s,
+                            onReaction: { emoji in
+                                Task { await storyService.addReaction(storyId: s.id, emoji: emoji) }
+                            },
+                            onMessage: {
+                                // TODO: Implement message functionality
+                            }
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, max(geometry.safeAreaInsets.bottom, 12))
+                    .background(
+                        LinearGradient(
+                            colors: [Color.clear, Color.black.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .ignoresSafeArea()
+                    )
+                }
+            }
             .onAppear {
+                print("DEBUG: 🎥 StoryViewerContainer onAppear")
+                print("DEBUG: 📊 userStories count: \(userStories.count)")
+                print("DEBUG: 📊 currentUserIndex: \(currentUserIndex)")
+                print("DEBUG: 📊 currentStoryIndex: \(currentStoryIndex)")
+                if let user = currentUserStory {
+                    print("DEBUG: 👤 Current user: \(user.userName)")
+                    print("DEBUG: 📊 User stories count: \(user.stories.count)")
+                    print("DEBUG: 📊 User activeStories count: \(user.activeStories.count)")
+
+                    // Log all stories in detail
+                    for (index, story) in user.stories.enumerated() {
+                        print("DEBUG: 📸 Story[\(index)] - ID: \(story.id), Active: \(story.isActive), Type: \(story.storyType)")
+                    }
+                } else {
+                    print("DEBUG: ❌ currentUserStory is NIL!")
+                }
+
+                if let story = currentStory {
+                    print("DEBUG: 📸 Current story ID: \(story.id)")
+                    print("DEBUG: 📸 Story type: \(story.storyType)")
+                    print("DEBUG: 📸 Media URL: \(story.mediaUrl ?? "nil")")
+                } else {
+                    print("DEBUG: ❌ currentStory is NIL!")
+                }
+
                 startStoryTimer()
                 markCurrentStoryAsViewed()
+                preloadNextStories()
             }
             .onDisappear {
                 stopTimer()
@@ -190,6 +235,7 @@ struct StoryViewerContainer: View {
             currentStoryIndex += 1
             resetProgress()
             markCurrentStoryAsViewed()
+            preloadNextStories()
         } else {
             nextUser()
         }
@@ -200,6 +246,7 @@ struct StoryViewerContainer: View {
             currentStoryIndex -= 1
             resetProgress()
             markCurrentStoryAsViewed()
+            preloadNextStories()
         } else {
             previousUser()
         }
@@ -207,10 +254,15 @@ struct StoryViewerContainer: View {
 
     private func nextUser() {
         if currentUserIndex < userStories.count - 1 {
+            // Haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+
             currentUserIndex += 1
             currentStoryIndex = 0
             resetProgress()
             markCurrentStoryAsViewed()
+            preloadNextStories()
         } else {
             dismiss()
         }
@@ -218,10 +270,15 @@ struct StoryViewerContainer: View {
 
     private func previousUser() {
         if currentUserIndex > 0 {
+            // Haptic feedback
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+
             currentUserIndex -= 1
             currentStoryIndex = 0
             resetProgress()
             markCurrentStoryAsViewed()
+            preloadNextStories()
         }
     }
 
@@ -232,11 +289,15 @@ struct StoryViewerContainer: View {
 
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
             if !isPaused {
+                let increment = CGFloat(0.05 / storyDuration)
+
                 withAnimation(.linear(duration: 0.05)) {
-                    progress += CGFloat(0.05 / storyDuration)
+                    progress = min(progress + increment, 1.0)
                 }
 
-                if progress >= 1 {
+                // Check if we've reached the end
+                if progress >= 0.99 {
+                    stopTimer()
                     nextStory()
                 }
             }
@@ -244,6 +305,7 @@ struct StoryViewerContainer: View {
     }
 
     private func resetProgress() {
+        stopTimer()
         progress = 0
         startStoryTimer()
     }
@@ -272,6 +334,43 @@ struct StoryViewerContainer: View {
             )
         }
     }
+
+    // MARK: - Preloading
+    private func preloadNextStories() {
+        var urlsToPreload: [String] = []
+
+        // Preload next story in current user's stories
+        if let user = currentUserStory,
+           currentStoryIndex + 1 < user.activeStories.count {
+            let nextStory = user.activeStories[currentStoryIndex + 1]
+            if nextStory.storyType == .image, let url = nextStory.mediaUrl {
+                urlsToPreload.append(url)
+            }
+        }
+
+        // Preload first story of next user
+        if currentUserIndex + 1 < userStories.count {
+            let nextUser = userStories[currentUserIndex + 1]
+            if let firstStory = nextUser.activeStories.first,
+               firstStory.storyType == .image,
+               let url = firstStory.mediaUrl {
+                urlsToPreload.append(url)
+            }
+        }
+
+        // Preload avatar of next user
+        if currentUserIndex + 1 < userStories.count {
+            let nextUser = userStories[currentUserIndex + 1]
+            if let avatarUrl = nextUser.userAvatar, !avatarUrl.isEmpty {
+                urlsToPreload.append(avatarUrl)
+            }
+        }
+
+        if !urlsToPreload.isEmpty {
+            print("DEBUG: 🔄 Preloading \(urlsToPreload.count) images for next stories")
+            ImageCacheManager.shared.preloadImages(urlsToPreload)
+        }
+    }
 }
 
 // MARK: - Story Content View
@@ -282,19 +381,26 @@ struct StoryContentView: View {
         ZStack {
             switch story.storyType {
             case .image:
-                if let mediaUrl = story.mediaUrl,
-                   let url = URL(string: mediaUrl) {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        Color.gray
-                            .overlay(
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            )
-                    }
+                if let mediaUrl = story.mediaUrl, !mediaUrl.isEmpty {
+                    StoryImageWithError(url: mediaUrl)
+                        .onAppear {
+                            print("DEBUG: 🖼️ Loading story image: \(mediaUrl.suffix(50))")
+                        }
+                } else {
+                    Color.gray
+                        .overlay(
+                            VStack {
+                                Image(systemName: "photo.fill")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.white.opacity(0.5))
+                                Text("URL de imagen no disponible")
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                            }
+                        )
+                        .onAppear {
+                            print("DEBUG: ❌ No media URL for story ID: \(story.id)")
+                        }
                 }
 
             case .video:
@@ -344,9 +450,8 @@ struct StoryHeaderView: View {
     var body: some View {
         HStack(spacing: 12) {
             // User avatar
-            if let avatarUrl = userStory.userAvatar,
-               let url = URL(string: avatarUrl) {
-                AsyncImage(url: url) { image in
+            if let avatarUrl = userStory.userAvatar, !avatarUrl.isEmpty {
+                CachedAsyncImage(url: avatarUrl) { image in
                     image
                         .resizable()
                         .scaledToFill()
@@ -374,7 +479,7 @@ struct StoryHeaderView: View {
             Spacer()
 
             // Story info
-            if story.isOwnStory {
+            if story.isOwnStory == true {
                 HStack(spacing: 4) {
                     Image(systemName: "eye")
                     Text(story.formattedViewCount)

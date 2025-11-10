@@ -20,55 +20,74 @@ struct StoryReactionBar: View {
     private let quickReactions = ["🔥", "💪", "👏", "❤️", "💯"]
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Quick reaction buttons
-            HStack(spacing: 12) {
-                ForEach(quickReactions, id: \.self) { emoji in
-                    ReactionButton(
-                        emoji: emoji,
-                        isSelected: selectedReaction == emoji,
-                        onTap: {
-                            sendReaction(emoji)
-                        }
-                    )
-                }
-
-                // More reactions button
-                Button(action: { showingAllReactions = true }) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white)
-                        .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                        )
-                }
-            }
-
-            Spacer()
-
-            // Message button
-            if !story.isOwnStory {
+        HStack(spacing: 12) {
+            // Message pill (if not own story)
+            if story.isOwnStory != true {
                 Button(action: onMessage) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "message")
-                        Text("Responder")
+                    HStack(spacing: 6) {
+                        Image(systemName: "paperplane.fill")
+                        Text("Responder…")
                     }
-                    .font(.caption)
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
                     .background(
                         Capsule()
                             .fill(.ultraThinMaterial)
+                            .overlay(
+                                Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
                     )
                 }
             }
+
+            Spacer(minLength: 8)
+
+            // Quick reaction buttons (uniform size)
+            HStack(spacing: 10) {
+                ForEach(quickReactions, id: \.self) { emoji in
+                    Button(action: { sendReaction(emoji) }) {
+                        Text(emoji)
+                            .font(.system(size: 20))
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // More button
+                Button(action: { showingAllReactions = true }) {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
+        .frame(height: 56)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+        )
         .sheet(isPresented: $showingAllReactions) {
             AllReactionsView(onSelect: sendReaction)
-                .presentationDetents([.height(200)])
+                .presentationDetents([.height(220)])
         }
         .overlay(
             // Reaction animation overlay
