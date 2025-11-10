@@ -74,13 +74,6 @@ struct HomeView: View {
                         .transition(.opacity)
                 } else {
                     VStack(spacing: 0) {
-                        // Instagram Stories Bar - Diseño exacto de Instagram
-                        InstagramStoriesBar()
-                            .environmentObject(ServiceContainer.shared.storyService)
-                            .environmentObject(authService)
-                            .environmentObject(themeManager)
-                            .zIndex(1) // Mantener encima del scroll
-
                         // Contenido scrolleable
                         ScrollView(.vertical, showsIndicators: false) {
                             VStack(spacing: 20) {
@@ -193,19 +186,6 @@ struct HomeView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                trailing: Button(action: {
-                    themeManager.toggleTheme()
-                }) {
-                    Image(systemName: themeManager.currentTheme == .dark ? "sun.max.fill" : "moon.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                }
-                .accessibilityLabel("Toggle theme")
-                .accessibilityHint("Switch between light and dark mode")
-                .accessibilityValue("Current theme: \(themeManager.currentTheme.displayName)")
-                .accessibleTouchTarget()
-            )
         }
         .sheet(isPresented: $showComebackView) {
             ComebackView(

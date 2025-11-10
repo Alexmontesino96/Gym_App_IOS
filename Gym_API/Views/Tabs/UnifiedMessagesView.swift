@@ -61,12 +61,15 @@ struct UnifiedMessagesView: View {
                 VStack(spacing: 0) {
                     // Header
                     headerView
-                    
+
                     // Search Bar (if showing)
                     if showingSearch {
                         searchBarView
                     }
-                    
+
+                    // Stories Carousel (moved from Home)
+                    messagesStoriesBar
+
                     // Content
                     contentView
                 }
@@ -105,6 +108,24 @@ struct UnifiedMessagesView: View {
             }
         }
         .animation(.easeInOut, value: showingSearch)
+    }
+
+    // MARK: - Stories Bar for Messages
+    private var messagesStoriesBar: some View {
+        VStack(spacing: 0) {
+            InstagramStoriesBar()
+                .environmentObject(ServiceContainer.shared.storyService)
+                .environmentObject(authService)
+                .environmentObject(themeManager)
+                .environmentObject(ServiceContainer.shared.profileService)
+                .padding(.bottom, 8)
+
+            // Subtle divider
+            Rectangle()
+                .fill(Color.gray.opacity(0.15))
+                .frame(height: 0.5)
+        }
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
     }
     
     // MARK: - Header View
