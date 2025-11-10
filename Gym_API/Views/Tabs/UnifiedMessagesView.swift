@@ -129,80 +129,55 @@ struct UnifiedMessagesView: View {
         .animation(.easeInOut, value: showingSearch)
     }
 
-    // MARK: - Combined Social Header (Stories + Overlay Title/Actions)
+    // MARK: - Combined Social Header (Compact Title Row + Stories)
     private var socialHeader: some View {
-        ZStack(alignment: .top) {
-            // Stories bar as background element
-            InstagramStoriesBar()
-                .environmentObject(ServiceContainer.shared.storyService)
-                .environmentObject(authService)
-                .environmentObject(themeManager)
-                .environmentObject(ServiceContainer.shared.profileService)
-
-            // Top overlay: title + actions
+        VStack(spacing: 8) {
+            // Compact title row
             HStack {
                 Text("Social")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
                 Spacer()
 
                 HStack(spacing: 12) {
-                    // Search button
+                    // Search
                     Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                             showingSearch.toggle()
                         }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                        impactFeedback.impactOccurred()
+                        let impact = UIImpactFeedbackGenerator(style: .light)
+                        impact.impactOccurred()
                     }) {
                         Image(systemName: showingSearch ? "xmark" : "magnifyingglass")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            .scaleEffect(searchButtonPressed ? 0.9 : 1.0)
-                            .animation(.easeInOut(duration: 0.1), value: searchButtonPressed)
-                    }
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.1)) { searchButtonPressed = true }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.easeInOut(duration: 0.1)) { searchButtonPressed = false }
-                        }
                     }
 
-                    // New message button
+                    // New message
                     Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                             showingUserSelector = true
                         }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                        impactFeedback.impactOccurred()
+                        let impact = UIImpactFeedbackGenerator(style: .light)
+                        impact.impactOccurred()
                     }) {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            .scaleEffect(newMessageButtonPressed ? 0.9 : 1.0)
-                            .animation(.easeInOut(duration: 0.1), value: newMessageButtonPressed)
-                    }
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.1)) { newMessageButtonPressed = true }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            withAnimation(.easeInOut(duration: 0.1)) { newMessageButtonPressed = false }
-                        }
                     }
                 }
             }
             .padding(.horizontal)
-            .padding(.top, 6)
-            .padding(.bottom, 8)
-            .background(
-                LinearGradient(
-                    colors: [Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.9), .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea(edges: .top)
-            )
+
+            // Stories bar directly below title
+            InstagramStoriesBar()
+                .environmentObject(ServiceContainer.shared.storyService)
+                .environmentObject(authService)
+                .environmentObject(themeManager)
+                .environmentObject(ServiceContainer.shared.profileService)
         }
+        .padding(.top, 6)
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .overlay(
             Rectangle().fill(Color.gray.opacity(0.15)).frame(height: 0.5)
