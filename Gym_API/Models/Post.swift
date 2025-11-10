@@ -42,6 +42,62 @@ struct UserPreview: Codable, Identifiable {
         guard let urlString = profilePictureUrl else { return nil }
         return URL(string: urlString)
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case fullName
+        case profilePictureUrl
+        case role
+        // Alternate keys from various backends
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case picture
+        case profilePictureURL = "profile_picture_url"
+        case full_name
+    }
+
+    init(id: Int, fullName: String, profilePictureUrl: String?, role: String) {
+        self.id = id
+        self.fullName = fullName
+        self.profilePictureUrl = profilePictureUrl
+        self.role = role
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(Int.self, forKey: .id)
+
+        // Prefer explicit full name if provided
+        let explicitFullName = try container.decodeIfPresent(String.self, forKey: .fullName)
+            ?? container.decodeIfPresent(String.self, forKey: .full_name)
+
+        if let explicitFullName, !explicitFullName.trimmingCharacters(in: .whitespaces).isEmpty {
+            self.fullName = explicitFullName
+        } else {
+            let first = try container.decodeIfPresent(String.self, forKey: .firstName)
+            let last = try container.decodeIfPresent(String.self, forKey: .lastName)
+            let combined = [first, last].compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            self.fullName = combined.isEmpty ? "Usuario" : combined
+        }
+
+        // Profile picture: accept picture or profile_picture_url or profilePictureUrl
+        self.profilePictureUrl = try container.decodeIfPresent(String.self, forKey: .profilePictureURL)
+            ?? container.decodeIfPresent(String.self, forKey: .picture)
+            ?? container.decodeIfPresent(String.self, forKey: .profilePictureUrl)
+
+        // Default role when missing
+        self.role = try container.decodeIfPresent(String.self, forKey: .role) ?? "member"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(fullName, forKey: .fullName)
+        try container.encodeIfPresent(profilePictureUrl, forKey: .profilePictureUrl)
+        try container.encode(role, forKey: .role)
+    }
 }
 
 // MARK: - Post Media
@@ -149,6 +205,173 @@ struct Post: Codable, Identifiable {
     var user: UserPreview
     var hasLiked: Bool
     let isOwnPost: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, caption, postType, privacy, location, likeCount, commentCount, viewCount, shareCount, isEdited, isDeleted, createdAt, updatedAt, editedAt, workoutData, media, tags, user, hasLiked, isOwnPost, userId, gymId
+        case userInfo = "user_info"
+    }
+
+    init(
+        id: Int,
+        userId: Int,
+        gymId: Int,
+        caption: String?,
+        postType: PostType,
+        privacy: Privacy,
+        location: String?,
+        likeCount: Int,
+        commentCount: Int,
+        viewCount: Int,
+        shareCount: Int,
+        isEdited: Bool,
+        isDeleted: Bool,
+        createdAt: Date,
+        updatedAt: Date?,
+        editedAt: Date?,
+        workoutData: String?,
+        media: [PostMedia],
+        tags: [PostTag],
+        user: UserPreview,
+        hasLiked: Bool,
+        isOwnPost: Bool
+    ) {
+        self.id = id
+        self.userId = userId
+        self.gymId = gymId
+        self.caption = caption
+        self.postType = postType
+        self.privacy = privacy
+        self.location = location
+        self.likeCount = likeCount
+        self.commentCount = commentCount
+        self.viewCount = viewCount
+        self.shareCount = shareCount
+        self.isEdited = isEdited
+        self.isDeleted = isDeleted
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.editedAt = editedAt
+        self.workoutData = workoutData
+        self.media = media
+        self.tags = tags
+        self.user = user
+        self.hasLiked = hasLiked
+        self.isOwnPost = isOwnPost
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        print("🔄 [Post.init(from:)] Iniciando decodificación...")
+
+        self.id = try container.decode(Int.self, forKey: .id)
+        print("   ✅ id: \(self.id)")
+
+        self.userId = try container.decode(Int.self, forKey: .userId)
+        print("   ✅ userId: \(self.userId)")
+
+        self.gymId = try container.decode(Int.self, forKey: .gymId)
+        print("   ✅ gymId: \(self.gymId)")
+        self.caption = try container.decodeIfPresent(String.self, forKey: .caption)
+        self.postType = try container.decode(PostType.self, forKey: .postType)
+        self.privacy = try container.decode(Privacy.self, forKey: .privacy)
+        self.location = try container.decodeIfPresent(String.self, forKey: .location)
+        self.likeCount = try container.decodeIfPresent(Int.self, forKey: .likeCount) ?? 0
+        self.commentCount = try container.decodeIfPresent(Int.self, forKey: .commentCount) ?? 0
+        self.viewCount = try container.decodeIfPresent(Int.self, forKey: .viewCount) ?? 0
+        self.shareCount = try container.decodeIfPresent(Int.self, forKey: .shareCount) ?? 0
+        self.isEdited = try container.decodeIfPresent(Bool.self, forKey: .isEdited) ?? false
+        self.isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+
+        func parseDate(_ key: CodingKeys) throws -> Date {
+            if let dateStr = try container.decodeIfPresent(String.self, forKey: key) {
+                if let date = Post.parseAPIDate(dateStr) {
+                    return date
+                }
+            }
+            if let date = try? container.decode(Date.self, forKey: key) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: "Invalid date format")
+        }
+
+        self.createdAt = try parseDate(.createdAt)
+        print("   ✅ createdAt: \(self.createdAt)")
+
+        self.updatedAt = try? parseDate(.updatedAt)
+        self.editedAt = try? parseDate(.editedAt)
+
+        self.workoutData = try container.decodeIfPresent(String.self, forKey: .workoutData)
+        print("   ✅ workoutData parsed")
+
+        print("   🖼️ Decodificando media...")
+        self.media = try container.decodeIfPresent([PostMedia].self, forKey: .media) ?? []
+        print("   ✅ media: \(self.media.count) items")
+
+        print("   🏷️ Decodificando tags...")
+        self.tags = try container.decodeIfPresent([PostTag].self, forKey: .tags) ?? []
+        print("   ✅ tags: \(self.tags.count) items")
+
+        print("   👤 Decodificando user/userInfo...")
+        if let user = try container.decodeIfPresent(UserPreview.self, forKey: .user) ?? container.decodeIfPresent(UserPreview.self, forKey: .userInfo) {
+            self.user = user
+            print("   ✅ user: \(user.fullName)")
+        } else {
+            self.user = UserPreview(id: self.userId, fullName: "Usuario", profilePictureUrl: nil, role: "member")
+            print("   ⚠️ user fallback usado")
+        }
+
+        self.hasLiked = try container.decodeIfPresent(Bool.self, forKey: .hasLiked) ?? false
+        self.isOwnPost = try container.decodeIfPresent(Bool.self, forKey: .isOwnPost) ?? false
+
+        print("✅ [Post.init(from:)] Decodificación completa - Post ID: \(self.id)")
+    }
+
+    private static func parseAPIDate(_ str: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: str) { return d }
+
+        let formats = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss"
+        ]
+        for fmt in formats {
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "en_US_POSIX")
+            df.timeZone = TimeZone(secondsFromGMT: 0)
+            df.dateFormat = fmt
+            if let d = df.date(from: str) { return d }
+        }
+        return nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(gymId, forKey: .gymId)
+        try container.encodeIfPresent(caption, forKey: .caption)
+        try container.encode(postType, forKey: .postType)
+        try container.encode(privacy, forKey: .privacy)
+        try container.encodeIfPresent(location, forKey: .location)
+        try container.encode(likeCount, forKey: .likeCount)
+        try container.encode(commentCount, forKey: .commentCount)
+        try container.encode(viewCount, forKey: .viewCount)
+        try container.encode(shareCount, forKey: .shareCount)
+        try container.encode(isEdited, forKey: .isEdited)
+        try container.encode(isDeleted, forKey: .isDeleted)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(editedAt, forKey: .editedAt)
+        try container.encodeIfPresent(workoutData, forKey: .workoutData)
+        try container.encode(media, forKey: .media)
+        try container.encode(tags, forKey: .tags)
+        try container.encode(user, forKey: .user)
+        try container.encode(hasLiked, forKey: .hasLiked)
+        try container.encode(isOwnPost, forKey: .isOwnPost)
+    }
 
     /// Menciones extraídas de tags
     var mentions: [UserPreview] {

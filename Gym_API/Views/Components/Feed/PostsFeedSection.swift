@@ -29,8 +29,10 @@ struct PostsFeedSection: View {
             }
         }
         .task {
+            Logger.shared.debug("PostsFeedSection appeared - triggering initial load if needed", category: .ui)
             // Cargar posts automáticamente cuando la vista aparece
             if posts.isEmpty && !paginationState.isLoading {
+                Logger.shared.info("Initial posts are empty. Starting loadInitialPosts()", category: .service)
                 await loadInitialPosts()
             }
         }
@@ -42,6 +44,7 @@ struct PostsFeedSection: View {
                 .onDisappear {
                     // Recargar posts después de crear uno nuevo
                     Task {
+                        Logger.shared.info("CreatePostView dismissed. Refreshing posts.", category: .service)
                         await refreshPosts()
                     }
                 }
@@ -211,9 +214,16 @@ struct PostsFeedSection: View {
 
     /// Carga inicial de posts
     private func loadInitialPosts() async {
-        guard !paginationState.isLoading else { return }
+        guard !paginationState.isLoading else {
+            Logger.shared.debug("loadInitialPosts() ignored - already loading", category: .service)
+            return
+        }
 
         paginationState.startLoading()
+        Logger.shared.info("Loading initial posts", category: .service, metadata: [
+            "limit": "\(paginationState.limit)",
+            "offset": "0"
+        ])
 
         do {
             let response = try await postService.getTimeline(
@@ -227,20 +237,38 @@ struct PostsFeedSection: View {
                 isInitialLoad = false
                 errorMessage = nil
             }
+
+            Logger.shared.info("Initial posts loaded", category: .service, metadata: [
+                "items": "\(response.items.count)",
+                "hasMore": "\(response.hasMore)",
+                "nextOffset": "\(response.nextOffset ?? -1)"
+            ])
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 paginationState.stopLoading()
                 isInitialLoad = false
             }
+
+            Logger.shared.error("Failed to load initial posts: \(error.localizedDescription)", category: .service)
         }
     }
 
     /// Carga más posts (paginación)
     private func loadMorePosts() async {
-        guard paginationState.canLoadMore else { return }
+        guard paginationState.canLoadMore else {
+            Logger.shared.debug("loadMorePosts() ignored - cannot load more", category: .service, metadata: [
+                "hasMore": "\(paginationState.hasMore.description)",
+                "isLoading": "\(paginationState.isLoading.description)"
+            ])
+            return
+        }
 
         paginationState.startLoading()
+        Logger.shared.info("Loading more posts", category: .service, metadata: [
+            "limit": "\(paginationState.limit)",
+            "offset": "\(paginationState.offset)"
+        ])
 
         do {
             let response = try await postService.getTimeline(
@@ -253,16 +281,26 @@ struct PostsFeedSection: View {
                 paginationState.update(with: response)
                 errorMessage = nil
             }
+
+            Logger.shared.info("More posts loaded", category: .service, metadata: [
+                "added": "\(response.items.count)",
+                "total": "\(posts.count)",
+                "hasMore": "\(response.hasMore)",
+                "nextOffset": "\(response.nextOffset ?? -1)"
+            ])
         } catch {
             await MainActor.run {
                 errorMessage = error.localizedDescription
                 paginationState.stopLoading()
             }
+
+            Logger.shared.error("Failed to load more posts: \(error.localizedDescription)", category: .service)
         }
     }
 
     /// Refresca la lista completa
     private func refreshPosts() async {
+        Logger.shared.info("Refreshing posts - resetting pagination", category: .service)
         paginationState.reset()
         await loadInitialPosts()
     }

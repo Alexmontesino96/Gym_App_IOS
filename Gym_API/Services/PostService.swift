@@ -125,12 +125,39 @@ class PostService: ObservableObject, PostServicing {
         }
 
         print("🔄 [PostService] Decodificando PagedResponse<Post>...")
-        let pagedResponse = try decoder.decode(PagedResponse<Post>.self, from: data)
-        print("✅ [PostService] Timeline cargado - Posts: \(pagedResponse.posts?.count ?? 0)")
-        return pagedResponse
+        do {
+            let pagedResponse = try decoder.decode(PagedResponse<Post>.self, from: data)
+            print("✅ [PostService] Timeline cargado - Posts: \(pagedResponse.posts?.count ?? 0)")
+            return pagedResponse
+        } catch let DecodingError.keyNotFound(key, context) {
+            print("❌ [PostService] Key '\(key.stringValue)' no encontrado")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.keyNotFound(key, context)
+        } catch let DecodingError.typeMismatch(type, context) {
+            print("❌ [PostService] Type mismatch para tipo \(type)")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.typeMismatch(type, context)
+        } catch let DecodingError.valueNotFound(type, context) {
+            print("❌ [PostService] Value not found para tipo \(type)")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.valueNotFound(type, context)
+        } catch let DecodingError.dataCorrupted(context) {
+            print("❌ [PostService] Data corrupted")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.dataCorrupted(context)
+        } catch {
+            print("❌ [PostService] Error desconocido decodificando: \(error)")
+            throw error
+        }
     }
 
     func getExplore(limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {
+        print("🌐 [PostService] getExplore() - limit: \(limit), offset: \(offset)")
+
         let endpoint = baseURL.appendingPathComponent("posts/feed/explore")
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -139,28 +166,50 @@ class PostService: ObservableObject, PostServicing {
         ]
 
         guard let url = components?.url else {
+            print("❌ [PostService] URL inválida (explore)")
             throw PostServiceError.invalidURL
         }
 
+        print("🔗 [PostService] URL (explore): \(url.absoluteString)")
+
         guard let request = await httpClient.makeRequest(url: url, method: "GET") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (explore)")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request (explore)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (explore)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (explore)")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code (explore): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (explore): \(responseString.prefix(1000))")
+        }
+
         guard (200...299).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 404 {
+                print("❌ [PostService] Módulo no disponible (404) - explore")
+            }
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (explore): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        return try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("🔄 [PostService] Decodificando PagedResponse<Post> (explore)...")
+        let result = try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("✅ [PostService] Explore cargado - Posts: \(result.posts?.count ?? 0)")
+        return result
     }
 
     func getByLocation(_ location: String, limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {
+        print("🌐 [PostService] getByLocation() - location: \(location), limit: \(limit), offset: \(offset)")
+
         let encodedLocation = location.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? location
         let endpoint = baseURL.appendingPathComponent("posts/feed/location/\(encodedLocation)")
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
@@ -170,25 +219,45 @@ class PostService: ObservableObject, PostServicing {
         ]
 
         guard let url = components?.url else {
+            print("❌ [PostService] URL inválida (location)")
             throw PostServiceError.invalidURL
         }
 
+        print("🔗 [PostService] URL (location): \(url.absoluteString)")
+
         guard let request = await httpClient.makeRequest(url: url, method: "GET") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (location)")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request (location)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (location)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (location)")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code (location): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (location): \(responseString.prefix(1000))")
+        }
+
         guard (200...299).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 404 {
+                print("❌ [PostService] Módulo no disponible (404) - location")
+            }
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (location): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        return try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("🔄 [PostService] Decodificando PagedResponse<Post> (location)...")
+        let result = try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("✅ [PostService] Location cargado - Posts: \(result.posts?.count ?? 0)")
+        return result
     }
 
     // MARK: - CRUD de Posts
@@ -319,6 +388,8 @@ class PostService: ObservableObject, PostServicing {
     }
 
     func getUserPosts(userId: Int, limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {
+        print("🌐 [PostService] getUserPosts() - userId: \(userId), limit: \(limit), offset: \(offset)")
+
         let endpoint = baseURL.appendingPathComponent("posts/user/\(userId)")
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -327,25 +398,42 @@ class PostService: ObservableObject, PostServicing {
         ]
 
         guard let url = components?.url else {
+            print("❌ [PostService] URL inválida (user posts)")
             throw PostServiceError.invalidURL
         }
 
+        print("🔗 [PostService] URL (user posts): \(url.absoluteString)")
+
         guard let request = await httpClient.makeRequest(url: url, method: "GET") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (user posts)")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request (user posts)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (user posts)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (user posts)")
             throw PostServiceError.invalidResponse
+        }
+
+        print("📊 [PostService] Status code (user posts): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (user posts): \(responseString.prefix(1000))")
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (user posts): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        return try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("🔄 [PostService] Decodificando PagedResponse<Post> (user posts)...")
+        let result = try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("✅ [PostService] User posts cargado - Posts: \(result.posts?.count ?? 0)")
+        return result
     }
 
     func updatePost(id: Int, caption: String? = nil, location: String? = nil) async throws -> Post {
