@@ -543,4 +543,22 @@ class StoryService: ObservableObject {
     deinit {
         print("DEBUG: StoryService deallocated")
     }
+
+    // MARK: - Helpers for UI Integration
+    /// Returns the story group for a given user id if present in the current feed
+    func userStoryGroup(for userId: Int) -> UserStoryGroup? {
+        return feedStories.first(where: { $0.userId == userId })
+    }
+
+    /// Whether the given user has any active story in the current feed
+    func hasActiveStory(for userId: Int) -> Bool {
+        guard let group = userStoryGroup(for: userId) else { return false }
+        return !group.activeStories.isEmpty
+    }
+
+    /// Count of unseen active stories for a given user
+    func unseenCount(for userId: Int) -> Int {
+        guard let group = userStoryGroup(for: userId) else { return 0 }
+        return group.stories.filter { $0.isActive && !$0.hasViewed }.count
+    }
 }

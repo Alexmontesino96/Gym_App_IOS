@@ -754,10 +754,36 @@ struct UnifiedMessagesView: View {
     }
     
     private func refreshConversationsOrder() async {
-        // Solo reordenar las conversaciones existentes por fecha
+        // Reordenar priorizando conversaciones con historias no vistas, luego por actividad
         await MainActor.run {
-            conversations = conversations.sorted { $0.lastActivity > $1.lastActivity }
+            conversations = conversations.sorted { a, b in
+                let aPriority = storyPriority(for: a)
+                let bPriority = storyPriority(for: b)
+                if aPriority != bPriority { return aPriority > bPriority }
+                return a.lastActivity > b.lastActivity
+            }
         }
+    }
+
+    private func storyPriority(for conversation: ChatConversation) -> Int {
+        // Priorizar direct chats cuyo otro usuario tiene historias no vistas
+        guard conversation.type == .direct else { return 0 }
+        // Map other user id similar to ConversationAvatarView
+        let other: ChatUser?
+        if let currentUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id {
+            other = conversation.members.first { user in
+                let normalizedMember = user.id.replacingOccurrences(of: "user_", with: "")
+                let normalizedCurrent = currentUserId.replacingOccurrences(of: "user_", with: "")
+                return normalizedMember != normalizedCurrent && user.id != currentUserId
+            }
+        } else {
+            other = conversation.members.first
+        }
+        guard let otherUser = other else { return 0 }
+        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
+        guard let userIdInt = Int(normalizedId) else { return 0 }
+        let unseen = ServiceContainer.shared.storyService.unseenCount(for: userIdInt)
+        return unseen > 0 ? 1 : 0
     }
 }
 
@@ -793,6 +819,7 @@ struct ConversationRow: View {
                 size: 56,
                 currentUserId: currentUserId
             )
+            .environmentObject(ServiceContainer.shared.storyService)
             .shadow(
                 color: Color.black.opacity(themeManager.currentTheme == .dark ? 0.3 : 0.1),
                 radius: 4,
@@ -1087,6 +1114,7 @@ struct ConversationAvatarView: View {
     let themeManager: ThemeManager
     let size: CGFloat
     let currentUserId: String?
+    @EnvironmentObject var storyService: StoryService
     
     @State private var refreshID = UUID()
     
@@ -1152,42 +1180,71 @@ struct ConversationAvatarView: View {
     }
     
     var body: some View {
+        let (hasUnseen, unseenCount) = storyStateForDirectChat()
         ZStack {
-            // Background gradient
-            LinearGradient(
-                gradient: Gradient(colors: avatarColors),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .frame(width: size, height: size)
-            .clipShape(Circle())
-            
-            // Profile photo or fallback
-            Group {
-                if let user = otherUser, let avatarURL = user.avatarURL, !avatarURL.isEmpty {
-                    // Cached profile photo using ImageLoaderService
-                    let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
-                    CustomImageView(url: avatarURL, cacheKey: "avatar_user_\(normalizedId)", size: size) {
-                        AnyView(fallbackContent)
+            // Story ring (outer)
+            if hasUnseen {
+                Circle()
+                    .strokeBorder(
+                        StoryDesignTokens.instagramUnseenGradient,
+                        lineWidth: StoryDesignTokens.ringWidth
+                    )
+                    .frame(width: size + 6, height: size + 6)
+            } else {
+                Circle()
+                    .stroke(StoryDesignTokens.seenRingColor, lineWidth: 1)
+                    .frame(width: size + 6, height: size + 6)
+            }
+
+            // Avatar content (inner)
+            ZStack {
+                // Background gradient
+                LinearGradient(
+                    gradient: Gradient(colors: avatarColors),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+                
+                // Profile photo or fallback
+                Group {
+                    if let user = otherUser, let avatarURL = user.avatarURL, !avatarURL.isEmpty {
+                        let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
+                        CustomImageView(url: avatarURL, cacheKey: "avatar_user_\(normalizedId)", size: size) {
+                            AnyView(fallbackContent)
+                        }
+                    } else if let user = otherUser {
+                        let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+                        let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
+                        let colorHash = abs(normalizedId.hashValue) % 16777215
+                        let backgroundColor = String(format: "%06X", colorHash)
+                        let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
+                        CustomImageView(url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)", size: size) {
+                            AnyView(fallbackContent)
+                        }
+                    } else {
+                        fallbackContent
                     }
-                } else if let user = otherUser {
-                    // Generate avatar using UI Avatars service for direct chats
-                    let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
-                    // Usar color determinístico basado en el ID del usuario
-                    let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
-                    let colorHash = abs(normalizedId.hashValue) % 16777215
-                    let backgroundColor = String(format: "%06X", colorHash)
-                    let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
-                    
-                    // Usar ID normalizado para clave de caché consistente
-                    CustomImageView(url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)", size: size) {
-                        AnyView(fallbackContent)
+                }
+
+                // Unseen badge for multiple stories
+                if hasUnseen && unseenCount > 1 {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Text("\(unseenCount)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(4)
+                                .background(Circle().fill(Color.red))
+                        }
+                        Spacer()
                     }
-                } else {
-                    fallbackContent
+                    .frame(width: size, height: size)
                 }
             }
-            
+
             // Online indicator for direct chats
             if conversation.type == .direct {
                 Circle()
@@ -1232,5 +1289,14 @@ struct ConversationAvatarView: View {
                 .font(.system(size: size * 0.43, weight: .medium))
                 .foregroundColor(.white)
         }
+    }
+
+    // MARK: - Story helpers for direct chats
+    private func storyStateForDirectChat() -> (Bool, Int) {
+        guard conversation.type == .direct, let other = otherUser else { return (false, 0) }
+        let normalizedId = other.id.replacingOccurrences(of: "user_", with: "")
+        guard let userIdInt = Int(normalizedId) else { return (false, 0) }
+        let unseen = storyService.unseenCount(for: userIdInt)
+        return (unseen > 0, unseen)
     }
 }
