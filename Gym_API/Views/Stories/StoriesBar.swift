@@ -75,6 +75,7 @@ struct StoriesBar: View {
                 )
                 .environmentObject(storyService)
                 .environmentObject(themeManager)
+                .environmentObject(authService)
             }
         }
         .fullScreenCover(isPresented: $showingMyStories) {
@@ -85,6 +86,7 @@ struct StoriesBar: View {
                 )
                 .environmentObject(storyService)
                 .environmentObject(themeManager)
+                .environmentObject(authService)
             }
         }
         .sheet(isPresented: $showingStoryCreator) {

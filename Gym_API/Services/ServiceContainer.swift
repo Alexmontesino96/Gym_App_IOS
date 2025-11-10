@@ -27,6 +27,8 @@ class ServiceContainer: ObservableObject {
     let surveyService: SurveyService
     let workspaceContextService: WorkspaceContextService
     let storyService: StoryService
+    let activityService: ActivityService
+    let postService: PostService
 
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -56,6 +58,8 @@ class ServiceContainer: ObservableObject {
             self.surveyService = SurveyService()
             self.workspaceContextService = WorkspaceContextService.shared
             self.storyService = StoryService()
+            self.activityService = ActivityService()
+            self.postService = PostService()
 
             // Configure dependencies automatically
             setupDependencies()
@@ -110,11 +114,19 @@ class ServiceContainer: ObservableObject {
                 self?.handleAuthenticationStateChange(isAuthenticated)
             }
             .store(in: &cancellables)
-        
+
         // Observe user changes
         authService.$user
             .sink { [weak self] user in
                 self?.handleUserChange(user)
+            }
+            .store(in: &cancellables)
+
+        // Observe gym selection changes - preload stories when gym is selected
+        gymService.$currentGym
+            .dropFirst() // Ignore initial nil value
+            .sink { [weak self] gym in
+                self?.handleGymSelectionChange(gym?.id)
             }
             .store(in: &cancellables)
     }
@@ -151,14 +163,34 @@ class ServiceContainer: ObservableObject {
     /// Maneja cambios en el usuario
     private func handleUserChange(_ user: AuthUser?) {
         guard let user = user else { return }
-        
+
         print("👤 ServiceContainer detectó cambio de usuario: \(user.email)")
-        
+
         // Update OneSignal user info
         oneSignalService.setExternalUserId(user.id)
         oneSignalService.sendTag(key: "user_email", value: user.email)
     }
-    
+
+    /// Maneja cambios en la selección de gym - precarga stories
+    private func handleGymSelectionChange(_ gymId: Int?) {
+        guard let gymId = gymId else {
+            print("🏋️ ServiceContainer: Gym deseleccionado, limpiando stories")
+            storyService.feedStories = []
+            storyService.myStories = []
+            return
+        }
+
+        print("🏋️ ServiceContainer detectó selección de gym: \(gymId)")
+        print("📸 Iniciando precarga automática de stories...")
+
+        Task {
+            await storyService.fetchStoriesFeed()
+            await MainActor.run {
+                print("✅ Stories precargadas: \(storyService.feedStories.count) usuarios con historias")
+            }
+        }
+    }
+
     // MARK: - Data Management
     
     /// Carga datos iniciales después de la autenticación
@@ -177,6 +209,7 @@ class ServiceContainer: ObservableObject {
         await contextTask
 
         print("✅ Datos iniciales cargados (sin gyms - se cargan en AuthenticatedView)")
+        print("📸 Stories se cargarán automáticamente cuando se seleccione un gym")
     }
     
     /// Limpia datos del usuario después del logout
@@ -191,6 +224,11 @@ class ServiceContainer: ObservableObject {
 
         // Clear workspace context
         workspaceContextService.clearContext()
+
+        // Clear stories data
+        storyService.clearCache()
+        storyService.feedStories = []
+        storyService.myStories = []
 
         print("✅ Datos de usuario limpiados")
     }
@@ -260,6 +298,8 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.profileService)
             .environmentObject(serviceContainer.surveyService)
             .environmentObject(serviceContainer.workspaceContextService)
+            .environmentObject(serviceContainer.activityService)
+            .environmentObject(serviceContainer.postService)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

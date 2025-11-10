@@ -568,7 +568,7 @@ extension SmartActionsSection {
                 priority: .medium,
                 type: .social,
                 destination: AnyView(
-                    UnifiedMessagesView()
+                    SocialFeedView()
                         .environmentObject(themeManager)
                         .environmentObject(authService)
                 ),

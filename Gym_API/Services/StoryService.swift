@@ -412,8 +412,7 @@ class StoryService: ObservableObject {
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else { return nil }
 
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            let decoder = DateDecoding.serverDecoder()
             return try decoder.decode([StoryViewer].self, from: data)
         } catch {
             print("DEBUG: Error fetching viewers: \(error)")

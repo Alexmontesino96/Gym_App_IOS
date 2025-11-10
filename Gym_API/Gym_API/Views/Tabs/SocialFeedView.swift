@@ -22,6 +22,9 @@ struct SocialFeedView: View {
 
     // MARK: - State Objects
     @StateObject private var chatProviderManager = ChatProviderManager.shared
+    @StateObject private var eventService = ServiceContainer.shared.eventService
+    @StateObject private var activityService = ServiceContainer.shared.activityService
+    @StateObject private var postService = ServiceContainer.shared.postService
 
     // MARK: - State Variables
     @State private var conversations: [ChatConversation] = []
@@ -248,18 +251,51 @@ struct SocialFeedView: View {
     // MARK: - Social Feed Content
     private var socialFeedContent: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Placeholder para las secciones del feed
-                Text("Feed Social")
-                    .font(.title2)
-                    .padding()
+            VStack(spacing: 24) {
+                // Events Carousel Section
+                EventsCarouselSection()
+                    .environmentObject(themeManager)
+                    .environmentObject(eventService)
 
-                Text("Aquí irán:\n• Carrusel de eventos\n• Galería de fotos\n• Logros recientes\n• Nuevos miembros")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-                    .padding()
+                // Past Events Gallery Section
+                PastEventsGallerySection()
+                    .environmentObject(themeManager)
+                    .environmentObject(eventService)
+
+                // Posts Feed Section
+                PostsFeedSection()
+                    .environmentObject(themeManager)
+                    .environmentObject(postService)
+
+                // Achievements Section
+                AchievementsSection(achievements: activityService.achievements, themeManager: themeManager)
+
+                // Placeholder for other sections (will be implemented in next phases)
+                placeholderSections
             }
-            .padding(.top)
+            .padding(.top, 12)
+        }
+    }
+
+    // MARK: - Placeholder Sections
+    private var placeholderSections: some View {
+        VStack(spacing: 20) {
+            Divider()
+                .padding(.horizontal, 16)
+
+            Text("Próximamente")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "person.2.badge.gearshape")
+                    Text("Nuevos miembros")
+                }
+            }
+            .font(.system(size: 14))
+            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            .padding()
         }
     }
 

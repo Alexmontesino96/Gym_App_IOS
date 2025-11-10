@@ -47,13 +47,13 @@ struct TrainerMainTabView: View {
                 .tag(2)
             }
 
-            // Messages
+            // Social (Messages + Feed)
             AnimatedTabContent(isSelected: selectedTab == 3) {
-                UnifiedMessagesView()
+                SocialFeedView()
             }
             .tabItem {
                 Image(systemName: selectedTab == 3 ? "message.fill" : "message")
-                Text("Messages")
+                Text("Social")
             }
             .tag(3)
 

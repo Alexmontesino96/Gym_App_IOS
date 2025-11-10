@@ -13,24 +13,27 @@ struct ModernProfileView: View {
     @State private var showingSettings = false
     @State private var showingProfileOptions = false
     @State private var showingColorPicker = false
-    @State private var selectedSection: ProfileSection = .achievements
+    @State private var selectedSection: ProfileSection = .posts
     @State private var showingImagePicker = false
     @State private var selectedImage: UIImage?
     @State private var showingEditProfile = false
     @State private var showingGymSelector = false
     @StateObject private var gymService = GymService.shared
+    @StateObject private var postService = PostService.shared
     @State private var showProfileCelebration = false
-    
+
     // MARK: - Profile Sections
     enum ProfileSection: String, CaseIterable {
+        case posts = "Posts"
         case achievements = "Achievements"
         case analytics = "Analytics"
         case social = "Social"
         case goals = "Goals"
         case history = "History"
-        
+
         var iconName: String {
             switch self {
+            case .posts: return "square.grid.2x2.fill"
             case .achievements: return "trophy.fill"
             case .analytics: return "chart.line.uptrend.xyaxis"
             case .social: return "person.2.fill"
@@ -58,6 +61,15 @@ struct ModernProfileView: View {
                         // Dynamic Content Based on Selection
                         Group {
                             switch selectedSection {
+                            case .posts:
+                                if let userId = Int(authService.user?.id ?? "") {
+                                    UserPostsGridView(userId: userId)
+                                        .environmentObject(themeManager)
+                                        .environmentObject(postService)
+                                } else {
+                                    Text("Unable to load posts")
+                                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                }
                             case .achievements:
                                 achievementShowcase
                             case .analytics:
@@ -699,7 +711,8 @@ struct ModernProfileView: View {
         imageService.configure(authService: authService)
         colorCustomizationManager.authService = authService
         colorCustomizationManager.profileService = profileService
-        
+        // PostService usa HTTPClient.shared que ya está configurado por ServiceContainer
+
         // Configurar authService en GymService también
         GymService.shared.authService = authService
     }

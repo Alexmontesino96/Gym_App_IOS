@@ -11,6 +11,7 @@ import Combine
 struct StoryViewerContainer: View {
     @EnvironmentObject var storyService: StoryService
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authService: AuthServiceDirect
     @Environment(\.dismiss) var dismiss
 
     let userStories: [UserStoryGroup]
@@ -23,6 +24,8 @@ struct StoryViewerContainer: View {
     @State private var timer: Timer?
     @State private var showingReactionPicker = false
     @State private var contentOpacity: Double = 1.0
+    @State private var showingViewersSheet = false
+    @State private var viewersStoryId: Int?
 
     private let storyDuration: TimeInterval = 5.0 // 5 seconds per story
 
@@ -62,7 +65,12 @@ struct StoryViewerContainer: View {
                             StoryHeaderView(
                                 userStory: currentUser,
                                 story: currentStory,
-                                onClose: { dismiss() }
+                                canShowViewers: isOwnStory(userGroup: currentUser, story: currentStory),
+                                onClose: { dismiss() },
+                                onViewersTap: {
+                                    viewersStoryId = currentStory.id
+                                    showingViewersSheet = true
+                                }
                             )
                             .padding(.horizontal, 8)
                             .padding(.bottom, 8)
@@ -139,7 +147,7 @@ struct StoryViewerContainer: View {
                     }
                 }
             }, perform: {})
-            // Bottom overlay: caption (if any) + reaction dock pinned to bottom
+            // Bottom overlay: caption (if any) + Instagram-style bottom bar pinned to bottom
             .overlay(alignment: .bottom) {
                 if let currentUser = currentUserStory, let s = currentStory {
                     VStack(spacing: 10) {
@@ -156,16 +164,19 @@ struct StoryViewerContainer: View {
                                 )
                         }
 
-                        StoryReactionBar(
-                            story: s,
-                            onReaction: { emoji in
-                                Task { await storyService.addReaction(storyId: s.id, emoji: emoji) }
-                            },
-                            onMessage: {
-                                // TODO: Implement message functionality
-                            }
-                        )
-                        .frame(maxWidth: .infinity)
+                        // Only show reply bar if it's NOT own story
+                        if !(s.isOwnStory ?? false) {
+                            InstagramStoryBottomBar(
+                                story: s,
+                                onSendMessage: { message in
+                                    // TODO: Wire to backend direct message or chat
+                                    print("DEBUG: Send story message -> id: \(s.id), text: \(message)")
+                                },
+                                onReact: { emoji in
+                                    Task { await storyService.addReaction(storyId: s.id, emoji: emoji) }
+                                }
+                            )
+                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, max(geometry.safeAreaInsets.bottom, 12))
@@ -211,6 +222,13 @@ struct StoryViewerContainer: View {
             }
             .onDisappear {
                 stopTimer()
+            }
+            .sheet(isPresented: $showingViewersSheet) {
+                if let storyId = viewersStoryId {
+                    StoryViewersListView(storyId: storyId)
+                        .environmentObject(storyService)
+                        .environmentObject(themeManager)
+                }
             }
         }
     }
@@ -373,6 +391,18 @@ struct StoryViewerContainer: View {
     }
 }
 
+// MARK: - Ownership helper
+extension StoryViewerContainer {
+    fileprivate func isOwnStory(userGroup: UserStoryGroup, story: Story) -> Bool {
+        if let own = story.isOwnStory { return own }
+        if storyService.myStories.contains(where: { $0.id == story.id }) { return true }
+        if let userIdStr = authService.user?.id, let userId = Int(userIdStr) {
+            return userGroup.userId == userId
+        }
+        return false
+    }
+}
+
 // MARK: - Story Content View
 struct StoryContentView: View {
     let story: Story
@@ -452,7 +482,9 @@ struct StoryContentView: View {
 struct StoryHeaderView: View {
     let userStory: UserStoryGroup
     let story: Story
+    let canShowViewers: Bool
     let onClose: () -> Void
+    var onViewersTap: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -486,19 +518,22 @@ struct StoryHeaderView: View {
             Spacer()
 
             // Story info
-            if story.isOwnStory == true {
-                HStack(spacing: 4) {
-                    Image(systemName: "eye")
-                    Text(story.formattedViewCount)
+            if canShowViewers {
+                Button(action: { onViewersTap?() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "eye")
+                        Text(story.formattedViewCount)
+                    }
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                    )
                 }
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                )
+                .accessibilityLabel("Visto por \(story.viewCount) personas. Tocar para ver la lista de espectadores")
             }
 
             // Close button

@@ -116,6 +116,7 @@ struct InstagramStoriesBar: View {
                     )
                     .environmentObject(storyService)
                     .environmentObject(themeManager)
+                    .environmentObject(authService)
                     .onAppear {
                         print("DEBUG: 🎥 StoryViewerContainer appeared!")
                         print("DEBUG: 📊 otherUsersStories count: \(otherUsersStories.count)")
@@ -152,6 +153,7 @@ struct InstagramStoriesBar: View {
                 )
                 .environmentObject(storyService)
                 .environmentObject(themeManager)
+                .environmentObject(authService)
             }
         }
         .sheet(isPresented: $showingStoryCreator) {
