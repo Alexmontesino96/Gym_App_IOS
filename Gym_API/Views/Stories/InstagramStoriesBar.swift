@@ -270,29 +270,39 @@ struct InstagramMyStoryButton: View {
         storyService.myStories.filter { $0.isActive }.count
     }
 
+    private var ownUnseenCount: Int {
+        storyService.myStories.filter { $0.isActive && !$0.hasViewed }.count
+    }
+
     var body: some View {
         VStack(spacing: 5) {
             ZStack(alignment: .bottomTrailing) {
-                // Story ring si tiene historia activa
+                // Story ring: gradient if there are unseen own stories; white if viewed
                 if hasActiveStory {
-                    // Gradiente Instagram para historias activas con pulso
-                    Circle()
-                        .strokeBorder(
-                            StoryDesignTokens.instagramUnseenGradient,
-                            lineWidth: StoryDesignTokens.ringWidth
-                        )
-                        .frame(
-                            width: StoryDesignTokens.avatarRingSize,
-                            height: StoryDesignTokens.avatarRingSize
-                        )
-                        .scaleEffect(isPulsing ? 1.05 : 1.0)
-                        .animation(
-                            Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true),
-                            value: isPulsing
-                        )
-                        .onAppear {
-                            isPulsing = true
-                        }
+                    if ownUnseenCount > 0 {
+                        Circle()
+                            .strokeBorder(
+                                StoryDesignTokens.instagramUnseenGradient,
+                                lineWidth: StoryDesignTokens.ringWidth
+                            )
+                            .frame(
+                                width: StoryDesignTokens.avatarRingSize,
+                                height: StoryDesignTokens.avatarRingSize
+                            )
+                            .scaleEffect(isPulsing ? 1.05 : 1.0)
+                            .animation(
+                                Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                                value: isPulsing
+                            )
+                            .onAppear { isPulsing = true }
+                    } else {
+                        Circle()
+                            .stroke(Color.white, lineWidth: StoryDesignTokens.ringWidth)
+                            .frame(
+                                width: StoryDesignTokens.avatarRingSize,
+                                height: StoryDesignTokens.avatarRingSize
+                            )
+                    }
                 }
 
                 // Avatar con padding interno
