@@ -72,7 +72,7 @@ struct InstagramStoriesBar: View {
                     }
                 }
                 .padding(.horizontal, StoryDesignTokens.barHorizontalPadding)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
             }
             .frame(height: StoryDesignTokens.barHeight)
             .background(

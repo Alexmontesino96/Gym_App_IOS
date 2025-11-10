@@ -19,7 +19,7 @@ struct StoryDesignTokens {
     static let avatarImageSize: CGFloat = 60
 
     /// Ancho del anillo de progreso
-    static let ringWidth: CGFloat = 2.5
+    static let ringWidth: CGFloat = 2.0
 
     /// Altura de las barras de progreso
     static let progressBarHeight: CGFloat = 2
@@ -39,10 +39,10 @@ struct StoryDesignTokens {
     static let avatarSpacing: CGFloat = 12
 
     /// Padding horizontal de la barra de stories
-    static let barHorizontalPadding: CGFloat = 16
+    static let barHorizontalPadding: CGFloat = 12
 
     /// Altura total de la barra de stories
-    static let barHeight: CGFloat = 100
+    static let barHeight: CGFloat = 96
 
     /// Padding del contenido del viewer
     static let viewerContentPadding: CGFloat = 16
