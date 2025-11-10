@@ -142,18 +142,3 @@ class SocialFeedViewModel: ObservableObject {
         errorMessage != nil && posts.isEmpty
     }
 }
-
-// MARK: - Pagination State
-
-struct PaginationState {
-    var isLoading = false
-    var hasMore = true
-    var offset = 0
-    var error: String?
-
-    mutating func reset() {
-        offset = 0
-        hasMore = true
-        error = nil
-    }
-}
