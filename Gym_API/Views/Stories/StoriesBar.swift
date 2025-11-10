@@ -257,23 +257,7 @@ struct StoryAvatar: View {
                         )
                 }
 
-                // Badge for multiple stories
-                if userStory.activeStories.count > 1 {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Text("\(userStory.activeStories.count)")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(4)
-                                .background(Color.red)
-                                .clipShape(Circle())
-                        }
-                        Spacer()
-                    }
-                    .frame(width: 68, height: 68)
-                }
+                // Removed numeric badge for multiple stories to keep UI minimal
             }
 
             // Username

@@ -364,25 +364,7 @@ struct InstagramMyStoryButton: View {
                         .offset(x: 2, y: 2)
                 }
 
-                // Badge para múltiples stories (solo si tiene más de 1 historia activa)
-                if activeStoriesCount > 1 {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Text("\(activeStoriesCount)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(3)
-                                .background(
-                                    Circle()
-                                        .fill(Color.red)
-                                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                                )
-                        }
-                        Spacer()
-                    }
-                    .frame(width: 64, height: 64)
-                }
+                // Sin badge numérico para mantener estilo minimalista
             }
 
             Text("Tu historia")
@@ -448,7 +430,7 @@ struct InstagramStoryAvatar: View {
                         )
                 }
 
-                // Avatar con padding interno
+                // Avatar adaptado completamente al círculo
                 Group {
                     if let avatarUrl = userStory.userAvatar,
                        let url = URL(string: avatarUrl) {
@@ -456,7 +438,10 @@ struct InstagramStoryAvatar: View {
                             image
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 56, height: 56)
+                                .frame(
+                                    width: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen),
+                                    height: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen)
+                                )
                                 .clipShape(Circle())
                                 .overlay(
                                     Circle()
@@ -468,7 +453,10 @@ struct InstagramStoryAvatar: View {
                         } placeholder: {
                             Circle()
                                 .fill(Color.gray.opacity(0.3))
-                                .frame(width: 56, height: 56)
+                                .frame(
+                                    width: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen),
+                                    height: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen)
+                                )
                                 .overlay(
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -477,7 +465,10 @@ struct InstagramStoryAvatar: View {
                     } else {
                         Circle()
                             .fill(Color.gray.opacity(0.3))
-                            .frame(width: 56, height: 56)
+                            .frame(
+                                width: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen),
+                                height: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen)
+                            )
                             .overlay(
                                 Image(systemName: "person.fill")
                                     .foregroundColor(.white)
@@ -485,29 +476,11 @@ struct InstagramStoryAvatar: View {
                     }
                 }
                 .frame(
-                    width: StoryDesignTokens.avatarRingSize - 4,
-                    height: StoryDesignTokens.avatarRingSize - 4
+                    width: StoryDesignTokens.avatarRingSize,
+                    height: StoryDesignTokens.avatarRingSize
                 )
 
-                // Badge para múltiples stories
-                if userStory.activeStories.count > 1 {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Text("\(userStory.activeStories.count)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(3)
-                                .background(
-                                    Circle()
-                                        .fill(Color.red)
-                                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                                )
-                        }
-                        Spacer()
-                    }
-                    .frame(width: 64, height: 64)
-                }
+                // Sin badge numérico para mantener estilo minimalista
             }
 
             // Username
