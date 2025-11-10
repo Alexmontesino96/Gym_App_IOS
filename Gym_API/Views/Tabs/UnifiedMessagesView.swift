@@ -59,16 +59,35 @@ struct UnifiedMessagesView: View {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    // Header
-                    headerView
+                    // Combined Stories + Header overlay (compact)
+                    socialHeader
 
                     // Search Bar (if showing)
                     if showingSearch {
                         searchBarView
                     }
 
-                    // Stories Carousel (moved from Home)
-                    messagesStoriesBar
+                    // Status indicators below header when needed
+                    if !chatProviderManager.isInitialized || isUpdatingFromServer {
+                        HStack {
+                            ProgressView().scaleEffect(0.8)
+                            Text(isUpdatingFromServer ? "Actualizando..." : "Conectando...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 6)
+                    }
+
+                    if let error = errorMessage {
+                        CompactErrorView(
+                            message: error,
+                            onRetry: {
+                                errorMessage = nil
+                                Task { await loadConversations() }
+                            }
+                        )
+                    }
 
                     // Content
                     contentView
@@ -110,22 +129,85 @@ struct UnifiedMessagesView: View {
         .animation(.easeInOut, value: showingSearch)
     }
 
-    // MARK: - Stories Bar for Messages
-    private var messagesStoriesBar: some View {
-        VStack(spacing: 0) {
+    // MARK: - Combined Social Header (Stories + Overlay Title/Actions)
+    private var socialHeader: some View {
+        ZStack(alignment: .top) {
+            // Stories bar as background element
             InstagramStoriesBar()
                 .environmentObject(ServiceContainer.shared.storyService)
                 .environmentObject(authService)
                 .environmentObject(themeManager)
                 .environmentObject(ServiceContainer.shared.profileService)
-                .padding(.bottom, 8)
 
-            // Subtle divider
-            Rectangle()
-                .fill(Color.gray.opacity(0.15))
-                .frame(height: 0.5)
+            // Top overlay: title + actions
+            HStack {
+                Text("Social")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    // Search button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            showingSearch.toggle()
+                        }
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                        impactFeedback.impactOccurred()
+                    }) {
+                        Image(systemName: showingSearch ? "xmark" : "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .scaleEffect(searchButtonPressed ? 0.9 : 1.0)
+                            .animation(.easeInOut(duration: 0.1), value: searchButtonPressed)
+                    }
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.1)) { searchButtonPressed = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.easeInOut(duration: 0.1)) { searchButtonPressed = false }
+                        }
+                    }
+
+                    // New message button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            showingUserSelector = true
+                        }
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                        impactFeedback.impactOccurred()
+                    }) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .scaleEffect(newMessageButtonPressed ? 0.9 : 1.0)
+                            .animation(.easeInOut(duration: 0.1), value: newMessageButtonPressed)
+                    }
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.1)) { newMessageButtonPressed = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.easeInOut(duration: 0.1)) { newMessageButtonPressed = false }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 6)
+            .padding(.bottom, 8)
+            .background(
+                LinearGradient(
+                    colors: [Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.9), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea(edges: .top)
+            )
         }
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+        .overlay(
+            Rectangle().fill(Color.gray.opacity(0.15)).frame(height: 0.5)
+            ,alignment: .bottom
+        )
     }
     
     // MARK: - Header View
