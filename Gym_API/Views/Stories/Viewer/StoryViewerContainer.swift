@@ -378,11 +378,14 @@ struct StoryContentView: View {
     let story: Story
 
     var body: some View {
+        GeometryReader { proxy in
         ZStack {
             switch story.storyType {
             case .image:
                 if let mediaUrl = story.mediaUrl, !mediaUrl.isEmpty {
                     StoryImageWithError(url: mediaUrl)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
                         .onAppear {
                             print("DEBUG: 🖼️ Loading story image: \(mediaUrl.suffix(50))")
                         }
@@ -437,6 +440,10 @@ struct StoryContentView: View {
             case .achievement:
                 AchievementStoryView(story: story)
             }
+        }
+        .frame(width: proxy.size.width, height: proxy.size.height)
+        .clipped()
+        .contentShape(Rectangle())
         }
     }
 }
