@@ -267,7 +267,8 @@ class PostService: ObservableObject, PostServicing {
             throw PostServiceError.serverError(error?.detail ?? "Error al crear el post")
         }
 
-        return try decoder.decode(Post.self, from: data)
+        let response = try decoder.decode(CreatePostResponse.self, from: data)
+        return response.post
     }
 
     func getUserPosts(userId: Int, limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {

@@ -108,7 +108,7 @@ struct CreatePostView: View {
 
             if viewModel.selectedImages.isEmpty {
                 // Empty state
-                PhotosPicker(
+                PhotosUI.PhotosPicker(
                     selection: $selectedItems,
                     maxSelectionCount: 10,
                     matching: .images
@@ -176,7 +176,7 @@ struct CreatePostView: View {
 
                     // Add more button
                     if viewModel.selectedImages.count < 10 {
-                        PhotosPicker(
+                        PhotosUI.PhotosPicker(
                             selection: $selectedItems,
                             maxSelectionCount: 10 - viewModel.selectedImages.count,
                             matching: .images
@@ -193,7 +193,10 @@ struct CreatePostView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1, dash: [5])
+                                    .stroke(
+                                        Color.dynamicBorder(theme: themeManager.currentTheme),
+                                        style: StrokeStyle(lineWidth: 1, dash: [5])
+                                    )
                             )
                         }
                     }
