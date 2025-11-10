@@ -139,7 +139,7 @@ class SocialFeedViewModel: ObservableObject {
                     posts.append(contentsOf: newPosts)
                 }
 
-                hasMore = response.hasMore
+                hasMore = response.hasMore ?? false
                 currentOffset = response.nextOffset ?? (currentOffset + newPosts.count)
 
                 print("📊 [SocialFeedViewModel] Estado final:")
