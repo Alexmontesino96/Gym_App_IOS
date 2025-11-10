@@ -502,7 +502,7 @@ class CommentsViewModel: ObservableObject {
                     comments.append(contentsOf: newComments)
                 }
 
-                hasMore = response.hasMore
+                hasMore = response.hasMore ?? false
                 currentOffset = response.nextOffset ?? (currentOffset + newComments.count)
             }
 
