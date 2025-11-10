@@ -43,14 +43,22 @@ class SocialFeedViewModel: ObservableObject {
 
     /// Carga la página inicial de posts
     func loadInitial() async {
-        guard !isLoading else { return }
+        print("🔄 [SocialFeedViewModel] loadInitial() llamado")
+        print("📊 [SocialFeedViewModel] Feed type: \(feedType)")
+
+        guard !isLoading else {
+            print("⚠️ [SocialFeedViewModel] Ya está cargando, saliendo...")
+            return
+        }
 
         isLoading = true
         errorMessage = nil
         currentOffset = 0
         posts = []
 
+        print("🚀 [SocialFeedViewModel] Iniciando carga de posts...")
         await loadPosts()
+        print("✅ [SocialFeedViewModel] Carga completada - Posts: \(posts.count)")
 
         isLoading = false
     }
@@ -92,39 +100,67 @@ class SocialFeedViewModel: ObservableObject {
     // MARK: - Private Methods
 
     private func loadPosts() async {
+        print("🔍 [SocialFeedViewModel] loadPosts() - Offset: \(currentOffset), PageSize: \(pageSize)")
+
         do {
             let response: PagedResponse<Post>
 
             switch feedType {
             case .timeline:
+                print("📰 [SocialFeedViewModel] Cargando Timeline...")
                 response = try await postService.getTimeline(limit: pageSize, offset: currentOffset)
 
             case .explore:
+                print("🔍 [SocialFeedViewModel] Cargando Explore...")
                 response = try await postService.getExplore(limit: pageSize, offset: currentOffset)
 
             case .location(let location):
+                print("📍 [SocialFeedViewModel] Cargando Location: \(location)")
                 response = try await postService.getByLocation(location, limit: pageSize, offset: currentOffset)
 
             case .userPosts(let userId):
+                print("👤 [SocialFeedViewModel] Cargando posts de usuario: \(userId)")
                 response = try await postService.getUserPosts(userId: userId, limit: pageSize, offset: currentOffset)
             }
 
+            print("📦 [SocialFeedViewModel] Respuesta recibida:")
+            print("   - Posts: \(response.posts?.count ?? 0)")
+            print("   - HasMore: \(response.hasMore)")
+            print("   - NextOffset: \(response.nextOffset ?? -1)")
+
             if let newPosts = response.posts {
+                print("✅ [SocialFeedViewModel] Procesando \(newPosts.count) posts nuevos")
+
                 if currentOffset == 0 {
+                    print("   - Reemplazando posts existentes")
                     posts = newPosts
                 } else {
+                    print("   - Agregando a posts existentes (\(posts.count))")
                     posts.append(contentsOf: newPosts)
                 }
 
                 hasMore = response.hasMore
                 currentOffset = response.nextOffset ?? (currentOffset + newPosts.count)
+
+                print("📊 [SocialFeedViewModel] Estado final:")
+                print("   - Total posts: \(posts.count)")
+                print("   - HasMore: \(hasMore)")
+                print("   - CurrentOffset: \(currentOffset)")
+
+                // Log de cada post
+                for (index, post) in newPosts.enumerated() {
+                    print("   📄 Post \(index + 1): ID=\(post.id), User=\(post.userId), Media=\(post.media.count)")
+                }
+            } else {
+                print("⚠️ [SocialFeedViewModel] Response.posts es nil")
             }
 
             errorMessage = nil
 
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ Error cargando posts: \(error)")
+            print("❌ [SocialFeedViewModel] Error cargando posts: \(error)")
+            print("❌ [SocialFeedViewModel] Error localizado: \(error.localizedDescription)")
         }
     }
 

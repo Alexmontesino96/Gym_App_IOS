@@ -77,6 +77,8 @@ class PostService: ObservableObject, PostServicing {
     // MARK: - Feeds
 
     func getTimeline(limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {
+        print("🌐 [PostService] getTimeline() - limit: \(limit), offset: \(offset)")
+
         let endpoint = baseURL.appendingPathComponent("posts/feed/timeline")
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -85,29 +87,47 @@ class PostService: ObservableObject, PostServicing {
         ]
 
         guard let url = components?.url else {
+            print("❌ [PostService] URL inválida")
             throw PostServiceError.invalidURL
         }
 
+        print("🔗 [PostService] URL: \(url.absoluteString)")
+
         guard let request = await httpClient.makeRequest(url: url, method: "GET") else {
+            print("❌ [PostService] No autorizado - makeRequest falló")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code: \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response: \(responseString.prefix(1000))")
+        }
+
         if httpResponse.statusCode == 404 {
+            print("❌ [PostService] Módulo no disponible (404)")
             throw PostServiceError.moduleNotAvailable
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor: \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        return try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("🔄 [PostService] Decodificando PagedResponse<Post>...")
+        let pagedResponse = try decoder.decode(PagedResponse<Post>.self, from: data)
+        print("✅ [PostService] Timeline cargado - Posts: \(pagedResponse.posts?.count ?? 0)")
+        return pagedResponse
     }
 
     func getExplore(limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {
@@ -203,18 +223,29 @@ class PostService: ObservableObject, PostServicing {
     }
 
     func createPost(caption: String? = nil, location: String? = nil, images: [UIImage]) async throws -> Post {
+        print("🌐 [PostService] createPost() llamado")
+        print("📊 [PostService] - Caption: '\(caption ?? "nil")'")
+        print("📊 [PostService] - Location: '\(location ?? "nil")'")
+        print("📊 [PostService] - Images count: \(images.count)")
+
         guard !images.isEmpty else {
+            print("❌ [PostService] No hay imágenes")
             throw PostServiceError.validationError("Se requiere al menos una imagen")
         }
 
         let endpoint = baseURL.appendingPathComponent("posts")
+        print("🔗 [PostService] Endpoint: \(endpoint.absoluteString)")
+
         let boundary = UUID().uuidString
+        print("🔑 [PostService] Boundary: \(boundary)")
 
         guard var request = await httpClient.makeRequest(url: endpoint, method: "POST") else {
+            print("❌ [PostService] No se pudo crear request - No autorizado")
             throw PostServiceError.unauthorized
         }
 
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        print("📤 [PostService] Content-Type configurado: multipart/form-data")
 
         var body = Data()
 
@@ -256,19 +287,35 @@ class PostService: ObservableObject, PostServicing {
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         request.httpBody = body
 
+        let bodySize = Double(body.count) / 1024.0 / 1024.0
+        print("📦 [PostService] Tamaño del body: \(String(format: "%.2f", bodySize)) MB")
+        print("🚀 [PostService] Enviando request al servidor...")
+
         let (data, response) = try await URLSession.shared.data(for: request)
 
+        print("📥 [PostService] Respuesta recibida")
+
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta inválida - No es HTTPURLResponse")
             throw PostServiceError.invalidResponse
+        }
+
+        print("📊 [PostService] Status code: \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response body: \(responseString.prefix(500))")
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor: \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error al crear el post")
         }
 
-        let response = try decoder.decode(CreatePostResponse.self, from: data)
-        return response.post
+        print("🔄 [PostService] Decodificando CreatePostResponse...")
+        let responseObj = try decoder.decode(CreatePostResponse.self, from: data)
+        print("✅ [PostService] Post decodificado exitosamente - ID: \(responseObj.post.id)")
+        return responseObj.post
     }
 
     func getUserPosts(userId: Int, limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Post> {

@@ -409,7 +409,11 @@ struct CreatePostView: View {
     }
 
     private func publishPost() async {
-        if let _ = await viewModel.createPost() {
+        print("🎬 [CreatePostView] publishPost() llamado")
+
+        if let post = await viewModel.createPost() {
+            print("✅ [CreatePostView] Post creado exitosamente - ID: \(post.id)")
+
             // Show success animation
             withAnimation {
                 showSuccessAnimation = true
@@ -418,9 +422,12 @@ struct CreatePostView: View {
             // Dismiss after delay
             try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
 
+            print("👋 [CreatePostView] Cerrando vista...")
             await MainActor.run {
                 dismiss()
             }
+        } else {
+            print("❌ [CreatePostView] createPost() retornó nil")
         }
     }
 }

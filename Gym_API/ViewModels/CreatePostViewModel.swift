@@ -36,7 +36,16 @@ class CreatePostViewModel: ObservableObject {
 
     /// Crea el post
     func createPost() async -> Post? {
-        guard validate() else { return nil }
+        print("🔄 [CreatePostViewModel] Iniciando creación de post...")
+        print("📊 [CreatePostViewModel] - Caption: '\(caption)'")
+        print("📊 [CreatePostViewModel] - Location: '\(location)'")
+        print("📊 [CreatePostViewModel] - Imágenes: \(selectedImages.count)")
+        print("📊 [CreatePostViewModel] - Privacy: \(privacy)")
+
+        guard validate() else {
+            print("❌ [CreatePostViewModel] Validación falló")
+            return nil
+        }
 
         isPosting = true
         errorMessage = nil
@@ -44,12 +53,15 @@ class CreatePostViewModel: ObservableObject {
 
         do {
             // Comprimir imágenes
+            print("🖼️ [CreatePostViewModel] Comprimiendo \(selectedImages.count) imágenes...")
             uploadProgress = 0.1
             let compressedImages = await compressImages()
+            print("✅ [CreatePostViewModel] Imágenes comprimidas: \(compressedImages.count)")
 
             uploadProgress = 0.3
 
             // Crear post
+            print("🚀 [CreatePostViewModel] Enviando request a PostService...")
             let post = try await postService.createPost(
                 caption: caption.isEmpty ? nil : caption,
                 location: location.isEmpty ? nil : location,
@@ -59,9 +71,12 @@ class CreatePostViewModel: ObservableObject {
             uploadProgress = 1.0
             successMessage = "Post creado exitosamente"
 
-            #if DEBUG
-            print("✅ Post creado: \(post.id)")
-            #endif
+            print("✅ [CreatePostViewModel] Post creado exitosamente!")
+            print("📝 [CreatePostViewModel] - Post ID: \(post.id)")
+            print("📝 [CreatePostViewModel] - User ID: \(post.userId)")
+            print("📝 [CreatePostViewModel] - Media count: \(post.media.count)")
+            print("📝 [CreatePostViewModel] - Caption: '\(post.caption ?? "vacío")'")
+            print("📝 [CreatePostViewModel] - Created at: \(post.createdAt)")
 
             // Limpiar formulario
             reset()
@@ -70,7 +85,8 @@ class CreatePostViewModel: ObservableObject {
 
         } catch {
             errorMessage = error.localizedDescription
-            print("❌ Error creando post: \(error)")
+            print("❌ [CreatePostViewModel] Error creando post: \(error)")
+            print("❌ [CreatePostViewModel] Error localizado: \(error.localizedDescription)")
             return nil
         }
 
