@@ -5,10 +5,10 @@ import Foundation
 /// Respuesta paginada genérica de la API
 /// Maneja diferentes tipos de contenido (posts, comentarios, likes) con paginación consistente
 struct PagedResponse<T: Codable>: Codable {
-    // Información de paginación
-    let limit: Int
-    let offset: Int
-    let hasMore: Bool
+    // Información de paginación (opcionales porque no todos los endpoints los devuelven)
+    let limit: Int?
+    let offset: Int?
+    let hasMore: Bool?
     let nextOffset: Int?
 
     // Total de items (puede variar el nombre según el endpoint)
@@ -47,12 +47,12 @@ struct PagedResponse<T: Codable>: Codable {
 
     /// Indica si hay más páginas disponibles
     var hasMorePages: Bool {
-        hasMore
+        hasMore ?? false
     }
 
     /// Offset para la siguiente página
     var effectiveNextOffset: Int {
-        nextOffset ?? (offset + items.count)
+        nextOffset ?? ((offset ?? 0) + items.count)
     }
 }
 
@@ -92,7 +92,7 @@ struct PaginationState {
 
     /// Actualiza el estado con una respuesta paginada
     mutating func update<T>(with response: PagedResponse<T>) {
-        hasMore = response.hasMore
+        hasMore = response.hasMore ?? false
         offset = response.effectiveNextOffset
         isLoading = false
     }
