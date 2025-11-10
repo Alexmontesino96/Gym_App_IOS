@@ -171,7 +171,7 @@ struct StoryViewerContainer: View {
                     .padding(.bottom, max(geometry.safeAreaInsets.bottom, 12))
                     .background(
                         LinearGradient(
-                            colors: [Color.clear, Color.black.opacity(0.6)],
+                            colors: [Color.clear, Color.black.opacity(0.4)],
                             startPoint: .top,
                             endPoint: .bottom
                         )

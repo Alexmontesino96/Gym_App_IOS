@@ -20,70 +20,57 @@ struct StoryReactionBar: View {
     private let quickReactions = ["🔥", "💪", "👏", "❤️", "💯"]
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Message pill (if not own story)
+        HStack(spacing: 10) {
+            // Minimal reply icon (icon-only)
             if story.isOwnStory != true {
                 Button(action: onMessage) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "paperplane.fill")
-                        Text("Responder…")
-                    }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            )
-                    )
+                    Image(systemName: "paperplane")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.95))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle().fill(Color.white.opacity(0.08))
+                        )
+                        .accessibilityLabel("Responder")
                 }
+                .buttonStyle(.plain)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 4)
 
-            // Quick reaction buttons (uniform size)
-            HStack(spacing: 10) {
+            // Minimal emoji row
+            HStack(spacing: 8) {
                 ForEach(quickReactions, id: \.self) { emoji in
                     Button(action: { sendReaction(emoji) }) {
                         Text(emoji)
-                            .font(.system(size: 20))
-                            .frame(width: 40, height: 40)
+                            .font(.system(size: 18))
+                            .frame(width: 32, height: 32)
                             .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(selectedReaction == emoji ? Color.white.opacity(0.12) : Color.clear)
                             )
                     }
                     .buttonStyle(.plain)
                 }
 
-                // More button
                 Button(action: { showingAllReactions = true }) {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.95))
+                        .frame(width: 32, height: 32)
                         .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                            RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08))
                         )
+                        .accessibilityLabel("Más reacciones")
                 }
                 .buttonStyle(.plain)
             }
         }
-        .frame(height: 56)
-        .padding(.horizontal, 6)
+        .frame(height: 44)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                )
+            Capsule().fill(.ultraThinMaterial.opacity(0.9))
         )
         .sheet(isPresented: $showingAllReactions) {
             AllReactionsView(onSelect: sendReaction)
