@@ -13,6 +13,7 @@ class CreatePostViewModel: ObservableObject {
     @Published var caption: String = ""
     @Published var location: String = ""
     @Published var privacy: Privacy = .public
+    @Published var aspectPreset: AspectRatioPreset = .square1x1
     @Published var isPosting = false
     @Published var uploadProgress: Double = 0.0
     @Published var errorMessage: String?

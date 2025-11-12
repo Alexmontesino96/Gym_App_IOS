@@ -15,99 +15,117 @@ struct CreatePostView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.dynamicBackground(theme: themeManager.currentTheme)
-                    .ignoresSafeArea()
-
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Images gallery
-                        imagesSection
-
-                        // Aspect ratio selector
-                        aspectRatioSection
-
-                        // Caption input
-                        captionSection
-
-                        // Location selector
-                        locationSection
-
-                        // Privacy selector
-                        privacySection
-
-                        // Upload progress
-                        if viewModel.isPosting {
-                            uploadProgressSection
-                        }
-
-                        // Error message
-                        if let error = viewModel.errorMessage {
-                            errorView(error)
-                        }
-
-                        // Info section
-                        infoSection
+            mainContent
+                .navigationTitle("Nuevo Post")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        cancelButton
                     }
-                    .padding()
-                }
-            }
-            .navigationTitle("Nuevo Post")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
-                        dismiss()
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        publishButton
                     }
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    .disabled(viewModel.isPosting)
                 }
+                .onChange(of: selectedItems) { _, newItems in
+                    Task {
+                        await loadImages(from: newItems)
+                    }
+                }
+                .sheet(isPresented: $isEditingCrop) {
+                    cropEditorSheet
+                }
+                .overlay {
+                    if showSuccessAnimation {
+                        successOverlay
+                    }
+                }
+        }
+    }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        Task {
-                            await publishPost()
-                        }
-                    }) {
-                        if viewModel.isPosting {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                                .scaleEffect(0.8)
-                        } else {
-                            Text("Publicar")
-                                .fontWeight(.semibold)
-                        }
+    // MARK: - Main Content
+
+    private var mainContent: some View {
+        ZStack {
+            Color.dynamicBackground(theme: themeManager.currentTheme)
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    imagesSection
+                    aspectRatioSection
+                    captionSection
+                    locationSection
+                    privacySection
+
+                    if viewModel.isPosting {
+                        uploadProgressSection
                     }
-                    .foregroundColor(viewModel.canPost ? Color.dynamicAccent(theme: themeManager.currentTheme) : .gray)
-                    .disabled(!viewModel.canPost || viewModel.isPosting)
-                }
-            }
-            .onChange(of: selectedItems) { _, newItems in
-                Task {
-                    await loadImages(from: newItems)
-                }
-            }
-            .sheet(isPresented: $isEditingCrop) {
-                let idx = editingIndex
-                let img = (idx < viewModel.selectedImages.count) ? viewModel.selectedImages[idx] : UIImage()
-                ImageCropEditorView(
-                    image: img,
-                    preset: viewModel.aspectPreset,
-                    onCancel: { isEditingCrop = false },
-                    onConfirm: { cropped in
-                        if idx < viewModel.selectedImages.count {
-                            viewModel.selectedImages[idx] = cropped
-                        }
-                        isEditingCrop = false
+
+                    if let error = viewModel.errorMessage {
+                        errorView(error)
                     }
-                )
-                .preferredColorScheme(.dark)
-            }
-            .overlay {
-                if showSuccessAnimation {
-                    successOverlay
+
+                    infoSection
                 }
+                .padding()
             }
+        }
+    }
+
+    // MARK: - Toolbar Buttons
+
+    private var cancelButton: some View {
+        Button("Cancelar") {
+            dismiss()
+        }
+        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+        .disabled(viewModel.isPosting)
+    }
+
+    private var publishButton: some View {
+        Button(action: {
+            Task {
+                await publishPost()
+            }
+        }) {
+            if viewModel.isPosting {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .scaleEffect(0.8)
+            } else {
+                Text("Publicar")
+                    .fontWeight(.semibold)
+            }
+        }
+        .foregroundColor(viewModel.canPost ? Color.dynamicAccent(theme: themeManager.currentTheme) : .gray)
+        .disabled(!viewModel.canPost || viewModel.isPosting)
+    }
+
+    // MARK: - Crop Editor Sheet
+
+    @ViewBuilder
+    private var cropEditorSheet: some View {
+        if editingIndex < viewModel.selectedImages.count {
+            ImageCropEditorView(
+                image: viewModel.selectedImages[editingIndex],
+                preset: viewModel.aspectPreset,
+                onCancel: { isEditingCrop = false },
+                onConfirm: { cropped in
+                    viewModel.selectedImages[editingIndex] = cropped
+                    isEditingCrop = false
+                }
+            )
+            .preferredColorScheme(.dark)
+        } else {
+            ImageCropEditorView(
+                image: UIImage(),
+                preset: viewModel.aspectPreset,
+                onCancel: { isEditingCrop = false },
+                onConfirm: { _ in
+                    isEditingCrop = false
+                }
+            )
+            .preferredColorScheme(.dark)
         }
     }
 

@@ -20,4 +20,14 @@ extension View {
             self
         }
     }
+
+    /// Aplica un modificador condicionalmente cuando un valor opcional no es nil
+    @ViewBuilder
+    func ifLet<Value, Content: View>(_ value: Value?, transform: (Self, Value) -> Content) -> some View {
+        if let value = value {
+            transform(self, value)
+        } else {
+            self
+        }
+    }
 }

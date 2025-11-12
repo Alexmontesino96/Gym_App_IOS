@@ -13,10 +13,10 @@ struct StoryDesignTokens {
     // MARK: - Tamaños (extraídos de Stream Figma y optimizados para Instagram)
 
     /// Tamaño del anillo exterior del avatar (círculo completo con el ring)
-    static let avatarRingSize: CGFloat = 94
+    static let avatarRingSize: CGFloat = 106  // Aumentado de 94 a 106 para ring más prominente
 
     /// Tamaño de la imagen del avatar (reducido significativamente para ring grueso como Instagram)
-    static let avatarImageSize: CGFloat = 70  // Reducido a 70pt para ring MUY visible
+    static let avatarImageSize: CGFloat = 78  // 78pt para que ring se extienda externamente
 
     /// Ancho del anillo de progreso (aro alrededor de los avatares) - Instagram style
     static let ringWidth: CGFloat = 3.5  // Ring stroke width
