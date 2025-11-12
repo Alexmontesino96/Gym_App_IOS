@@ -13,13 +13,13 @@ struct StoryDesignTokens {
     // MARK: - Tamaños (extraídos de Stream Figma)
 
     /// Tamaño del anillo exterior del avatar
-    static let avatarRingSize: CGFloat = 84
+    static let avatarRingSize: CGFloat = 94  // Aumentado de 84 a 94
 
     /// Tamaño de la imagen del avatar
-    static let avatarImageSize: CGFloat = 76
+    static let avatarImageSize: CGFloat = 86  // Aumentado de 76 a 86
 
-    /// Ancho del anillo de progreso
-    static let ringWidth: CGFloat = 3.0
+    /// Ancho del anillo de progreso (aro alrededor de los avatares)
+    static let ringWidth: CGFloat = 5.0  // Aumentado a 5.0 para mayor visibilidad
 
     /// Altura de las barras de progreso
     static let progressBarHeight: CGFloat = 2
@@ -36,13 +36,13 @@ struct StoryDesignTokens {
     // MARK: - Espaciados
 
     /// Espaciado horizontal entre avatares
-    static let avatarSpacing: CGFloat = 14
+    static let avatarSpacing: CGFloat = 16  // Aumentado de 14 a 16
 
     /// Padding horizontal de la barra de stories
     static let barHorizontalPadding: CGFloat = 12
 
     /// Altura total de la barra de stories
-    static let barHeight: CGFloat = 116
+    static let barHeight: CGFloat = 130  // Aumentado de 116 a 130
 
     /// Padding del contenido del viewer
     static let viewerContentPadding: CGFloat = 16
