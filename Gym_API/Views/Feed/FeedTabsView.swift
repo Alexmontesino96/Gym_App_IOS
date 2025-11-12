@@ -195,11 +195,11 @@ struct FeedTabsView: View {
 
     private var customNavigationBar: some View {
         HStack(spacing: 20) {
-            // Logo/Title - Instagram style font
+            // Logo/Title - Bold modern style
             Text("Social")
-                .font(.custom("SnellRoundhand", size: 32))
+                .font(.system(size: 28, weight: .bold, design: .default))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .baselineOffset(-2) // Ajuste vertical para mejor alineación
+                .kerning(0.5) // Espaciado entre letras
 
             Spacer()
 
