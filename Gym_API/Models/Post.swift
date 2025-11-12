@@ -144,17 +144,7 @@ struct PostMedia: Codable, Identifiable {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case postId = "post_id"
-        case mediaType = "media_type"
-        case mediaUrl = "media_url"
-        case thumbnailUrl = "thumbnail_url"
-        case displayOrder = "display_order"
-        case width, height
-        case fileSize = "file_size"
-        case durationSeconds = "duration_seconds"
-    }
+    // No necesitamos CodingKeys porque .convertFromSnakeCase hace el trabajo automáticamente
 }
 
 // MARK: - Post Tag
@@ -171,15 +161,7 @@ struct PostTag: Codable, Identifiable {
     let taggedEvent: TaggedEvent?
     let taggedSession: TaggedSession?
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case postId = "post_id"
-        case tagType = "tag_type"
-        case tagId = "tag_id"
-        case taggedUser = "tagged_user"
-        case taggedEvent = "tagged_event"
-        case taggedSession = "tagged_session"
-    }
+    // No necesitamos CodingKeys porque .convertFromSnakeCase hace el trabajo automáticamente
 }
 
 /// Información básica de evento etiquetado
@@ -233,26 +215,14 @@ struct Post: Codable, Identifiable {
     var hasLiked: Bool
     let isOwnPost: Bool
 
-    enum CodingKeys: String, CodingKey {
-        case id, caption, location, media, tags
-        case postType = "post_type"
-        case privacy
-        case likeCount = "like_count"
-        case commentCount = "comment_count"
-        case viewCount = "view_count"
-        case shareCount = "share_count"
-        case isEdited = "is_edited"
-        case isDeleted = "is_deleted"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case editedAt = "edited_at"
-        case workoutData = "workout_data"
-        case hasLiked = "has_liked"
-        case isOwnPost = "is_own_post"
-        case userId = "user_id"
-        case gymId = "gym_id"
+    // CodingKeys mínimo solo para custom decoding
+    private enum CodingKeys: String, CodingKey {
+        case id, userId, gymId, caption, postType, privacy, location
+        case likeCount, commentCount, viewCount, shareCount
+        case isEdited, isDeleted, createdAt, updatedAt, editedAt
+        case workoutData, media, tags, hasLiked, isOwnPost
         case user
-        case userInfo = "user_info"
+        case userInfo  // .convertFromSnakeCase lo mapeará a user_info
     }
 
     init(
