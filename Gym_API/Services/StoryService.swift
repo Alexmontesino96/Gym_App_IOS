@@ -49,11 +49,15 @@ class StoryService: ObservableObject {
                 print("DEBUG: 💾 Cache found - Age: \(Int(cacheAge))s / Valid: \(Int(cacheValidityDuration))s / Gym matches: \(gymMatches)")
 
                 if cacheAge < cacheValidityDuration && gymMatches {
-                    print("DEBUG: ✅ Using cached stories (\(cached.count) users)")
-                    await MainActor.run {
-                        self.feedStories = cached
+                    if cached.isEmpty {
+                        print("DEBUG: ⚠️ Cached stories is empty, bypassing cache to fetch fresh data")
+                    } else {
+                        print("DEBUG: ✅ Using cached stories (\(cached.count) users)")
+                        await MainActor.run {
+                            self.feedStories = cached
+                        }
+                        return
                     }
-                    return
                 } else if !gymMatches {
                     print("DEBUG: 🏋️ Gym changed (cached: \(cachedGym), current: \(currentGymId ?? 0)), fetching fresh data")
                 } else {
@@ -72,32 +76,39 @@ class StoryService: ObservableObject {
         errorMessage = nil
 
         do {
-            guard let token = await authService?.getValidAccessToken() else {
-                print("DEBUG: ❌ StoryService: Error obteniendo token para feed")
-                throw NSError(domain: "StoryService", code: 401,
-                             userInfo: [NSLocalizedDescriptionKey: "No authentication token"])
-            }
-
             let url = URL(string: "\(baseURL)/stories/feed")!
             print("DEBUG: 🔗 StoryService: URL del feed: \(url.absoluteString)")
             var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
-            components.queryItems = [
-                URLQueryItem(name: "filter_type", value: filter.rawValue),
-                URLQueryItem(name: "limit", value: "25")
+            var query: [URLQueryItem] = [
+                URLQueryItem(name: "limit", value: "25"),
+                URLQueryItem(name: "offset", value: "0")
             ]
+            // Do NOT send filter_type when it's the default (.all) — backend may treat missing differently
+            if filter != .all {
+                query.append(URLQueryItem(name: "filter_type", value: filter.rawValue))
+            }
+            components.queryItems = query
 
-            var request = URLRequest(url: components.url!)
-            request.httpMethod = "GET"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            guard var request = await HTTPClient.shared.makeRequest(url: components.url!, method: "GET") else {
+                print("DEBUG: ❌ StoryService: No auth (HTTPClient) para obtener feed")
+                throw NSError(domain: "StoryService", code: 401,
+                              userInfo: [NSLocalizedDescriptionKey: "No authentication token"])
+            }
+            // Prefer Accept over Content-Type on GET
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-            // Agregar X-Gym-ID header requerido
+            // Agregar X-Gym-ID si está disponible (HTTPClient ya intenta hacerlo)
             if let gymId = GymService.shared.currentGymId {
                 request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
                 print("DEBUG: 🏋️ StoryService: X-Gym-ID agregado: \(gymId)")
             } else {
                 print("DEBUG: ⚠️ StoryService: X-Gym-ID no disponible")
             }
+
+            // Log final URL and headers
+            print("DEBUG:🔗 Feed final URL: \(request.url?.absoluteString ?? components.url!.absoluteString)")
+            print("DEBUG:📋 Feed Request Headers:")
+            request.allHTTPHeaderFields?.forEach { print("DEBUG:   \($0.key): \($0.value)") }
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -112,24 +123,37 @@ class StoryService: ObservableObject {
                     let container = try decoder.singleValueContainer()
                     let dateString = try container.decode(String.self)
 
-                    // Backend format: "2025-11-09T09:24:12.747377" (with microseconds, no timezone)
                     let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
                     dateFormatter.locale = Locale(identifier: "en_US_POSIX")
                     dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
 
+                    // Try: "2025-11-12T06:14:09.045286Z" (with microseconds AND Z)
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"
                     if let date = dateFormatter.date(from: dateString) {
                         return date
                     }
 
-                    // Fallback: try without microseconds
+                    // Try: "2025-11-09T09:24:12.747377" (with microseconds, no timezone)
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+                    if let date = dateFormatter.date(from: dateString) {
+                        return date
+                    }
+
+                    // Try: without microseconds but with Z
+                    dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+                    if let date = dateFormatter.date(from: dateString) {
+                        return date
+                    }
+
+                    // Try: without microseconds and no Z
                     dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
                     if let date = dateFormatter.date(from: dateString) {
                         return date
                     }
 
-                    // Fallback: try ISO8601 with Z
+                    // Fallback: try ISO8601 standard
                     let isoFormatter = ISO8601DateFormatter()
+                    isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                     if let date = isoFormatter.date(from: dateString) {
                         return date
                     }
@@ -149,6 +173,9 @@ class StoryService: ObservableObject {
                     print("DEBUG:💾 StoryService: Feed guardado en caché (gym: \(currentGymId ?? 0), \(feedResponse.userStories.count) users)")
                 }
             } else {
+                if let body = String(data: data, encoding: .utf8) {
+                    print("DEBUG:❌ Feed error body: \(body)")
+                }
                 print("DEBUG:❌ StoryService: Error HTTP \(httpResponse.statusCode) al obtener feed")
                 throw NSError(domain: "StoryService", code: httpResponse.statusCode,
                              userInfo: [NSLocalizedDescriptionKey: "Failed to fetch stories"])
@@ -180,22 +207,30 @@ class StoryService: ObservableObject {
         errorMessage = nil
 
         do {
-            guard let token = await authService?.getValidAccessToken() else {
-                print("DEBUG:❌ StoryService: No se pudo obtener token de autenticación")
+            // Use trailing slash to avoid 307/308 redirects that can drop Authorization headers
+            let url = URL(string: "\(baseURL)/stories/")!
+            guard var request = await HTTPClient.shared.makeRequest(url: url, method: "POST") else {
+                print("DEBUG:❌ StoryService: No auth (HTTPClient) al crear story")
                 throw NSError(domain: "StoryService", code: 401,
-                             userInfo: [NSLocalizedDescriptionKey: "No authentication token"])
+                              userInfo: [NSLocalizedDescriptionKey: "No authentication token"])
             }
 
-            print("DEBUG:✅ StoryService: Token obtenido correctamente")
-
-            let url = URL(string: "\(baseURL)/stories")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-            // Agregar X-Gym-ID header requerido
+            // Asegurar X-Gym-ID header requerido (HTTPClient ya lo agrega si está configurado)
             if let gymId = GymService.shared.currentGymId {
                 request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+                print("DEBUG:🏋️ X-Gym-ID header agregado: \(gymId)")
+            } else {
+                print("DEBUG:⚠️ X-Gym-ID NO está disponible - esto causará error 403")
+            }
+
+            // Ensure Authorization present (fallback if HTTPClient missing auth)
+            if request.value(forHTTPHeaderField: "Authorization") == nil {
+                if let token = await authService?.getValidAccessToken() {
+                    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                    print("DEBUG:🔒 Authorization header inyectado manualmente en createStory")
+                } else {
+                    print("DEBUG:❌ No se pudo inyectar Authorization: token no disponible")
+                }
             }
 
             // Create form data
@@ -204,6 +239,10 @@ class StoryService: ObservableObject {
                            forHTTPHeaderField: "Content-Type")
 
             var body = Data()
+            // Reserve capacity to reduce re-allocations during multipart assembly
+            if let mediaData = mediaData {
+                body.reserveCapacity(mediaData.count + 8192)
+            }
 
             // Add form fields
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
@@ -241,12 +280,27 @@ class StoryService: ObservableObject {
                 let mimeType = type == .video ? "video/mp4" : "image/jpeg"
                 body.append("Content-Disposition: form-data; name=\"media\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
                 body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
-                body.append(mediaData)
+                // Append within autoreleasepool to reduce peak memory
+                autoreleasepool {
+                    body.append(mediaData)
+                }
                 body.append("\r\n".data(using: .utf8)!)
             }
 
             body.append("--\(boundary)--\r\n".data(using: .utf8)!)
             request.httpBody = body
+
+            // Log request headers for debugging (including Authorization token)
+            print("DEBUG:📋 Request Headers (including Authorization token)")
+            var hasAuthHeader = false
+            request.allHTTPHeaderFields?.forEach { key, value in
+                if key.lowercased() == "authorization" {
+                    hasAuthHeader = true
+                }
+                print("DEBUG:   \(key): \(value)")
+            }
+            let authHeader = request.value(forHTTPHeaderField: "Authorization") ?? "nil"
+            print("DEBUG:🔎 Authorization presente: \(hasAuthHeader) | Header: \(authHeader)")
 
             // Simulate upload progress
             Task {
@@ -283,6 +337,13 @@ class StoryService: ObservableObject {
 
                 return story
             } else {
+                // Log error response body for debugging
+                if let errorBody = String(data: data, encoding: .utf8) {
+                    print("DEBUG:❌ Error response body: \(errorBody)")
+                }
+                print("DEBUG:❌ HTTP Status Code: \(httpResponse.statusCode)")
+                print("DEBUG:❌ Response Headers: \(httpResponse.allHeaderFields)")
+
                 throw NSError(domain: "StoryService", code: httpResponse.statusCode,
                              userInfo: [NSLocalizedDescriptionKey: "Failed to create story"])
             }
@@ -302,15 +363,11 @@ class StoryService: ObservableObject {
         print("DEBUG:👁️ StoryService: Marcando story \(storyId) como visto")
 
         do {
-            guard let token = await authService?.getValidAccessToken() else {
-                print("DEBUG:⚠️ StoryService: No se pudo obtener token para marcar como visto")
+            let url = URL(string: "\(baseURL)/stories/\(storyId)/view")!
+            guard var request = await HTTPClient.shared.makeRequest(url: url, method: "POST") else {
+                print("DEBUG:⚠️ StoryService: No auth (HTTPClient) para marcar como visto")
                 return
             }
-
-            let url = URL(string: "\(baseURL)/stories/\(storyId)/view")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
             // Agregar X-Gym-ID header requerido
@@ -344,11 +401,6 @@ class StoryService: ObservableObject {
         print("DEBUG:💪 StoryService: Añadiendo reacción \(emoji) a story \(storyId)")
 
         do {
-            guard let token = await authService?.getValidAccessToken() else {
-                print("DEBUG:⚠️ StoryService: No se pudo obtener token para añadir reacción")
-                return false
-            }
-
             guard FitnessEmoji.isValid(emoji) else {
                 print("DEBUG:❌ StoryService: Emoji no válido: \(emoji)")
                 errorMessage = "Emoji no válido"
@@ -356,9 +408,10 @@ class StoryService: ObservableObject {
             }
 
             let url = URL(string: "\(baseURL)/stories/\(storyId)/reaction")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            guard var request = await HTTPClient.shared.makeRequest(url: url, method: "POST") else {
+                print("DEBUG:⚠️ StoryService: No auth (HTTPClient) para reacción")
+                return false
+            }
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
             // Agregar X-Gym-ID header requerido
@@ -395,12 +448,8 @@ class StoryService: ObservableObject {
     // MARK: - Fetch Story Viewers
     func fetchViewers(storyId: Int) async -> [StoryViewer]? {
         do {
-            guard let token = await authService?.getValidAccessToken() else { return nil }
-
             let url = URL(string: "\(baseURL)/stories/\(storyId)/viewers")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "GET"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            guard var request = await HTTPClient.shared.makeRequest(url: url, method: "GET") else { return nil }
 
             // Agregar X-Gym-ID header requerido
             if let gymId = GymService.shared.currentGymId {
@@ -423,12 +472,8 @@ class StoryService: ObservableObject {
     // MARK: - Delete Story
     func deleteStory(storyId: Int) async -> Bool {
         do {
-            guard let token = await authService?.getValidAccessToken() else { return false }
-
             let url = URL(string: "\(baseURL)/stories/\(storyId)")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "DELETE"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            guard var request = await HTTPClient.shared.makeRequest(url: url, method: "DELETE") else { return false }
 
             // Agregar X-Gym-ID header requerido
             if let gymId = GymService.shared.currentGymId {
@@ -462,12 +507,8 @@ class StoryService: ObservableObject {
     // MARK: - Report Story
     func reportStory(storyId: Int, reason: StoryReportReason, description: String) async -> Bool {
         do {
-            guard let token = await authService?.getValidAccessToken() else { return false }
-
             let url = URL(string: "\(baseURL)/stories/\(storyId)/report")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            guard var request = await HTTPClient.shared.makeRequest(url: url, method: "POST") else { return false }
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
             // Agregar X-Gym-ID header requerido
