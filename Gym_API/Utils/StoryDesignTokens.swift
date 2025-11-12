@@ -10,16 +10,16 @@ import SwiftUI
 
 struct StoryDesignTokens {
 
-    // MARK: - Tamaños (extraídos de Stream Figma)
+    // MARK: - Tamaños (extraídos de Stream Figma y optimizados para Instagram)
 
-    /// Tamaño del anillo exterior del avatar
-    static let avatarRingSize: CGFloat = 94  // Aumentado de 84 a 94
+    /// Tamaño del anillo exterior del avatar (círculo completo con el ring)
+    static let avatarRingSize: CGFloat = 94
 
-    /// Tamaño de la imagen del avatar
-    static let avatarImageSize: CGFloat = 86  // Aumentado de 76 a 86
+    /// Tamaño de la imagen del avatar (más pequeño para dejar espacio al ring grueso)
+    static let avatarImageSize: CGFloat = 78  // Reducido de 86 a 78 para ring estilo Instagram
 
-    /// Ancho del anillo de progreso (aro alrededor de los avatares)
-    static let ringWidth: CGFloat = 5.0  // Aumentado a 5.0 para mayor visibilidad
+    /// Ancho del anillo de progreso (aro alrededor de los avatares) - Estilo Instagram
+    static let ringWidth: CGFloat = 3.5  // Ring visible más grueso como Instagram
 
     /// Altura de las barras de progreso
     static let progressBarHeight: CGFloat = 2
