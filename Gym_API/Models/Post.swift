@@ -67,19 +67,28 @@ struct UserPreview: Codable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decode(Int.self, forKey: .id)
 
+        print("      🔍 DEBUG UserPreview - Decodificando nombre para user ID: \(self.id)")
+        print("      📋 Todas las keys disponibles: \(container.allKeys.map { $0.stringValue })")
+
         // Prefer explicit full name if provided
         let explicitFullName = try container.decodeIfPresent(String.self, forKey: .fullName)
             ?? container.decodeIfPresent(String.self, forKey: .full_name)
 
+        print("      🔍 explicitFullName: \(explicitFullName ?? "nil")")
+
         if let explicitFullName, !explicitFullName.trimmingCharacters(in: .whitespaces).isEmpty {
             self.fullName = explicitFullName
+            print("      ✅ Usando explicitFullName: '\(explicitFullName)'")
         } else {
             let first = try container.decodeIfPresent(String.self, forKey: .firstName)
             let last = try container.decodeIfPresent(String.self, forKey: .lastName)
+            print("      🔍 firstName: \(first ?? "nil"), lastName: \(last ?? "nil")")
+
             let combined = [first, last].compactMap { $0?.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
             self.fullName = combined.isEmpty ? "Usuario" : combined
+            print("      ✅ Nombre combinado final: '\(self.fullName)'")
         }
 
         // Profile picture: accept picture or profile_picture_url or profilePictureUrl
@@ -87,8 +96,11 @@ struct UserPreview: Codable, Identifiable {
             ?? container.decodeIfPresent(String.self, forKey: .picture)
             ?? container.decodeIfPresent(String.self, forKey: .profilePictureUrl)
 
+        print("      🖼️ profilePictureUrl: \(self.profilePictureUrl ?? "nil")")
+
         // Default role when missing
         self.role = try container.decodeIfPresent(String.self, forKey: .role) ?? "member"
+        print("      👔 role: \(self.role)")
     }
 
     func encode(to encoder: Encoder) throws {
@@ -131,6 +143,18 @@ struct PostMedia: Codable, Identifiable {
         let seconds = Int(duration) % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case postId = "post_id"
+        case mediaType = "media_type"
+        case mediaUrl = "media_url"
+        case thumbnailUrl = "thumbnail_url"
+        case displayOrder = "display_order"
+        case width, height
+        case fileSize = "file_size"
+        case durationSeconds = "duration_seconds"
+    }
 }
 
 // MARK: - Post Tag
@@ -148,7 +172,10 @@ struct PostTag: Codable, Identifiable {
     let taggedSession: TaggedSession?
 
     enum CodingKeys: String, CodingKey {
-        case id, postId, tagType, tagId
+        case id
+        case postId = "post_id"
+        case tagType = "tag_type"
+        case tagId = "tag_id"
         case taggedUser = "tagged_user"
         case taggedEvent = "tagged_event"
         case taggedSession = "tagged_session"
@@ -207,7 +234,24 @@ struct Post: Codable, Identifiable {
     let isOwnPost: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, caption, postType, privacy, location, likeCount, commentCount, viewCount, shareCount, isEdited, isDeleted, createdAt, updatedAt, editedAt, workoutData, media, tags, user, hasLiked, isOwnPost, userId, gymId
+        case id, caption, location, media, tags
+        case postType = "post_type"
+        case privacy
+        case likeCount = "like_count"
+        case commentCount = "comment_count"
+        case viewCount = "view_count"
+        case shareCount = "share_count"
+        case isEdited = "is_edited"
+        case isDeleted = "is_deleted"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case editedAt = "edited_at"
+        case workoutData = "workout_data"
+        case hasLiked = "has_liked"
+        case isOwnPost = "is_own_post"
+        case userId = "user_id"
+        case gymId = "gym_id"
+        case user
         case userInfo = "user_info"
     }
 
@@ -313,12 +357,44 @@ struct Post: Codable, Identifiable {
         print("   ✅ tags: \(self.tags.count) items")
 
         print("   👤 Decodificando user/userInfo...")
-        if let user = try container.decodeIfPresent(UserPreview.self, forKey: .user) ?? container.decodeIfPresent(UserPreview.self, forKey: .userInfo) {
+        print("   🔍 Keys disponibles en container: \(container.allKeys.map { $0.stringValue })")
+
+        // Try decoding from 'user' key first
+        var userFromUser: UserPreview? = nil
+        do {
+            userFromUser = try container.decodeIfPresent(UserPreview.self, forKey: .user)
+            if let u = userFromUser {
+                print("   ✅ user decodificado desde 'user' key: \(u.fullName)")
+            } else {
+                print("   ⚠️ 'user' key no presente o null")
+            }
+        } catch {
+            print("   ❌ Error decodificando desde 'user' key: \(error)")
+        }
+
+        // Try decoding from 'userInfo' key (maps to "user_info" in JSON) if first attempt failed
+        var userFromUserInfo: UserPreview? = nil
+        if userFromUser == nil {
+            do {
+                print("   🔍 Intentando decodificar desde 'userInfo' (que mapea a 'user_info' en JSON)...")
+                userFromUserInfo = try container.decodeIfPresent(UserPreview.self, forKey: .userInfo)
+                if let u = userFromUserInfo {
+                    print("   ✅ user decodificado desde 'userInfo' key: \(u.fullName)")
+                } else {
+                    print("   ⚠️ 'userInfo' key ('user_info' en JSON) no presente o null")
+                }
+            } catch {
+                print("   ❌ Error decodificando desde 'userInfo' key: \(error)")
+                print("   📋 Detalle del error: \(error.localizedDescription)")
+            }
+        }
+
+        if let user = userFromUser ?? userFromUserInfo {
             self.user = user
-            print("   ✅ user: \(user.fullName)")
+            print("   ✅ user final asignado: \(user.fullName)")
         } else {
             self.user = UserPreview(id: self.userId, fullName: "Usuario", profilePictureUrl: nil, role: "member")
-            print("   ⚠️ user fallback usado")
+            print("   ⚠️ user fallback usado - ninguna decodificación exitosa")
         }
 
         self.hasLiked = try container.decodeIfPresent(Bool.self, forKey: .hasLiked) ?? false
