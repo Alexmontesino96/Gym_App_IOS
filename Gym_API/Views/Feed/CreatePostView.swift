@@ -10,6 +10,8 @@ struct CreatePostView: View {
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var showingLocationPicker = false
     @State private var showSuccessAnimation = false
+    @State private var isEditingCrop: Bool = false
+    @State private var editingIndex: Int = 0
 
     var body: some View {
         NavigationStack {
@@ -21,6 +23,9 @@ struct CreatePostView: View {
                     VStack(spacing: 20) {
                         // Images gallery
                         imagesSection
+
+                        // Aspect ratio selector
+                        aspectRatioSection
 
                         // Caption input
                         captionSection
@@ -82,9 +87,55 @@ struct CreatePostView: View {
                     await loadImages(from: newItems)
                 }
             }
+            .sheet(isPresented: $isEditingCrop) {
+                let idx = editingIndex
+                let img = (idx < viewModel.selectedImages.count) ? viewModel.selectedImages[idx] : UIImage()
+                ImageCropEditorView(
+                    image: img,
+                    preset: viewModel.aspectPreset,
+                    onCancel: { isEditingCrop = false },
+                    onConfirm: { cropped in
+                        if idx < viewModel.selectedImages.count {
+                            viewModel.selectedImages[idx] = cropped
+                        }
+                        isEditingCrop = false
+                    }
+                )
+                .preferredColorScheme(.dark)
+            }
             .overlay {
                 if showSuccessAnimation {
                     successOverlay
+                }
+            }
+        }
+    }
+
+    // MARK: - Aspect Ratio Section
+
+    private var aspectRatioSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Relación de aspecto", systemImage: "rectangle.split.3x1")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+            HStack {
+                ForEach(AspectRatioPreset.allCases) { preset in
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25)) {
+                            viewModel.aspectPreset = preset
+                        }
+                    }) {
+                        Text(preset.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(viewModel.aspectPreset == preset ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicSurface(theme: themeManager.currentTheme))
+                            )
+                            .foregroundColor(viewModel.aspectPreset == preset ? .white : Color.dynamicText(theme: themeManager.currentTheme))
+                    }
                 }
             }
         }
@@ -139,37 +190,97 @@ struct CreatePostView: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     ForEach(Array(viewModel.selectedImages.enumerated()), id: \.offset) { index, image in
                         ZStack(alignment: .topTrailing) {
+                            // Image with gradient overlay for better button visibility
                             Image(uiImage: image)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 110, height: 110)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    // Top gradient for button visibility
+                                    LinearGradient(
+                                        gradient: Gradient(colors: [
+                                            Color.black.opacity(0.5),
+                                            Color.black.opacity(0.2),
+                                            Color.clear
+                                        ]),
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                )
 
-                            // Remove button
-                            Button(action: {
-                                withAnimation(.spring(response: 0.3)) {
-                                    viewModel.removeImage(at: index)
+                            // Top-right actions (crop + remove) with improved visibility
+                            HStack(spacing: 8) {
+                                // Crop button
+                                Button(action: {
+                                    let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                                    impactMed.impactOccurred()
+                                    editingIndex = index
+                                    isEditingCrop = true
+                                }) {
+                                    Image(systemName: "crop")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 28, height: 28)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.blue.opacity(0.9))
+                                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                                        )
                                 }
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.white)
-                                    .background(Circle().fill(Color.black.opacity(0.5)))
-                            }
-                            .padding(4)
+                                .buttonStyle(.plain)
 
-                            // Image number badge
+                                // Remove button with enhanced visibility
+                                Button(action: {
+                                    let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                                    impactMed.impactOccurred()
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        viewModel.removeImage(at: index)
+                                    }
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 28, height: 28)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.red.opacity(0.95))
+                                                .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.4), lineWidth: 1.5)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(6)
+
+                            // Image number badge with improved contrast
                             VStack {
                                 Spacer()
                                 HStack {
                                     Text("\(index + 1)")
-                                        .font(.system(size: 12, weight: .bold))
+                                        .font(.system(size: 11, weight: .bold))
                                         .foregroundColor(.white)
-                                        .padding(4)
-                                        .background(Circle().fill(Color.black.opacity(0.6)))
-                                        .padding(4)
+                                        .frame(width: 22, height: 22)
+                                        .background(
+                                            Circle()
+                                                .fill(Color.black.opacity(0.75))
+                                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                        )
                                     Spacer()
                                 }
+                                .padding(6)
                             }
                         }
                     }
