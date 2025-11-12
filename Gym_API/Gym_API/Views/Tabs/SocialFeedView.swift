@@ -1,17 +1,6 @@
 import SwiftUI
 import Auth0
 
-// MARK: - Cached Conversation Model
-struct CachedConversation: Codable {
-    let id: String
-    let name: String?
-    let type: String
-    let lastActivity: Date
-    let lastMessageText: String?
-    let lastMessageAuthor: String?
-    let unreadCount: Int
-}
-
 // MARK: - Social Feed View
 /// Vista de página social del gym con tabs Feed/Mensajes
 struct SocialFeedView: View {
@@ -63,36 +52,10 @@ struct SocialFeedView: View {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Instagram-style header with stories
-                    socialHeader
-
-                    // Status indicators below header when needed
-                    if !chatProviderManager.isInitialized || isUpdatingFromServer {
-                        HStack {
-                            ProgressView().scaleEffect(0.8)
-                            Text(isUpdatingFromServer ? "Actualizando..." : "Conectando...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal)
-                        .padding(.vertical, 6)
-                    }
-
-                    if let error = errorMessage {
-                        CompactErrorView(
-                            message: error,
-                            onRetry: {
-                                errorMessage = nil
-                                Task { await loadConversations() }
-                            }
-                        )
-                    }
-
-                    // Social Feed Content (Instagram-style)
+                    // Social Feed Content con nuevo diseño minimalista
                     socialFeedContent
                 }
             }
-            .safeAreaPadding(.top, 16)
             .onAppear {
                 initializeIfNeeded()
                 setupMessageUpdateListener()
@@ -250,31 +213,11 @@ struct SocialFeedView: View {
 
     // MARK: - Social Feed Content
     private var socialFeedContent: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Events Carousel Section
-                EventsCarouselSection()
-                    .environmentObject(themeManager)
-                    .environmentObject(eventService)
-
-                // Past Events Gallery Section
-                PastEventsGallerySection()
-                    .environmentObject(themeManager)
-                    .environmentObject(eventService)
-
-                // Posts Feed Section
-                PostsFeedSection()
-                    .environmentObject(themeManager)
-                    .environmentObject(postService)
-
-                // Achievements Section
-                AchievementsSection(achievements: activityService.achievements, themeManager: themeManager)
-
-                // Placeholder for other sections (will be implemented in next phases)
-                placeholderSections
-            }
-            .padding(.top, 12)
-        }
+        // Usar el nuevo FeedTabsView rediseñado (minimalista estilo Instagram)
+        FeedTabsView()
+            .environmentObject(themeManager)
+            .environmentObject(postService)
+            .environmentObject(authService)
     }
 
     // MARK: - Placeholder Sections
@@ -595,24 +538,27 @@ struct SocialFeedView: View {
         print("📦 Cargando conversaciones desde caché...")
 
         // Intentar cargar conversaciones desde caché
-        if let data = UserDefaults.standard.data(forKey: "CachedConversations"),
-           let cachedConversations = try? JSONDecoder().decode([CachedConversation].self, from: data) {
+        if let data = UserDefaults.standard.data(forKey: "CachedConversations") {
+            let decoder = JSONDecoder()
+            if let cachedConversations = try? decoder.decode([CachedConversation].self, from: data) {
+                print("✅ Conversaciones desde caché: \(cachedConversations.count)")
 
-            print("✅ Conversaciones desde caché: \(cachedConversations.count)")
-
-            // Convertir a ChatConversation
-            self.conversations = cachedConversations.map { cached in
-                ChatConversation(
-                    id: cached.id,
-                    name: cached.name,
-                    type: ChatConversation.ConversationType(rawValue: cached.type) ?? .general,
-                    members: [],
-                    lastMessage: nil,
-                    lastActivity: cached.lastActivity,
-                    unreadCount: 0,
-                    metadata: [:]
-                )
-            }.sorted { $0.lastActivity > $1.lastActivity }
+                // Convertir a ChatConversation
+                self.conversations = cachedConversations.map { cached in
+                    ChatConversation(
+                        id: cached.id,
+                        name: cached.name,
+                        type: ChatConversation.ConversationType(rawValue: cached.type) ?? .general,
+                        members: [],
+                        lastMessage: nil,
+                        lastActivity: cached.lastActivity,
+                        unreadCount: 0,
+                        metadata: [:]
+                    )
+                }.sorted { $0.lastActivity > $1.lastActivity }
+            } else {
+                print("📦 No se pudieron decodificar las conversaciones del caché")
+            }
         } else {
             print("📦 No hay conversaciones en caché")
         }
