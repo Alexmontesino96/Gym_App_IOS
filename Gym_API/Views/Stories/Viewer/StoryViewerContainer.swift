@@ -7,15 +7,19 @@
 
 import SwiftUI
 import Combine
+import UIKit
 
 struct StoryViewerContainer: View {
     @EnvironmentObject var storyService: StoryService
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var storyUIState: StoryUIState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let userStories: [UserStoryGroup]
     let initialUserIndex: Int
+    var matchedNamespace: Namespace.ID? = nil
 
     @State private var currentUserIndex: Int
     @State private var currentStoryIndex: Int = 0
@@ -26,37 +30,67 @@ struct StoryViewerContainer: View {
     @State private var contentOpacity: Double = 1.0
     @State private var showingViewersSheet = false
     @State private var viewersStoryId: Int?
+    @State private var viewMarkTask: Task<Void, Never>? = nil
+    @State private var pendingViewedStoryId: Int? = nil
+
+    // Gesture tracking
+    @State private var dragOffset: CGFloat = 0
+    @State private var horizontalDragOffset: CGFloat = 0
+    @State private var isDragging = false
+    @State private var activeAxis: DragAxis = .none
+
+    // Avatar-targeted dismiss animation state
+    @State private var isAvatarDismiss: Bool = false
+    @State private var avatarDismissOffset: CGSize = .zero
+    @State private var avatarDismissScale: CGFloat = 1.0
+    @State private var avatarDismissCornerRadius: CGFloat = 0
+    @State private var openProgress: CGFloat = 0.0
+
+    private enum DragAxis { case none, vertical, horizontal }
 
     private let storyDuration: TimeInterval = 5.0 // 5 seconds per story
 
-    init(userStories: [UserStoryGroup], initialUserIndex: Int) {
+    // Transient drag translation captured via @GestureState to avoid per-frame state writes
+    @GestureState private var dragTranslation: CGSize = .zero
+
+    init(userStories: [UserStoryGroup], initialUserIndex: Int, matchedNamespace: Namespace.ID? = nil) {
         self.userStories = userStories
         self.initialUserIndex = initialUserIndex
+        self.matchedNamespace = matchedNamespace
         self._currentUserIndex = State(initialValue: initialUserIndex)
     }
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background
-                Color.black.ignoresSafeArea()
+                // Controlled dim overlay (fades during drag). Underlying view shows through when this hits 0
+                Rectangle()
+                    .fill(Color.black)
+                    .opacity(max(0, 1.0 - min(dragOffset / (geometry.size.height * 0.5), 1.0)))
+                    .ignoresSafeArea()
 
                 // Story Content
                 if let currentUser = currentUserStory,
                    let currentStory = currentStory {
-                    StoryContentView(story: currentStory)
+                    StoryContentView(story: currentStory, isPaused: $isPaused)
                         .ignoresSafeArea()
-                        .opacity(contentOpacity)
 
                     // Overlay UI
                     VStack(spacing: 0) {
                         // Top section with progress bars and user info
                         VStack(spacing: 8) {
-                            // Progress bars
-                            StoryProgressBars(
-                                stories: currentUser.activeStories,
+                            // Progress bars (Core Animation version)
+                            CAStoryProgressBars(
+                                storiesCount: currentUser.activeStories.count,
                                 currentIndex: currentStoryIndex,
-                                progress: progress
+                                durations: currentUser.activeStories.defaultDurations(),
+                                isPaused: isPaused,
+                                barHeight: 3,
+                                barSpacing: 4,
+                                onSegmentComplete: {
+                                    // When a segment completes, advance to next story
+                                    nextStory()
+                                }
                             )
                             .padding(.horizontal, 8)
                             .padding(.top, 8)
@@ -66,6 +100,7 @@ struct StoryViewerContainer: View {
                                 userStory: currentUser,
                                 story: currentStory,
                                 canShowViewers: isOwnStory(userGroup: currentUser, story: currentStory),
+                                matchedNamespace: matchedNamespace,
                                 onClose: { dismiss() },
                                 onViewersTap: {
                                     viewersStoryId = currentStory.id
@@ -92,43 +127,211 @@ struct StoryViewerContainer: View {
                 // Tap areas for navigation
                 HStack(spacing: 0) {
                     // Previous story tap area
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            previousStory()
-                        }
-                        .frame(width: geometry.size.width * 0.3)
+                    TapArea(side: .left) {
+                        previousStory()
+                    }
+                    .frame(width: geometry.size.width * 0.35)
 
                     Spacer()
 
                     // Next story tap area
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            nextStory()
-                        }
-                        .frame(width: geometry.size.width * 0.3)
+                    TapArea(side: .right) {
+                        nextStory()
+                    }
+                    .frame(width: geometry.size.width * 0.35)
                 }
             }
+            // Apply transformations to the entire container (computed with gesture state)
+            .offset(x: isAvatarDismiss ? avatarDismissOffset.width : effectiveHorizontalOffset(totalWidth: geometry.size.width))
+            .offset(y: isAvatarDismiss ? avatarDismissOffset.height : effectiveVerticalOffset(totalHeight: geometry.size.height))
+            .scaleEffect((isAvatarDismiss ? avatarDismissScale : calculateScale(dragOffset: displayedVerticalOffset(totalHeight: geometry.size.height), screenHeight: geometry.size.height)) * openingScale)
+            .opacity(totalOpacity(screenHeight: geometry.size.height))
+            .clipShape(RoundedRectangle(cornerRadius: isAvatarDismiss ? avatarDismissCornerRadius : calculateCornerRadius(dragOffset: displayedVerticalOffset(totalHeight: geometry.size.height), screenHeight: geometry.size.height)))
+            .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.85), value: isDragging)
+            // Make fullScreenCover background transparent to avoid black flash beneath during dismiss
+            .background(ClearFullscreenBackgroundView())
             .gesture(
-                DragGesture()
+                DragGesture(minimumDistance: 10)
+                    .updating($dragTranslation) { value, state, _ in
+                        state = value.translation
+                    }
                     .onChanged { value in
-                        if abs(value.translation.width) > 50 || abs(value.translation.height) > 50 {
-                            pauseStory()
+                        let horizontalAmount = abs(value.translation.width)
+                        let verticalAmount = abs(value.translation.height)
+
+                        // Only start responding after minimum distance to avoid conflicts with taps
+                        guard horizontalAmount > 5 || verticalAmount > 5 else { return }
+
+                        // Pause story when dragging starts
+                        // Use DispatchQueue.main.async to avoid modifying state during view update
+                        if !isDragging {
+                            DispatchQueue.main.async {
+                                isDragging = true
+                                pauseStory()
+                            }
                         }
+
+                        // Determine drag direction based on initial gesture
+                        if activeAxis == .none {
+                            if verticalAmount > horizontalAmount * 1.2 {
+                                DispatchQueue.main.async { activeAxis = .vertical }
+                            }
+                            else if horizontalAmount > verticalAmount * 1.2 {
+                                DispatchQueue.main.async { activeAxis = .horizontal }
+                            }
+                        }
+                        // No per-frame state writes; visuals are derived from dragTranslation
                     }
                     .onEnded { value in
-                        // Swipe down to dismiss
-                        if value.translation.height > 150 {
-                            dismiss()
+                        let horizontalAmount = abs(value.translation.width)
+                        let verticalAmount = abs(value.translation.height)
+
+                        // Calculate velocity based on predicted end vs current position
+                        let velocityX = value.predictedEndTranslation.width - value.translation.width
+                        let velocityY = value.predictedEndTranslation.height - value.translation.height
+
+                        // Determine which gesture was being performed
+                        if activeAxis == .vertical || verticalAmount > horizontalAmount * 1.5 {
+                            // Vertical swipe - dismiss
+                            let dismissThreshold = geometry.size.height * 0.25 // 25% of screen height
+                            let shouldDismiss = value.translation.height > dismissThreshold || velocityY > 800
+
+                            if shouldDismiss {
+                                // Dismiss to avatar if available (current user's or corresponding user avatar)
+                                if let avatar = targetAvatarFrame {
+                                    let screen = UIScreen.main.bounds
+                                    let currentCenter = CGPoint(x: screen.midX, y: screen.midY)
+                                    let targetCenter = CGPoint(x: avatar.midX, y: avatar.midY)
+                                    let dx = targetCenter.x - currentCenter.x
+                                    let dy = targetCenter.y - currentCenter.y
+                                    // Compute target scale based on avatar diameter vs screen min dimension
+                                    let avatarDiameter = min(avatar.width, avatar.height)
+                                    let base = min(screen.width, screen.height)
+                                    let targetScale = max(0.2, min(0.6, avatarDiameter / base))
+
+                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                        isAvatarDismiss = true
+                                        avatarDismissOffset = CGSize(width: dx, height: dy)
+                                        avatarDismissScale = targetScale
+                                        avatarDismissCornerRadius = avatarDiameter / 2
+                                        contentOpacity = 0.95
+                                    }
+                                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                    impactFeedback.impactOccurred()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                                        dismiss()
+                                        isAvatarDismiss = false
+                                        avatarDismissOffset = .zero
+                                        avatarDismissScale = 1.0
+                                        avatarDismissCornerRadius = 0
+                                    }
+                                } else {
+                                    withAnimation(.easeOut(duration: 0.25)) {
+                                        dragOffset = geometry.size.height
+                                        contentOpacity = 0
+                                    }
+                                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                    impactFeedback.impactOccurred()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                                        dismiss()
+                                    }
+                                }
+                            } else {
+                                // Reset position with spring animation - más rápida y suave
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    dragOffset = 0
+                                    horizontalDragOffset = 0
+                                    contentOpacity = 1.0
+                                    isDragging = false
+                                    activeAxis = .none
+                                }
+                                resumeStory()
+                            }
+                        } else if activeAxis == .horizontal || horizontalAmount > verticalAmount * 1.5 {
+                            // Horizontal swipe - navigate between users
+                            // Softer physics: 18% threshold OR predicted end beyond 25% of width
+                            let swipeThreshold = geometry.size.width * 0.18
+                            let predicted = value.predictedEndTranslation.width
+                            let predictedBeyond = abs(predicted) > geometry.size.width * 0.25
+
+                            // Previous user
+                            if value.translation.width > swipeThreshold || (predicted > 0 && predictedBeyond) {
+                                // Previous user
+                                if currentUserIndex > 0 {
+                                    withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                                        horizontalDragOffset = geometry.size.width
+                                    }
+
+                                    // Haptic feedback
+                                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                    impactFeedback.impactOccurred()
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        previousUser()
+                                    withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                                        horizontalDragOffset = 0
+                                        isDragging = false
+                                    }
+                                    }
+                                } else {
+                                    // Can't go previous, elastic bounce back with improved spring
+                                    // Using interactiveSpring for more natural edge bounce feel
+                                    let impactFeedback = UINotificationFeedbackGenerator()
+                                    impactFeedback.notificationOccurred(.warning)
+
+                                    withAnimation(.interactiveSpring(response: 0.36, dampingFraction: 0.72)) {
+                                        horizontalDragOffset = 0
+                                        dragOffset = 0
+                                        contentOpacity = 1.0
+                                        isDragging = false
+                                        activeAxis = .none
+                                    }
+                                    resumeStory()
+                                }
+                            } else if value.translation.width < -swipeThreshold || (predicted < 0 && predictedBeyond) {
+                                // Next user
+                                if currentUserIndex < userStories.count - 1 {
+                                    // Haptic feedback
+                                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                    impactFeedback.impactOccurred()
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        nextUser()
+                                        withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                                            horizontalDragOffset = 0
+                                            isDragging = false
+                                        }
+                                    }
+                                } else {
+                                    // At last user, dismiss
+                                    withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                                        horizontalDragOffset = -geometry.size.width
+                                    }
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        dismiss()
+                                    }
+                                }
+                            } else {
+                                // Didn't meet threshold, reset with improved spring animation
+                                withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                                    horizontalDragOffset = 0
+                                    dragOffset = 0
+                                    isDragging = false
+                                    activeAxis = .none
+                                }
+                                resumeStory()
+                            }
+                        } else {
+                            // Ambiguous gesture or very small drag, just reset
+                            withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                                horizontalDragOffset = 0
+                                dragOffset = 0
+                                isDragging = false
+                                activeAxis = .none
+                            }
+                            resumeStory()
                         }
-                        // Swipe left/right to change user
-                        else if value.translation.width > 100 {
-                            previousUser()
-                        } else if value.translation.width < -100 {
-                            nextUser()
-                        }
-                        resumeStory()
                     }
             )
             .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
@@ -216,12 +419,28 @@ struct StoryViewerContainer: View {
                     print("DEBUG: ❌ currentStory is NIL!")
                 }
 
+                // Interactive opening animation
+                if reduceMotion {
+                    openProgress = 1.0
+                } else {
+                    openProgress = 0.0
+                    withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                        openProgress = 1.0
+                    }
+                }
+
                 startStoryTimer()
-                markCurrentStoryAsViewed()
+                scheduleMarkViewedForCurrentStory()
                 preloadNextStories()
             }
             .onDisappear {
                 stopTimer()
+            }
+            .onChange(of: currentStoryIndex) { _, _ in
+                scheduleMarkViewedForCurrentStory()
+            }
+            .onChange(of: currentUserIndex) { _, _ in
+                scheduleMarkViewedForCurrentStory()
             }
             .sheet(isPresented: $showingViewersSheet) {
                 if let storyId = viewersStoryId {
@@ -234,6 +453,27 @@ struct StoryViewerContainer: View {
     }
 
     // MARK: - Computed Properties
+    private func displayedVerticalOffset(totalHeight: CGFloat) -> CGFloat {
+        // Rubber-band the dragTranslation.y; keep persistent dragOffset for end animations
+        let y = dragTranslation.height
+        guard y > 0 else { return dragOffset }
+        let t1: CGFloat = 160
+        let rubber: CGFloat = y <= t1 ? y * 0.9 : (t1 * 0.9 + (y - t1) * 0.5)
+        return dragOffset + rubber
+    }
+
+    private func effectiveVerticalOffset(totalHeight: CGFloat) -> CGFloat {
+        return isDragging ? displayedVerticalOffset(totalHeight: totalHeight) : dragOffset
+    }
+
+    private func effectiveHorizontalOffset(totalWidth: CGFloat) -> CGFloat {
+        // Apply subtle resistance to horizontal drag
+        let maxDrag = totalWidth
+        let normalized = max(-maxDrag, min(maxDrag, dragTranslation.width))
+        let progress = abs(normalized) / maxDrag
+        let resisted = normalized * (1 - progress * 0.15)
+        return horizontalDragOffset + resisted
+    }
     private var currentUserStory: UserStoryGroup? {
         guard currentUserIndex < userStories.count else { return nil }
         return userStories[currentUserIndex]
@@ -243,6 +483,83 @@ struct StoryViewerContainer: View {
         guard let user = currentUserStory,
               currentStoryIndex < user.activeStories.count else { return nil }
         return user.activeStories[currentStoryIndex]
+    }
+
+    // Frame de avatar destino para el cierre: si es propia, usa el avatar propio; si es de otro, usa el de ese usuario.
+    private var targetAvatarFrame: CGRect? {
+        guard let user = currentUserStory else { return storyUIState.myAvatarFrame }
+        if let cs = currentStory, isOwnStory(userGroup: user, story: cs) {
+            return storyUIState.myAvatarFrame
+        }
+        return storyUIState.avatarFramesByUserId[user.userId] ?? storyUIState.myAvatarFrame
+    }
+
+    // MARK: - Instagram-style Dismiss Animation
+
+    /// Calcula la escala basada en el drag (efecto de "shrinking" hacia círculo)
+    private func calculateScale(dragOffset: CGFloat, screenHeight: CGFloat) -> CGFloat {
+        guard dragOffset > 0 else { return 1.0 }
+
+        // Respect reduce motion: minimal scaling if enabled
+        if reduceMotion {
+            // Only slight scale change (1.0 to 0.95) to avoid disorienting users
+            let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
+            return 1.0 - (progress * 0.05)
+        }
+
+        // Normal scaling for users without reduce motion preference
+        let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
+        let targetScale = 0.3
+
+        // Curva easeOut para efecto más suave al inicio
+        let easedProgress = 1 - pow(1 - progress, 2)
+
+        return 1.0 - (easedProgress * (1.0 - targetScale))
+    }
+
+    /// Calcula el corner radius basado en el drag (efecto de convertirse en círculo)
+    private func calculateCornerRadius(dragOffset: CGFloat, screenHeight: CGFloat) -> CGFloat {
+        guard dragOffset > 0 else { return 0 }
+
+        // Respect reduce motion: minimal corner radius change if enabled
+        if reduceMotion {
+            // Only slight rounding (max 20pt) to avoid dramatic shape changes
+            let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
+            return progress * 20
+        }
+
+        // Normal corner radius animation for users without reduce motion preference
+        let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
+        let maxRadius: CGFloat = 200
+
+        // Curva easeOut para efecto más suave al inicio
+        let easedProgress = 1 - pow(1 - progress, 2)
+
+        return easedProgress * maxRadius
+    }
+
+    // Combined opacity factoring opening and vertical drag dimming
+    private func totalOpacity(screenHeight: CGFloat) -> Double {
+        // Base contentOpacity (pauses etc.) multiplied by opening and dim factor during vertical drag
+        let base = contentOpacity
+        let open = openingOpacity
+        let y = max(0, displayedVerticalOffset(totalHeight: screenHeight))
+        let progress = min(y / (screenHeight * 0.4), 1.0)
+        let eased = 1 - pow(1 - progress, 2)
+        let dim = 1.0 - (eased * 0.5)
+        return Double(base) * open * dim
+    }
+
+    // MARK: - Opening animation helpers
+    private var openingScale: CGFloat {
+        if reduceMotion { return 1.0 }
+        // Scale from 0.94 to 1.0 by openProgress
+        return 0.94 + (0.06 * openProgress)
+    }
+
+    private var openingOpacity: Double {
+        if reduceMotion { return 1.0 }
+        return Double(openProgress)
     }
 
     // MARK: - Navigation Methods
@@ -300,38 +617,10 @@ struct StoryViewerContainer: View {
         }
     }
 
-    // MARK: - Timer Management
-    private func startStoryTimer() {
-        stopTimer()
-        progress = 0
-
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-            if !isPaused {
-                let increment = CGFloat(0.05 / storyDuration)
-
-                withAnimation(.linear(duration: 0.05)) {
-                    progress = min(progress + increment, 1.0)
-                }
-
-                // Check if we've reached the end
-                if progress >= 0.99 {
-                    stopTimer()
-                    nextStory()
-                }
-            }
-        }
-    }
-
-    private func resetProgress() {
-        stopTimer()
-        progress = 0
-        startStoryTimer()
-    }
-
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
+    // MARK: - Timer Management (replaced by CA progress)
+    private func startStoryTimer() {}
+    private func resetProgress() {}
+    private func stopTimer() {}
 
     private func pauseStory() {
         isPaused = true
@@ -350,6 +639,21 @@ struct StoryViewerContainer: View {
                 storyId: story.id,
                 duration: Int(storyDuration)
             )
+        }
+    }
+
+    // MARK: - Delayed mark-as-viewed (threshold) to update UI ring early
+    private func scheduleMarkViewedForCurrentStory(delaySeconds: Double = 1.5) {
+        viewMarkTask?.cancel()
+        pendingViewedStoryId = currentStory?.id
+        guard let story = currentStory, !story.hasViewed else { return }
+        let id = story.id
+        viewMarkTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
+            if Task.isCancelled { return }
+            if pendingViewedStoryId == id {
+                await storyService.markAsViewed(storyId: id, duration: Int(delaySeconds))
+            }
         }
     }
 
@@ -391,6 +695,21 @@ struct StoryViewerContainer: View {
     }
 }
 
+// Helper to force the fullScreenCover background to be transparent, so the underlying feed shows during dismiss animation
+private struct ClearFullscreenBackgroundView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.backgroundColor = .clear
+        DispatchQueue.main.async {
+            // Try to clear superviews in the hierarchy
+            v.superview?.backgroundColor = .clear
+            v.superview?.superview?.backgroundColor = .clear
+        }
+        return v
+    }
+    func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
 // MARK: - Ownership helper
 extension StoryViewerContainer {
     fileprivate func isOwnStory(userGroup: UserStoryGroup, story: Story) -> Bool {
@@ -406,6 +725,7 @@ extension StoryViewerContainer {
 // MARK: - Story Content View
 struct StoryContentView: View {
     let story: Story
+    @Binding var isPaused: Bool
 
     var body: some View {
         GeometryReader { proxy in
@@ -416,8 +736,11 @@ struct StoryContentView: View {
                     StoryImageWithError(url: mediaUrl)
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
+                        .id(story.id) // Force view recreation when story changes
                         .onAppear {
-                            print("DEBUG: 🖼️ Loading story image: \(mediaUrl.suffix(50))")
+                            print("DEBUG: 🖼️ Loading story image for Story ID: \(story.id)")
+                            print("DEBUG: 🖼️ Full Media URL: \(mediaUrl)")
+                            print("DEBUG: 🖼️ URL suffix: \(mediaUrl.suffix(80))")
                         }
                 } else {
                     Color.gray
@@ -437,17 +760,14 @@ struct StoryContentView: View {
                 }
 
             case .video:
-                // TODO: Implement video player
-                Color.gray
-                    .overlay(
-                        VStack {
-                            Image(systemName: "video.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.white)
-                            Text("Video support coming soon")
-                                .foregroundColor(.white)
-                        }
-                    )
+                if let mediaUrl = story.mediaUrl, let url = URL(string: mediaUrl) {
+                    VideoStoryView(url: url, isPaused: $isPaused)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                        .id(story.id)
+                } else {
+                    Color.black
+                }
 
             case .text:
                 LinearGradient(
@@ -483,6 +803,7 @@ struct StoryHeaderView: View {
     let userStory: UserStoryGroup
     let story: Story
     let canShowViewers: Bool
+    var matchedNamespace: Namespace.ID? = nil
     let onClose: () -> Void
     var onViewersTap: (() -> Void)? = nil
 
@@ -496,10 +817,16 @@ struct StoryHeaderView: View {
                         .scaledToFill()
                         .frame(width: 32, height: 32)
                         .clipShape(Circle())
+                        .ifLet(matchedNamespace) { view, ns in
+                            view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
+                        }
                 } placeholder: {
                     Circle()
                         .fill(Color.gray)
                         .frame(width: 32, height: 32)
+                        .ifLet(matchedNamespace) { view, ns in
+                            view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
+                        }
                 }
             }
 
@@ -548,6 +875,49 @@ struct StoryHeaderView: View {
                     )
             }
         }
+    }
+}
+
+// MARK: - Tap Area Component
+struct TapArea: View {
+    enum Side {
+        case left, right
+    }
+
+    let side: Side
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .overlay(
+                // Subtle flash effect on tap (like Instagram)
+                Rectangle()
+                    .fill(.white.opacity(isPressed ? 0.1 : 0))
+                    .allowsHitTesting(false)
+            )
+            .onTapGesture {
+                // Subtle visual flash
+                withAnimation(.easeOut(duration: 0.08)) {
+                    isPressed = true
+                }
+
+                // Subtle haptic feedback
+                let impactFeedback = UIImpactFeedbackGenerator(style: .rigid)
+                impactFeedback.impactOccurred()
+
+                // Execute action
+                action()
+
+                // Reset quickly
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                    withAnimation(.easeIn(duration: 0.08)) {
+                        isPressed = false
+                    }
+                }
+            }
     }
 }
 
