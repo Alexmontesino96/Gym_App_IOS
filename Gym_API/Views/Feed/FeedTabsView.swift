@@ -1,254 +1,996 @@
+//
+//  FeedTabsView.swift
+//  Gym_API
+//
+//  Created by Claude Code
+//  Minimal Instagram-style social feed with stories
+//  NOTA: La versión anterior está guardada en FeedTabsView_Old.swift
+//
+
 import SwiftUI
 
-/// Vista con tabs segmentados para Timeline, Explore y Location feeds
+// MARK: - Cached Conversation Model
+struct CachedConversation: Codable {
+    let id: String
+    let name: String?
+    let type: String
+    let lastActivity: Date
+    let lastMessageText: String?
+    let lastMessageAuthor: String?
+    let unreadCount: Int
+}
+
+/// Vista principal del feed social rediseñada - Minimalista estilo Instagram
 struct FeedTabsView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var postService: PostService
     @EnvironmentObject var authService: AuthServiceDirect
+    @StateObject private var storyService = StoryService()  // Story service for feed
+    @StateObject private var profileService = UserProfileService.shared
 
-    @State private var selectedTab: FeedTab = .timeline
-    @State private var showingCreatePost = false
+    @State private var showCreatePost = false
+    @State private var showMessagesPage = false
+    @State private var selectedStoryGroup: UserStoryGroup?  // For story viewer navigation
+    @State private var showStoryCreator = false  // For story creation
 
-    enum FeedTab: String, CaseIterable {
-        case timeline = "Timeline"
-        case explore = "Explorar"
-        case location = "Ubicación"
+    // MARK: - Chat State Variables
+    @StateObject private var chatProviderManager = ChatProviderManager.shared
+    @State private var conversations: [ChatConversation] = []
+    @State private var selectedConversation: ChatConversation?
+    @State private var showingChat = false
+    @State private var showingUserSelector = false
+    @State private var showingSearch = false
+    @State private var isLoadingConversations = false
+    @State private var searchText = ""
+    @State private var hasInitialized = false
+    @State private var errorMessage: String?
+    @State private var isLoadingFromCache = false
+    @State private var isUpdatingFromServer = false
+    @State private var messageUpdateObserver: NSObjectProtocol?
+    @State private var saveCacheDebounceWorkItem: DispatchWorkItem?
+    @State private var emptyStateAnimationScale: CGFloat = 1.0
+    @State private var emptyStateButtonPressed = false
 
-        var icon: String {
-            switch self {
-            case .timeline: return "clock"
-            case .explore: return "compass"
-            case .location: return "location"
+    private var filteredConversations: [ChatConversation] {
+        if searchText.isEmpty {
+            return conversations
+        } else {
+            return conversations.filter { conversation in
+                conversation.name?.localizedCaseInsensitiveContains(searchText) == true ||
+                conversation.lastMessage?.text.localizedCaseInsensitiveContains(searchText) == true
             }
         }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header con tabs
-            headerSection
+        NavigationView {
+            ZStack {
+                // Background
+                Color.dynamicBackground(theme: themeManager.currentTheme)
+                    .ignoresSafeArea()
 
-            // Feed content según tab seleccionado
-            TabView(selection: $selectedTab) {
-                TimelineFeedView()
-                    .tag(FeedTab.timeline)
+                VStack(spacing: 0) {
+                    // Custom Navigation Bar
+                    customNavigationBar
 
-                ExploreFeedView()
-                    .tag(FeedTab.explore)
+                    // Stories Bar (Instagram-style horizontal scroll)
+                    // Always show to allow story creation, even if no other stories exist
+                    StoriesBarView(
+                        userStories: storyService.feedStories,
+                        currentUserId: {
+                            if let pid = profileService.userProfile?.id { return pid }
+                            if let idStr = authService.user?.id, let id = Int(idStr) { return id }
+                            return 0
+                        }(),
+                        currentUserAvatar: {
+                            // Try profile service first, then auth service
+                            if let avatar = profileService.userProfile?.picture { return avatar }
+                            if let avatar = authService.user?.picture { return avatar }
+                            return nil
+                        }(),
+                        onStoryTap: { userGroup in
+                            print("👆 DEBUG: Story tapped - User: \(userGroup.userName)")
+                            print("👆 DEBUG: Stories count: \(userGroup.stories.count)")
+                            selectedStoryGroup = userGroup
+                            print("👆 DEBUG: selectedStoryGroup set - ID: \(userGroup.userId)")
+                        },
+                        onYourStoryTap: {
+                            // Check if current user has stories in the feed
+                            let currentId: Int = {
+                                if let pid = profileService.userProfile?.id { return pid }
+                                if let idStr = authService.user?.id, let id = Int(idStr) { return id }
+                                return 0
+                            }()
 
-                LocationFeedView()
-                    .tag(FeedTab.location)
+                            if let myStoryGroup = storyService.feedStories.first(where: { $0.userId == currentId }) {
+                                // User has stories - view them
+                                print("DEBUG:👁️ FeedTabs: User has stories - opening viewer")
+                                selectedStoryGroup = myStoryGroup
+                            } else {
+                                // User has no stories - open creator
+                                print("DEBUG:➕ FeedTabs: User has no stories - opening creator")
+                                showStoryCreator = true
+                            }
+                        }
+                    )
+                    .padding(.top, SocialFeedLayout.storiesBarTopPadding)
+                    .padding(.bottom, SocialFeedLayout.storiesBarBottomPadding)
+
+                    // Feed Content (solo Timeline, sin tabs)
+                    TimelineFeedContent()
+                }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+            .navigationBarHidden(true)
+            .onAppear {
+                initializeIfNeeded()
+                setupMessageUpdateListener()
+
+                // Setup story service
+                storyService.authService = authService
+                print("📲 DEBUG: StoryService authService configured")
+
+                // Load stories feed
+                Task {
+                    print("📲 DEBUG: Fetching stories feed...")
+                    await storyService.fetchStoriesFeed()
+                    print("📲 DEBUG: Stories feed loaded - Count: \(storyService.feedStories.count)")
+
+                    if !storyService.feedStories.isEmpty {
+                        print("📲 DEBUG: First story user: \(storyService.feedStories[0].userName)")
+                        print("📲 DEBUG: First story count: \(storyService.feedStories[0].stories.count)")
+                    } else {
+                        print("⚠️ DEBUG: No stories in feed!")
+                    }
+                }
+            }
+            .onDisappear {
+                if let observer = messageUpdateObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                    messageUpdateObserver = nil
+                }
+                if conversations.count > 30 {
+                    conversations = Array(conversations.prefix(30))
+                }
+            }
+            .navigationDestination(isPresented: $showMessagesPage) {
+                messagesPageView
+            }
         }
-        .sheet(isPresented: $showingCreatePost) {
+        .sheet(isPresented: $showCreatePost) {
             CreatePostView()
                 .environmentObject(themeManager)
                 .environmentObject(postService)
                 .environmentObject(authService)
         }
+        .sheet(isPresented: $showingUserSelector) {
+            userSelectorSheet
+        }
+        .fullScreenCover(item: $selectedStoryGroup) { userGroup in
+            let _ = print("🎭 DEBUG: fullScreenCover triggered for user: \(userGroup.userName)")
+            let _ = print("🎭 DEBUG: Stories count: \(userGroup.stories.count)")
+            let _ = print("🎭 DEBUG: All stories owners count: \(storyService.feedStories.count)")
+
+            return StoryViewerView(
+                initialUser: userGroup,
+                storiesOwners: storyService.feedStories,
+                onDismiss: {
+                    print("🎭 DEBUG: StoryViewer dismissed")
+                    selectedStoryGroup = nil
+                }
+            )
+            .environmentObject(themeManager)
+        }
+        .fullScreenCover(isPresented: $showStoryCreator) {
+            StoryCreatorView()
+                .environmentObject(storyService)
+                .environmentObject(authService)
+                .environmentObject(themeManager)
+                .onAppear {
+                    print("DEBUG:🎬 StoryCreatorView appeared from FeedTabs")
+                }
+        }
     }
 
-    // MARK: - Header Section
+    // MARK: - Custom Navigation Bar
 
-    private var headerSection: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Feed Social")
-                    .font(.system(size: 24, weight: .bold))
+    private var customNavigationBar: some View {
+        HStack(spacing: 20) {
+            // Logo/Title - Instagram style font
+            Text("Social")
+                .font(.custom("SnellRoundhand", size: 32))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .baselineOffset(-2) // Ajuste vertical para mejor alineación
+
+            Spacer()
+
+            // Action Button - Create Post
+            Button(action: {
+                // Haptic feedback
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+
+                showCreatePost = true
+            }) {
+                Image(systemName: "plus.square")
+                    .font(.system(size: 24, weight: .regular))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-                Spacer()
-
-                // Create post button
-                Button(action: {
-                    showingCreatePost = true
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
 
-            // Segmented control
-            segmentedControl
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-
-            Divider()
+            // Action Button - Messages (Instagram style)
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    showMessagesPage = true
+                }
+            }) {
+                Image(systemName: "paperplane")
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            }
         }
+        .padding(.horizontal, SocialFeedLayout.navBarPadding)
+        .frame(height: SocialFeedLayout.navBarHeight)
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
     }
 
-    private var segmentedControl: some View {
-        HStack(spacing: 0) {
-            ForEach(FeedTab.allCases, id: \.self) { tab in
-                tabButton(tab)
+    // MARK: - Messages Page View (Full page navigation)
+    private var messagesPageView: some View {
+        ZStack {
+            Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Search bar in messages page
+                if showingSearch {
+                    searchBarView
+                }
+
+                // Messages content
+                messagesContent
             }
         }
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .navigationTitle("Mensajes")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 16) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            showingSearch.toggle()
+                        }
+                    }) {
+                        Image(systemName: showingSearch ? "xmark" : "magnifyingglass")
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    }
+
+                    Button(action: {
+                        showingUserSelector = true
+                    }) {
+                        Image(systemName: "square.and.pencil")
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    }
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showingChat) {
+            chatDestination
+        }
     }
 
-    private func tabButton(_ tab: FeedTab) -> some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3)) {
-                selectedTab = tab
+    // MARK: - Search Bar View
+    private var searchBarView: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+
+            TextField("Buscar", text: $searchText)
+                .textFieldStyle(.plain)
+
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-        }) {
-            HStack(spacing: 6) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 14))
-                Text(tab.rawValue)
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .foregroundColor(selectedTab == tab ? .white : Color.dynamicText(theme: themeManager.currentTheme))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(selectedTab == tab ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.clear)
-            )
         }
-        .buttonStyle(.plain)
+        .frame(height: 36)
+        .padding(.horizontal, 12)
+        .background(
+            Capsule()
+                .fill(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.12))
+        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
+
+    // MARK: - Messages Content
+    private var messagesContent: some View {
+        Group {
+            if isLoadingFromCache && conversations.isEmpty {
+                // Show skeleton while loading from cache
+                ScrollView {
+                    ConversationListSkeleton(count: 8)
+                }
+            } else if filteredConversations.isEmpty && !isUpdatingFromServer {
+                emptyStateView
+            } else if filteredConversations.isEmpty && isUpdatingFromServer {
+                // Show skeleton while updating from server
+                ScrollView {
+                    ConversationListSkeleton(count: 5)
+                }
+            } else {
+                conversationsList
+            }
+        }
+    }
+
+    // MARK: - Conversations List
+    private var conversationsList: some View {
+        OptimizedList(
+            items: filteredConversations,
+            spacing: 1,
+            showDividers: false,
+            preloadThreshold: 5,
+            onRefresh: refreshConversations
+        ) { conversation in
+            SwipeableConversationRow.withStandardActions(
+                conversation: conversation,
+                themeManager: themeManager,
+                currentUserId: (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id,
+                onTap: {
+                    print("🔘 Tap detectado en conversación: \(conversation.name ?? conversation.id)")
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        selectedConversation = conversation
+                        showingChat = true
+                    }
+                    // Marcar localmente como leído para refrescar el badge en la lista
+                    if let idx = conversations.firstIndex(where: { $0.id == conversation.id }) {
+                        let c = conversations[idx]
+                        let updated = ChatConversation(
+                            id: c.id,
+                            name: c.name,
+                            type: c.type,
+                            members: c.members,
+                            lastMessage: c.lastMessage,
+                            lastActivity: c.lastActivity,
+                            unreadCount: 0,
+                            metadata: c.metadata
+                        )
+                        conversations[idx] = updated
+                        saveConversationsToCache(conversations)
+                    }
+                    print("📱 Navegando a chat con conversación: \(selectedConversation?.id ?? "nil")")
+                    print("🔄 showingChat = \(showingChat)")
+                },
+                onMute: {
+                    muteConversation(conversation)
+                },
+                onArchive: {
+                    archiveConversation(conversation)
+                },
+                onDelete: {
+                    deleteConversation(conversation)
+                }
+            )
+            .onChange(of: showingChat) { isShowing in
+                if !isShowing {
+                    // Cuando volvemos del chat, NO reordenar automáticamente
+                    // Solo reordenamos si hay cambios reales en lastActivity
+                    let conversationName = selectedConversation?.name ?? "N/A"
+                    print("🔙 Usuario salió del chat de: \(conversationName)")
+                    print("📋 Manteniendo orden actual de conversaciones")
+                }
+            }
+        }
+    }
+
+    // MARK: - Enhanced Empty State View
+    private var emptyStateView: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            // Animated icon
+            ZStack {
+                Circle()
+                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .scaleEffect(emptyStateAnimationScale)
+                    .animation(
+                        Animation.easeInOut(duration: 2.0)
+                            .repeatForever(autoreverses: true),
+                        value: emptyStateAnimationScale
+                    )
+            }
+            .onAppear {
+                emptyStateAnimationScale = 1.1
+            }
+
+            // Content
+            VStack(spacing: 12) {
+                Text("No conversations yet")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                Text("Start your first conversation with other gym members. Connect, share experiences, and stay motivated together!")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .padding(.horizontal, 20)
+            }
+
+            // Action button
+            Button(action: {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showingUserSelector = true
+                }
+
+                // Haptic feedback
+                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                impactFeedback.impactOccurred()
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+
+                    Text("Start a conversation")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 25)
+                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                        .shadow(
+                            color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
+                            radius: 8,
+                            x: 0,
+                            y: 4
+                        )
+                )
+                .scaleEffect(emptyStateButtonPressed ? 0.95 : 1.0)
+                .animation(.easeInOut(duration: 0.1), value: emptyStateButtonPressed)
+            }
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    emptyStateButtonPressed = true
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        emptyStateButtonPressed = false
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(40)
+    }
+
+    // MARK: - Chat Destination
+    @ViewBuilder
+    private var chatDestination: some View {
+        if let conversation = selectedConversation {
+            OptimizedChatView(
+                conversationId: conversation.id,
+                conversationName: conversation.name ?? "Chat"
+            )
+            .environmentObject(themeManager)
+            .environmentObject(authService)
+            .onAppear {
+                print("✅ OptimizedChatView apareció para conversación: \(conversation.id)")
+            }
+        } else {
+            EmptyView()
+        }
+    }
+
+    // MARK: - User Selector Sheet
+    private var userSelectorSheet: some View {
+        CoachSelectorView(
+            isPresented: $showingUserSelector,
+            onCoachSelected: { selectedCoach in
+                print("🏃‍♂️ Coach seleccionado: \(selectedCoach.fullName)")
+
+                // Start loading state
+                isUpdatingFromServer = true
+
+                // Create direct chat with selected coach
+                Task {
+                    let chatService = ChatService.shared
+                    chatService.authService = authService
+                    if let user = authService.user {
+                        chatService.setCurrentUserIdFromString(user.id)
+                    }
+
+                    if let directChatRoom = await chatService.getDirectChatWithCoach(selectedCoach) {
+                            print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
+
+                            // Convert ChatRoom to ChatConversation for navigation
+                            // Pre-populate members with the coach and the current user (when available)
+                            var provisionalMembers: [ChatUser] = []
+                            let coachUser = ChatUser(
+                                id: "user_\(selectedCoach.id)",
+                                name: selectedCoach.fullName,
+                                avatarURL: selectedCoach.picture
+                            )
+                            provisionalMembers.append(coachUser)
+                            if let providerUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId {
+                                provisionalMembers.append(ChatUser(id: providerUserId, name: authService.user?.name ?? "Me", avatarURL: authService.user?.picture))
+                            }
+
+                            let conversation = ChatConversation(
+                                id: directChatRoom.streamChannelId,
+                                name: selectedCoach.fullName,
+                                type: .direct,
+                                members: provisionalMembers,
+                                lastMessage: nil,
+                                lastActivity: directChatRoom.effectiveDate,
+                                unreadCount: 0,
+                                metadata: [
+                                    "coach_id": selectedCoach.id,
+                                    "coach_name": selectedCoach.fullName,
+                                    "room_id": directChatRoom.id
+                                ]
+                            )
+
+                            await MainActor.run {
+                                // Update conversations list if this is a new conversation
+                                if !conversations.contains(where: { $0.id == conversation.id }) {
+                                    conversations.insert(conversation, at: 0)
+                                    saveConversationsToCache(conversations)
+                                }
+
+                                // Navigate to chat
+                                selectedConversation = conversation
+                                showingChat = true
+                                isUpdatingFromServer = false
+
+                                print("📱 Navegando a chat con coach: \(selectedCoach.fullName)")
+                            }
+
+                        } else {
+                            await MainActor.run {
+                                errorMessage = "No se pudo crear el chat con \(selectedCoach.fullName)"
+                                isUpdatingFromServer = false
+                            }
+                            print("❌ No se pudo crear chat directo con \(selectedCoach.fullName)")
+                    }
+                }
+            }
+        )
+        .environmentObject(themeManager)
+        .environmentObject(authService)
+    }
+
+    // MARK: - Methods
+
+    private func initializeIfNeeded() {
+        guard !hasInitialized else { return }
+        hasInitialized = true
+
+        // Show skeleton if no cached data
+        if conversations.isEmpty {
+            isLoadingFromCache = true
+        }
+
+        // Cargar primero desde caché de forma síncrona
+        loadConversationsFromCache()
+
+        // Luego inicializar el sistema de chat y cargar desde GetStream
+        Task {
+            isUpdatingFromServer = true
+            await initializeChatSystem()
+            await loadConversations()
+            isUpdatingFromServer = false
+            isLoadingFromCache = false
+        }
+    }
+
+    private func loadConversationsFromCache() {
+        print("📦 Cargando conversaciones desde caché...")
+
+        // Intentar cargar conversaciones desde caché
+        if let data = UserDefaults.standard.data(forKey: "CachedConversations"),
+           let cachedConversations = try? JSONDecoder().decode([CachedConversation].self, from: data) {
+
+            print("✅ Conversaciones desde caché: \(cachedConversations.count)")
+
+            // Convertir a ChatConversation
+            self.conversations = cachedConversations.map { cached in
+                ChatConversation(
+                    id: cached.id,
+                    name: cached.name,
+                    type: ChatConversation.ConversationType(rawValue: cached.type) ?? .general,
+                    members: [],
+                    lastMessage: nil,
+                    lastActivity: cached.lastActivity,
+                    unreadCount: 0,
+                    metadata: [:]
+                )
+            }.sorted { $0.lastActivity > $1.lastActivity }
+        } else {
+            print("📦 No hay conversaciones en caché")
+        }
+    }
+
+    private func initializeChatSystem() async {
+        guard !chatProviderManager.isInitialized else { return }
+
+        // Pasar authService al inicializar el provider
+        await chatProviderManager.initializeProvider(authService: authService)
+
+        // Configurar ChatService con el ID del usuario autenticado
+        if let user = authService.user {
+            let chatService = ChatService.shared
+            chatService.authService = authService
+            chatService.setCurrentUserIdFromString(user.id)
+            print("👤 FeedTabsView: ChatService configurado con userId: \(user.id)")
+
+            // Obtener token real desde la API
+            await obtenerCredencialesReales(user: user)
+
+            // Precargar miembros del gym para enriquecer avatares en conversaciones
+            await chatService.loadGymMembers()
+        }
+    }
+
+    private func loadConversations() async {
+        guard chatProviderManager.isInitialized else { return }
+        // Prevent overlapping loads
+        var shouldReturn = false
+        await MainActor.run {
+            if isLoadingConversations { shouldReturn = true } else { isLoadingConversations = true }
+        }
+        if shouldReturn { return }
+
+        do {
+            let loadedConversations = try await chatProviderManager.getConversations()
+
+            await MainActor.run {
+                self.conversations = loadedConversations.sorted { conversation1, conversation2 in
+                    conversation1.lastActivity > conversation2.lastActivity
+                }
+                self.errorMessage = nil
+
+                // Precargar imágenes de avatar para mejorar performance
+                self.preloadAvatarImages(for: loadedConversations)
+
+                // Guardar en caché para próxima vez
+                self.saveConversationsToCache(loadedConversations)
+                self.isLoadingConversations = false
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Error cargando conversaciones: \(error.localizedDescription)"
+                self.isLoadingConversations = false
+            }
+            print("❌ Error cargando conversaciones: \(error)")
+        }
+    }
+
+    private func preloadAvatarImages(for conversations: [ChatConversation]) {
+        var imagesToPreload: [(url: String, cacheKey: String?)] = []
+        let currentUserId = authService.user?.id ?? ""
+
+        for conversation in conversations {
+            if conversation.type == .direct {
+                // Obtener el otro usuario de los miembros
+                let otherUser = conversation.members.first { $0.id != currentUserId }
+
+                if let otherUser = otherUser {
+                    if let avatarURL = otherUser.avatarURL, !avatarURL.isEmpty {
+                        // Avatar real del usuario
+                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
+                        imagesToPreload.append((url: avatarURL, cacheKey: "avatar_user_\(normalizedId)"))
+                    } else {
+                        // Avatar generado con UI Avatars
+                        let encodedName = otherUser.name.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed) ?? "User"
+                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
+                        let colorHash = abs(normalizedId.hashValue) % 16777215
+                        let backgroundColor = String(format: "%06X", colorHash)
+                        let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
+                        imagesToPreload.append((url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)"))
+                    }
+                }
+            }
+        }
+
+        // Precargar en background
+        if !imagesToPreload.isEmpty {
+            DispatchQueue.global(qos: .background).async {
+                ImageLoaderService.preloadImages(urls: imagesToPreload)
+            }
+        }
+    }
+
+    private func saveConversationsToCache(_ conversations: [ChatConversation]) {
+        // Debounce guardado para evitar escrituras frecuentes
+        saveCacheDebounceWorkItem?.cancel()
+        let work = DispatchWorkItem { [conversations] in
+            let cachedConversations = conversations.map { conversation in
+                CachedConversation(
+                    id: conversation.id,
+                    name: conversation.name,
+                    type: conversation.type.rawValue,
+                    lastActivity: conversation.lastActivity,
+                    lastMessageText: conversation.lastMessage?.text,
+                    lastMessageAuthor: conversation.lastMessage?.authorName,
+                    unreadCount: conversation.unreadCount
+                )
+            }
+            do {
+                let data = try JSONEncoder().encode(cachedConversations)
+                UserDefaults.standard.set(data, forKey: "CachedConversations")
+                print("💾 Conversaciones guardadas en caché: \(cachedConversations.count)")
+            } catch {
+                print("❌ Error guardando conversaciones en caché: \(error)")
+            }
+        }
+        saveCacheDebounceWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    private func refreshConversations() async {
+        // Do not refresh if a server update is already in progress
+        if isLoadingConversations { return }
+        await loadConversations()
+    }
+
+    private func setupMessageUpdateListener() {
+        // Escuchar actualizaciones de mensajes
+        messageUpdateObserver = NotificationCenter.default.addObserver(
+            forName: .chatMessageUpdate,
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            guard let update = notification.userInfo?["update"] as? MessageUpdate else { return }
+
+            print("🔔 Message update recibido - tipo: \(update.type), conversación: \(update.conversationId)")
+
+            // Solo mover al top si es un mensaje realmente NUEVO y no es del usuario actual viendo el chat
+            if update.type == .new && !isCurrentlyViewingConversation(update.conversationId) {
+                print("📈 Moviendo conversación al top por mensaje nuevo de otro usuario")
+                moveConversationToTop(conversationId: update.conversationId)
+            } else if update.type == .new {
+                print("📱 Mensaje nuevo pero el usuario está viendo esa conversación, no mover")
+            }
+        }
+    }
+
+    /// Verifica si el usuario está actualmente viendo una conversación específica
+    private func isCurrentlyViewingConversation(_ conversationId: String) -> Bool {
+        return showingChat && selectedConversation?.id == conversationId
+    }
+
+    private func moveConversationToTop(conversationId: String) {
+        // Buscar la conversación
+        guard let index = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
+
+        // Si ya está en la primera posición, no hacer nada
+        if index == 0 { return }
+
+        print("📈 Moviendo conversación \(conversationId) al top por nuevo mensaje")
+
+        // Mover la conversación al principio
+        var updatedConversations = conversations
+        let conversation = updatedConversations.remove(at: index)
+
+        // Actualizar la fecha de última actividad SOLO si realmente hay un nuevo mensaje
+        let updatedConversation = ChatConversation(
+            id: conversation.id,
+            name: conversation.name,
+            type: conversation.type,
+            members: conversation.members,
+            lastMessage: conversation.lastMessage,
+            lastActivity: Date(), // Actualizar a la fecha actual por el nuevo mensaje
+            unreadCount: conversation.unreadCount,
+            metadata: conversation.metadata
+        )
+
+        updatedConversations.insert(updatedConversation, at: 0)
+        conversations = updatedConversations
+
+        // Actualizar caché
+        saveConversationsToCache(conversations)
+    }
+
+    private func obtenerCredencialesReales(user: AuthUser) async {
+        print("🔑 Obteniendo credenciales reales para el chat...")
+        print("👤 Usuario: \(user.id) - \(user.name)")
+
+        do {
+            // Usar ChatService para obtener el token real
+            let chatService = ChatService.shared
+            chatService.authService = authService
+            chatService.setCurrentUserIdFromString(user.id)
+
+            guard let tokenResponse = await chatService.getStreamToken() else {
+                print("❌ No se pudo obtener token de GetStream")
+                await MainActor.run {
+                    errorMessage = "No se pudo obtener el token de chat"
+                }
+                return
+            }
+
+            print("✅ Token real obtenido para FeedTabsView")
+            print("   - Token: \(tokenResponse.token.prefix(20))...")
+            print("   - API Key: \(tokenResponse.apiKey)")
+            print("   - Internal User ID: \(tokenResponse.internalUserId)")
+
+            // IMPORTANTE: El userId debe coincidir con el user_id del token JWT
+            let userId = "user_\(tokenResponse.internalUserId)"
+
+            let credentials = ChatCredentials(
+                token: tokenResponse.token,
+                apiKey: tokenResponse.apiKey,
+                userId: userId,
+                userInfo: ChatUser(
+                    id: userId,
+                    name: user.name,
+                    avatarURL: user.picture
+                )
+            )
+
+            print("🔌 Conectando a GetStream con credenciales reales...")
+            try await chatProviderManager.connect(credentials: credentials)
+            print("✅ Conectado exitosamente al chat")
+            // Configurar currentUserId interno con el valor del backend para evitar logs con subject Auth0
+            ChatService.shared.setCurrentUserId(tokenResponse.internalUserId)
+
+            // Cargar conversaciones después de conectar
+            await loadConversations()
+
+        } catch {
+            await MainActor.run {
+                errorMessage = "Error obteniendo credenciales: \(error.localizedDescription)"
+            }
+            print("❌ Error obteniendo credenciales reales: \(error)")
+        }
+    }
+
+    // MARK: - Swipe Actions
+    private func muteConversation(_ conversation: ChatConversation) {
+        print("🔇 Silenciando conversación: \(conversation.name ?? conversation.id)")
+
+        // TODO: Implement actual mute functionality
+        // For now, just show a success message
+
+        // Update UI to show muted state
+        // This would typically involve updating the conversation's metadata
+        // and potentially storing the muted state locally or on the server
+
+        // Show temporary feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
+        // You could show a toast or banner here
+        print("✅ Conversation muted successfully")
+    }
+
+    private func archiveConversation(_ conversation: ChatConversation) {
+        print("📦 Archivando conversación: \(conversation.name ?? conversation.id)")
+
+        // Remove from current list with animation
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            conversations.removeAll { $0.id == conversation.id }
+        }
+
+        // TODO: Implement actual archive functionality
+        // This would typically involve:
+        // 1. Marking the conversation as archived on the server
+        // 2. Moving it to an archived conversations list
+        // 3. Updating local storage
+
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+
+        print("✅ Conversation archived successfully")
+    }
+
+    private func deleteConversation(_ conversation: ChatConversation) {
+        print("🗑️ Eliminando conversación: \(conversation.name ?? conversation.id)")
+
+        // Remove from current list with animation
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            conversations.removeAll { $0.id == conversation.id }
+        }
+
+        // TODO: Implement actual delete functionality with backend API
+        // For now, just remove from local list and update cache
+        saveConversationsToCache(conversations)
+        print("✅ Conversation deleted locally (backend integration pending)")
+
+        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+        impactFeedback.impactOccurred()
+    }
+
 }
 
-// MARK: - Timeline Feed View
+// MARK: - Timeline Feed Content
 
-struct TimelineFeedView: View {
+struct TimelineFeedContent: View {
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var viewModel = SocialFeedViewModel(feedType: .timeline)
 
     var body: some View {
-        FeedContentView(viewModel: viewModel)
+        MinimalFeedContent(viewModel: viewModel, feedType: .timeline)
             .environmentObject(themeManager)
+            .task {
+                if viewModel.posts.isEmpty {
+                    await viewModel.loadInitial()
+                }
+            }
     }
 }
 
-// MARK: - Explore Feed View
+// MARK: - Minimal Feed Content
 
-struct ExploreFeedView: View {
+struct MinimalFeedContent: View {
     @EnvironmentObject var themeManager: ThemeManager
-    @StateObject private var viewModel = SocialFeedViewModel(feedType: .explore)
+    @ObservedObject var viewModel: SocialFeedViewModel
+    let feedType: SocialEmptyStateView.FeedType
+    @State private var showCreatePost = false
 
     var body: some View {
-        FeedContentView(viewModel: viewModel)
-            .environmentObject(themeManager)
-    }
-}
-
-// MARK: - Location Feed View
-
-struct LocationFeedView: View {
-    @EnvironmentObject var themeManager: ThemeManager
-    @State private var selectedLocation: String = ""
-    @State private var showingLocationPicker = false
-    @StateObject private var viewModel: SocialFeedViewModel
-
-    init() {
-        _viewModel = StateObject(wrappedValue: SocialFeedViewModel(feedType: .location("")))
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Location search bar
-            locationSearchBar
-
-            // Feed content
-            FeedContentView(viewModel: viewModel)
+        Group {
+            if viewModel.isLoading && viewModel.posts.isEmpty {
+                loadingView
+            } else if viewModel.shouldShowEmptyState {
+                SocialEmptyStateView(
+                    feedType: feedType,
+                    theme: themeManager.currentTheme,
+                    onCreatePost: { showCreatePost = true }
+                )
+            } else if viewModel.shouldShowError {
+                errorView
+            } else {
+                postsScrollView
+            }
+        }
+        .sheet(isPresented: $showCreatePost) {
+            CreatePostView()
                 .environmentObject(themeManager)
         }
     }
 
-    private var locationSearchBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
-
-            TextField("Buscar ubicación", text: $selectedLocation)
-                .font(.system(size: 15))
-                .submitLabel(.search)
-                .onSubmit {
-                    searchLocation()
-                }
-
-            if !selectedLocation.isEmpty {
-                Button(action: {
-                    selectedLocation = ""
-                    searchLocation()
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+    private var loadingView: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(0..<3, id: \.self) { _ in
+                    PostCardSkeleton()
+                        .environmentObject(themeManager)
                 }
             }
         }
-        .padding(12)
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 
-    private func searchLocation() {
-        // Recrear viewModel con nueva ubicación
-        let newViewModel = SocialFeedViewModel(feedType: .location(selectedLocation))
-        Task {
-            await newViewModel.loadInitial()
-        }
-    }
-}
-
-// MARK: - Feed Content View (Compartida)
-
-struct FeedContentView: View {
-    @EnvironmentObject var themeManager: ThemeManager
-    @ObservedObject var viewModel: SocialFeedViewModel
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                if viewModel.isLoading && viewModel.posts.isEmpty {
-                    // Loading skeleton
-                    ForEach(0..<5, id: \.self) { _ in
-                        PostCardSkeleton()
-                            .environmentObject(themeManager)
-                    }
-                } else if viewModel.shouldShowEmptyState {
-                    // Empty state
-                    emptyStateView
-                } else if viewModel.shouldShowError {
-                    // Error state
-                    errorView
-                } else {
-                    // Posts list
-                    ForEach(viewModel.posts) { post in
-                        PostCard(post: post)
-                            .environmentObject(themeManager)
-                            .onAppear {
-                                // Load more when reaching last item
-                                if post.id == viewModel.posts.last?.id {
-                                    Task {
-                                        await viewModel.loadMore()
-                                    }
-                                }
+    private var postsScrollView: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            LazyVStack(spacing: SocialFeedLayout.postVerticalSpacing) {
+                ForEach(viewModel.posts) { post in
+                    MinimalPostCard(post: post, theme: themeManager.currentTheme)
+                        .onAppear {
+                            if post == viewModel.posts.last {
+                                loadMoreIfNeeded()
                             }
-
-                        Divider()
-                            .padding(.horizontal, 16)
-                    }
-
-                    // Loading more indicator
-                    if viewModel.isLoadingMore {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .padding()
-                            Spacer()
                         }
+                }
+
+                // Loading More Indicator
+                if viewModel.isLoadingMore {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .tint(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .padding(.vertical, 20)
+                        Spacer()
                     }
                 }
             }
@@ -256,33 +998,6 @@ struct FeedContentView: View {
         .refreshable {
             await viewModel.refresh()
         }
-        .task {
-            if viewModel.posts.isEmpty {
-                await viewModel.loadInitial()
-            }
-        }
-    }
-
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.5))
-
-            Text("No hay posts todavía")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            Text("Sé el primero en compartir algo")
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(40)
     }
 
     private var errorView: some View {
@@ -291,16 +1006,16 @@ struct FeedContentView: View {
 
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 50))
-                .foregroundColor(.red)
+                .foregroundColor(Color.errorRed)
 
             Text("Error al cargar posts")
-                .font(.system(size: 18, weight: .semibold))
+                .font(Typography.titleMedium)
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
             if let error = viewModel.errorMessage {
                 Text(error)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .font(Typography.bodyMedium)
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
@@ -311,18 +1026,26 @@ struct FeedContentView: View {
                 }
             }) {
                 Text("Reintentar")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(Typography.button)
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                     .background(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .cornerRadius(VisualEffects.cornerRadiusSmall)
             }
 
             Spacer()
         }
         .frame(maxWidth: .infinity)
         .padding(40)
+    }
+
+    private func loadMoreIfNeeded() {
+        guard !viewModel.isLoadingMore, viewModel.hasMore else { return }
+
+        Task {
+            await viewModel.loadMore()
+        }
     }
 }
 
