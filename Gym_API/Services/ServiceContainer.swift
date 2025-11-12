@@ -290,6 +290,7 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.authService)
             .environmentObject(serviceContainer.themeManager)
             .environmentObject(serviceContainer.oneSignalService)
+            .environmentObject(serviceContainer.storyService)
             .environmentObject(serviceContainer.membershipService)
             .environmentObject(serviceContainer.gymService)
             .environmentObject(serviceContainer.eventService)

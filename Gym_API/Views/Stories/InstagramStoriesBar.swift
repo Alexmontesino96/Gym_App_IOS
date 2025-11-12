@@ -9,6 +9,8 @@
 import SwiftUI
 
 struct InstagramStoriesBar: View {
+    @Namespace private var storyNamespace
+    @StateObject private var storyUIState = StoryUIState()
     @EnvironmentObject var storyService: StoryService
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
@@ -38,20 +40,25 @@ struct InstagramStoriesBar: View {
                                 print("DEBUG:➕ Stories: Abriendo creador")
                                 showingStoryCreator = true
                             }
+                        },
+                        onAdd: {
+                            print("DEBUG:➕ Stories: Add button tapped - abrir creador")
+                            showingStoryCreator = true
                         }
                     )
 
                     // Otras historias con animación de entrada escalonada
                     // Filtrar para excluir al usuario actual
-                    ForEach(Array(otherUsersStories.enumerated()), id: \.element.id) { index, userStory in
+                    ForEach(Array(sortedOtherUsersStories.enumerated()), id: \.element.id) { index, userStory in
                         InstagramStoryAvatar(
                             userStory: userStory,
                             theme: themeManager.currentTheme,
+                            matchedNamespace: storyNamespace,
                             onTap: {
                                 print("DEBUG: 👆 Story avatar tapped - User: \(userStory.userName), Index: \(index)")
                                 print("DEBUG: 📊 Total stories: \(userStory.stories.count)")
                                 print("DEBUG: 📊 Active stories: \(userStory.activeStories.count)")
-                                print("DEBUG: 📊 Feed stories count: \(otherUsersStories.count)")
+                                print("DEBUG: 📊 Feed stories count: \(sortedOtherUsersStories.count)")
 
                                 // Log each story's active status
                                 for (storyIndex, story) in userStory.stories.enumerated() {
@@ -64,6 +71,14 @@ struct InstagramStoriesBar: View {
                                 print("DEBUG: 🎬 showingStoryViewer set to: \(showingStoryViewer)")
                             }
                         )
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear
+                                    .onAppear {
+                                        storyUIState.avatarFramesByUserId[userStory.userId] = geo.frame(in: .global)
+                                    }
+                            }
+                        )
                         .transition(.scale.combined(with: .opacity))
                         .animation(
                             StoryAnimations.storyEntry.delay(Double(index) * 0.05),
@@ -72,9 +87,12 @@ struct InstagramStoriesBar: View {
                     }
                 }
                 .padding(.horizontal, StoryDesignTokens.barHorizontalPadding)
+                // Enable iOS 17 snapping when available
+                .modifier(EnableSnappingIfAvailable())
                 .padding(.vertical, 10)
             }
             .frame(height: StoryDesignTokens.barHeight)
+            .modifier(EnableViewAlignedBehaviorIfAvailable())
             .background(
                 Color.dynamicBackground(theme: themeManager.currentTheme)
             )
@@ -109,14 +127,16 @@ struct InstagramStoriesBar: View {
         }
         .fullScreenCover(isPresented: $showingStoryViewer) {
             Group {
-                if !otherUsersStories.isEmpty {
+                if !sortedOtherUsersStories.isEmpty {
                     StoryViewerContainer(
-                        userStories: otherUsersStories,
-                        initialUserIndex: selectedUserIndex
+                        userStories: sortedOtherUsersStories,
+                        initialUserIndex: selectedUserIndex,
+                        matchedNamespace: storyNamespace
                     )
                     .environmentObject(storyService)
                     .environmentObject(themeManager)
                     .environmentObject(authService)
+                    .environmentObject(storyUIState)
                     .onAppear {
                         print("DEBUG: 🎥 StoryViewerContainer appeared!")
                         print("DEBUG: 📊 otherUsersStories count: \(otherUsersStories.count)")
@@ -154,6 +174,7 @@ struct InstagramStoriesBar: View {
                 .environmentObject(storyService)
                 .environmentObject(themeManager)
                 .environmentObject(authService)
+                .environmentObject(storyUIState)
             }
         }
         .sheet(isPresented: $showingStoryCreator) {
@@ -162,6 +183,7 @@ struct InstagramStoriesBar: View {
                 .environmentObject(authService)
                 .environmentObject(themeManager)
         }
+        .environmentObject(storyUIState)
     }
 
     // MARK: - Helper Methods
@@ -213,6 +235,19 @@ struct InstagramStoriesBar: View {
         return filtered
     }
 
+    // Stories ordenadas: primero con no vistas, luego por más recientes
+    private var sortedOtherUsersStories: [UserStoryGroup] {
+        let base = otherUsersStories
+        return base.sorted { a, b in
+            if a.hasUnseen != b.hasUnseen {
+                return a.hasUnseen && !b.hasUnseen
+            }
+            let da = a.mostRecentStory?.createdAt ?? .distantPast
+            let db = b.mostRecentStory?.createdAt ?? .distantPast
+            return da > db
+        }
+    }
+
     private func loadStoriesIfNeeded() {
         print("DEBUG:📸 Stories: loadStoriesIfNeeded called")
         print("DEBUG:📊 feedStories.isEmpty: \(storyService.feedStories.isEmpty)")
@@ -220,10 +255,10 @@ struct InstagramStoriesBar: View {
             print("DEBUG:✅ Stories already loaded, skipping")
             return
         }
-        print("DEBUG:📸 Stories: Cargando feed inicial")
+        print("DEBUG:📸 Stories: Cargando feed inicial (forceRefresh=true)")
         isLoading = true
         Task {
-            await storyService.fetchStoriesFeed()
+            await storyService.fetchStoriesFeed(forceRefresh: true)
             await MainActor.run {
                 print("DEBUG:📊 After fetch - feedStories count: \(storyService.feedStories.count)")
                 withAnimation {
@@ -261,9 +296,11 @@ struct InstagramStoriesBar: View {
 struct InstagramMyStoryButton: View {
     let hasActiveStory: Bool
     let onTap: () -> Void
+    let onAdd: () -> Void
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var storyService: StoryService
+    @EnvironmentObject var storyUIState: StoryUIState
 
     @State private var isPressed = false
     @State private var isPulsing = false
@@ -356,9 +393,17 @@ struct InstagramMyStoryButton: View {
                     width: StoryDesignTokens.avatarRingSize,
                     height: StoryDesignTokens.avatarRingSize
                 )
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .onAppear {
+                                storyUIState.myAvatarFrame = geo.frame(in: .global)
+                            }
+                    }
+                )
 
-                // Botón + azul Instagram (solo si no tiene historia)
-                if !hasActiveStory {
+                // Botón + azul Instagram (siempre visible para permitir añadir nuevas historias)
+                Button(action: onAdd) {
                     Circle()
                         .fill(Color.white)
                         .frame(width: StoryDesignTokens.addButtonSize, height: StoryDesignTokens.addButtonSize)
@@ -405,6 +450,7 @@ struct InstagramMyStoryButton: View {
 struct InstagramStoryAvatar: View {
     let userStory: UserStoryGroup
     let theme: ThemeManager.AppTheme
+    var matchedNamespace: Namespace.ID?
     let onTap: () -> Void
 
     @State private var isPressed = false
@@ -462,6 +508,9 @@ struct InstagramStoryAvatar: View {
                                             lineWidth: userStory.hasUnseen ? 3 : 0
                                         )
                                 )
+                                .ifLet(matchedNamespace) { view, ns in
+                                    view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
+                                }
                         } placeholder: {
                             Circle()
                                 .fill(Color.gray.opacity(0.3))
@@ -473,6 +522,9 @@ struct InstagramStoryAvatar: View {
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 )
+                                .ifLet(matchedNamespace) { view, ns in
+                                    view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
+                                }
                         }
                     } else {
                         Circle()
@@ -485,6 +537,9 @@ struct InstagramStoryAvatar: View {
                                 Image(systemName: "person.fill")
                                     .foregroundColor(.white)
                             )
+                            .ifLet(matchedNamespace) { view, ns in
+                                view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
+                            }
                     }
                 }
                 .frame(
@@ -529,5 +584,26 @@ struct InstagramStoriesBar_Previews: PreviewProvider {
             .environmentObject(AuthServiceDirect())
             .environmentObject(ThemeManager())
             .environmentObject(UserProfileService.shared)
+    }
+}
+
+// MARK: - Helpers
+private struct EnableSnappingIfAvailable: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.scrollTargetLayout()
+        } else {
+            content
+        }
+    }
+}
+
+private struct EnableViewAlignedBehaviorIfAvailable: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.scrollTargetBehavior(.viewAligned)
+        } else {
+            content
+        }
     }
 }

@@ -118,6 +118,20 @@ extension Color {
         let hex = ThemeManager.accentHexFromDefaults(for: theme)
         return Color(hex: hex) ?? (theme == .light ? Color.lightAccentPrimary : Color.darkAccentPrimary)
     }
+
+    static func dynamicTextTertiary(theme: ThemeManager.AppTheme) -> Color {
+        switch theme {
+        case .light: return Color.lightTextTertiary
+        case .dark: return Color.darkTextTertiary
+        }
+    }
+
+    static func dynamicCard(theme: ThemeManager.AppTheme) -> Color {
+        switch theme {
+        case .light: return Color.white
+        case .dark: return Color.darkSurfacePrimary
+        }
+    }
     
     // MARK: - Light Theme Colors (WCAG 2.1 AA Compliant)
     static let lightBackgroundPrimary = Color.white // #FFFFFF - Fondo principal blanco como en la imagen
@@ -144,6 +158,12 @@ extension Color {
     static let darkBorderSecondary = Color(red: 0.35, green: 0.35, blue: 0.35) // #595959 - Contrast 3.8:1 ✅
     static let darkAccentPrimary = Color(red: 0.85, green: 0.29, blue: 0.29) // #D94A4A - Slightly darker red
     static let darkShadow = Color.black.opacity(0.25) // Sombras para modo oscuro
+
+    // MARK: - Semantic Colors (para Social Feed)
+    static let likeRed = Color(red: 1.0, green: 0.23, blue: 0.19) // #FF3B30 - Like color
+    static let successGreen = Color(red: 0.20, green: 0.78, blue: 0.35) // #34C759
+    static let warningYellow = Color(red: 1.0, green: 0.80, blue: 0.0) // #FFCC00
+    static let errorRed = Color(red: 1.0, green: 0.23, blue: 0.19) // #FF3B30
 }
 
 // MARK: - Environment Key

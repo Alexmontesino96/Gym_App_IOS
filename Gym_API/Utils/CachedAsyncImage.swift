@@ -265,6 +265,8 @@ private class EnhancedImageLoader: ObservableObject {
             return
         }
 
+        print("DEBUG: 🔄 EnhancedImageLoader: Loading URL: \(url)")
+
         // Cancel any existing task
         currentTask?.cancel()
 
@@ -273,7 +275,7 @@ private class EnhancedImageLoader: ObservableObject {
 
         // Check cache first
         if let cached = cacheManager.cachedImage(for: url) {
-            print("DEBUG: ⚡ EnhancedImageLoader: Using cached image")
+            print("DEBUG: ⚡ EnhancedImageLoader: Using cached image for \(url.suffix(50))")
             self.image = cached
             return
         }

@@ -44,6 +44,8 @@ class CameraManager: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var picData = Data(count: 0)
     @Published var capturedImage: UIImage?
 
+    private var isConfiguring = false
+
     func checkPermissions() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -63,9 +65,14 @@ class CameraManager: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
 
     func setUp() {
         do {
+            isConfiguring = true
             session.beginConfiguration()
 
-            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else { return }
+            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+                session.commitConfiguration()
+                isConfiguring = false
+                return
+            }
             let input = try AVCaptureDeviceInput(device: device)
 
             if session.canAddInput(input) {
@@ -77,12 +84,17 @@ class CameraManager: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
             }
 
             session.commitConfiguration()
+            isConfiguring = false
 
             DispatchQueue.global(qos: .background).async { [weak self] in
                 self?.session.startRunning()
             }
         } catch {
             print("Camera setup error: \(error.localizedDescription)")
+            if isConfiguring {
+                session.commitConfiguration()
+                isConfiguring = false
+            }
         }
     }
 
@@ -116,10 +128,42 @@ class CameraManager: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func retake() {
         DispatchQueue.main.async {
             withAnimation {
+                print("DEBUG:📷 CameraManager.retake() called - clearing captured image and resetting state")
                 self.isTaken = false
                 self.capturedImage = nil
                 self.picData = Data(count: 0)
             }
+        }
+    }
+
+    func stopSession() {
+        print("DEBUG:📷 CameraManager.stopSession()")
+        if session.isRunning {
+            session.stopRunning()
+        }
+        // Detach preview layer to avoid stale overlay and potential freezes
+        DispatchQueue.main.async { [weak self] in
+            if let preview = self?.preview {
+                preview.removeFromSuperlayer()
+                self?.preview = nil
+                print("DEBUG:📷 Preview layer removed")
+            }
+        }
+    }
+
+    func startSessionIfNeeded() {
+        print("DEBUG:📷 CameraManager.startSessionIfNeeded() - isRunning=\(session.isRunning), isConfiguring=\(isConfiguring)")
+
+        // Don't start if already running or currently configuring
+        guard !session.isRunning && !isConfiguring else {
+            print("DEBUG:📷 Skipping startSession - already running or configuring")
+            return
+        }
+
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self = self, !self.isConfiguring else { return }
+            self.session.startRunning()
+            print("DEBUG:📷 Session started successfully")
         }
     }
 }

@@ -24,12 +24,17 @@ struct StoriesBar: View {
                 MyStoryButton(
                     hasActiveStory: hasMyActiveStory,
                     onTap: {
+                        print("DEBUG:🔵 MyStoryButton tapped!")
+                        print("DEBUG:🔵 hasMyActiveStory: \(hasMyActiveStory)")
+                        print("DEBUG:🔵 Current showingStoryCreator state: \(showingStoryCreator)")
+
                         if hasMyActiveStory {
                             print("DEBUG:👤 StoriesBar: Abriendo mis stories activas")
                             showingMyStories = true
                         } else {
                             print("DEBUG:➕ StoriesBar: Abriendo creador de stories")
                             showingStoryCreator = true
+                            print("DEBUG:➕ showingStoryCreator set to: \(showingStoryCreator)")
                         }
                     }
                 )
@@ -76,6 +81,7 @@ struct StoriesBar: View {
                 .environmentObject(storyService)
                 .environmentObject(themeManager)
                 .environmentObject(authService)
+                .presentationBackground(.clear)
             }
         }
         .fullScreenCover(isPresented: $showingMyStories) {
@@ -87,13 +93,17 @@ struct StoriesBar: View {
                 .environmentObject(storyService)
                 .environmentObject(themeManager)
                 .environmentObject(authService)
+                .presentationBackground(.clear)
             }
         }
-        .sheet(isPresented: $showingStoryCreator) {
+        .fullScreenCover(isPresented: $showingStoryCreator) {
             StoryCreatorView()
                 .environmentObject(storyService)
                 .environmentObject(authService)
                 .environmentObject(themeManager)
+                .onAppear {
+                    print("DEBUG:🎬 StoryCreatorView appeared!")
+                }
         }
     }
 

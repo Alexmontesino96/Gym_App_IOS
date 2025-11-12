@@ -8,6 +8,7 @@
 
 import UIKit
 import SwiftUI
+import CryptoKit
 
 /// Robust image cache manager using NSCache for memory efficiency
 /// Based on Instagram Stories best practices
@@ -47,6 +48,9 @@ class ImageCacheManager: ObservableObject {
     func cachedImage(for url: String) -> UIImage? {
         let key = url as NSString
 
+        print("DEBUG: 🔍 Looking for cached image - Full URL: \(url)")
+        print("DEBUG: 🔍 Cache key (NSString): \(key)")
+
         // Check memory cache first
         if let image = imageCache.object(forKey: key) {
             print("DEBUG: ✅ Memory cache HIT for: \(url.suffix(50))")
@@ -68,6 +72,10 @@ class ImageCacheManager: ObservableObject {
     /// Cache image in both memory and disk
     func cacheImage(_ image: UIImage, for url: String) {
         let key = url as NSString
+
+        print("DEBUG: 💾 Caching image - Full URL: \(url)")
+        print("DEBUG: 💾 Cache key: \(key)")
+        print("DEBUG: 💾 Image size: \(image.size)")
 
         // Calculate cost (approximate bytes)
         let cost = Int(image.size.width * image.size.height * 4) // RGBA
@@ -159,8 +167,17 @@ class ImageCacheManager: ObservableObject {
     // MARK: - Disk Operations
 
     private func diskCacheFilePath(for url: String) -> URL {
-        let filename = url.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? UUID().uuidString
-        return diskCacheURL.appendingPathComponent(filename)
+        // Use SHA256 hash to create unique, filesystem-safe filename
+        // This ensures URLs with query params get different cache files
+        let hash = SHA256.hash(data: Data(url.utf8))
+        let filename = hash.compactMap { String(format: "%02x", $0) }.joined()
+        let filePath = diskCacheURL.appendingPathComponent(filename + ".jpg")
+
+        print("DEBUG: 🔑 SHA256 Hash for URL: \(url.suffix(60))")
+        print("DEBUG: 🔑 Filename: \(filename.prefix(16))...")
+        print("DEBUG: 🔑 Full path: \(filePath.lastPathComponent)")
+
+        return filePath
     }
 
     private func saveToDisk(image: UIImage, url: String) {

@@ -327,10 +327,11 @@ extension HomeView {
         debugLog("🏠 Configurando authService en surveyService...")
         surveyService.authService = authService
         surveyService.gymService = gymService
-        
+
         // Setup location service
         debugLog("🏠 Configurando LocationService...")
         LocationService.shared.requestLocationPermission()
+
         debugLog("🏠 setupServices completado")
     }
 }
