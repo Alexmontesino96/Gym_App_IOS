@@ -15,11 +15,11 @@ struct StoryDesignTokens {
     /// Tamaño del anillo exterior del avatar (círculo completo con el ring)
     static let avatarRingSize: CGFloat = 94
 
-    /// Tamaño de la imagen del avatar (más pequeño para dejar espacio al ring grueso)
-    static let avatarImageSize: CGFloat = 78  // Reducido de 86 a 78 para ring estilo Instagram
+    /// Tamaño de la imagen del avatar (reducido significativamente para ring grueso como Instagram)
+    static let avatarImageSize: CGFloat = 70  // Reducido a 70pt para ring MUY visible
 
-    /// Ancho del anillo de progreso (aro alrededor de los avatares) - Estilo Instagram
-    static let ringWidth: CGFloat = 3.5  // Ring visible más grueso como Instagram
+    /// Ancho del anillo de progreso (aro alrededor de los avatares) - Instagram style
+    static let ringWidth: CGFloat = 3.5  // Ring stroke width
 
     /// Altura de las barras de progreso
     static let progressBarHeight: CGFloat = 2
