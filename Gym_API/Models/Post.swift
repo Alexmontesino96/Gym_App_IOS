@@ -44,16 +44,12 @@ struct UserPreview: Codable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id
-        case fullName
-        case profilePictureUrl
-        case role
-        // Alternate keys from various backends
-        case firstName = "first_name"
-        case lastName = "last_name"
-        case picture
-        case profilePictureURL = "profile_picture_url"
-        case full_name
+        case id, role
+        case fullName  // Puede venir como fullName o full_name (convertFromSnakeCase lo maneja)
+        case profilePictureUrl  // Puede venir como profilePictureUrl o profile_picture_url
+        case firstName  // first_name será convertido automáticamente a firstName
+        case lastName   // last_name será convertido automáticamente a lastName
+        case picture    // Alternativa para profilePictureUrl
     }
 
     init(id: Int, fullName: String, profilePictureUrl: String?, role: String) {
@@ -70,9 +66,8 @@ struct UserPreview: Codable, Identifiable {
         print("      🔍 DEBUG UserPreview - Decodificando nombre para user ID: \(self.id)")
         print("      📋 Todas las keys disponibles: \(container.allKeys.map { $0.stringValue })")
 
-        // Prefer explicit full name if provided
+        // Try fullName first (full_name will be auto-converted by convertFromSnakeCase)
         let explicitFullName = try container.decodeIfPresent(String.self, forKey: .fullName)
-            ?? container.decodeIfPresent(String.self, forKey: .full_name)
 
         print("      🔍 explicitFullName: \(explicitFullName ?? "nil")")
 
@@ -80,6 +75,7 @@ struct UserPreview: Codable, Identifiable {
             self.fullName = explicitFullName
             print("      ✅ Usando explicitFullName: '\(explicitFullName)'")
         } else {
+            // first_name and last_name will be auto-converted to firstName/lastName by convertFromSnakeCase
             let first = try container.decodeIfPresent(String.self, forKey: .firstName)
             let last = try container.decodeIfPresent(String.self, forKey: .lastName)
             print("      🔍 firstName: \(first ?? "nil"), lastName: \(last ?? "nil")")
@@ -91,9 +87,8 @@ struct UserPreview: Codable, Identifiable {
             print("      ✅ Nombre combinado final: '\(self.fullName)'")
         }
 
-        // Profile picture: accept picture or profile_picture_url or profilePictureUrl
-        self.profilePictureUrl = try container.decodeIfPresent(String.self, forKey: .profilePictureURL)
-            ?? container.decodeIfPresent(String.self, forKey: .picture)
+        // Profile picture: try picture first, then profilePictureUrl (profile_picture_url auto-converted)
+        self.profilePictureUrl = try container.decodeIfPresent(String.self, forKey: .picture)
             ?? container.decodeIfPresent(String.self, forKey: .profilePictureUrl)
 
         print("      🖼️ profilePictureUrl: \(self.profilePictureUrl ?? "nil")")
