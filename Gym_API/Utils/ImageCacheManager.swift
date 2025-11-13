@@ -19,6 +19,7 @@ class ImageCacheManager: ObservableObject {
     // MARK: - Cache Storage
     private let imageCache = NSCache<NSString, UIImage>()
     private let diskCacheURL: URL
+    private let diskQueue = DispatchQueue(label: "com.gymapi.imagecache.disk", qos: .utility)
 
     // MARK: - Configuration
     private let maxMemoryCost = 100 * 1024 * 1024 // 100 MB
@@ -60,8 +61,8 @@ class ImageCacheManager: ObservableObject {
         // Check disk cache
         if let image = loadFromDisk(url: url) {
             print("DEBUG: 💾 Disk cache HIT for: \(url.suffix(50))")
-            // Store in memory for faster access
-            cacheImage(image, for: url)
+            // Store in memory for faster access (but don't save to disk again)
+            cacheImage(image, for: url, saveToDisk: false)
             return image
         }
 
@@ -70,7 +71,7 @@ class ImageCacheManager: ObservableObject {
     }
 
     /// Cache image in both memory and disk
-    func cacheImage(_ image: UIImage, for url: String) {
+    func cacheImage(_ image: UIImage, for url: String, saveToDisk: Bool = true) {
         let key = url as NSString
 
         print("DEBUG: 💾 Caching image - Full URL: \(url)")
@@ -81,9 +82,11 @@ class ImageCacheManager: ObservableObject {
         let cost = Int(image.size.width * image.size.height * 4) // RGBA
         imageCache.setObject(image, forKey: key, cost: cost)
 
-        // Save to disk asynchronously
-        Task.detached {
-            await self.saveToDisk(image: image, url: url)
+        // Save to disk asynchronously only if needed
+        if saveToDisk {
+            Task.detached {
+                await self.saveToDisk(image: image, url: url)
+            }
         }
     }
 
@@ -166,7 +169,7 @@ class ImageCacheManager: ObservableObject {
 
     // MARK: - Disk Operations
 
-    private func diskCacheFilePath(for url: String) -> URL {
+    private nonisolated func diskCacheFilePath(for url: String) -> URL {
         // Use SHA256 hash to create unique, filesystem-safe filename
         // This ensures URLs with query params get different cache files
         let hash = SHA256.hash(data: Data(url.utf8))
@@ -181,15 +184,18 @@ class ImageCacheManager: ObservableObject {
     }
 
     private func saveToDisk(image: UIImage, url: String) {
-        let filePath = diskCacheFilePath(for: url)
+        diskQueue.async { [weak self] in
+            guard let self = self else { return }
+            let filePath = self.diskCacheFilePath(for: url)
 
-        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
+            guard let data = image.jpegData(compressionQuality: 0.8) else { return }
 
-        do {
-            try data.write(to: filePath)
-            print("DEBUG: 💾 Saved to disk: \(url.suffix(50))")
-        } catch {
-            print("DEBUG: ❌ Disk save error: \(error.localizedDescription)")
+            do {
+                try data.write(to: filePath, options: .atomic)
+                print("DEBUG: 💾 Saved to disk: \(url.suffix(50))")
+            } catch {
+                print("DEBUG: ❌ Disk save error: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -208,7 +214,12 @@ class ImageCacheManager: ObservableObject {
             return nil
         }
 
-        return UIImage(contentsOfFile: filePath.path)
+        // Load data first to avoid memory-mapping issues
+        guard let data = try? Data(contentsOf: filePath) else {
+            return nil
+        }
+
+        return UIImage(data: data)
     }
 
     // MARK: - Cache Management

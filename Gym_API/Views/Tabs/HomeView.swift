@@ -10,6 +10,7 @@ struct HomeView: View {
     @ObservedObject private var userStatsService = UserStatsService.shared
     @EnvironmentObject var surveyService: SurveyService
     @StateObject private var paymentService = EventPaymentService.shared  // Add payment service
+    @StateObject private var storyService = StoryService()  // Story service for Instagram-style stories
     @State private var currentDate = Date()
     @State private var showComebackView = false
     @State private var isInitialLoad = true
@@ -295,6 +296,14 @@ struct HomeView: View {
                         await classService.loadSessionsForDateIfNeeded(date: Date())
                         debugLog("🏠 [Parallel] loadSessionsForDateIfNeeded completado")
                     }
+
+                    // Grupo 8: Stories Feed
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando fetchStoriesFeed...")
+                        await storyService.fetchStoriesFeed()
+                        let storiesCount = await MainActor.run { storyService.feedStories.count }
+                        debugLog("🏠 [Parallel] fetchStoriesFeed completado - Count: \(storiesCount)")
+                    }
                 }
 
                 debugLog("🏠 Todas las cargas paralelas completadas")
@@ -327,6 +336,10 @@ extension HomeView {
         debugLog("🏠 Configurando authService en surveyService...")
         surveyService.authService = authService
         surveyService.gymService = gymService
+
+        // Setup story service
+        debugLog("🏠 Configurando authService en storyService...")
+        storyService.authService = authService
 
         // Setup location service
         debugLog("🏠 Configurando LocationService...")

@@ -8,6 +8,8 @@ struct PostCard: View {
     @State private var post: Post
     @State private var isLiking = false
     @State private var showLikesSheet = false
+    @State private var showDoubleTapHeart = false  // For double-tap animation
+    @State private var heartScale: CGFloat = 0.5   // Heart animation scale
 
     init(post: Post) {
         self._post = State(initialValue: post)
@@ -18,11 +20,14 @@ struct PostCard: View {
             .environmentObject(themeManager)
             .environmentObject(postService)) {
             VStack(alignment: .leading, spacing: 0) {
+                // Divider superior
+                Divider()
+                    .background(Color.gray.opacity(0.3))
+
                 // Header (usuario + ubicación + opciones)
                 headerView
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .frame(height: 44)
 
                 // Media gallery (imágenes/videos)
                 if !post.media.isEmpty {
@@ -33,27 +38,27 @@ struct PostCard: View {
                 // Botones de acción (like, comment, share)
                 actionButtonsView
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.top, 14)
 
                 // Contador de likes
                 if post.likeCount > 0 {
                     likesCountView
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                 }
 
                 // Caption
                 if let caption = post.caption, !caption.isEmpty {
                     captionView
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                 }
 
                 // Botón "ver comentarios" si hay comentarios
                 if post.commentCount > 0 {
                     viewCommentsButton
                         .padding(.horizontal, 16)
-                        .padding(.top, 4)
+                        .padding(.top, 6)
                 }
 
                 // Ubicación
@@ -66,8 +71,12 @@ struct PostCard: View {
                 // Tiempo transcurrido
                 timeView
                     .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 12)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+
+                // Divider inferior
+                Divider()
+                    .background(Color.gray.opacity(0.3))
             }
             .background(Color.dynamicSurface(theme: themeManager.currentTheme))
             .cornerRadius(0) // Sin bordes redondeados para mantener estilo Instagram
@@ -141,26 +150,43 @@ struct PostCard: View {
     // MARK: - Media Gallery View
 
     private var mediaGalleryView: some View {
-        TabView {
-            ForEach(post.media.sorted(by: { $0.displayOrder < $1.displayOrder })) { media in
-                if let mediaURL = media.mediaURL {
-                    AsyncImage(url: mediaURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(
-                                ProgressView()
-                            )
+        ZStack {
+            TabView {
+                ForEach(post.media.sorted(by: { $0.displayOrder < $1.displayOrder })) { media in
+                    if let mediaURL = media.mediaURL {
+                        AsyncImage(url: mediaURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.2))
+                                .overlay(
+                                    ProgressView()
+                                )
+                        }
+                        .clipped()
                     }
-                    .clipped()
                 }
             }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: post.media.count > 1 ? .always : .never))
+            .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
+
+            // Double-tap like heart animation (Instagram style)
+            if showDoubleTapHeart {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 100))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 0)
+                    .scaleEffect(heartScale)
+                    .opacity(showDoubleTapHeart ? 1 : 0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: heartScale)
+            }
         }
-        .tabViewStyle(PageTabViewStyle(indexDisplayMode: post.media.count > 1 ? .always : .never))
-        .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
+        .onTapGesture(count: 2) {
+            // Double-tap to like
+            handleDoubleTapLike()
+        }
     }
 
     // MARK: - Action Buttons View
@@ -213,19 +239,38 @@ struct PostCard: View {
         Button(action: {
             showLikesSheet = true
         }) {
-            Text("\(post.likeCount) me gusta")
+            Text(likesText)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+        }
+    }
+
+    /// Texto de likes con pluralización correcta en español
+    private var likesText: String {
+        if post.likeCount == 1 {
+            return "1 me gusta"
+        } else {
+            return "\(post.likeCount) me gusta"
         }
     }
 
     // MARK: - Caption View
 
     private var captionView: some View {
-        Text(post.caption ?? "")
-            .font(.system(size: 14))
-            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-            .lineLimit(3)
+        HStack(alignment: .top, spacing: 4) {
+            // Username en negrita
+            Text(post.user.fullName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+            // Caption texto
+            Text(post.caption ?? "")
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .lineLimit(3)
+
+            Spacer()
+        }
     }
 
     // MARK: - Location View
@@ -243,9 +288,18 @@ struct PostCard: View {
     // MARK: - View Comments Button
 
     private var viewCommentsButton: some View {
-        Text("Ver \(post.commentCount == 1 ? "comentario" : "los \(post.commentCount) comentarios")")
-            .font(.system(size: 13))
+        Text(commentsText)
+            .font(.system(size: 14))
             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+    }
+
+    /// Texto de comentarios con pluralización correcta en español (estilo Instagram)
+    private var commentsText: String {
+        if post.commentCount == 1 {
+            return "Ver el comentario"
+        } else {
+            return "Ver los \(post.commentCount) comentarios"
+        }
     }
 
     // MARK: - Time View
@@ -289,6 +343,53 @@ struct PostCard: View {
                 post.likeCount = previousLikeCount
                 isLiking = false
                 postService.errorMessage = "Error al dar like: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Handle double-tap to like (Instagram style)
+    private func handleDoubleTapLike() {
+        // Haptic feedback
+        let impact = UIImpactFeedbackGenerator(style: .medium)
+        impact.impactOccurred()
+
+        // Only like if not already liked
+        guard !post.hasLiked else {
+            // Show animation even if already liked
+            showHeartAnimation()
+            return
+        }
+
+        // Show heart animation
+        showHeartAnimation()
+
+        // Perform like action
+        Task {
+            await toggleLike()
+        }
+    }
+
+    /// Show double-tap heart animation
+    private func showHeartAnimation() {
+        showDoubleTapHeart = true
+        heartScale = 0.5
+
+        // Animate heart growing
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+            heartScale = 1.3
+        }
+
+        // Fade out after delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                heartScale = 1.5
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                showDoubleTapHeart = false
+                heartScale = 0.5
             }
         }
     }

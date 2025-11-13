@@ -13,7 +13,6 @@ class CreatePostViewModel: ObservableObject {
     @Published var caption: String = ""
     @Published var location: String = ""
     @Published var privacy: Privacy = .public
-    @Published var aspectPreset: AspectRatioPreset = .original
     @Published var isPosting = false
     @Published var uploadProgress: Double = 0.0
     @Published var errorMessage: String?
@@ -53,14 +52,10 @@ class CreatePostViewModel: ObservableObject {
         uploadProgress = 0.0
 
         do {
-            // Crop a relación seleccionada (si aplica) y comprimir
-            print("🖼️ [CreatePostViewModel] Preparando imágenes (crop + compresión)...")
+            // Comprimir imágenes
+            print("🖼️ [CreatePostViewModel] Comprimiendo \(selectedImages.count) imágenes...")
             uploadProgress = 0.1
-
-            let cropped = await applyAspectIfNeeded()
-            print("✅ [CreatePostViewModel] Imágenes recortadas: \(cropped.count)")
-
-            let compressedImages = await compressImages(cropped)
+            let compressedImages = await compressImages()
             print("✅ [CreatePostViewModel] Imágenes comprimidas: \(compressedImages.count)")
 
             uploadProgress = 0.3
@@ -179,18 +174,12 @@ class CreatePostViewModel: ObservableObject {
 
     // MARK: - Image Compression
 
-    private func compressImages(_ images: [UIImage]) async -> [UIImage] {
+    private func compressImages() async -> [UIImage] {
         let config = ImageCompressor.CompressionConfig.medium
-        return await ImageCompressor.compressBatchAsync(images, config: config) { progress in
+        return await ImageCompressor.compressBatchAsync(selectedImages, config: config) { progress in
             // Progreso de compresión: 0.1 a 0.3 (20% del total)
             self.uploadProgress = 0.1 + (progress * 0.2)
         }
-    }
-
-    /// Aplica crop según la relación seleccionada (si no es .original)
-    private func applyAspectIfNeeded() async -> [UIImage] {
-        guard let ratio = aspectPreset.ratio else { return selectedImages }
-        return selectedImages.map { ImageCropper.crop($0, toAspect: ratio) }
     }
 
     // MARK: - Computed Properties

@@ -21,9 +21,9 @@ extension View {
         }
     }
 
-    /// Aplica un modificador condicionalmente cuando un valor opcional no es nil
+    // MARK: - Conditional transform if optional has value
     @ViewBuilder
-    func ifLet<Value, Content: View>(_ value: Value?, transform: (Self, Value) -> Content) -> some View {
+    func ifLet<T, Content: View>(_ value: T?, transform: (Self, T) -> Content) -> some View {
         if let value = value {
             transform(self, value)
         } else {

@@ -10,16 +10,16 @@ import SwiftUI
 
 struct StoryDesignTokens {
 
-    // MARK: - Tamaños (extraídos de Stream Figma y optimizados para Instagram)
+    // MARK: - Tamaños (extraídos de Stream Figma)
 
-    /// Tamaño del anillo exterior del avatar (círculo completo con el ring)
-    static let avatarRingSize: CGFloat = 106  // Aumentado de 94 a 106 para ring más prominente
+    /// Tamaño del anillo exterior del avatar
+    static let avatarRingSize: CGFloat = 94  // Aumentado de 84 a 94
 
-    /// Tamaño de la imagen del avatar (reducido significativamente para ring grueso como Instagram)
-    static let avatarImageSize: CGFloat = 78  // 78pt para que ring se extienda externamente
+    /// Tamaño de la imagen del avatar
+    static let avatarImageSize: CGFloat = 86  // Aumentado de 76 a 86
 
-    /// Ancho del anillo de progreso (aro alrededor de los avatares) - Instagram style
-    static let ringWidth: CGFloat = 3.5  // Ring stroke width
+    /// Ancho del anillo de progreso
+    static let ringWidth: CGFloat = 3.5  // Aumentado de 3.0 a 3.5
 
     /// Altura de las barras de progreso
     static let progressBarHeight: CGFloat = 2
@@ -36,7 +36,7 @@ struct StoryDesignTokens {
     // MARK: - Espaciados
 
     /// Espaciado horizontal entre avatares
-    static let avatarSpacing: CGFloat = 16  // Aumentado de 14 a 16
+    static let avatarSpacing: CGFloat = 20  // Aumentado de 16 a 20 para mejor separación
 
     /// Padding horizontal de la barra de stories
     static let barHorizontalPadding: CGFloat = 12
@@ -97,8 +97,8 @@ struct StoryDesignTokens {
 
     // MARK: - Colores de Estado
 
-    /// Color del anillo para stories vistas
-    static let seenRingColor = Color.gray.opacity(0.3)
+    /// Color del anillo para stories vistas (gris claro visible en modo oscuro)
+    static let seenRingColor = Color(red: 200/255, green: 200/255, blue: 200/255)
 
     /// Color del botón de agregar (Instagram azul)
     static let instagramBlue = Color(red: 0/255, green: 149/255, blue: 246/255)

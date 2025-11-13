@@ -51,38 +51,25 @@ struct PostMediaGallery: View {
         .frame(height: calculateHeight(for: UIScreen.main.bounds.width))
         .clipped()
     }
+}
 
-    /// Calcula la altura ideal basada en el aspect ratio de la primera imagen
-    /// Respeta el aspect ratio original pero con límites sensatos (como Instagram)
-    private func calculateHeight(for width: CGFloat) -> CGFloat {
-        guard let firstMedia = mediaItems.first,
-              let mediaWidth = firstMedia.width,
-              let mediaHeight = firstMedia.height,
-              mediaWidth > 0 else {
-            // Fallback a altura fija si no hay dimensiones
-            return SocialFeedLayout.mediaHeight
+extension PostMediaGallery {
+    /// Calcula la altura basada en el aspect ratio del primer media, con límites tipo Instagram
+    fileprivate func calculateHeight(for width: CGFloat) -> CGFloat {
+        guard let first = mediaItems.first,
+              let w = first.width, let h = first.height, w > 0, h > 0 else {
+            // Fallback si no hay dimensiones disponibles
+            return 375
         }
 
-        // Calcular aspect ratio original
-        let aspectRatio = CGFloat(mediaWidth) / CGFloat(mediaHeight)
+        let aspect = CGFloat(w) / CGFloat(h)
+        let minAspect: CGFloat = 0.8   // 4:5 portrait
+        let maxAspect: CGFloat = 1.91  // 1.91:1 landscape
+        let clamped = min(max(aspect, minAspect), maxAspect)
+        let computed = width / clamped
 
-        // Límites de Instagram:
-        // - Portrait mínimo: 4:5 (0.8) - imágenes más altas que anchas
-        // - Landscape máximo: 1.91:1 (1.91) - imágenes muy anchas
-        // - Cuadrado: 1:1 (1.0)
-        let minAspectRatio: CGFloat = 0.8  // 4:5 portrait
-        let maxAspectRatio: CGFloat = 1.91 // 1.91:1 landscape
-
-        // Limitar el aspect ratio
-        let clampedAspectRatio = min(max(aspectRatio, minAspectRatio), maxAspectRatio)
-
-        // Calcular altura basada en el aspect ratio limitado
-        let calculatedHeight = width / clampedAspectRatio
-
-        // Limitar altura máxima absoluta para evitar posts demasiado largos
-        let maxHeight: CGFloat = UIScreen.main.bounds.height * 0.7 // 70% de la pantalla
-        let minHeight: CGFloat = 200 // Mínimo 200pt
-
-        return min(max(calculatedHeight, minHeight), maxHeight)
+        let maxH: CGFloat = UIScreen.main.bounds.height * 0.7
+        let minH: CGFloat = 200
+        return min(max(computed, minH), maxH)
     }
 }

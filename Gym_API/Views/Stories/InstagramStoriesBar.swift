@@ -336,7 +336,7 @@ struct InstagramMyStoryButton: View {
                             .onAppear { isPulsing = true }
                     } else {
                         Circle()
-                            .stroke(Color.white, lineWidth: StoryDesignTokens.ringWidth)
+                            .stroke(StoryDesignTokens.seenRingColor, lineWidth: 2)
                             .frame(
                                 width: StoryDesignTokens.avatarRingSize,
                                 height: StoryDesignTokens.avatarRingSize
@@ -344,38 +344,46 @@ struct InstagramMyStoryButton: View {
                     }
                 }
 
-                // Avatar con padding interno
+                // Avatar con padding interno (usando sistema robusto de HomeView)
                 Group {
-                    if let imageUrl = authService.user?.picture,
-                       let url = URL(string: imageUrl) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(
-                                    width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
-                                    height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
-                                )
-                                .clipShape(Circle())
-                                .overlay(
-                                    Circle()
-                                        .stroke(
-                                            Color.dynamicBackground(theme: themeManager.currentTheme),
-                                            lineWidth: hasActiveStory ? 3 : 0
-                                        )
-                                )
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(
-                                    width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
-                                    height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
-                                )
-                                .overlay(
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                )
+                    if let urlString = resolvedAvatarURL(authService: authService),
+                       !urlString.isEmpty,
+                       let user = authService.user {
+                        let normalizedId = user.id
+                            .replacingOccurrences(of: "user_", with: "")
+                            .replacingOccurrences(of: "auth0|", with: "")
+
+                        CustomImageView(
+                            url: urlString,
+                            cacheKey: "avatar_self_\(normalizedId)",
+                            size: CGFloat(StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory))
+                        ) {
+                            AnyView(
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(
+                                        width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
+                                        height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
+                                    )
+                                    .overlay(
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 28))
+                                            .foregroundColor(.white)
+                                    )
+                            )
                         }
+                        .frame(
+                            width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
+                            height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
+                        )
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    Color.dynamicBackground(theme: themeManager.currentTheme),
+                                    lineWidth: hasActiveStory ? 3 : 0
+                                )
+                        )
                     } else {
                         Circle()
                             .fill(Color.gray.opacity(0.3))
@@ -385,6 +393,7 @@ struct InstagramMyStoryButton: View {
                             )
                             .overlay(
                                 Image(systemName: "person.fill")
+                                    .font(.system(size: 28))
                                     .foregroundColor(.white)
                             )
                     }
@@ -428,8 +437,9 @@ struct InstagramMyStoryButton: View {
                 .font(StoryDesignTokens.usernameFont)
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .lineLimit(1)
+                .frame(width: StoryDesignTokens.avatarRingSize - 10)
         }
-        .frame(width: 72)
+        .frame(width: StoryDesignTokens.avatarRingSize)
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(StoryAnimations.tapScale, value: isPressed)
         .onTapGesture {
@@ -467,8 +477,8 @@ struct InstagramStoryAvatar: View {
                             lineWidth: StoryDesignTokens.ringWidth
                         )
                         .frame(
-                            width: StoryDesignTokens.avatarRingSize - 4,
-                            height: StoryDesignTokens.avatarRingSize - 4
+                            width: StoryDesignTokens.avatarRingSize,
+                            height: StoryDesignTokens.avatarRingSize
                         )
                         .scaleEffect(isPulsing ? 1.03 : 1.0)
                         .animation(
@@ -481,60 +491,61 @@ struct InstagramStoryAvatar: View {
                 } else {
                     // Historias vistas - borde gris sutil
                     Circle()
-                        .stroke(StoryDesignTokens.seenRingColor, lineWidth: 1)
+                        .stroke(StoryDesignTokens.seenRingColor, lineWidth: 2)
                         .frame(
-                            width: StoryDesignTokens.avatarRingSize - 4,
-                            height: StoryDesignTokens.avatarRingSize - 4
+                            width: StoryDesignTokens.avatarRingSize,
+                            height: StoryDesignTokens.avatarRingSize
                         )
                 }
 
-                // Avatar adaptado completamente al círculo
+                // Avatar adaptado completamente al círculo (usando sistema mejorado)
                 Group {
-                    if let avatarUrl = userStory.userAvatar,
-                       let url = URL(string: avatarUrl) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(
-                                    width: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen),
-                                    height: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen)
-                                )
-                                .clipShape(Circle())
-                                .overlay(
-                                    Circle()
-                                        .stroke(
-                                            Color.dynamicBackground(theme: theme),
-                                            lineWidth: userStory.hasUnseen ? 3 : 0
-                                        )
-                                )
-                                .ifLet(matchedNamespace) { view, ns in
-                                    view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
-                                }
-                        } placeholder: {
+                    if let avatarUrlString = resolvedUserAvatarURL(userStory: userStory),
+                       !avatarUrlString.isEmpty {
+                        CustomImageView(
+                            url: avatarUrlString,
+                            cacheKey: "avatar_user_\(userStory.userId)",
+                            size: CGFloat(StoryDesignTokens.avatarImageSize)
+                        ) {
+                            AnyView(
+                                Circle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .frame(
+                                        width: StoryDesignTokens.avatarImageSize,
+                                        height: StoryDesignTokens.avatarImageSize
+                                    )
+                                    .overlay(
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 28))
+                                            .foregroundColor(.white)
+                                    )
+                            )
+                        }
+                        .frame(
+                            width: StoryDesignTokens.avatarImageSize,
+                            height: StoryDesignTokens.avatarImageSize
+                        )
+                        .clipShape(Circle())
+                        .overlay(
                             Circle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(
-                                    width: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen),
-                                    height: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen)
+                                .stroke(
+                                    Color.dynamicBackground(theme: theme),
+                                    lineWidth: userStory.hasUnseen ? 3 : 0
                                 )
-                                .overlay(
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                )
-                                .ifLet(matchedNamespace) { view, ns in
-                                    view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
-                                }
+                        )
+                        .ifLet(matchedNamespace) { view, ns in
+                            view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
                         }
                     } else {
                         Circle()
                             .fill(Color.gray.opacity(0.3))
                             .frame(
-                                width: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen),
-                                height: StoryDesignTokens.innerAvatarSize(hasRing: userStory.hasUnseen)
+                                width: StoryDesignTokens.avatarImageSize,
+                                height: StoryDesignTokens.avatarImageSize
                             )
                             .overlay(
                                 Image(systemName: "person.fill")
+                                    .font(.system(size: 28))
                                     .foregroundColor(.white)
                             )
                             .ifLet(matchedNamespace) { view, ns in
@@ -556,9 +567,9 @@ struct InstagramStoryAvatar: View {
                 .foregroundColor(Color.dynamicText(theme: theme))
                 .fontWeight(userStory.hasUnseen ? .semibold : .regular)
                 .lineLimit(1)
-                .frame(width: 64)
+                .frame(width: StoryDesignTokens.avatarRingSize - 10)
         }
-        .frame(width: 72)
+        .frame(width: StoryDesignTokens.avatarRingSize)
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(StoryAnimations.tapScale, value: isPressed)
         .onTapGesture {
@@ -606,4 +617,45 @@ private struct EnableViewAlignedBehaviorIfAvailable: ViewModifier {
             content
         }
     }
+}
+
+// MARK: - Helper Functions
+
+/// Resuelve la URL del avatar del usuario autenticado
+/// - Returns: URL del avatar o nil si no está disponible
+@MainActor
+private func resolvedAvatarURL(authService: AuthServiceDirect) -> String? {
+    guard let user = authService.user else { return nil }
+
+    // Intentar obtener de user.picture
+    if let picture = user.picture, !picture.isEmpty {
+        return picture
+    }
+
+    // Generar avatar con UI Avatars como fallback
+    let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "User"
+    let normalizedId = user.id
+        .replacingOccurrences(of: "user_", with: "")
+        .replacingOccurrences(of: "auth0|", with: "")
+
+    let colorHash = abs(normalizedId.hashValue) % 16777215
+    let backgroundColor = String(format: "%06X", colorHash)
+
+    return "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
+}
+
+/// Resuelve la URL del avatar de un UserStoryGroup
+/// - Returns: URL del avatar o avatar generado
+private func resolvedUserAvatarURL(userStory: UserStoryGroup) -> String? {
+    // Intentar usar el avatar existente
+    if let avatar = userStory.userAvatar, !avatar.isEmpty {
+        return avatar
+    }
+
+    // Generar avatar con UI Avatars como fallback
+    let encodedName = userStory.userName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "User"
+    let colorHash = abs(userStory.userId.hashValue) % 16777215
+    let backgroundColor = String(format: "%06X", colorHash)
+
+    return "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
 }

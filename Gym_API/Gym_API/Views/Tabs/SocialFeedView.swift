@@ -538,27 +538,24 @@ struct SocialFeedView: View {
         print("📦 Cargando conversaciones desde caché...")
 
         // Intentar cargar conversaciones desde caché
-        if let data = UserDefaults.standard.data(forKey: "CachedConversations") {
-            let decoder = JSONDecoder()
-            if let cachedConversations = try? decoder.decode([CachedConversation].self, from: data) {
-                print("✅ Conversaciones desde caché: \(cachedConversations.count)")
+        if let data = UserDefaults.standard.data(forKey: "CachedConversations"),
+           let cachedConversations = try? JSONDecoder().decode([CachedConversation].self, from: data) {
 
-                // Convertir a ChatConversation
-                self.conversations = cachedConversations.map { cached in
-                    ChatConversation(
-                        id: cached.id,
-                        name: cached.name,
-                        type: ChatConversation.ConversationType(rawValue: cached.type) ?? .general,
-                        members: [],
-                        lastMessage: nil,
-                        lastActivity: cached.lastActivity,
-                        unreadCount: 0,
-                        metadata: [:]
-                    )
-                }.sorted { $0.lastActivity > $1.lastActivity }
-            } else {
-                print("📦 No se pudieron decodificar las conversaciones del caché")
-            }
+            print("✅ Conversaciones desde caché: \(cachedConversations.count)")
+
+            // Convertir a ChatConversation
+            self.conversations = cachedConversations.map { cached in
+                ChatConversation(
+                    id: cached.id,
+                    name: cached.name,
+                    type: ChatConversation.ConversationType(rawValue: cached.type) ?? .general,
+                    members: [],
+                    lastMessage: nil,
+                    lastActivity: cached.lastActivity,
+                    unreadCount: 0,
+                    metadata: [:]
+                )
+            }.sorted { $0.lastActivity > $1.lastActivity }
         } else {
             print("📦 No hay conversaciones en caché")
         }

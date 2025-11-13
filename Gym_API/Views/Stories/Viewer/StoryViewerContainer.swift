@@ -150,11 +150,11 @@ struct StoryViewerContainer: View {
             .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.85), value: isDragging)
             // Make fullScreenCover background transparent to avoid black flash beneath during dismiss
             .background(ClearFullscreenBackgroundView())
-            .gesture(
-                DragGesture(minimumDistance: 10)
-                    .updating($dragTranslation) { value, state, _ in
-                        state = value.translation
-                    }
+        .gesture(
+            DragGesture(minimumDistance: 10)
+                .updating($dragTranslation) { value, state, _ in
+                    state = value.translation
+                }
                     .onChanged { value in
                         let horizontalAmount = abs(value.translation.width)
                         let verticalAmount = abs(value.translation.height)
@@ -332,6 +332,15 @@ struct StoryViewerContainer: View {
                             }
                             resumeStory()
                         }
+                    }
+            )
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.15)
+                    .onChanged { _ in
+                        if !isPaused { pauseStory() }
+                    }
+                    .onEnded { _ in
+                        resumeStory()
                     }
             )
             .onLongPressGesture(minimumDuration: 0.2, pressing: { pressing in
