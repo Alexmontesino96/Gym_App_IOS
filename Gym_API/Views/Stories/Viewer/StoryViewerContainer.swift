@@ -144,8 +144,7 @@ struct StoryViewerContainer: View {
             .scaleEffect((isAvatarDismiss ? avatarDismissScale : calculateScale(dragOffset: displayedVerticalOffset(totalHeight: geometry.size.height), screenHeight: geometry.size.height)) * openingScale)
             .opacity(totalOpacity(screenHeight: geometry.size.height))
             .clipShape(RoundedRectangle(cornerRadius: isAvatarDismiss ? avatarDismissCornerRadius : calculateCornerRadius(dragOffset: displayedVerticalOffset(totalHeight: geometry.size.height), screenHeight: geometry.size.height)))
-            // Opción 1: Spring más responsivo durante drag interactivo
-            .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.86), value: isDragging)
+            // Instagram-style: sin animación automática durante drag, solo animaciones explícitas en dismiss
             // Make fullScreenCover background transparent to avoid black flash beneath during dismiss
             .background(ClearFullscreenBackgroundView())
         .gesture(
