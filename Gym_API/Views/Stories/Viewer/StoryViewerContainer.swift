@@ -107,8 +107,11 @@ struct StoryViewerContainer: View {
                                     showingViewersSheet = true
                                 },
                                 onDelete: {
+                                    print("DEBUG: 🗑️ onDelete callback ejecutado en StoryViewerContainer")
+                                    print("DEBUG: 🗑️ Story a eliminar ID: \(currentStory.id)")
                                     storyToDelete = currentStory
                                     showingDeleteConfirmation = true
+                                    print("DEBUG: 🗑️ showingDeleteConfirmation = \(showingDeleteConfirmation)")
                                 }
                             )
                             .padding(.horizontal, 8)
@@ -480,15 +483,23 @@ struct StoryViewerContainer: View {
             }
             .alert("Eliminar historia", isPresented: $showingDeleteConfirmation) {
                 Button("Cancelar", role: .cancel) {
+                    print("DEBUG: 🗑️ Usuario canceló la eliminación")
                     storyToDelete = nil
                 }
                 Button("Eliminar", role: .destructive) {
+                    print("DEBUG: 🗑️ Usuario confirmó la eliminación")
                     if let story = storyToDelete {
+                        print("DEBUG: 🗑️ Llamando a deleteCurrentStory() con ID: \(story.id)")
                         deleteCurrentStory(story)
+                    } else {
+                        print("DEBUG: ❌ storyToDelete es nil!")
                     }
                 }
             } message: {
                 Text("¿Estás seguro de que quieres eliminar esta historia? Esta acción no se puede deshacer.")
+            }
+            .onChange(of: showingDeleteConfirmation) { _, newValue in
+                print("DEBUG: 🗑️ showingDeleteConfirmation cambió a: \(newValue)")
             }
             .overlay(alignment: .top) {
                 if showDeleteSuccessMessage {
@@ -936,17 +947,41 @@ struct StoryHeaderView: View {
     var body: some View {
         HStack(spacing: 12) {
             // User avatar
-            if let avatarUrl = userStory.userAvatar, !avatarUrl.isEmpty {
-                CachedAsyncImage(url: avatarUrl) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 32, height: 32)
-                        .clipShape(Circle())
-                } placeholder: {
-                    Circle()
-                        .fill(Color.gray)
-                        .frame(width: 32, height: 32)
+            if let avatarUrl = userStory.userAvatar, !avatarUrl.isEmpty, let url = URL(string: avatarUrl) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 32, height: 32)
+                            .clipShape(Circle())
+                    case .failure(_):
+                        Circle()
+                            .fill(Color.gray)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(.white.opacity(0.6))
+                                    .font(.system(size: 16))
+                            )
+                    case .empty:
+                        Circle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .tint(.white)
+                            )
+                    @unknown default:
+                        Circle()
+                            .fill(Color.gray)
+                            .frame(width: 32, height: 32)
+                    }
+                }
+                .onAppear {
+                    print("DEBUG: 🖼️ Cargando avatar del header: \(avatarUrl)")
                 }
             }
 
@@ -985,7 +1020,10 @@ struct StoryHeaderView: View {
 
             // Delete button (solo para propias stories)
             if canShowViewers, let deleteAction = onDelete {
-                Button(action: deleteAction) {
+                Button(action: {
+                    print("DEBUG: 🗑️ Botón de eliminar tocado en StoryHeaderView")
+                    deleteAction()
+                }) {
                     Image(systemName: "trash")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.white)
@@ -996,6 +1034,9 @@ struct StoryHeaderView: View {
                         )
                 }
                 .accessibilityLabel("Eliminar historia")
+                .onAppear {
+                    print("DEBUG: 🗑️ Botón de eliminar renderizado")
+                }
             }
 
             // Close button
