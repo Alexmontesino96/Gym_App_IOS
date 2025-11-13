@@ -11,9 +11,6 @@ struct MinimalPostCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Divider superior
-            Divider()
-                .background(Color.gray.opacity(0.3))
 
             // Header (avatar + nombre + ubicación)
             headerView

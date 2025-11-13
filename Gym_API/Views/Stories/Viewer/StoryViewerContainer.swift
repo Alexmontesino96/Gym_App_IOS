@@ -144,7 +144,8 @@ struct StoryViewerContainer: View {
             .scaleEffect((isAvatarDismiss ? avatarDismissScale : calculateScale(dragOffset: displayedVerticalOffset(totalHeight: geometry.size.height), screenHeight: geometry.size.height)) * openingScale)
             .opacity(totalOpacity(screenHeight: geometry.size.height))
             .clipShape(RoundedRectangle(cornerRadius: isAvatarDismiss ? avatarDismissCornerRadius : calculateCornerRadius(dragOffset: displayedVerticalOffset(totalHeight: geometry.size.height), screenHeight: geometry.size.height)))
-            .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.85), value: isDragging)
+            // Opción 1: Spring más responsivo durante drag interactivo
+            .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.86), value: isDragging)
             // Make fullScreenCover background transparent to avoid black flash beneath during dismiss
             .background(ClearFullscreenBackgroundView())
         .gesture(
@@ -190,7 +191,8 @@ struct StoryViewerContainer: View {
                         // Determine which gesture was being performed
                         if activeAxis == .vertical || verticalAmount > horizontalAmount * 1.5 {
                             // Vertical swipe - dismiss
-                            let dismissThreshold = geometry.size.height * 0.25 // 25% of screen height
+                            // Opción 1: Scale & Fade Progressive - threshold fijo más predecible
+                            let dismissThreshold: CGFloat = 150  // Fijo, más predecible entre dispositivos
                             let shouldDismiss = value.translation.height > dismissThreshold || velocityY > 800
 
                             if shouldDismiss {
@@ -206,7 +208,8 @@ struct StoryViewerContainer: View {
                                     let base = min(screen.width, screen.height)
                                     let targetScale = max(0.2, min(0.6, avatarDiameter / base))
 
-                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                    // Opción 1: Animación consistente con spring interactivo
+                                    withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
                                         isAvatarDismiss = true
                                         avatarDismissOffset = CGSize(width: dx, height: dy)
                                         avatarDismissScale = targetScale
@@ -215,7 +218,8 @@ struct StoryViewerContainer: View {
                                     }
                                     let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                                     impactFeedback.impactOccurred()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                                    // Opción 1: Ajustado para nueva duración de animación (0.28s)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.29) {
                                         dismiss()
                                         isAvatarDismiss = false
                                         avatarDismissOffset = .zero
@@ -223,19 +227,21 @@ struct StoryViewerContainer: View {
                                         avatarDismissCornerRadius = 0
                                     }
                                 } else {
-                                    withAnimation(.easeOut(duration: 0.25)) {
+                                    // Opción 1: Consistencia con spring interactivo
+                                    withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.86)) {
                                         dragOffset = geometry.size.height
                                         contentOpacity = 0
                                     }
                                     let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                                     impactFeedback.impactOccurred()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                                    // Opción 1: Ajustado para nueva duración de animación (0.3s)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.31) {
                                         dismiss()
                                     }
                                 }
                             } else {
-                                // Reset position with spring animation - más rápida y suave
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                // Opción 1: Spring más refinado para retorno suave
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
                                     dragOffset = 0
                                     horizontalDragOffset = 0
                                     contentOpacity = 1.0
@@ -508,14 +514,14 @@ struct StoryViewerContainer: View {
 
         // Respect reduce motion: minimal scaling if enabled
         if reduceMotion {
-            // Only slight scale change (1.0 to 0.95) to avoid disorienting users
-            let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
-            return 1.0 - (progress * 0.05)
+            // Opción 1: Reducción mínima para accesibilidad
+            let progress = min(dragOffset / 400, 1.0)
+            return 1.0 - (progress * 0.03)  // Solo 3% de reducción
         }
 
-        // Normal scaling for users without reduce motion preference
-        let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
-        let targetScale = 0.3
+        // Opción 1: Scale & Fade Progressive - escala más sutil
+        let progress = min(dragOffset / 400, 1.0)  // Progreso más suave
+        let targetScale: CGFloat = 0.85  // Nueva escala mínima (15% reducción vs 70% anterior)
 
         // Curva easeOut para efecto más suave al inicio
         let easedProgress = 1 - pow(1 - progress, 2)
@@ -529,14 +535,14 @@ struct StoryViewerContainer: View {
 
         // Respect reduce motion: minimal corner radius change if enabled
         if reduceMotion {
-            // Only slight rounding (max 20pt) to avoid dramatic shape changes
-            let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
-            return progress * 20
+            // Opción 1: Corner radius sutil para accesibilidad
+            let progress = min(dragOffset / 400, 1.0)
+            return progress * 12  // Max 12pt con reduce motion
         }
 
-        // Normal corner radius animation for users without reduce motion preference
-        let progress = min(dragOffset / (screenHeight * 0.4), 1.0)
-        let maxRadius: CGFloat = 200
+        // Opción 1: Scale & Fade Progressive - corner radius más sutil
+        let progress = min(dragOffset / 400, 1.0)  // Progreso más suave
+        let maxRadius: CGFloat = 25  // Nueva radius máxima (25pt vs 200pt anterior)
 
         // Curva easeOut para efecto más suave al inicio
         let easedProgress = 1 - pow(1 - progress, 2)

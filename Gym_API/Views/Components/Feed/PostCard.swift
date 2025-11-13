@@ -20,9 +20,6 @@ struct PostCard: View {
             .environmentObject(themeManager)
             .environmentObject(postService)) {
             VStack(alignment: .leading, spacing: 0) {
-                // Divider superior
-                Divider()
-                    .background(Color.gray.opacity(0.3))
 
                 // Header (usuario + ubicación + opciones)
                 headerView
