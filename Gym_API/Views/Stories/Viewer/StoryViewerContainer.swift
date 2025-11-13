@@ -449,6 +449,14 @@ struct StoryViewerContainer: View {
             }
             .onDisappear {
                 stopTimer()
+
+                // Ejecutar marcado pendiente si existe antes de cerrar
+                if let storyId = pendingViewedStoryId {
+                    Task {
+                        await storyService.markAsViewed(storyId: storyId, duration: 1)
+                    }
+                }
+                viewMarkTask?.cancel()
             }
             .onChange(of: currentStoryIndex) { _, _ in
                 scheduleMarkViewedForCurrentStory()
@@ -624,7 +632,7 @@ struct StoryViewerContainer: View {
     }
 
     // MARK: - Delayed mark-as-viewed (threshold) to update UI ring early
-    private func scheduleMarkViewedForCurrentStory(delaySeconds: Double = 1.5) {
+    private func scheduleMarkViewedForCurrentStory(delaySeconds: Double = 0.3) {
         viewMarkTask?.cancel()
         pendingViewedStoryId = currentStory?.id
         guard let story = currentStory, !story.hasViewed else { return }
