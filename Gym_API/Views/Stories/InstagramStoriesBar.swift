@@ -9,7 +9,6 @@
 import SwiftUI
 
 struct InstagramStoriesBar: View {
-    @Namespace private var storyNamespace
     @StateObject private var storyUIState = StoryUIState()
     @EnvironmentObject var storyService: StoryService
     @EnvironmentObject var authService: AuthServiceDirect
@@ -53,7 +52,6 @@ struct InstagramStoriesBar: View {
                         InstagramStoryAvatar(
                             userStory: userStory,
                             theme: themeManager.currentTheme,
-                            matchedNamespace: storyNamespace,
                             onTap: {
                                 print("DEBUG: 👆 Story avatar tapped - User: \(userStory.userName), Index: \(index)")
                                 print("DEBUG: 📊 Total stories: \(userStory.stories.count)")
@@ -91,6 +89,7 @@ struct InstagramStoriesBar: View {
                 .modifier(EnableSnappingIfAvailable())
                 .padding(.vertical, 10)
             }
+            .id(storyService.feedStories.map { String($0.userId) }.joined(separator: ","))
             .frame(height: StoryDesignTokens.barHeight)
             .modifier(EnableViewAlignedBehaviorIfAvailable())
             .background(
@@ -130,8 +129,7 @@ struct InstagramStoriesBar: View {
                 if !sortedOtherUsersStories.isEmpty {
                     StoryViewerContainer(
                         userStories: sortedOtherUsersStories,
-                        initialUserIndex: selectedUserIndex,
-                        matchedNamespace: storyNamespace
+                        initialUserIndex: selectedUserIndex
                     )
                     .environmentObject(storyService)
                     .environmentObject(themeManager)
@@ -163,6 +161,17 @@ struct InstagramStoriesBar: View {
                 print("DEBUG: 📊 feedStories.isEmpty: \(storyService.feedStories.isEmpty)")
                 print("DEBUG: 📊 feedStories count: \(storyService.feedStories.count)")
                 print("DEBUG: 📊 selectedUserIndex: \(selectedUserIndex)")
+            } else {
+                // Ensure the bar is fully interactive again after dismiss
+                // and refresh any state that could have changed while viewing
+                selectedUserIndex = 0
+                DispatchQueue.main.async {
+                    withAnimation { isLoading = false }
+                }
+                Task { @MainActor in
+                    // Lightweight refresh to update hasViewed rings without removing avatars
+                    await storyService.fetchStoriesFeed(forceRefresh: false)
+                }
             }
         }
         .fullScreenCover(isPresented: $showingMyStories) {
@@ -192,46 +201,11 @@ struct InstagramStoriesBar: View {
     private var otherUsersStories: [UserStoryGroup] {
         guard let currentUserIdInt = userProfileService.userProfile?.id else {
             print("DEBUG:⚠️ No se pudo obtener el ID del usuario actual del UserProfile")
-            print("DEBUG:⚠️ userProfile: \(userProfileService.userProfile?.email ?? "nil")")
             return storyService.feedStories
         }
 
-        print("DEBUG:🔍 Filtrando historias - Usuario actual ID: \(currentUserIdInt)")
-        print("DEBUG:🔍 Feed total: \(storyService.feedStories.count) grupos de historias")
-
-        // PRIMERO: Extraer historias del usuario actual y guardarlas en myStories
-        if let myStoryGroup = storyService.feedStories.first(where: { $0.userId == currentUserIdInt }) {
-            print("DEBUG:✅ Encontradas historias del usuario actual: \(myStoryGroup.stories.count) historias")
-            // Actualizar myStories en el servicio de manera sincrónica
-            // Comparar por IDs para evitar actualizaciones innecesarias
-            let currentIds = storyService.myStories.map { $0.id }
-            let newIds = myStoryGroup.stories.map { $0.id }
-            if currentIds != newIds {
-                print("DEBUG:🔄 Actualizando myStories con nuevas historias")
-                storyService.myStories = myStoryGroup.stories
-            }
-        } else {
-            print("DEBUG:⚠️ No se encontraron historias del usuario actual en el feed")
-            // Limpiar myStories si no hay historias del usuario
-            if !storyService.myStories.isEmpty {
-                print("DEBUG:🧹 Limpiando myStories vacías")
-                storyService.myStories = []
-            }
-        }
-
-        // Log de todos los IDs en el feed
-        for (index, userStory) in storyService.feedStories.enumerated() {
-            print("DEBUG:🔍 Feed[\(index)] - UserID: \(userStory.userId), Nombre: \(userStory.userName)")
-        }
-
-        // SEGUNDO: Filtrar para remover al usuario actual del feed
-        let filtered = storyService.feedStories.filter { userStory in
-            let shouldKeep = userStory.userId != currentUserIdInt
-            print("DEBUG:🔍 UserID \(userStory.userId) vs CurrentUserID \(currentUserIdInt) - Mantener: \(shouldKeep)")
-            return shouldKeep
-        }
-
-        print("DEBUG:✅ Historias filtradas: \(filtered.count) grupos")
+        // Filtrar para remover al usuario actual del feed (sin mutar estado aquí)
+        let filtered = storyService.feedStories.filter { $0.userId != currentUserIdInt }
         return filtered
     }
 
@@ -259,6 +233,7 @@ struct InstagramStoriesBar: View {
         isLoading = true
         Task {
             await storyService.fetchStoriesFeed(forceRefresh: true)
+            await MainActor.run { syncMyStoriesFromFeed() }
             await MainActor.run {
                 print("DEBUG:📊 After fetch - feedStories count: \(storyService.feedStories.count)")
                 withAnimation {
@@ -270,7 +245,22 @@ struct InstagramStoriesBar: View {
 
     private func refreshStories() async {
         await storyService.fetchStoriesFeed(forceRefresh: true)
+        await MainActor.run { syncMyStoriesFromFeed() }
         StoryHaptics.reactionSent()
+    }
+
+    /// Actualiza myStories una vez por ciclo de fetch para evitar efectos secundarios en propiedades computadas
+    private func syncMyStoriesFromFeed() {
+        guard let currentUserIdInt = userProfileService.userProfile?.id else { return }
+        if let myStoryGroup = storyService.feedStories.first(where: { $0.userId == currentUserIdInt }) {
+            let currentIds = storyService.myStories.map { $0.id }
+            let newIds = myStoryGroup.stories.map { $0.id }
+            if currentIds != newIds {
+                storyService.myStories = myStoryGroup.stories
+            }
+        } else if !storyService.myStories.isEmpty {
+            storyService.myStories = []
+        }
     }
 
     private var hasMyActiveStory: Bool {
@@ -460,7 +450,6 @@ struct InstagramMyStoryButton: View {
 struct InstagramStoryAvatar: View {
     let userStory: UserStoryGroup
     let theme: ThemeManager.AppTheme
-    var matchedNamespace: Namespace.ID?
     let onTap: () -> Void
 
     @State private var isPressed = false
@@ -533,9 +522,6 @@ struct InstagramStoryAvatar: View {
                                     lineWidth: userStory.hasUnseen ? 3 : 0
                                 )
                         )
-                        .ifLet(matchedNamespace) { view, ns in
-                            view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
-                        }
                     } else {
                         Circle()
                             .fill(Color.gray.opacity(0.3))
@@ -548,9 +534,6 @@ struct InstagramStoryAvatar: View {
                                     .font(.system(size: 28))
                                     .foregroundColor(.white)
                             )
-                            .ifLet(matchedNamespace) { view, ns in
-                                view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
-                            }
                     }
                 }
                 .frame(
@@ -570,6 +553,8 @@ struct InstagramStoryAvatar: View {
                 .frame(width: StoryDesignTokens.avatarRingSize - 10)
         }
         .frame(width: StoryDesignTokens.avatarRingSize)
+        .contentShape(Rectangle())
+        .allowsHitTesting(true)
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(StoryAnimations.tapScale, value: isPressed)
         .onTapGesture {

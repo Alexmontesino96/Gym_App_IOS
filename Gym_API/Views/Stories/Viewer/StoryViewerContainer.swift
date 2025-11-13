@@ -19,7 +19,6 @@ struct StoryViewerContainer: View {
 
     let userStories: [UserStoryGroup]
     let initialUserIndex: Int
-    var matchedNamespace: Namespace.ID? = nil
 
     @State private var currentUserIndex: Int
     @State private var currentStoryIndex: Int = 0
@@ -53,10 +52,9 @@ struct StoryViewerContainer: View {
     // Transient drag translation captured via @GestureState to avoid per-frame state writes
     @GestureState private var dragTranslation: CGSize = .zero
 
-    init(userStories: [UserStoryGroup], initialUserIndex: Int, matchedNamespace: Namespace.ID? = nil) {
+    init(userStories: [UserStoryGroup], initialUserIndex: Int) {
         self.userStories = userStories
         self.initialUserIndex = initialUserIndex
-        self.matchedNamespace = matchedNamespace
         self._currentUserIndex = State(initialValue: initialUserIndex)
     }
 
@@ -100,7 +98,6 @@ struct StoryViewerContainer: View {
                                 userStory: currentUser,
                                 story: currentStory,
                                 canShowViewers: isOwnStory(userGroup: currentUser, story: currentStory),
-                                matchedNamespace: matchedNamespace,
                                 onClose: { dismiss() },
                                 onViewersTap: {
                                     viewersStoryId = currentStory.id
@@ -812,7 +809,6 @@ struct StoryHeaderView: View {
     let userStory: UserStoryGroup
     let story: Story
     let canShowViewers: Bool
-    var matchedNamespace: Namespace.ID? = nil
     let onClose: () -> Void
     var onViewersTap: (() -> Void)? = nil
 
@@ -826,16 +822,10 @@ struct StoryHeaderView: View {
                         .scaledToFill()
                         .frame(width: 32, height: 32)
                         .clipShape(Circle())
-                        .ifLet(matchedNamespace) { view, ns in
-                            view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
-                        }
                 } placeholder: {
                     Circle()
                         .fill(Color.gray)
                         .frame(width: 32, height: 32)
-                        .ifLet(matchedNamespace) { view, ns in
-                            view.matchedGeometryEffect(id: "storyAvatar_\(userStory.userId)", in: ns)
-                        }
                 }
             }
 
