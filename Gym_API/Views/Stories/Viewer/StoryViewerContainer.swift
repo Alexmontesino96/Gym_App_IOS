@@ -131,21 +131,28 @@ struct StoryViewerContainer: View {
                     }
                 }
 
-                // Tap areas for navigation
-                HStack(spacing: 0) {
-                    // Previous story tap area
-                    TapArea(side: .left) {
-                        previousStory()
-                    }
-                    .frame(width: geometry.size.width * 0.35)
+                // Tap areas for navigation (exclude top area for header buttons)
+                VStack(spacing: 0) {
+                    // Empty space for header (progress bars + user info + buttons)
+                    Color.clear
+                        .frame(height: 100)
+                        .allowsHitTesting(false)
 
-                    Spacer()
+                    HStack(spacing: 0) {
+                        // Previous story tap area
+                        TapArea(side: .left) {
+                            previousStory()
+                        }
+                        .frame(width: geometry.size.width * 0.35)
 
-                    // Next story tap area
-                    TapArea(side: .right) {
-                        nextStory()
+                        Spacer()
+
+                        // Next story tap area
+                        TapArea(side: .right) {
+                            nextStory()
+                        }
+                        .frame(width: geometry.size.width * 0.35)
                     }
-                    .frame(width: geometry.size.width * 0.35)
                 }
             }
             // Apply transformations to the entire container (computed with gesture state)
