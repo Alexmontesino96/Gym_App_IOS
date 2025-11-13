@@ -78,7 +78,7 @@ struct PostCard: View {
                 Divider()
                     .background(Color.gray.opacity(0.3))
             }
-            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
             .cornerRadius(0) // Sin bordes redondeados para mantener estilo Instagram
         }
         .buttonStyle(.plain)
@@ -322,25 +322,33 @@ struct PostCard: View {
         let previousHasLiked = post.hasLiked
         let previousLikeCount = post.likeCount
 
-        // Actualizar UI optimistamente
-        post.hasLiked.toggle()
-        post.likeCount += post.hasLiked ? 1 : -1
+        // Actualizar UI optimistamente con animación suave
+        withAnimation(.easeInOut(duration: 0.2)) {
+            post.hasLiked.toggle()
+            post.likeCount += post.hasLiked ? 1 : -1
+        }
 
         do {
             // Realizar request al servidor
             let result = try await postService.toggleLike(postId: post.id)
 
-            // Actualizar con respuesta del servidor
+            // Solo actualizar si los valores del servidor son diferentes
             await MainActor.run {
-                post.hasLiked = result.liked
-                post.likeCount = result.totalLikes
+                if post.hasLiked != result.liked || post.likeCount != result.totalLikes {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        post.hasLiked = result.liked
+                        post.likeCount = result.totalLikes
+                    }
+                }
                 isLiking = false
             }
         } catch {
-            // Revertir cambios en caso de error
+            // Revertir cambios en caso de error con animación
             await MainActor.run {
-                post.hasLiked = previousHasLiked
-                post.likeCount = previousLikeCount
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    post.hasLiked = previousHasLiked
+                    post.likeCount = previousLikeCount
+                }
                 isLiking = false
                 postService.errorMessage = "Error al dar like: \(error.localizedDescription)"
             }
