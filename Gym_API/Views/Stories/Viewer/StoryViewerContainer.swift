@@ -195,48 +195,51 @@ struct StoryViewerContainer: View {
                             let shouldDismiss = value.translation.height > dismissThreshold || velocityY > 800
 
                             if shouldDismiss {
-                                // Dismiss to avatar if available (current user's or corresponding user avatar)
-                                if let avatar = targetAvatarFrame {
-                                    let screen = UIScreen.main.bounds
-                                    let currentCenter = CGPoint(x: screen.midX, y: screen.midY)
-                                    let targetCenter = CGPoint(x: avatar.midX, y: avatar.midY)
-                                    let dx = targetCenter.x - currentCenter.x
-                                    let dy = targetCenter.y - currentCenter.y
-                                    // Compute target scale based on avatar diameter vs screen min dimension
-                                    let avatarDiameter = min(avatar.width, avatar.height)
-                                    let base = min(screen.width, screen.height)
-                                    let targetScale = max(0.2, min(0.6, avatarDiameter / base))
+                                // Instagram-style: SIEMPRE dismiss hacia avatar para máxima fluidez
+                                let avatar = targetAvatarFrame ?? CGRect(x: geometry.size.width / 2 - 20,
+                                                                          y: 50,
+                                                                          width: 40,
+                                                                          height: 40)
 
-                                    // Opción 1: Animación consistente con spring interactivo
-                                    withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
-                                        isAvatarDismiss = true
-                                        avatarDismissOffset = CGSize(width: dx, height: dy)
-                                        avatarDismissScale = targetScale
-                                        avatarDismissCornerRadius = avatarDiameter / 2
-                                        contentOpacity = 0.95
-                                    }
-                                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                    impactFeedback.impactOccurred()
-                                    // Opción 1: Ajustado para nueva duración de animación (0.28s)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.29) {
-                                        dismiss()
-                                        isAvatarDismiss = false
-                                        avatarDismissOffset = .zero
-                                        avatarDismissScale = 1.0
-                                        avatarDismissCornerRadius = 0
-                                    }
-                                } else {
-                                    // Opción 1: Consistencia con spring interactivo
-                                    withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.86)) {
-                                        dragOffset = geometry.size.height
-                                        contentOpacity = 0
-                                    }
-                                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                    impactFeedback.impactOccurred()
-                                    // Opción 1: Ajustado para nueva duración de animación (0.3s)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.31) {
-                                        dismiss()
-                                    }
+                                let screen = UIScreen.main.bounds
+                                // Calcular posición actual considerando el drag offset
+                                let currentY = screen.midY + dragOffset
+                                let currentCenter = CGPoint(x: screen.midX, y: currentY)
+                                let targetCenter = CGPoint(x: avatar.midX, y: avatar.midY)
+                                let dx = targetCenter.x - currentCenter.x
+                                let dy = targetCenter.y - currentCenter.y
+
+                                // Compute target scale based on avatar diameter vs screen min dimension
+                                let avatarDiameter = min(avatar.width, avatar.height)
+                                let base = min(screen.width, screen.height)
+                                let targetScale = max(0.1, min(0.5, avatarDiameter / base))
+
+                                // Instagram-style: spring más rápido y preciso
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.88, blendDuration: 0)) {
+                                    // Resetear drag offset para evitar conflicto
+                                    dragOffset = 0
+                                    horizontalDragOffset = 0
+                                    isDragging = false
+                                    activeAxis = .none
+
+                                    // Activar animación hacia avatar
+                                    isAvatarDismiss = true
+                                    avatarDismissOffset = CGSize(width: dx, height: dy)
+                                    avatarDismissScale = targetScale
+                                    avatarDismissCornerRadius = avatarDiameter / 2
+                                    contentOpacity = 0
+                                }
+
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                impactFeedback.impactOccurred()
+
+                                // Timing ajustado para la nueva animación
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
+                                    dismiss()
+                                    isAvatarDismiss = false
+                                    avatarDismissOffset = .zero
+                                    avatarDismissScale = 1.0
+                                    avatarDismissCornerRadius = 0
                                 }
                             } else {
                                 // Opción 1: Spring más refinado para retorno suave
