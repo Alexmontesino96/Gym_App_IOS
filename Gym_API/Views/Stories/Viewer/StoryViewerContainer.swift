@@ -515,13 +515,14 @@ struct StoryViewerContainer: View {
         // Respect reduce motion: minimal scaling if enabled
         if reduceMotion {
             // Opción 1: Reducción mínima para accesibilidad
-            let progress = min(dragOffset / 400, 1.0)
-            return 1.0 - (progress * 0.03)  // Solo 3% de reducción
+            let progress = min(dragOffset / 200, 1.0)
+            return 1.0 - (progress * 0.05)  // Solo 5% de reducción
         }
 
-        // Opción 1: Scale & Fade Progressive - escala más sutil
-        let progress = min(dragOffset / 400, 1.0)  // Progreso más suave
-        let targetScale: CGFloat = 0.85  // Nueva escala mínima (15% reducción vs 70% anterior)
+        // Opción 1: Scale & Fade Progressive - progreso basado en threshold
+        // Alcanza el máximo al llegar a 200pt (más allá del threshold de 150pt)
+        let progress = min(dragOffset / 200, 1.0)
+        let targetScale: CGFloat = 0.85  // Escala mínima (15% reducción)
 
         // Curva easeOut para efecto más suave al inicio
         let easedProgress = 1 - pow(1 - progress, 2)
@@ -536,13 +537,14 @@ struct StoryViewerContainer: View {
         // Respect reduce motion: minimal corner radius change if enabled
         if reduceMotion {
             // Opción 1: Corner radius sutil para accesibilidad
-            let progress = min(dragOffset / 400, 1.0)
-            return progress * 12  // Max 12pt con reduce motion
+            let progress = min(dragOffset / 200, 1.0)
+            return progress * 15  // Max 15pt con reduce motion
         }
 
-        // Opción 1: Scale & Fade Progressive - corner radius más sutil
-        let progress = min(dragOffset / 400, 1.0)  // Progreso más suave
-        let maxRadius: CGFloat = 25  // Nueva radius máxima (25pt vs 200pt anterior)
+        // Opción 1: Scale & Fade Progressive - progreso basado en threshold
+        // Alcanza el máximo al llegar a 200pt (más allá del threshold de 150pt)
+        let progress = min(dragOffset / 200, 1.0)
+        let maxRadius: CGFloat = 25  // Radius máxima sutil
 
         // Curva easeOut para efecto más suave al inicio
         let easedProgress = 1 - pow(1 - progress, 2)
