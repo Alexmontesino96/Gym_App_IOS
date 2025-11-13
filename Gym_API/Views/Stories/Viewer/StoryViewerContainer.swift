@@ -191,8 +191,8 @@ struct StoryViewerContainer: View {
                         // Determine which gesture was being performed
                         if activeAxis == .vertical || verticalAmount > horizontalAmount * 1.5 {
                             // Vertical swipe - dismiss
-                            // Opción 1: Scale & Fade Progressive - threshold fijo más predecible
-                            let dismissThreshold: CGFloat = 150  // Fijo, más predecible entre dispositivos
+                            // Instagram-style: threshold sensible y directo
+                            let dismissThreshold: CGFloat = 120  // Más sensible que 150pt (estilo Instagram)
                             let shouldDismiss = value.translation.height > dismissThreshold || velocityY > 800
 
                             if shouldDismiss {
@@ -510,58 +510,23 @@ struct StoryViewerContainer: View {
 
     /// Calcula la escala basada en el drag (efecto de "shrinking" hacia círculo)
     private func calculateScale(dragOffset: CGFloat, screenHeight: CGFloat) -> CGFloat {
-        guard dragOffset > 0 else { return 1.0 }
-
-        // Respect reduce motion: minimal scaling if enabled
-        if reduceMotion {
-            // Opción 1: Reducción mínima para accesibilidad
-            let progress = min(dragOffset / 200, 1.0)
-            return 1.0 - (progress * 0.05)  // Solo 5% de reducción
-        }
-
-        // Opción 1: Scale & Fade Progressive - progreso basado en threshold
-        // Alcanza el máximo al llegar a 200pt (más allá del threshold de 150pt)
-        let progress = min(dragOffset / 200, 1.0)
-        let targetScale: CGFloat = 0.85  // Escala mínima (15% reducción)
-
-        // Curva easeOut para efecto más suave al inicio
-        let easedProgress = 1 - pow(1 - progress, 2)
-
-        return 1.0 - (easedProgress * (1.0 - targetScale))
+        // Instagram-style: sin transformación de escala durante drag
+        // La transformación solo ocurre en la animación final de cierre
+        return 1.0
     }
 
     /// Calcula el corner radius basado en el drag (efecto de convertirse en círculo)
     private func calculateCornerRadius(dragOffset: CGFloat, screenHeight: CGFloat) -> CGFloat {
-        guard dragOffset > 0 else { return 0 }
-
-        // Respect reduce motion: minimal corner radius change if enabled
-        if reduceMotion {
-            // Opción 1: Corner radius sutil para accesibilidad
-            let progress = min(dragOffset / 200, 1.0)
-            return progress * 15  // Max 15pt con reduce motion
-        }
-
-        // Opción 1: Scale & Fade Progressive - progreso basado en threshold
-        // Alcanza el máximo al llegar a 200pt (más allá del threshold de 150pt)
-        let progress = min(dragOffset / 200, 1.0)
-        let maxRadius: CGFloat = 25  // Radius máxima sutil
-
-        // Curva easeOut para efecto más suave al inicio
-        let easedProgress = 1 - pow(1 - progress, 2)
-
-        return easedProgress * maxRadius
+        // Instagram-style: sin corner radius durante drag
+        // La ventana mantiene sus esquinas rectangulares durante el movimiento
+        return 0
     }
 
-    // Combined opacity factoring opening and vertical drag dimming
+    // Combined opacity factoring opening animation (Instagram-style)
     private func totalOpacity(screenHeight: CGFloat) -> Double {
-        // Base contentOpacity (pauses etc.) multiplied by opening and dim factor during vertical drag
-        let base = contentOpacity
-        let open = openingOpacity
-        let y = max(0, displayedVerticalOffset(totalHeight: screenHeight))
-        let progress = min(y / (screenHeight * 0.4), 1.0)
-        let eased = 1 - pow(1 - progress, 2)
-        let dim = 1.0 - (eased * 0.5)
-        return Double(base) * open * dim
+        // Instagram-style: sin dimming durante drag
+        // Mantener opacidad completa, solo considerar estados base y de apertura
+        return Double(contentOpacity) * openingOpacity
     }
 
     // MARK: - Opening animation helpers
