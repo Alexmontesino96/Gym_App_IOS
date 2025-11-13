@@ -939,8 +939,6 @@ struct MinimalFeedContent: View {
             LazyVStack(spacing: 0) {
                 ForEach(viewModel.posts) { post in
                     PostCard(post: post)
-                        .environmentObject(themeManager)
-                        .environmentObject(postService)
                         .onAppear {
                             if post.id == viewModel.posts.last?.id {
                                 loadMoreIfNeeded()
