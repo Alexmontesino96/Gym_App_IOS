@@ -30,13 +30,18 @@ struct InstagramStoriesBar: View {
                     InstagramMyStoryButton(
                         hasActiveStory: hasMyActiveStory,
                         onTap: {
+                            print("DEBUG:🖱️ Botón 'Tu historia' presionado")
+                            print("DEBUG:📊 hasMyActiveStory: \(hasMyActiveStory)")
+                            print("DEBUG:📊 myStories.count: \(storyService.myStories.count)")
+                            print("DEBUG:📊 Active stories count: \(storyService.myStories.filter { $0.isActive }.count)")
+
                             StoryHaptics.avatarTap()
 
                             if hasMyActiveStory {
                                 print("DEBUG:👤 Stories: Abriendo mis stories")
                                 showingMyStories = true
                             } else {
-                                print("DEBUG:➕ Stories: Abriendo creador")
+                                print("DEBUG:➕ Stories: Abriendo creador (no hay stories activas)")
                                 showingStoryCreator = true
                             }
                         },
@@ -48,7 +53,9 @@ struct InstagramStoriesBar: View {
 
                     // Otras historias con animación de entrada escalonada
                     // Filtrar para excluir al usuario actual
+                    let _ = print("DEBUG:🔍 ForEach - sortedOtherUsersStories.count: \(sortedOtherUsersStories.count)")
                     ForEach(Array(sortedOtherUsersStories.enumerated()), id: \.element.id) { index, userStory in
+                        let _ = print("DEBUG:🎨 Renderizando story avatar para: \(userStory.userName)")
                         InstagramStoryAvatar(
                             userStory: userStory,
                             theme: themeManager.currentTheme,
@@ -118,7 +125,16 @@ struct InstagramStoriesBar: View {
                 .frame(height: 0.5)
         }
         .onAppear {
+            print("DEBUG:🟢 InstagramStoriesBar.onAppear()")
             loadStoriesIfNeeded()
+
+            // IMPORTANTE: Sincronizar myStories desde el feed existente
+            // Esto es necesario porque loadStoriesIfNeeded() puede salir temprano
+            // si ya hay stories cargadas (del caché), sin ejecutar syncMyStoriesFromFeed()
+            if !storyService.feedStories.isEmpty {
+                print("DEBUG:🔄 Feed ya tiene stories, ejecutando syncMyStoriesFromFeed()")
+                syncMyStoriesFromFeed()
+            }
         }
         .refreshable {
             print("DEBUG:🔄 Stories: Actualizando feed")
@@ -199,13 +215,53 @@ struct InstagramStoriesBar: View {
 
     // Filtrar historias para excluir al usuario actual
     private var otherUsersStories: [UserStoryGroup] {
-        guard let currentUserIdInt = userProfileService.userProfile?.id else {
-            print("DEBUG:⚠️ No se pudo obtener el ID del usuario actual del UserProfile")
+        // Intentar obtener el user ID de múltiples fuentes para robustez
+        var currentUserIdInt: Int?
+
+        // Fuente 1: UserProfile (preferida)
+        if let userProfileId = userProfileService.userProfile?.id {
+            currentUserIdInt = userProfileId
+            print("DEBUG:👤 User ID desde UserProfile: \(userProfileId)")
+        }
+
+        // Fuente 2: AuthService (fallback)
+        if currentUserIdInt == nil, let authUser = authService.user {
+            // Extraer el ID numérico del auth user ID (formato: "user_10" o "auth0|...")
+            let cleanId = authUser.id
+                .replacingOccurrences(of: "user_", with: "")
+                .replacingOccurrences(of: "auth0|", with: "")
+            if let parsedId = Int(cleanId) {
+                currentUserIdInt = parsedId
+                print("DEBUG:👤 User ID desde AuthService: \(parsedId)")
+            }
+        }
+
+        guard let currentUserId = currentUserIdInt else {
+            print("DEBUG:⚠️ No se pudo obtener el ID del usuario actual de ninguna fuente")
+            print("DEBUG:⚠️ UserProfile disponible: \(userProfileService.userProfile != nil)")
+            print("DEBUG:⚠️ AuthUser disponible: \(authService.user != nil)")
+            // Sin filtrar si no tenemos el user ID - mostrar todas las stories
             return storyService.feedStories
         }
 
+        print("DEBUG:📊 otherUsersStories - Total stories en feed: \(storyService.feedStories.count)")
+        print("DEBUG:👤 otherUsersStories - Current user ID confirmado: \(currentUserId)")
+
+        // Log cada usuario en el feed
+        for userStory in storyService.feedStories {
+            let isCurrentUser = userStory.userId == currentUserId
+            print("DEBUG:📸 Story user: \(userStory.userName) (ID: \(userStory.userId)) \(isCurrentUser ? "⚠️ ES EL USUARIO ACTUAL" : "")")
+        }
+
         // Filtrar para remover al usuario actual del feed (sin mutar estado aquí)
-        let filtered = storyService.feedStories.filter { $0.userId != currentUserIdInt }
+        let filtered = storyService.feedStories.filter { $0.userId != currentUserId }
+
+        print("DEBUG:✅ otherUsersStories - Stories después del filtro: \(filtered.count)")
+
+        if filtered.count == storyService.feedStories.count {
+            print("DEBUG:⚠️ ADVERTENCIA: El filtro no eliminó ninguna story. Verificar que el user ID coincida.")
+        }
+
         return filtered
     }
 
@@ -251,34 +307,71 @@ struct InstagramStoriesBar: View {
 
     /// Actualiza myStories una vez por ciclo de fetch para evitar efectos secundarios en propiedades computadas
     private func syncMyStoriesFromFeed() {
-        guard let currentUserIdInt = userProfileService.userProfile?.id else { return }
+        print("DEBUG:🔄 syncMyStoriesFromFeed() llamado")
+
+        guard let currentUserIdInt = userProfileService.userProfile?.id else {
+            print("DEBUG:⚠️ syncMyStoriesFromFeed - No se pudo obtener user ID")
+            return
+        }
+
+        print("DEBUG:👤 syncMyStoriesFromFeed - Buscando stories para user ID: \(currentUserIdInt)")
+        print("DEBUG:📊 syncMyStoriesFromFeed - Total usuarios en feed: \(storyService.feedStories.count)")
+
+        // Log todos los usuarios en el feed
+        for userGroup in storyService.feedStories {
+            print("DEBUG:📸 Feed contiene: \(userGroup.userName) (ID: \(userGroup.userId)), stories: \(userGroup.stories.count)")
+        }
+
         if let myStoryGroup = storyService.feedStories.first(where: { $0.userId == currentUserIdInt }) {
+            print("DEBUG:✅ Encontradas mis stories! Total: \(myStoryGroup.stories.count)")
             let currentIds = storyService.myStories.map { $0.id }
             let newIds = myStoryGroup.stories.map { $0.id }
             if currentIds != newIds {
                 storyService.myStories = myStoryGroup.stories
+                print("DEBUG:💾 myStories actualizado con \(myStoryGroup.stories.count) stories")
+            } else {
+                print("DEBUG:✓ myStories ya está actualizado")
             }
-        } else if !storyService.myStories.isEmpty {
-            storyService.myStories = []
+        } else {
+            print("DEBUG:⚠️ NO se encontraron mis stories en el feed")
+            if !storyService.myStories.isEmpty {
+                print("DEBUG:🗑️ Limpiando myStories porque no están en el feed")
+                storyService.myStories = []
+            }
         }
+
+        print("DEBUG:📊 Estado final - myStories count: \(storyService.myStories.count)")
     }
 
     private var hasMyActiveStory: Bool {
-        !storyService.myStories.filter { $0.isActive }.isEmpty
+        let hasActive = !storyService.myStories.filter { $0.isActive }.isEmpty
+        print("DEBUG:🎯 hasMyActiveStory = \(hasActive), myStories count: \(storyService.myStories.count)")
+        return hasActive
     }
 
     private func createMyUserStory() -> UserStoryGroup? {
+        print("DEBUG:🎬 createMyUserStory() llamado")
+        print("DEBUG:   - currentUser: \(authService.user?.name ?? "nil")")
+        print("DEBUG:   - userProfile: \(userProfileService.userProfile?.id ?? 0)")
+        print("DEBUG:   - myStories.isEmpty: \(storyService.myStories.isEmpty)")
+
         guard let currentUser = authService.user,
               let userProfile = userProfileService.userProfile,
-              !storyService.myStories.isEmpty else { return nil }
+              !storyService.myStories.isEmpty else {
+            print("DEBUG:❌ createMyUserStory - No se puede crear (faltan datos)")
+            return nil
+        }
 
-        return UserStoryGroup(
+        let userStory = UserStoryGroup(
             userId: userProfile.id,
             userName: currentUser.name,
             userAvatar: currentUser.picture,
             hasUnseen: false,
             stories: storyService.myStories
         )
+
+        print("DEBUG:✅ createMyUserStory - Creado con \(storyService.myStories.count) stories")
+        return userStory
     }
 }
 

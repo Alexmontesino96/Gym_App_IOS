@@ -31,6 +31,9 @@ struct StoryViewerContainer: View {
     @State private var viewersStoryId: Int?
     @State private var viewMarkTask: Task<Void, Never>? = nil
     @State private var pendingViewedStoryId: Int? = nil
+    @State private var showingDeleteConfirmation = false
+    @State private var storyToDelete: Story? = nil
+    @State private var showDeleteSuccessMessage = false
 
     // Gesture tracking
     @State private var dragOffset: CGFloat = 0
@@ -102,6 +105,10 @@ struct StoryViewerContainer: View {
                                 onViewersTap: {
                                     viewersStoryId = currentStory.id
                                     showingViewersSheet = true
+                                },
+                                onDelete: {
+                                    storyToDelete = currentStory
+                                    showingDeleteConfirmation = true
                                 }
                             )
                             .padding(.horizontal, 8)
@@ -471,6 +478,44 @@ struct StoryViewerContainer: View {
                         .environmentObject(themeManager)
                 }
             }
+            .alert("Eliminar historia", isPresented: $showingDeleteConfirmation) {
+                Button("Cancelar", role: .cancel) {
+                    storyToDelete = nil
+                }
+                Button("Eliminar", role: .destructive) {
+                    if let story = storyToDelete {
+                        deleteCurrentStory(story)
+                    }
+                }
+            } message: {
+                Text("¿Estás seguro de que quieres eliminar esta historia? Esta acción no se puede deshacer.")
+            }
+            .overlay(alignment: .top) {
+                if showDeleteSuccessMessage {
+                    VStack {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+
+                            Text("Historia eliminada")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(Color.green)
+                                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                        )
+                    }
+                    .padding(.top, 60)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(999)
+                }
+            }
         }
     }
 
@@ -603,6 +648,98 @@ struct StoryViewerContainer: View {
             resetProgress()
             markCurrentStoryAsViewed()
             preloadNextStories()
+        }
+    }
+
+    // MARK: - Story Deletion
+    private func deleteCurrentStory(_ story: Story) {
+        print("DEBUG: 🗑️ ============================================")
+        print("DEBUG: 🗑️ INICIANDO ELIMINACIÓN DE STORY")
+        print("DEBUG: 🗑️ Story ID: \(story.id)")
+        print("DEBUG: 🗑️ Story Type: \(story.storyType)")
+        print("DEBUG: 🗑️ Current User Index: \(currentUserIndex)")
+        print("DEBUG: 🗑️ Current Story Index: \(currentStoryIndex)")
+
+        if let currentUser = currentUserStory {
+            print("DEBUG: 🗑️ Usuario actual: \(currentUser.userName)")
+            print("DEBUG: 🗑️ Total de stories activas del usuario: \(currentUser.activeStories.count)")
+        }
+
+        // Pausar la story actual
+        pauseStory()
+        print("DEBUG: 🗑️ Story pausada, llamando a deleteStory()...")
+
+        Task {
+            let success = await storyService.deleteStory(storyId: story.id)
+
+            await MainActor.run {
+                storyToDelete = nil
+
+                if success {
+                    print("DEBUG: ✅ Story eliminada exitosamente del backend")
+                    print("DEBUG: ✅ Mostrando mensaje de confirmación al usuario")
+
+                    // Mostrar mensaje de confirmación
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        showDeleteSuccessMessage = true
+                    }
+
+                    // Ocultar mensaje después de 2 segundos
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            showDeleteSuccessMessage = false
+                        }
+                    }
+
+                    // Determinar qué hacer después de la eliminación
+                    guard let currentUser = currentUserStory else {
+                        print("DEBUG: 🗑️ No hay usuario actual, cerrando viewer")
+                        dismiss()
+                        return
+                    }
+
+                    let remainingStories = currentUser.activeStories.filter { $0.id != story.id }
+                    print("DEBUG: 🗑️ Stories restantes del usuario: \(remainingStories.count)")
+
+                    if remainingStories.isEmpty {
+                        print("DEBUG: 🗑️ No quedan más stories del usuario actual")
+                        // No hay más stories del usuario actual
+                        if currentUserIndex < userStories.count - 1 {
+                            print("DEBUG: 🗑️ Avanzando al siguiente usuario...")
+                            // Avanzar al siguiente usuario
+                            nextUser()
+                        } else if currentUserIndex > 0 {
+                            print("DEBUG: 🗑️ Retrocediendo al usuario anterior...")
+                            // Retroceder al usuario anterior
+                            previousUser()
+                        } else {
+                            print("DEBUG: 🗑️ Era la última/única story, cerrando viewer")
+                            // Era la única story, cerrar el viewer
+                            dismiss()
+                        }
+                    } else {
+                        print("DEBUG: 🗑️ Hay más stories del mismo usuario, continuando...")
+                        // Hay más stories del mismo usuario
+                        if currentStoryIndex >= remainingStories.count {
+                            // Si el índice está fuera de rango, ajustar
+                            print("DEBUG: 🗑️ Ajustando índice de \(currentStoryIndex) a \(remainingStories.count - 1)")
+                            currentStoryIndex = remainingStories.count - 1
+                        }
+                        // Continuar con la siguiente story del mismo usuario
+                        resetProgress()
+                        markCurrentStoryAsViewed()
+                        preloadNextStories()
+                        resumeStory()
+                    }
+                    print("DEBUG: 🗑️ ============================================")
+                } else {
+                    print("DEBUG: ❌ ERROR: Falló la eliminación de la story")
+                    print("DEBUG: ❌ Reanudando la story actual")
+                    // En caso de error, reanudar la story
+                    resumeStory()
+                    print("DEBUG: 🗑️ ============================================")
+                }
+            }
         }
     }
 
@@ -794,6 +931,7 @@ struct StoryHeaderView: View {
     let canShowViewers: Bool
     let onClose: () -> Void
     var onViewersTap: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -843,6 +981,21 @@ struct StoryHeaderView: View {
                     )
                 }
                 .accessibilityLabel("Visto por \(story.viewCount) personas. Tocar para ver la lista de espectadores")
+            }
+
+            // Delete button (solo para propias stories)
+            if canShowViewers, let deleteAction = onDelete {
+                Button(action: deleteAction) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                }
+                .accessibilityLabel("Eliminar historia")
             }
 
             // Close button

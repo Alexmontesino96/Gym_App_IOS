@@ -26,10 +26,26 @@ struct PostCard: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
 
-                // Media gallery (imágenes/videos)
+                // Media gallery (imágenes/videos) - altura dinámica basada en aspect ratio
                 if !post.media.isEmpty {
-                    mediaGalleryView
-                        .frame(height: 375) // Aspecto cuadrado para mantener consistencia
+                    PostMediaGallery(mediaItems: post.media, theme: themeManager.currentTheme)
+                        .onTapGesture(count: 2) {
+                            handleDoubleTapLike()
+                        }
+                        .overlay(
+                            // Double-tap like heart animation (Instagram style)
+                            Group {
+                                if showDoubleTapHeart {
+                                    Image(systemName: "heart.fill")
+                                        .font(.system(size: 100))
+                                        .foregroundColor(.white)
+                                        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 0)
+                                        .scaleEffect(heartScale)
+                                        .opacity(showDoubleTapHeart ? 1 : 0)
+                                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: heartScale)
+                                }
+                            }
+                        )
                 }
 
                 // Botones de acción (like, comment, share)

@@ -12,6 +12,8 @@
 		FDB0B0002E27A7EB0029E82C /* Auth0 in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0AFFF2E27A7EB0029E82C /* Auth0 */; };
 		FDB0B0032E27A80E0029E82C /* JWTDecode in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0B0022E27A80E0029E82C /* JWTDecode */; };
 		FDB0B0062E27A90F0029E82C /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = FDB0B0052E27A90F0029E82C /* OneSignalFramework */; };
+		FDCEECCA2EC5CB2F0042D082 /* CropViewController in Frameworks */ = {isa = PBXBuildFile; productRef = FDCEECC92EC5CB2F0042D082 /* CropViewController */; };
+		FDCEECCC2EC5CB2F0042D082 /* TOCropViewController in Frameworks */ = {isa = PBXBuildFile; productRef = FDCEECCB2EC5CB2F0042D082 /* TOCropViewController */; };
 		FDFDAE5C2EAFA49D004B8F8D /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE5B2EAFA49D004B8F8D /* Stripe */; };
 		FDFDAE5E2EAFA49D004B8F8D /* StripeApplePay in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE5D2EAFA49D004B8F8D /* StripeApplePay */; };
 		FDFDAE602EAFA49D004B8F8D /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = FDFDAE5F2EAFA49D004B8F8D /* StripeCardScan */; };
@@ -49,6 +51,8 @@
 			files = (
 				FDB0AFF72E27A3FF0029E82C /* StreamChat in Frameworks */,
 				FDFDAE622EAFA49D004B8F8D /* StripeConnect in Frameworks */,
+				FDCEECCC2EC5CB2F0042D082 /* TOCropViewController in Frameworks */,
+				FDCEECCA2EC5CB2F0042D082 /* CropViewController in Frameworks */,
 				FDB0B0032E27A80E0029E82C /* JWTDecode in Frameworks */,
 				FDB0AFFD2E27A3FF0029E82C /* StreamChatUI in Frameworks */,
 				FDB0B0002E27A7EB0029E82C /* Auth0 in Frameworks */,
@@ -113,6 +117,8 @@
 				FDFDAE612EAFA49D004B8F8D /* StripeConnect */,
 				FDFDAE632EAFA49D004B8F8D /* StripeFinancialConnections */,
 				FDFDAE652EAFA4A0004B8F8D /* StripePaymentSheet */,
+				FDCEECC92EC5CB2F0042D082 /* CropViewController */,
+				FDCEECCB2EC5CB2F0042D082 /* TOCropViewController */,
 			);
 			productName = Gym_API;
 			productReference = FDDBA1112E257F9900E6034C /* Gym_API.app */;
@@ -149,6 +155,7 @@
 				FDB0B0012E27A80E0029E82C /* XCRemoteSwiftPackageReference "JWTDecode" */,
 				FDB0B0042E27A90F0029E82C /* XCRemoteSwiftPackageReference "OneSignal-iOS-SDK" */,
 				FDFDAE5A2EAFA49D004B8F8D /* XCRemoteSwiftPackageReference "stripe-ios" */,
+				FDCEECC82EC5CB2F0042D082 /* XCRemoteSwiftPackageReference "TOCropViewController" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FDDBA1122E257F9900E6034C /* Products */;
@@ -416,6 +423,14 @@
 				minimumVersion = 5.0.0;
 			};
 		};
+		FDCEECC82EC5CB2F0042D082 /* XCRemoteSwiftPackageReference "TOCropViewController" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TimOliver/TOCropViewController.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.4;
+			};
+		};
 		FDFDAE5A2EAFA49D004B8F8D /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/stripe/stripe-ios";
@@ -451,6 +466,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FDB0B0042E27A90F0029E82C /* XCRemoteSwiftPackageReference "OneSignal-iOS-SDK" */;
 			productName = OneSignalFramework;
+		};
+		FDCEECC92EC5CB2F0042D082 /* CropViewController */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDCEECC82EC5CB2F0042D082 /* XCRemoteSwiftPackageReference "TOCropViewController" */;
+			productName = CropViewController;
+		};
+		FDCEECCB2EC5CB2F0042D082 /* TOCropViewController */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDCEECC82EC5CB2F0042D082 /* XCRemoteSwiftPackageReference "TOCropViewController" */;
+			productName = TOCropViewController;
 		};
 		FDFDAE5B2EAFA49D004B8F8D /* Stripe */ = {
 			isa = XCSwiftPackageProductDependency;

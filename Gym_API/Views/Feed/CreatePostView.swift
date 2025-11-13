@@ -1,56 +1,40 @@
 import SwiftUI
 import PhotosUI
-import UIKit
+import CropViewController
 
-/// Vista completa para crear posts con múltiples imágenes, privacidad, ubicación y progreso
+/// Vista para crear un nuevo post con selección de imágenes y crop estilo Instagram
 struct CreatePostView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @StateObject private var viewModel = CreatePostViewModel()
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedItems: [PhotosPickerItem] = []
-    @State private var showingLocationPicker = false
-    @State private var showSuccessAnimation = false
-    @State private var isEditingCrop: Bool = false
-    @State private var editingIndex: Int = 0
+    // MARK: - State
+
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var isProcessingPhotos = false
+    @State private var showPhotoPicker = false
+    @State private var currentPhotoIndex = 0
+    @State private var photosToProcess: [UIImage] = []
+    @State private var showCropView = false
+    @State private var currentImageToCrop: UIImage?
 
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme)
                     .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Images gallery
-                        imagesSection
+                if viewModel.selectedImages.isEmpty {
+                    // PASO 1: Seleccionar fotos
+                    photoSelectionView
+                } else {
+                    // PASO 2: Composición del post
+                    postCompositionView
+                }
 
-                        // Aspect ratio selector (optional)
-                        aspectRatioSection
-
-                        // Caption input
-                        captionSection
-
-                        // Location selector
-                        locationSection
-
-                        // Privacy selector
-                        privacySection
-
-                        // Upload progress
-                        if viewModel.isPosting {
-                            uploadProgressSection
-                        }
-
-                        // Error message
-                        if let error = viewModel.errorMessage {
-                            errorView(error)
-                        }
-
-                        // Info section
-                        infoSection
-                    }
-                    .padding()
+                // Loading overlay
+                if isProcessingPhotos || viewModel.isPosting {
+                    loadingOverlay
                 }
             }
             .navigationTitle("Nuevo Post")
@@ -60,515 +44,394 @@ struct CreatePostView: View {
                     Button("Cancelar") {
                         dismiss()
                     }
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    .disabled(viewModel.isPosting)
+                    .foregroundColor(.red)
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        Task {
-                            await publishPost()
-                        }
-                    }) {
-                        if viewModel.isPosting {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                                .scaleEffect(0.8)
-                        } else {
+                if !viewModel.selectedImages.isEmpty {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            Task {
+                                if let _ = await viewModel.createPost() {
+                                    dismiss()
+                                }
+                            }
+                        }) {
                             Text("Publicar")
-                                .fontWeight(.semibold)
+                                .bold()
                         }
-                    }
-                    .foregroundColor(viewModel.canPost ? Color.dynamicAccent(theme: themeManager.currentTheme) : .gray)
-                    .disabled(!viewModel.canPost || viewModel.isPosting)
-                }
-            }
-            .onChange(of: selectedItems) { _, newItems in
-                Task {
-                    await loadImages(from: newItems)
-                }
-            }
-            .sheet(isPresented: $isEditingCrop) {
-                let idx = editingIndex
-                let img = (idx < viewModel.selectedImages.count) ? viewModel.selectedImages[idx] : UIImage()
-                ImageCropEditorView(
-                    image: img,
-                    preset: .original,
-                    onCancel: { isEditingCrop = false },
-                    onConfirm: { cropped in
-                        if idx < viewModel.selectedImages.count {
-                            viewModel.selectedImages[idx] = cropped
-                        }
-                        isEditingCrop = false
-                    }
-                )
-                .preferredColorScheme(.dark)
-            }
-            .overlay {
-                if showSuccessAnimation {
-                    successOverlay
-                }
-            }
-        }
-}
-
-// MARK: - Aspect Ratio Section
-
-    private var aspectRatioSection: some View {
-        // Optional selector removed to reduce compile-time issues if tokens are missing
-        EmptyView()
-    }
-
-    // MARK: - Images Section
-
-    private var imagesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Imágenes", systemImage: "photo.on.rectangle.angled")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-                Spacer()
-
-                Text(viewModel.imageCountText)
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
-            }
-
-            if viewModel.selectedImages.isEmpty {
-                // Empty state
-                PhotosUI.PhotosPicker(
-                    selection: $selectedItems,
-                    maxSelectionCount: 10,
-                    matching: .images
-                ) {
-                    VStack(spacing: 12) {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray.opacity(0.5))
-
-                        Text("Seleccionar imágenes")
-                            .font(.system(size: 16, weight: .semibold))
-
-                        Text("Hasta 10 imágenes")
-                            .font(.system(size: 14))
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                    )
-                }
-            } else {
-                // Images grid
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(Array(viewModel.selectedImages.enumerated()), id: \.offset) { index, image in
-                        ZStack(alignment: .topTrailing) {
-                            // Image with gradient overlay for better button visibility
-                            Image(uiImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 110, height: 110)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(
-                                    // Top gradient for button visibility
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [
-                                            Color.black.opacity(0.5),
-                                            Color.black.opacity(0.2),
-                                            Color.clear
-                                        ]),
-                                        startPoint: .top,
-                                        endPoint: .center
-                                    )
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                )
-
-                            // Top-right actions (crop + remove) with improved visibility
-                            HStack(spacing: 8) {
-                                // Crop button
-                                Button(action: {
-                                    let impactMed = UIImpactFeedbackGenerator(style: .medium)
-                                    impactMed.impactOccurred()
-                                    editingIndex = index
-                                    isEditingCrop = true
-                                }) {
-                                    Image(systemName: "crop")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(.white)
-                                        .frame(width: 28, height: 28)
-                                        .background(
-                                            Circle()
-                                                .fill(Color.blue.opacity(0.9))
-                                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                                        )
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
-                                        )
-                                }
-                                .buttonStyle(.plain)
-
-                                // Remove button with enhanced visibility
-                                Button(action: {
-                                    let impactMed = UIImpactFeedbackGenerator(style: .medium)
-                                    impactMed.impactOccurred()
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        viewModel.removeImage(at: index)
-                                    }
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(.white)
-                                        .frame(width: 28, height: 28)
-                                        .background(
-                                            Circle()
-                                                .fill(Color.red.opacity(0.95))
-                                                .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 2)
-                                        )
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.white.opacity(0.4), lineWidth: 1.5)
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(6)
-
-                            // Image number badge with improved contrast
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Text("\(index + 1)")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .frame(width: 22, height: 22)
-                                        .background(
-                                            Circle()
-                                                .fill(Color.black.opacity(0.75))
-                                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                                        )
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                        )
-                                    Spacer()
-                                }
-                                .padding(6)
-                            }
-                        }
-                    }
-
-                    // Add more button
-                    if viewModel.selectedImages.count < 10 {
-                        PhotosUI.PhotosPicker(
-                            selection: $selectedItems,
-                            maxSelectionCount: 10 - viewModel.selectedImages.count,
-                            matching: .images
-                        ) {
-                            VStack(spacing: 8) {
-                                Image(systemName: "plus.circle")
-                                    .font(.system(size: 32))
-                                Text("Agregar")
-                                    .font(.system(size: 12))
-                            }
-                            .foregroundColor(.gray)
-                            .frame(width: 110, height: 110)
-                            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(
-                                        Color.dynamicBorder(theme: themeManager.currentTheme),
-                                        style: StrokeStyle(lineWidth: 1, dash: [5])
-                                    )
-                            )
-                        }
+                        .disabled(!viewModel.canPost || viewModel.isPosting)
                     }
                 }
             }
-        }
-    }
-
-    // MARK: - Caption Section
-
-    private var captionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Descripción", systemImage: "text.alignleft")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            TextField("¿Qué quieres compartir?", text: $viewModel.caption, axis: .vertical)
-                .font(.system(size: 15))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding()
-                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(viewModel.isCaptionLimitReached ? Color.red : Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                )
-                .lineLimit(5...15)
-
-            HStack {
-                Spacer()
-                Text(viewModel.captionCountText)
-                    .font(.system(size: 12))
-                    .foregroundColor(viewModel.isCaptionLimitReached ? .red : .gray)
+            .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button("OK") {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                }
             }
         }
-    }
-
-    // MARK: - Location Section
-
-    private var locationSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Ubicación", systemImage: "location")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            TextField("Agregar ubicación (opcional)", text: $viewModel.location)
-                .font(.system(size: 15))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding()
-                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-                )
-        }
-    }
-
-    // MARK: - Privacy Section
-
-    private var privacySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Privacidad", systemImage: "lock.shield")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            HStack(spacing: 12) {
-                privacyButton(.public, icon: "globe", title: "Público")
-                privacyButton(.private, icon: "lock.fill", title: "Privado")
-            }
-        }
-    }
-
-    private func privacyButton(_ privacy: Privacy, icon: String, title: String) -> some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3)) {
-                viewModel.privacy = privacy
-            }
-        }) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                Text(title)
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .foregroundColor(viewModel.privacy == privacy ? .white : Color.dynamicText(theme: themeManager.currentTheme))
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(viewModel.privacy == privacy ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicSurface(theme: themeManager.currentTheme))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(viewModel.privacy == privacy ? Color.clear : Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
-            )
-        }
-    }
-
-    // MARK: - Upload Progress Section
-
-    private var uploadProgressSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "arrow.up.circle")
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                Text("Subiendo post...")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                Spacer()
-                Text("\(Int(viewModel.uploadProgress * 100))%")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-            }
-
-            ProgressView(value: viewModel.uploadProgress)
-                .progressViewStyle(LinearProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
-        }
-        .padding()
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 1)
+        .photosPicker(
+            isPresented: $showPhotoPicker,
+            selection: $selectedPhotoItems,
+            maxSelectionCount: 10,
+            matching: .images
         )
-    }
-
-    // MARK: - Info Section
-
-    private var infoSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !viewModel.selectedImages.isEmpty {
-                HStack {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 12))
-                    Text("Tamaño estimado: \(viewModel.estimatedTotalSize)")
-                        .font(.system(size: 12))
-                    Spacer()
-                }
-                .foregroundColor(.gray)
+        .onChange(of: selectedPhotoItems) { newItems in
+            guard !newItems.isEmpty else { return }
+            processSelectedPhotos(newItems)
+        }
+        .fullScreenCover(isPresented: $showCropView) {
+            if let image = currentImageToCrop {
+                CropViewControllerWrapper(
+                    image: image,
+                    isPresented: $showCropView,
+                    onCropped: { croppedImage, aspectRatio in
+                        viewModel.addImage(croppedImage)
+                        if let ratio = aspectRatio {
+                            viewModel.selectedAspectRatio = ratio
+                        }
+                        processNextPhoto()
+                    }
+                )
+                .ignoresSafeArea()
             }
-
-            HStack {
-                Image(systemName: "checkmark.shield")
-                    .font(.system(size: 12))
-                Text("Las imágenes se comprimirán automáticamente")
-                    .font(.system(size: 12))
-                Spacer()
-            }
-            .foregroundColor(.gray)
         }
     }
 
-    // MARK: - Error View
+    // MARK: - Photo Selection View
 
-    private func errorView(_ message: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
-            Text(message)
-                .font(.system(size: 14))
-                .foregroundColor(.red)
+    private var photoSelectionView: some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            // Icono grande
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 80))
+                .foregroundColor(.gray)
+
+            VStack(spacing: 12) {
+                Text("Selecciona tus fotos")
+                    .font(.title2)
+                    .bold()
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                Text("Podrás recortar cada foto en el formato que prefieras")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Button(action: {
+                showPhotoPicker = true
+            }) {
+                HStack {
+                    Image(systemName: "photo.fill")
+                    Text("Abrir Galería")
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: 280)
+                .padding(.vertical, 16)
+                .background(Color.red)
+                .cornerRadius(12)
+            }
+
+            Text("Máximo 10 fotos")
+                .font(.caption)
+                .foregroundColor(.gray)
+
             Spacer()
         }
         .padding()
-        .background(Color.red.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    // MARK: - Success Overlay
+    // MARK: - Post Composition View
 
-    private var successOverlay: some View {
+    private var postCompositionView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+
+                // Grid de imágenes seleccionadas
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 8) {
+                    ForEach(Array(viewModel.selectedImages.enumerated()), id: \.offset) { index, image in
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 110, height: 110)
+                                .clipped()
+                                .cornerRadius(8)
+
+                            // Botón eliminar
+                            Button(action: {
+                                withAnimation {
+                                    viewModel.removeImage(at: index)
+                                }
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.white)
+                                    .background(Circle().fill(Color.black.opacity(0.6)))
+                            }
+                            .padding(8)
+                        }
+                    }
+
+                    // Botón agregar más fotos
+                    if viewModel.selectedImages.count < 10 {
+                        Button(action: {
+                            showPhotoPicker = true
+                        }) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(width: 110, height: 110)
+
+                                Image(systemName: "plus")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                Divider()
+
+                // Caption
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Descripción")
+                        .font(.headline)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                    TextEditor(text: $viewModel.caption)
+                        .frame(minHeight: 120)
+                        .padding(8)
+                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+
+                    HStack {
+                        Spacer()
+                        Text(viewModel.captionCountText)
+                            .font(.caption)
+                            .foregroundColor(viewModel.isCaptionLimitReached ? .red : .gray)
+                    }
+                }
+                .padding(.horizontal)
+
+                Divider()
+
+                // Ubicación
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Ubicación (opcional)")
+                        .font(.headline)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                    HStack {
+                        Image(systemName: "location.fill")
+                            .foregroundColor(.gray)
+
+                        TextField("Agrega una ubicación", text: $viewModel.location)
+                            .padding(.vertical, 12)
+                    }
+                    .padding(.horizontal, 12)
+                    .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+
+                Divider()
+
+                // Privacidad
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Privacidad")
+                        .font(.headline)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                    Picker("Privacidad", selection: $viewModel.privacy) {
+                        Text("Público").tag(Privacy.public)
+                        Text("Privado").tag(Privacy.private)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(.horizontal)
+
+                // Info
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                        Text("Tus fotos fueron recortadas en formato Instagram")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+
+                    HStack {
+                        Image(systemName: "photo.stack")
+                            .foregroundColor(.blue)
+                        Text("\(viewModel.selectedImages.count) imagen\(viewModel.selectedImages.count == 1 ? "" : "es") • Tamaño estimado: \(viewModel.estimatedTotalSize)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 32)
+            }
+            .padding(.top)
+        }
+    }
+
+    // MARK: - Loading Overlay
+
+    private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            Color.black.opacity(0.6)
                 .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.green)
+            VStack(spacing: 20) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
 
-                Text("Post publicado")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-            }
-            .padding(40)
-            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .shadow(radius: 20)
-        }
-        .transition(.opacity)
-    }
+                if viewModel.isPosting {
+                    Text("Publicando...")
+                        .foregroundColor(.white)
+                        .font(.headline)
 
-    // MARK: - Actions
-
-    private func loadImages(from items: [PhotosPickerItem]) async {
-        var loadedImages: [UIImage] = []
-
-        for item in items {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let image = UIImage(data: data) {
-                loadedImages.append(image)
-            }
-        }
-
-        await MainActor.run {
-            viewModel.addImages(loadedImages)
-            selectedItems = [] // Clear selection
-        }
-    }
-
-    private func publishPost() async {
-        print("🎬 [CreatePostView] publishPost() llamado")
-
-        if let post = await viewModel.createPost() {
-            print("✅ [CreatePostView] Post creado exitosamente - ID: \(post.id)")
-
-            // Show success animation
-            withAnimation {
-                showSuccessAnimation = true
-            }
-
-            // Dismiss after delay
-            try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-
-            print("👋 [CreatePostView] Cerrando vista...")
-            await MainActor.run {
-                dismiss()
-            }
-        } else {
-            print("❌ [CreatePostView] createPost() retornó nil")
-        }
-    }
-}
-
-// MARK: - Local fallbacks (for target membership issues)
-
-// Fallback enum if AspectRatioPreset from Utils is not included in target
-fileprivate enum AspectRatioPreset: String, CaseIterable, Identifiable {
-    case original
-    case square1x1
-    case portrait4x5
-    case landscape1_91x1
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .original: return "Original"
-        case .square1x1: return "1:1"
-        case .portrait4x5: return "4:5"
-        case .landscape1_91x1: return "1.91:1"
-        }
-    }
-}
-
-// Minimal crop editor fallback if the full editor view isn't available in target
-fileprivate struct ImageCropEditorView: View {
-    let image: UIImage
-    let preset: AspectRatioPreset
-    let onCancel: () -> Void
-    let onConfirm: (UIImage) -> Void
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: 400)
-                    .background(Color.black.opacity(0.1))
-                    .cornerRadius(12)
-
-                Text("Editor de recorte simplificado (\(preset.title))")
-                    .foregroundColor(.secondary)
-
-                HStack {
-                    Button("Cancelar", action: onCancel)
-                    Spacer()
-                    Button("Aplicar") { onConfirm(image) }
+                    if viewModel.uploadProgress > 0 {
+                        ProgressView(value: viewModel.uploadProgress)
+                            .frame(width: 200)
+                            .tint(.white)
+                    }
+                } else {
+                    Text("Procesando fotos...")
+                        .foregroundColor(.white)
+                        .font(.headline)
                 }
             }
-            .padding()
-            .navigationTitle("Editar recorte")
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.black.opacity(0.8))
+            )
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    /// Procesa las fotos seleccionadas del PhotosPicker
+    private func processSelectedPhotos(_ items: [PhotosPickerItem]) {
+        isProcessingPhotos = true
+        photosToProcess = []
+        currentPhotoIndex = 0
+
+        Task {
+            // Cargar todas las imágenes
+            for item in items {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    photosToProcess.append(image)
+                }
+            }
+
+            await MainActor.run {
+                isProcessingPhotos = false
+                selectedPhotoItems = [] // Reset picker selection
+
+                // Comenzar a procesar la primera foto
+                if !photosToProcess.isEmpty {
+                    processNextPhoto()
+                }
+            }
+        }
+    }
+
+    /// Procesa la siguiente foto en la cola
+    private func processNextPhoto() {
+        guard currentPhotoIndex < photosToProcess.count else {
+            // Terminamos de procesar todas las fotos
+            photosToProcess = []
+            currentPhotoIndex = 0
+            return
+        }
+
+        currentImageToCrop = photosToProcess[currentPhotoIndex]
+        currentPhotoIndex += 1
+        showCropView = true
+    }
+}
+
+// MARK: - CropViewController Wrapper for SwiftUI
+
+/// Wrapper de SwiftUI para presentar TOCropViewController
+struct CropViewControllerWrapper: UIViewControllerRepresentable {
+    let image: UIImage
+    @Binding var isPresented: Bool
+    let onCropped: (UIImage, AspectRatio?) -> Void
+
+    func makeUIViewController(context: Context) -> CropViewController {
+        let cropViewController = CropViewController(image: image)
+        cropViewController.delegate = context.coordinator
+
+        // Configuración UI básica
+        cropViewController.aspectRatioLockEnabled = false
+        cropViewController.resetAspectRatioEnabled = true
+        cropViewController.rotateButtonsHidden = false
+        cropViewController.rotateClockwiseButtonHidden = false
+
+        // Colores de la app
+        let appRed = UIColor(red: 217/255, green: 51/255, blue: 51/255, alpha: 1.0)
+        cropViewController.toolbar.tintColor = appRed
+        cropViewController.toolbar.backgroundColor = .black
+
+        // Textos en español
+        cropViewController.doneButtonTitle = "Listo"
+        cropViewController.cancelButtonTitle = "Cancelar"
+
+        return cropViewController
+    }
+
+    func updateUIViewController(_ uiViewController: CropViewController, context: Context) {
+        // No updates needed
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isPresented: $isPresented, onCropped: onCropped)
+    }
+
+    class Coordinator: NSObject, CropViewControllerDelegate {
+        @Binding var isPresented: Bool
+        let onCropped: (UIImage, AspectRatio?) -> Void
+
+        init(isPresented: Binding<Bool>, onCropped: @escaping (UIImage, AspectRatio?) -> Void) {
+            self._isPresented = isPresented
+            self.onCropped = onCropped
+        }
+
+        func cropViewController(_ cropViewController: CropViewController, didCropToImage image: UIImage, withRect cropRect: CGRect, angle: Int) {
+            let aspectRatio = TOCropViewControllerWrapper.calculateAspectRatio(from: image)
+            isPresented = false
+            onCropped(image, aspectRatio)
+        }
+
+        func cropViewController(_ cropViewController: CropViewController, didFinishCancelled cancelled: Bool) {
+            isPresented = false
         }
     }
 }
@@ -576,8 +439,6 @@ fileprivate struct ImageCropEditorView: View {
 // MARK: - Preview
 
 #Preview {
-    NavigationStack {
-        CreatePostView()
-            .environmentObject(ThemeManager())
-    }
+    CreatePostView()
+        .environmentObject(ThemeManager())
 }

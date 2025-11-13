@@ -13,6 +13,7 @@ class CreatePostViewModel: ObservableObject {
     @Published var caption: String = ""
     @Published var location: String = ""
     @Published var privacy: Privacy = .public
+    @Published var selectedAspectRatio: AspectRatio = .square1x1  // Formato Instagram por defecto
     @Published var isPosting = false
     @Published var uploadProgress: Double = 0.0
     @Published var errorMessage: String?
@@ -139,6 +140,7 @@ class CreatePostViewModel: ObservableObject {
         caption = ""
         location = ""
         privacy = .public
+        selectedAspectRatio = .square1x1  // Reset al formato por defecto
         uploadProgress = 0.0
         errorMessage = nil
         successMessage = nil

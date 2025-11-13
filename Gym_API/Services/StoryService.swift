@@ -546,21 +546,31 @@ class StoryService: ObservableObject {
                 // Actualizar hasViewed en el story
                 updatedStories[storyIndex].hasViewed = true
 
-                // Recalcular hasUnseen: true si hay alguna historia sin ver y activa
-                let hasUnseen = updatedStories.contains { story in
-                    !story.hasViewed && story.isActive
-                }
+                // 🎯 USAR VALOR DEL BACKEND: Preservar hasUnseen que vino del backend
+                // NO recalcular localmente - el backend es la fuente de verdad
+                let hasUnseenFromBackend = group.hasUnseen
 
                 // Crear un nuevo UserStoryGroup con los valores actualizados
                 feedStories[index] = UserStoryGroup(
                     userId: group.userId,
                     userName: group.userName,
                     userAvatar: group.userAvatar,
-                    hasUnseen: hasUnseen,
+                    hasUnseen: hasUnseenFromBackend,  // Preservar valor del backend
                     stories: updatedStories
                 )
 
-                print("DEBUG:✅ Story \(storyId) marcada como vista. hasUnseen: \(hasUnseen)")
+                // Sincronizar el caché con el estado actualizado
+                feedCache = feedStories
+                print("DEBUG:✅ Story \(storyId) marcada como vista localmente")
+                print("DEBUG:📡 Preservando hasUnseen del backend: \(hasUnseenFromBackend)")
+                print("DEBUG:💾 Cache sincronizado con estado actualizado")
+
+                // Hacer refresh silencioso del backend para obtener el valor actualizado de has_unseen
+                Task {
+                    print("DEBUG:🔄 Refrescando feed desde backend para sincronizar has_unseen")
+                    await self.fetchStoriesFeed(forceRefresh: true)
+                }
+
                 return
             }
         }

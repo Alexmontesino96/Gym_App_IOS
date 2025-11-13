@@ -73,13 +73,6 @@ struct FeedTabsView: View {
                     // Custom Navigation Bar
                     customNavigationBar
 
-                    // Instagram-style stories bar (richer UI/UX)
-                    InstagramStoriesBar()
-                        .environmentObject(storyService)
-                        .environmentObject(authService)
-                        .environmentObject(themeManager)
-                        .environmentObject(profileService)
-
                     // Feed Content (solo Timeline, sin tabs)
                     TimelineFeedContent()
                 }
@@ -120,7 +113,7 @@ struct FeedTabsView: View {
                 messagesPageView
             }
         }
-        .sheet(isPresented: $showCreatePost) {
+        .fullScreenCover(isPresented: $showCreatePost) {
             CreatePostView()
                 .environmentObject(themeManager)
                 .environmentObject(postService)
@@ -880,11 +873,17 @@ struct FeedTabsView: View {
 
 struct TimelineFeedContent: View {
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var storyService: StoryService
+    @EnvironmentObject var authService: AuthServiceDirect
+    @EnvironmentObject var profileService: UserProfileService
     @StateObject private var viewModel = SocialFeedViewModel(feedType: .timeline)
 
     var body: some View {
         MinimalFeedContent(viewModel: viewModel, feedType: .timeline)
             .environmentObject(themeManager)
+            .environmentObject(storyService)
+            .environmentObject(authService)
+            .environmentObject(profileService)
             .task {
                 if viewModel.posts.isEmpty {
                     await viewModel.loadInitial()
@@ -897,9 +896,13 @@ struct TimelineFeedContent: View {
 
 struct MinimalFeedContent: View {
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var storyService: StoryService
+    @EnvironmentObject var authService: AuthServiceDirect
+    @EnvironmentObject var profileService: UserProfileService
     @ObservedObject var viewModel: SocialFeedViewModel
     let feedType: SocialEmptyStateView.FeedType
     @State private var showCreatePost = false
+    @State private var scrollOffset: CGFloat = 0
 
     var body: some View {
         Group {
@@ -917,7 +920,7 @@ struct MinimalFeedContent: View {
                 postsScrollView
             }
         }
-        .sheet(isPresented: $showCreatePost) {
+        .fullScreenCover(isPresented: $showCreatePost) {
             CreatePostView()
                 .environmentObject(themeManager)
         }
@@ -937,6 +940,32 @@ struct MinimalFeedContent: View {
     private var postsScrollView: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 0) {
+                // Stories Bar con fade al hacer scroll
+                InstagramStoriesBar()
+                    .frame(height: 110)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                    .environmentObject(storyService)
+                    .environmentObject(authService)
+                    .environmentObject(themeManager)
+                    .environmentObject(profileService)
+                    .opacity(storiesOpacity)
+                    .animation(.easeOut(duration: 0.2), value: storiesOpacity)
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear
+                                .preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: geometry.frame(in: .named("scroll")).minY
+                                )
+                        }
+                    )
+                    .onAppear {
+                        print("📊 DEBUG: InstagramStoriesBar apareció en feed")
+                        print("📊 DEBUG: Feed stories count: \(storyService.feedStories.count)")
+                        print("📊 DEBUG: Stories opacity: \(storiesOpacity)")
+                    }
+
                 ForEach(viewModel.posts) { post in
                     PostCard(post: post)
                         .onAppear {
@@ -958,8 +987,26 @@ struct MinimalFeedContent: View {
                 }
             }
         }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            scrollOffset = value
+        }
         .refreshable {
             await viewModel.refresh()
+        }
+    }
+
+    // Calcula la opacidad basada en el scroll offset
+    private var storiesOpacity: Double {
+        let fadeStart: CGFloat = 0
+        let fadeEnd: CGFloat = 100
+
+        if scrollOffset >= fadeStart {
+            return 1.0
+        } else if scrollOffset <= fadeEnd {
+            return 0.0
+        } else {
+            return Double((scrollOffset - fadeEnd) / (fadeStart - fadeEnd))
         }
     }
 
@@ -1074,6 +1121,16 @@ struct PostCardSkeleton: View {
 }
 
 // MARK: - Preview
+
+// MARK: - Scroll Offset Preference Key
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
 #Preview {
     NavigationStack {
