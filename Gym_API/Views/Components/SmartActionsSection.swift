@@ -127,7 +127,7 @@ struct SmartActionsSection: View {
                         .accessibilityLabel("Loading actions")
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 0)
             
             // Actions horizontal row (4 circular buttons)
             if smartActions.isEmpty && !isLoadingActions {
@@ -165,7 +165,7 @@ struct SmartActionsSection: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 20)
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 0)
             }
         }
         .onAppear {

@@ -107,7 +107,22 @@ struct EventDetailContent: View {
     @Binding var showingPaymentSheet: Bool
     @Binding var currentPaymentIntent: PaymentIntent?
     @Binding var currentParticipationId: Int?
-    
+
+    // Computed property para contar participantes activos (mismo filtro que ParticipantsSection)
+    private var activeParticipantsCount: Int {
+        eventService.eventParticipations.filter { participation in
+            switch participation.status {
+            case .registered, .attended, .waitlist:
+                return true
+            case .pendingPayment:
+                // Incluir PENDING_PAYMENT solo si el pago ya se completó
+                return participation.paymentStatus == .paid
+            case .cancelled, .noShow:
+                return false
+            }
+        }.count
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 20) {
@@ -119,20 +134,25 @@ struct EventDetailContent: View {
                     EventDescriptionSection(description: eventDetail.description)
                 }
 
-                // Refund Policy Section - Mostrar si es evento de pago
-                if eventDetail.isPaid == true,
-                   let refundPolicy = eventDetail.refundPolicy {
-                    RefundInfoCard(
-                        policy: refundPolicy,
-                        deadlineHours: eventDetail.refundDeadlineHours,
-                        percentage: eventDetail.partialRefundPercentage
-                    )
-                    .padding(.horizontal, 20)
+                // Payment Info Card - Mostrar si es evento de pago
+                if eventDetail.isPaid == true {
+                    PaymentInfoCard(eventDetail: eventDetail)
+                        .padding(.horizontal, 16)
                 }
 
                 // Event Details Section
-                EventDetailsSection(eventDetail: eventDetail)
-                
+                EventDetailsSection(
+                    eventDetail: eventDetail,
+                    activeParticipantsCount: activeParticipantsCount
+                )
+
+                // Registration Status Card
+                RegistrationStatusCard(
+                    eventDetail: eventDetail,
+                    currentRegistrationState: currentRegistrationState
+                )
+                .padding(.horizontal, 16)
+
                 // Action Buttons Section
                 EventActionButtons(
                     eventDetail: eventDetail,
@@ -232,38 +252,90 @@ struct EventDetailContent: View {
 struct EventHeaderCard: View {
     @EnvironmentObject var themeManager: ThemeManager
     let eventDetail: EventDetail
+    @State private var showingShareSheet = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            // Status Badge and Title Section
-            VStack(spacing: 12) {
-                HStack {
-                    EventStatusBadge(status: eventDetail.status)
-                    Spacer()
-                    // Mostrar precio si es evento de pago
-                    if eventDetail.isPaid == true || eventDetail.formattedPrice != nil {
-                        PriceTag(
-                            price: eventDetail.formattedPrice,
-                            isPaid: eventDetail.isPaid ?? false,
-                            size: .large
-                        )
+        VStack(spacing: 0) {
+            // Hero Section Compacto (100px)
+            ZStack {
+                // Gradient Background
+                LinearGradient(
+                    colors: [
+                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.85),
+                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.6)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                // Pattern decorativo sutil
+                HStack(spacing: 60) {
+                    Image(systemName: "figure.run")
+                        .font(.system(size: 40, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.1))
+                        .rotationEffect(.degrees(-15))
+
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 36, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.08))
+                        .rotationEffect(.degrees(20))
+
+                    Image(systemName: "figure.boxing")
+                        .font(.system(size: 42, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.09))
+                        .rotationEffect(.degrees(-10))
+                }
+                .blur(radius: 1)
+
+                // Contenido Principal
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Status Badge
+                        EventStatusBadge(status: eventDetail.status)
+
+                        // Título
+                        Text(eventDetail.title)
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(2)
+
+                        // Info rápida
+                        HStack(spacing: 16) {
+                            QuickInfoItem(icon: "calendar", text: eventDetail.shortDateString)
+                            QuickInfoItem(icon: "clock.fill", text: eventDetail.shortTimeString)
+                            if eventDetail.isPaid == true, let price = eventDetail.formattedPrice {
+                                QuickInfoItem(icon: "creditcard.fill", text: price)
+                            }
+                        }
+                        .font(.system(size: 13, weight: .medium))
                     }
-                }
 
-                HStack {
-                    Text(eventDetail.title)
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
                     Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
-
-            // Event Image - Now more prominent
-            ModernEventImageView()
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: Color.black.opacity(0.15), radius: 12, y: 6)
         }
-        .padding(20)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+}
+
+// MARK: - Quick Info Item Helper
+struct QuickInfoItem: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(text)
+        }
+        .foregroundColor(.white.opacity(0.95))
     }
 }
 
@@ -308,23 +380,96 @@ struct EventStatusBadge: View {
 
 struct ModernEventImageView: View {
     @EnvironmentObject var themeManager: ThemeManager
-    
+    @State private var isAnimating = false
+
     var body: some View {
         ZStack {
-            // Simple background
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.05))
+            // Gradient background más atractivo
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.15),
+                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.08),
+                            Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .frame(height: 200)
-            
-            // Minimal icon
-            Image(systemName: "calendar")
-                .font(.system(size: 28, weight: .ultraLight))
-                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.6))
+
+            // Pattern decorativo con múltiples íconos
+            HStack(spacing: 40) {
+                VStack(spacing: 40) {
+                    Image(systemName: "figure.run")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.15))
+                        .rotationEffect(.degrees(-15))
+
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.12))
+                        .rotationEffect(.degrees(20))
+                }
+                .offset(x: -30, y: isAnimating ? -10 : 10)
+
+                VStack(spacing: 40) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
+                        .rotationEffect(.degrees(25))
+
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2))
+                        .scaleEffect(isAnimating ? 1.05 : 1.0)
+                }
+                .offset(y: isAnimating ? 10 : -10)
+
+                VStack(spacing: 40) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 26, weight: .light))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.11))
+                        .rotationEffect(.degrees(-20))
+
+                    Image(systemName: "figure.boxing")
+                        .font(.system(size: 30, weight: .light))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.13))
+                        .rotationEffect(.degrees(15))
+                }
+                .offset(x: 30, y: isAnimating ? -10 : 10)
+            }
+            .blur(radius: 0.5)
+
+            // Ícono principal más prominente
+            VStack(spacing: 8) {
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .font(.system(size: 56, weight: .medium))
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.7))
+                    .shadow(color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2), radius: 20, x: 0, y: 10)
+                    .scaleEffect(isAnimating ? 1.0 : 0.95)
+            }
         }
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2),
+                            Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
     }
 }
 
@@ -332,7 +477,8 @@ struct ModernEventImageView: View {
 struct EventDetailsSection: View {
     @EnvironmentObject var themeManager: ThemeManager
     let eventDetail: EventDetail
-    
+    let activeParticipantsCount: Int
+
     var body: some View {
         VStack(spacing: 16) {
             // Location
@@ -341,19 +487,19 @@ struct EventDetailsSection: View {
                 title: "Location",
                 value: eventDetail.location
             )
-            
+
             // Date and Time
             DetailRow(
                 icon: "calendar",
                 title: "Date & Time",
                 value: eventDetail.dayTimeString
             )
-            
-            // Participants
+
+            // Participants - Usar activeParticipantsCount para consistencia
             DetailRow(
                 icon: "person.2",
                 title: "Participants",
-                value: "\(eventDetail.participantsCount)/\(eventDetail.maxParticipants)"
+                value: "\(activeParticipantsCount)/\(eventDetail.maxParticipants)"
             )
         }
         .padding(.horizontal, 20)
@@ -423,11 +569,14 @@ struct EventActionButtons: View {
     @Binding var showingPaymentSheet: Bool
     @Binding var currentPaymentIntent: PaymentIntent?
     @Binding var currentParticipationId: Int?
-    
+    @State private var isPressed = false
+
     var body: some View {
         VStack(spacing: 12) {
-            // Main Action Button
+            // Enhanced Main Action Button
             Button(action: {
+                HapticManager.shared.buttonTap()
+
                 if eventDetail.status == .completed {
                     shakeView()
                     return
@@ -478,27 +627,72 @@ struct EventActionButtons: View {
                     }
                 }
             }) {
-                HStack(spacing: 12) {
-                    if eventService.isJoiningEvent {
-                        LoadingDotsView()
-                    } else {
-                        Image(systemName: getButtonIcon(for: eventDetail))
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                        
-                        Text(getButtonText(for: eventDetail))
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
+                ZStack {
+                    // Background con gradiente mejorado
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(getButtonGradient(for: eventDetail))
+                        .shadow(
+                            color: getButtonColor(for: eventDetail).opacity(0.3),
+                            radius: isPressed ? 8 : 12,
+                            y: isPressed ? 2 : 6
+                        )
+
+                    // Contenido del botón
+                    HStack(spacing: 14) {
+                        if eventService.isJoiningEvent {
+                            LoadingDotsView()
+                        } else {
+                            // Ícono con symbolRenderingMode
+                            Image(systemName: getButtonIcon(for: eventDetail))
+                                .font(.system(size: 18, weight: .semibold))
+                                .symbolRenderingMode(.hierarchical)
+
+                            VStack(spacing: 2) {
+                                Text(getButtonPrimaryText(for: eventDetail))
+                                    .font(.system(size: 16, weight: .bold))
+
+                                if let secondaryText = getButtonSecondaryText(for: eventDetail) {
+                                    Text(secondaryText)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .opacity(0.9)
+                                }
+                            }
+
+                            Spacer()
+
+                            // Badge de precio si aplica
+                            if let priceLabel = getPriceLabel(for: eventDetail) {
+                                Text(priceLabel)
+                                    .font(.system(size: 15, weight: .bold))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.white.opacity(0.25))
+                                    )
+                            }
+                        }
                     }
+                    .padding(.horizontal, 20)
+                    .foregroundColor(.white)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(getButtonColor(for: eventDetail))
-                )
+                .frame(height: 58)
             }
+            .scaleEffect(isPressed ? 0.97 : 1.0)
             .disabled(shouldDisableButton(for: eventDetail) || eventService.isJoiningEvent)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isPressed = true
+                        }
+                    }
+                    .onEnded { _ in
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isPressed = false
+                        }
+                    }
+            )
             
             // Chat Button
             if currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id) {
@@ -655,6 +849,70 @@ struct EventActionButtons: View {
         let isRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
         return eventDetail.status == .cancelled ||
                (!isRegistered && eventDetail.isFullyBooked)
+    }
+
+    // MARK: - Enhanced Button Helpers
+    private func getButtonGradient(for eventDetail: EventDetail) -> LinearGradient {
+        let baseColor = getButtonColor(for: eventDetail)
+
+        return LinearGradient(
+            colors: [
+                baseColor,
+                baseColor.opacity(0.85)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func getButtonPrimaryText(for eventDetail: EventDetail) -> String {
+        switch eventDetail.status {
+        case .completed:
+            let isRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
+            return isRegistered ? "Participaste" : "Completado"
+        case .cancelled:
+            return "Cancelado"
+        case .scheduled, .active:
+            let isRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
+            if isRegistered {
+                return eventDetail.canStillRefund ? "Cancelar Registro" : "Cancelar"
+            } else if eventDetail.isFullyBooked {
+                return "Evento Lleno"
+            } else {
+                return "Registrarse Ahora"
+            }
+        }
+    }
+
+    private func getButtonSecondaryText(for eventDetail: EventDetail) -> String? {
+        switch eventDetail.status {
+        case .completed, .cancelled:
+            return nil
+        case .scheduled, .active:
+            let isRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
+            if isRegistered {
+                if eventDetail.canStillRefund {
+                    return "Reembolso disponible"
+                }
+                return nil
+            } else if eventDetail.isFullyBooked {
+                return "No hay espacios"
+            } else {
+                let spots = eventDetail.availableSpots
+                return "\(spots) espacio\(spots == 1 ? "" : "s") disponible\(spots == 1 ? "" : "s")"
+            }
+        }
+    }
+
+    private func getPriceLabel(for eventDetail: EventDetail) -> String? {
+        let isRegistered = currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id)
+
+        // Solo mostrar precio si no está registrado y es evento de pago
+        if !isRegistered, eventDetail.isPaid == true, let price = eventDetail.formattedPrice {
+            return price
+        }
+
+        return nil
     }
 }
 
@@ -850,10 +1108,365 @@ struct MapPlaceholder: View {
 }
 
 
+// MARK: - Registration Status Card
+struct RegistrationStatusCard: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    let eventDetail: EventDetail
+    let currentRegistrationState: Bool?
+
+    var isRegistered: Bool {
+        currentRegistrationState ?? false
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Status principal con ícono grande
+            HStack(spacing: 18) {
+                // Ícono destacado
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.18))
+                        .frame(width: 64, height: 64)
+
+                    Image(systemName: statusIcon)
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundColor(statusColor)
+                        .symbolRenderingMode(.hierarchical)
+                }
+
+                // Información del estado
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(statusTitle)
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                    Text(statusSubtitle)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+
+            // Pills informativos
+            if !infoPills.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(infoPills, id: \.text) { pill in
+                        InfoPill(
+                            icon: pill.icon,
+                            text: pill.text,
+                            color: pill.color
+                        )
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(statusColor.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(statusColor.opacity(0.3), lineWidth: 1.5)
+                )
+                .shadow(color: statusColor.opacity(0.15), radius: 12, y: 6)
+        )
+    }
+
+    // MARK: - Computed Properties
+    private var statusColor: Color {
+        if eventDetail.status == .completed {
+            return .gray
+        } else if eventDetail.status == .cancelled {
+            return .red
+        } else if isRegistered {
+            return .green
+        } else if eventDetail.isFullyBooked {
+            return .orange
+        } else {
+            return Color.dynamicAccent(theme: themeManager.currentTheme)
+        }
+    }
+
+    private var statusIcon: String {
+        if eventDetail.status == .completed {
+            return isRegistered ? "checkmark.seal.fill" : "clock.badge.checkmark.fill"
+        } else if eventDetail.status == .cancelled {
+            return "xmark.circle.fill"
+        } else if isRegistered {
+            return "checkmark.circle.fill"
+        } else if eventDetail.isFullyBooked {
+            return "exclamationmark.triangle.fill"
+        } else {
+            return "calendar.badge.plus"
+        }
+    }
+
+    private var statusTitle: String {
+        if eventDetail.status == .completed {
+            return isRegistered ? "¡Participaste!" : "Evento Finalizado"
+        } else if eventDetail.status == .cancelled {
+            return "Evento Cancelado"
+        } else if isRegistered {
+            return "Estás Registrado"
+        } else if eventDetail.isFullyBooked {
+            return "Evento Lleno"
+        } else {
+            return "Inscripción Disponible"
+        }
+    }
+
+    private var statusSubtitle: String {
+        if eventDetail.status == .completed {
+            return isRegistered ? "Gracias por asistir a este evento" : "Este evento ya ha finalizado"
+        } else if eventDetail.status == .cancelled {
+            return "Este evento ha sido cancelado"
+        } else if isRegistered {
+            return "Recibirás recordatorios antes del evento"
+        } else if eventDetail.isFullyBooked {
+            return "No quedan espacios disponibles"
+        } else {
+            let spots = eventDetail.availableSpots
+            return "\(spots) espacio\(spots == 1 ? "" : "s") disponible\(spots == 1 ? "" : "s")"
+        }
+    }
+
+    private var infoPills: [(icon: String, text: String, color: Color)] {
+        var pills: [(icon: String, text: String, color: Color)] = []
+
+        // Solo mostrar pills si el usuario está registrado y el evento no está cancelado/completado
+        guard isRegistered, eventDetail.status == .scheduled || eventDetail.status == .active else {
+            return pills
+        }
+
+        // Reembolsable
+        if eventDetail.isPaid == true, eventDetail.canStillRefund {
+            pills.append((
+                icon: "arrow.uturn.left.circle.fill",
+                text: "Reembolsable",
+                color: .green
+            ))
+        }
+
+        // Tiempo hasta el evento
+        let hours = Int(eventDetail.hoursUntilEvent)
+        if hours > 0 && hours < 48 {
+            pills.append((
+                icon: "clock.fill",
+                text: "\(hours)h restantes",
+                color: .orange
+            ))
+        }
+
+        return pills
+    }
+}
+
+// MARK: - Info Pill Component
+struct InfoPill: View {
+    let icon: String
+    let text: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+
+            Text(text)
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(color.opacity(0.15))
+        )
+    }
+}
+
+// MARK: - Payment Info Card
+struct PaymentInfoCard: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    let eventDetail: EventDetail
+
+    var body: some View {
+        VStack(spacing: 18) {
+            // Header con precio destacado
+            HStack(alignment: .top, spacing: 16) {
+                // Ícono de pago
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.green)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Inversión")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+
+                    Text(eventDetail.formattedPrice ?? "Gratuito")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                }
+
+                Spacer()
+
+                // Badge de pago seguro
+                VStack(spacing: 4) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.green)
+
+                    Text("Pago\nSeguro")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.green)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.green.opacity(0.12))
+                )
+            }
+
+            // Divider
+            Rectangle()
+                .fill(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.3))
+                .frame(height: 1)
+
+            // Política de cancelación
+            if let refundPolicy = eventDetail.refundPolicy {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+
+                        Text("Política de Cancelación")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    }
+
+                    VStack(spacing: 10) {
+                        // Full refund option
+                        if refundPolicy == .fullRefund || refundPolicy == .partialRefund {
+                            RefundPolicyRow(
+                                icon: "checkmark.circle.fill",
+                                condition: "Antes de \(eventDetail.refundDeadlineHours ?? 24)h",
+                                refund: "100% reembolso",
+                                color: .green
+                            )
+                        }
+
+                        // Partial refund option
+                        if refundPolicy == .partialRefund, let percentage = eventDetail.partialRefundPercentage {
+                            RefundPolicyRow(
+                                icon: "percent",
+                                condition: "Después del límite",
+                                refund: "\(percentage)% reembolso",
+                                color: .orange
+                            )
+                        }
+
+                        // No refund
+                        if refundPolicy == .noRefund {
+                            RefundPolicyRow(
+                                icon: "xmark.circle.fill",
+                                condition: "Sin reembolso",
+                                refund: "No reembolsable",
+                                color: .red
+                            )
+                        }
+
+                        // Credit option
+                        if refundPolicy == .credit {
+                            RefundPolicyRow(
+                                icon: "giftcard.fill",
+                                condition: "Crédito disponible",
+                                refund: "100% en crédito",
+                                color: .purple
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.dynamicCard(theme: themeManager.currentTheme))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.green.opacity(0.2), lineWidth: 1.5)
+                )
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 6)
+        )
+    }
+}
+
+// MARK: - Refund Policy Row
+struct RefundPolicyRow: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    let icon: String
+    let condition: String
+    let refund: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(color)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(condition)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                Text(refund)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            }
+
+            Spacer()
+
+            Image(systemName: "arrow.right")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 struct ParticipantsSection: View {
     @EnvironmentObject var themeManager: ThemeManager
     @ObservedObject var eventService: EventService
-    
+
+    // Filtrar solo participantes activos (excluir pending sin pagar, cancelled, noShow)
+    private var activeParticipants: [EventParticipation] {
+        eventService.eventParticipations.filter { participation in
+            switch participation.status {
+            case .registered, .attended, .waitlist:
+                return true
+            case .pendingPayment:
+                // Incluir PENDING_PAYMENT solo si el pago ya se completó
+                return participation.paymentStatus == .paid
+            case .cancelled, .noShow:
+                return false
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Section Header
@@ -861,20 +1474,20 @@ struct ParticipantsSection: View {
                 Text("Participants")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                
+
                 Spacer()
-                
+
                 if eventService.isLoadingParticipations {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
                         .scaleEffect(0.7)
                 } else {
-                    Text("\(eventService.eventParticipations.count)")
+                    Text("\(activeParticipants.count)")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 }
             }
-            
+
             // Participants Content
             if eventService.isLoadingParticipations {
                 // Loading state
@@ -883,16 +1496,16 @@ struct ParticipantsSection: View {
                         ParticipantSkeletonRow()
                     }
                 }
-            } else if eventService.eventParticipations.isEmpty {
+            } else if activeParticipants.isEmpty {
                 // Empty state
                 Text("No participants yet")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .padding(.vertical, 8)
             } else {
-                // Participants list
+                // Participants list - solo participantes activos
                 VStack(spacing: 8) {
-                    ForEach(eventService.eventParticipations) { participation in
+                    ForEach(activeParticipants) { participation in
                         ParticipantRow(
                             participation: participation,
                             userProfile: UserDataCacheService.shared.userProfiles[participation.memberId],

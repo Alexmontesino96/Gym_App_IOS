@@ -6,24 +6,47 @@ class ImageLoaderService: ObservableObject {
     @Published var image: UIImage?
     @Published var isLoading = false
     @Published var error: Error?
-    
+
     private var cancellables = Set<AnyCancellable>()
     private static let memoryCache = NSCache<NSString, UIImage>()
     private static let ioQueue = DispatchQueue(label: "image-loader.disk-cache")
-    
+
     // Cache versión para invalidar caché viejo
     private static let cacheVersion = "v2"
-    
+
+    // Pool de loaders activos para evitar desinicialización prematura
+    private static var activeLoaders: [String: ImageLoaderService] = [:]
+    private static let loaderQueue = DispatchQueue(label: "image-loader.pool")
+
     // Configuración de caché mejorada
     static let shared = ImageLoaderService()
-    
+
     init() {
         // Configurar límites de memoria caché
         Self.memoryCache.countLimit = 100 // máximo 100 imágenes
         Self.memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB máximo
-        
+
         // Limpiar caché antiguo al iniciar (versiones anteriores)
         Self.cleanOldCache()
+    }
+
+    // Obtener o crear loader para un cacheKey específico
+    static func loaderForKey(_ key: String) -> ImageLoaderService {
+        loaderQueue.sync {
+            if let existing = activeLoaders[key] {
+                return existing
+            }
+            let newLoader = ImageLoaderService()
+            activeLoaders[key] = newLoader
+            return newLoader
+        }
+    }
+
+    // Remover loader del pool cuando termine
+    private static func removeLoader(forKey key: String) {
+        loaderQueue.async {
+            activeLoaders.removeValue(forKey: key)
+        }
     }
     
     func loadImage(from urlString: String, cacheKeyOverride: String? = nil) {
@@ -31,13 +54,14 @@ class ImageLoaderService: ObservableObject {
             print("⚠️ [ImageLoader] URL string is empty")
             return
         }
-        
+
         let cleanedURL = cleanURL(urlString)
         let cacheKey = cacheKeyOverride ?? cleanedURL
         let versionedKey = "\(Self.cacheVersion)_\(cacheKey)"
-        
+
         guard let url = URL(string: cleanedURL) else {
             print("❌ [ImageLoader] Invalid URL: \(cleanedURL)")
+            Self.removeLoader(forKey: cacheKey)  // Remover del pool si URL inválida
             return
         }
 
@@ -45,6 +69,10 @@ class ImageLoaderService: ObservableObject {
         if let cached = Self.memoryCache.object(forKey: versionedKey as NSString) {
             debugLog("🧠 [ImageLoader] Memory cache hit for key: \(cacheKey)")
             self.image = cached
+            // Programar remoción del pool (ya tenemos la imagen)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                Self.removeLoader(forKey: cacheKey)
+            }
             return
         }
 
@@ -55,25 +83,29 @@ class ImageLoaderService: ObservableObject {
             let cost = diskImage.size.width * diskImage.size.height * 4
             Self.memoryCache.setObject(diskImage, forKey: versionedKey as NSString, cost: Int(cost))
             self.image = diskImage
+            // Programar remoción del pool (ya tenemos la imagen)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                Self.removeLoader(forKey: cacheKey)
+            }
             return
         }
 
         isLoading = true
         error = nil
         debugLog("🌐 [ImageLoader] Fetching: \(url.absoluteString) (key: \(cacheKey))")
-        loadImageDirect(from: url, cacheKey: versionedKey)
+        loadImageDirect(from: url, cacheKey: versionedKey, originalCacheKey: cacheKey)
     }
     
-    private func loadImageDirect(from url: URL, cacheKey: String) {
+    private func loadImageDirect(from url: URL, cacheKey: String, originalCacheKey: String) {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("*/*", forHTTPHeaderField: "Accept")
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
-        
+
         #if DEBUG
         print("🔧 [ImageLoader] Request headers: \(request.allHTTPHeaderFields ?? [:])")
         #endif
-        
+
         URLSession.shared.dataTaskPublisher(for: request)
             .receive(on: DispatchQueue.main)
             .sink(
@@ -81,10 +113,15 @@ class ImageLoaderService: ObservableObject {
                     self?.isLoading = false
                     switch completion {
                     case .finished:
-                        break
+                        // Remover del pool después de completar (con delay para permitir que se muestre la imagen)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            Self.removeLoader(forKey: originalCacheKey)
+                        }
                     case .failure(let error):
                         print("❌ [ImageLoader] Network error: \(error.localizedDescription)")
                         self?.error = error
+                        // Remover del pool también en caso de error
+                        Self.removeLoader(forKey: originalCacheKey)
                     }
                 },
                 receiveValue: { [weak self] data, response in
@@ -288,16 +325,20 @@ struct CustomImageView: View {
     let cacheKey: String?
     let size: CGFloat
     let placeholder: AnyView
-    
-    @StateObject private var imageLoader = ImageLoaderService()
-    
+
+    // ARREGLADO: Usar pool de loaders para mantenerlos vivos durante la carga
+    @ObservedObject private var imageLoader: ImageLoaderService
+
     init(url: String, cacheKey: String? = nil, size: CGFloat, placeholder: @escaping () -> AnyView) {
         self.url = url
         self.cacheKey = cacheKey
         self.size = size
         self.placeholder = placeholder()
+        // Usar loaderForKey para obtener/crear un loader dedicado que se mantenga vivo
+        let key = cacheKey ?? url
+        self.imageLoader = ImageLoaderService.loaderForKey(key)
     }
-    
+
     var body: some View {
         Group {
             if let image = imageLoader.image {

@@ -57,6 +57,9 @@ class ClassService: ObservableObject {
     // MARK: - Private Properties
     // MIGRADO A UserDataCacheService - caché de trainers centralizado
     private let userCache = UserDataCacheService.shared
+
+    // Caché local thread-safe de nombres de trainers para uso síncrono
+    private var trainerNamesCache: [Int: String] = [:]
     
     // MARK: - Date Range Caching
     private var loadedStartDate: Date?
@@ -801,6 +804,8 @@ class ClassService: ObservableObject {
                     // Actualizar caché centralizado con los trainers
                     for trainer in loadedTrainers {
                         self.userCache.updatePublicProfile(trainer.id, profile: trainer)
+                        // También actualizar caché local thread-safe
+                        self.trainerNamesCache[trainer.id] = trainer.fullName
                     }
                     self.trainersErrorMessage = nil
                     self.authenticationError = false
@@ -890,7 +895,7 @@ class ClassService: ObservableObject {
     /// Limpia todos los datos de clases en cache
     func clearCache() {
         print("🧹 Limpiando cache de clases...")
-        
+
         // Limpiar arrays
         sessions = []
         trainers = []
@@ -900,11 +905,14 @@ class ClassService: ObservableObject {
         joinClassErrorMessages = [:]
         cancelClassErrorMessages = [:]
         // Caché de trainers manejado por UserDataCacheService
-        
+
+        // Limpiar caché local de nombres de trainers
+        trainerNamesCache = [:]
+
         // Limpiar nuevos datos optimizados
         userParticipations = [:]
         lastParticipationStatusUpdate = nil
-        
+
         // Resetear estados
         isLoading = false
         isLoadingMyClasses = false
@@ -915,7 +923,7 @@ class ClassService: ObservableObject {
         trainersErrorMessage = nil
         participationStatusErrorMessage = nil
         authenticationError = false
-        
+
         print("✅ Cache de clases limpiado")
     }
 }
@@ -1071,11 +1079,15 @@ extension ClassService {
                 print("⚠️ ClassService: Failed to parse timezone for class \(sessionWithClass.session.id)")
             }
             
+            // Obtener nombre del trainer del caché local thread-safe
+            let trainerName = trainerNamesCache[sessionWithClass.session.trainerId]
+                ?? "Coach \(sessionWithClass.session.trainerId)"
+
             return GymClass(
                 id: sessionWithClass.session.id,
                 name: sessionWithClass.classInfo.name,
                 description: sessionWithClass.classInfo.description,
-                instructor: sessionWithClass.trainerName,
+                instructor: trainerName,
                 trainerId: sessionWithClass.session.trainerId,
                 startTime: correctStartTime,
                 endTime: correctEndTime,

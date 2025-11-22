@@ -120,45 +120,6 @@ struct EventsCarouselSection: View {
     }
 }
 
-// MARK: - Shimmer Effect Extension
-extension View {
-    func shimmer() -> some View {
-        self.modifier(ShimmerModifier())
-    }
-}
-
-struct ShimmerModifier: ViewModifier {
-    @State private var phase: CGFloat = 0
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    .clear,
-                                    .white.opacity(0.3),
-                                    .clear
-                                ]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * 2)
-                        .offset(x: phase * geometry.size.width * 3 - geometry.size.width * 2)
-                }
-            )
-            .mask(content)
-            .onAppear {
-                withAnimation(Animation.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
-    }
-}
-
 // MARK: - Preview
 #Preview {
     let sampleEvents = [

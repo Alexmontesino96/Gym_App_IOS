@@ -11,8 +11,11 @@ struct HomeView: View {
     @EnvironmentObject var surveyService: SurveyService
     @StateObject private var paymentService = EventPaymentService.shared  // Add payment service
     @StateObject private var storyService = StoryService()  // Story service for Instagram-style stories
+    @StateObject private var postService = PostService()  // Post service for social feed
+    @StateObject private var userStatsServiceLocal = UserStatsService.shared  // For HeroProgressWidget
     @State private var currentDate = Date()
     @State private var showComebackView = false
+    @State private var showStreakDetail = false  // Show streak detail view
     @State private var isInitialLoad = true
     @State private var showingPaymentSheet = false  // For payment modal
     @State private var currentPaymentIntent: PaymentIntent?  // Current payment to process
@@ -21,11 +24,32 @@ struct HomeView: View {
     
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: currentDate)
+        let weekday = Calendar.current.component(.weekday, from: currentDate)
+
+        // Saludo más cálido y personalizado
         switch hour {
-        case 6..<12: return "Buenos días"
-        case 12..<17: return "Buenas tardes"
-        case 17..<22: return "Buenas noches"
-        default: return "Buenas noches"
+        case 0..<6:
+            return "Wow, empezando temprano hoy"
+        case 6..<12:
+            // Lunes especial
+            if weekday == 2 {
+                return "Linda mañana para arrancar la semana"
+            }
+            return "Linda mañana para empezar fuerte"
+        case 12..<18:
+            // Viernes especial
+            if weekday == 6 {
+                return "Hermosa tarde para cerrar la semana"
+            }
+            return "Hermosa tarde para moverte"
+        case 18..<24:
+            // Fin de semana
+            if weekday == 1 || weekday == 7 {
+                return "Perfecto momento para ti este fin de semana"
+            }
+            return "Todavía tienes tiempo para ti"
+        default:
+            return "Hermosa tarde para moverte"
         }
     }
     
@@ -47,16 +71,22 @@ struct HomeView: View {
         return "Atleta"
     }
     
+    // Ya no se usa este campo - el saludo principal es suficiente
+    // Mantener por compatibilidad pero no mostrar
     private var motivationalQuestion: String {
-        let hour = Calendar.current.component(.hour, from: currentDate)
-        switch hour {
-        case 6..<12: return "¿Listo para conquistar el día?"
-        case 12..<17: return "¿Preparado para entrenar?"
-        case 17..<22: return "¿Es hora de tu próxima clase?"
-        default: return "¿Planificando el entrenamiento de mañana?"
-        }
+        return ""
     }
-    
+
+    // Obtener próxima clase registrada del usuario
+    private var nextUserClass: GymClass? {
+        let now = Date()
+        let userRegisteredClasses = classService.classes.filter { gymClass in
+            let isRegistered = classService.userRegistrationStatus[gymClass.id] ?? false
+            return isRegistered && gymClass.startTime > now
+        }
+        return userRegisteredClasses.sorted { $0.startTime < $1.startTime }.first
+    }
+
     var body: some View {
         let _ = debugLog("🏠 HomeView.body evaluado")
         let _ = debugLog("🏠 UserStatsService isLoading: \(userStatsService.isLoading)")
@@ -74,108 +104,107 @@ struct HomeView: View {
                         .environmentObject(themeManager)
                         .transition(.opacity)
                 } else {
-                    VStack(spacing: 0) {
-                        // Contenido scrolleable
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 20) {
-                                // Hero Section with personalized greeting
-                                HeroSection(greeting: greeting, userName: userName, motivationalQuestion: motivationalQuestion, themeManager: themeManager, authService: authService)
+                    // Contenido scrolleable con pull-to-refresh personalizado
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 20) {
+                            // 1. Compact Header con greeting y streak badge
+                            CompactHeroHeader(
+                                greeting: greeting,
+                                userName: userName,
+                                streakCount: userStatsService.userStats.currentStreak,
+                                onStreakTap: { showStreakDetail = true },
+                                onAvatarTap: {
+                                    NotificationCenter.default.post(name: .openProfileTab, object: nil)
+                                }
+                            )
+                            .environmentObject(themeManager)
+                            .environmentObject(authService)
 
-                                // Streak Indicator o Comeback Card según el estado
-                                HStack {
-                                    if userStatsService.userStats.currentStreak == 0 && userStatsService.daysInactive >= 1 {
-                                        // Mostrar card de comeback en lugar del streak indicator
-                                        // Solo se oculta si fue marcado como "mostrado" el mismo día (cuando usuario agenda o pospone)
-                                        if ComebackView.shouldShowToday() {
-                                            Button(action: {
-                                                showComebackView = true
-                                            }) {
-                                                ComebackCompactCard(
-                                                    daysInactive: userStatsService.daysInactive,
-                                                    theme: themeManager.currentTheme
-                                                )
-                                            }
-                                            .buttonStyle(PlainButtonStyle())
-                                        } else {
-                                            // Mostrar streak indicator vacío cuando fue pospuesto/agendado hoy
-                                            StreakIndicator(
-                                                streakCount: 0,
-                                                theme: themeManager.currentTheme
-                                            )
-                                        }
-                                    } else {
-                                        StreakIndicator(
-                                            streakCount: userStatsService.userStats.currentStreak,
-                                            theme: themeManager.currentTheme
+                            // 2. Stories Preview (conexión social inmediata)
+                            InstagramStoriesBar()
+                                .environmentObject(storyService)
+                                .environmentObject(authService)
+                                .environmentObject(themeManager)
+                                .environmentObject(profileService)
+
+                            // 3. Hero Class Card (CTA principal con gradiente vibrante)
+                            if let nextClass = nextUserClass {
+                                HeroClassCard(
+                                    gymClass: nextClass,
+                                    onViewTapped: {
+                                        // Navigate to classes tab to see details
+                                        HapticManager.shared.buttonTap()
+                                        NotificationCenter.default.post(
+                                            name: .openClassesTab,
+                                            object: nil
                                         )
                                     }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 20)
-                                .transition(.asymmetric(
-                                    insertion: .scale.combined(with: .opacity),
-                                    removal: .opacity
-                                ))
-
-                                // Next Class Card (if user has upcoming registered classes)
-                                NextClassCard(themeManager: themeManager, classService: classService)
-
-                                // Survey Card (if there are available surveys)
-                                SurveyHomeCard()
-                                    .environmentObject(surveyService)
-                                    .environmentObject(themeManager)
-
-                                // Quick Access Actions (4 circular buttons)
-                                SmartActionsSection(
-                                    themeManager: themeManager,
-                                    authService: authService,
-                                    eventService: eventService,
-                                    classService: classService,
-                                    profileService: profileService,
-                                    userStatsService: userStatsService,
-                                    membershipService: MembershipService.shared,
-                                    locationService: LocationService.shared
                                 )
-
-                                // Featured Event (single event with action buttons)
-                                if !eventService.events.isEmpty {
-                                    FeaturedEventSection(
-                                        events: eventService.events,
-                                        themeManager: themeManager,
-                                        paymentService: paymentService,
-                                        showingPaymentSheet: $showingPaymentSheet,
-                                        currentPaymentIntent: $currentPaymentIntent,
-                                        currentParticipationId: $currentParticipationId,
-                                        selectedEventForPayment: $selectedEventForPayment
-                                    )
-                                    .environmentObject(eventService)
-                                } else {
-                                    // Empty state placeholder for no events
-                                    HStack {
-                                        Image(systemName: "calendar")
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                        Text(NSLocalizedString("no_upcoming_events", comment: "No upcoming events"))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                            .font(.cappedDynamicSystem(size: 14, weight: .medium, maxSize: 18))
-                                        Spacer()
-                                    }
-                                    .padding(12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                    )
-                                }
-
-                                // Recent Activity (completed classes/events)
-                                HomeRecentActivitySection(themeManager: themeManager, classService: classService, eventService: eventService)
-
-                                Spacer(minLength: 100)
+                                .environmentObject(themeManager)
                             }
-                            .padding(.horizontal, 16)
+
+                            // 4. Weekly Progress Circles (metas semanales)
+                            WeeklyProgressCircles()
+                                .environmentObject(userStatsService)
+                                .environmentObject(themeManager)
+
+                            // 5. Stats Summary (colapsado por defecto)
+                            WeeklyCheckInCard()
+                                .environmentObject(userStatsService)
+                                .environmentObject(themeManager)
+
+                            // 6. Your Week Section (próximos eventos/clases)
+                            YourWeekSection()
+                                .environmentObject(classService)
+                                .environmentObject(eventService)
+                                .environmentObject(themeManager)
+
+                            // 7. Social Activity Feed (actividad del gym)
+                            SocialActivityFeed()
+                                .environmentObject(postService)
+                                .environmentObject(themeManager)
+
+                            // 8. Smart Actions con efectos 3D
+                            SmartActionsSection(
+                                themeManager: themeManager,
+                                authService: authService,
+                                eventService: eventService,
+                                classService: classService,
+                                profileService: profileService,
+                                userStatsService: userStatsService,
+                                membershipService: MembershipService.shared,
+                                locationService: LocationService.shared
+                            )
+
+                            // 9. Live Activity Card (eventos en vivo)
+                            LiveActivityCard()
+                                .environmentObject(eventService)
+                                .environmentObject(themeManager)
+
+                            // 10. Survey Card (mantener si hay encuestas disponibles)
+                            SurveyHomeCard()
+                                .environmentObject(surveyService)
+                                .environmentObject(themeManager)
+
+                            // 11. Hero Progress Widget (métricas en profundidad)
+                            HeroProgressWidget()
+                                .environmentObject(userStatsServiceLocal)
+                                .environmentObject(themeManager)
+
+                            // 12. Recent Activity (actividad reciente)
+                            HomeRecentActivitySection(
+                                themeManager: themeManager,
+                                classService: classService,
+                                eventService: eventService
+                            )
+
+                            Spacer(minLength: 100)
                         }
-                        .safeAreaPadding(.top, 16)
-                        // .drawingGroup() // Comentado temporalmente para debug
+                        .padding(.horizontal, 16)
                     }
+                    // iOS16 compatible margins handled via padding above
+                    .safeAreaPadding(.top, 20)
+                    .safeAreaPadding(.bottom, 16)
                 }
             }
             .refreshable {
@@ -204,6 +233,11 @@ struct HomeView: View {
             .presentationDragIndicator(.visible) // Mostrar indicador de drag
             .presentationCornerRadius(30)
             .presentationBackgroundInteraction(.enabled)
+        }
+        .fullScreenCover(isPresented: $showStreakDetail) {
+            StreakDetailView()
+                .environmentObject(userStatsService)
+                .environmentObject(themeManager)
         }
         .sheet(item: Binding(
             get: { currentPaymentIntent },
@@ -292,6 +326,10 @@ struct HomeView: View {
 
                     // Grupo 7: Classes (para RecentActivity)
                     group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando loadTrainers...")
+                        await classService.loadTrainers()
+                        debugLog("🏠 [Parallel] loadTrainers completado")
+
                         debugLog("🏠 [Parallel] Iniciando loadSessionsForDateIfNeeded...")
                         await classService.loadSessionsForDateIfNeeded(date: Date())
                         debugLog("🏠 [Parallel] loadSessionsForDateIfNeeded completado")
@@ -346,6 +384,18 @@ extension HomeView {
         LocationService.shared.requestLocationPermission()
 
         debugLog("🏠 setupServices completado")
+    }
+
+    private func refreshAllData() async {
+        HapticManager.shared.play(.medium)
+        await eventService.fetchEvents()
+        await eventService.fetchUserParticipations()
+        await userStatsService.fetchComprehensiveStats()
+        await surveyService.getAvailableSurveys()
+        await classService.loadTrainers()
+        await classService.forceRefreshSessions(date: Date())
+        await storyService.fetchStoriesFeed()
+        HapticManager.shared.play(.success)
     }
 }
 
@@ -455,6 +505,121 @@ private func cleanAvatarURL(_ urlString: String) -> String {
     // Remove trailing '?' which some providers append and can break URL parsing
     while s.hasSuffix("?") { s.removeLast() }
     return s
+}
+
+// MARK: - Compact Hero Header
+
+struct CompactHeroHeader: View {
+    let greeting: String
+    let userName: String
+    let streakCount: Int
+    let onStreakTap: () -> Void
+    let onAvatarTap: () -> Void
+
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var authService: AuthServiceDirect
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            // Greeting - Formato más cálido y amigable
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Hola, \(userName) 👋")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+
+                Text(greeting)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            // Streak badge (compact) - Solo mostrar si racha >= 7 días
+            // Usuarios nuevos/ocasionales no ven presión de racha en header
+            if streakCount >= 7 {
+                Button(action: {
+                    HapticManager.shared.buttonTap()
+                    onStreakTap()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color(red: 0.85, green: 0.2, blue: 0.2))
+
+                        Text("\(streakCount)")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            // Avatar (compact)
+            Button(action: {
+                HapticManager.shared.buttonTap()
+                onAvatarTap()
+            }) {
+                Group {
+                    if let urlString = resolvedAvatarURL(authService: authService), !urlString.isEmpty,
+                       let user = authService.user {
+                        let normalizedId = user.id
+                            .replacingOccurrences(of: "user_", with: "")
+                            .replacingOccurrences(of: "auth0|", with: "")
+                        CustomImageView(url: urlString, cacheKey: "avatar_compact_\(normalizedId)", size: 44) {
+                            AnyView(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [
+                                                Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
+                                                Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
+                                            ]),
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .overlay(
+                                        Image(systemName: "person.fill")
+                                            .font(.system(size: 20, weight: .medium))
+                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                    )
+                            )
+                        }
+                        .clipShape(Circle())
+                    } else {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
+                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
+                                    ]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            )
+                    }
+                }
+                .frame(width: 44, height: 44)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.vertical, 12)
+    }
 }
 
 

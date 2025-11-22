@@ -13,8 +13,9 @@ struct StripeConfig {
 
     #if DEBUG
     // Test keys for development
-    static let publishableKey = "pk_test_51RdO0oPZfGCbdUwYNYlqnv2vdW6c3XJ2Wy4AP1nCvAiCVPmKLCstpTzlTjoP3lBbME2NEx8W7vTCKIjUU4zpyU2p00Ag7CTqb3"
+    static let publishableKey = "pk_test_51RdO0oPZfGCbdUwYca8o33ycTG6T7swLNMO1RuCymrih60Nze8Kvon0ljxlewatpVroFt9i0wSbGwhFJ29zUKDJZ00m8sMwl4n"
     static let merchantIdentifier = "merchant.gym" // Apple Pay Merchant ID configurado en Stripe
+    private static let apiBaseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     #else
     // Production keys
     static let publishableKey = "pk_live_TU_CLAVE_DE_PRODUCCION_AQUI" // Reemplaza con tu clave de producción cuando vayas a producción

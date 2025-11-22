@@ -91,13 +91,14 @@ struct InstagramStoriesBar: View {
                         )
                     }
                 }
-                .padding(.horizontal, StoryDesignTokens.barHorizontalPadding)
+                .padding(.horizontal, 16)
                 // Enable iOS 17 snapping when available
                 .modifier(EnableSnappingIfAvailable())
                 .padding(.vertical, 10)
             }
             .id(storyService.feedStories.map { String($0.userId) }.joined(separator: ","))
             .frame(height: StoryDesignTokens.barHeight)
+            .frame(maxWidth: .infinity)
             .modifier(EnableViewAlignedBehaviorIfAvailable())
             .background(
                 Color.dynamicBackground(theme: themeManager.currentTheme)
@@ -124,6 +125,7 @@ struct InstagramStoriesBar: View {
                 .fill(Color.gray.opacity(0.2))
                 .frame(height: 0.5)
         }
+        .frame(maxWidth: .infinity)
         .onAppear {
             print("DEBUG:🟢 InstagramStoriesBar.onAppear()")
             loadStoriesIfNeeded()
@@ -134,6 +136,14 @@ struct InstagramStoriesBar: View {
             if !storyService.feedStories.isEmpty {
                 print("DEBUG:🔄 Feed ya tiene stories, ejecutando syncMyStoriesFromFeed()")
                 syncMyStoriesFromFeed()
+                // Preload visible avatars to reduce flicker
+                let avatarURLs = sortedOtherUsersStories.prefix(12).compactMap { resolvedUserAvatarURL(userStory: $0) }
+                if let myUrl = resolvedAvatarURL(authService: authService) {
+                    ImageCacheManager.shared.preloadImages([myUrl])
+                }
+                if !avatarURLs.isEmpty {
+                    ImageCacheManager.shared.preloadImages(Array(avatarURLs))
+                }
             }
         }
         .refreshable {
@@ -429,57 +439,35 @@ struct InstagramMyStoryButton: View {
 
                 // Avatar con padding interno (usando sistema robusto de HomeView)
                 Group {
-                    if let urlString = resolvedAvatarURL(authService: authService),
-                       !urlString.isEmpty,
-                       let user = authService.user {
-                        let normalizedId = user.id
-                            .replacingOccurrences(of: "user_", with: "")
-                            .replacingOccurrences(of: "auth0|", with: "")
-
-                        CustomImageView(
-                            url: urlString,
-                            cacheKey: "avatar_self_\(normalizedId)",
-                            size: CGFloat(StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory))
-                        ) {
-                            AnyView(
-                                Circle()
-                                    .fill(Color.gray.opacity(0.3))
-                                    .frame(
-                                        width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
-                                        height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
-                                    )
-                                    .overlay(
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 28))
-                                            .foregroundColor(.white)
-                                    )
-                            )
+                    let fallback: String? = {
+                        if let user = authService.user {
+                            let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+                            let normalizedId = user.id
+                                .replacingOccurrences(of: "user_", with: "")
+                                .replacingOccurrences(of: "auth0|", with: "")
+                            let colorHash = abs(normalizedId.hashValue) % 16777215
+                            let backgroundColor = String(format: "%06X", colorHash)
+                            return "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
                         }
-                        .frame(
-                            width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
-                            height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
-                        )
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    Color.dynamicBackground(theme: themeManager.currentTheme),
-                                    lineWidth: hasActiveStory ? 3 : 0
-                                )
-                        )
-                    } else {
+                        return nil
+                    }()
+
+                    let primary = resolvedAvatarURL(authService: authService)
+
+                    AvatarAsyncImage(
+                        primaryURL: primary,
+                        fallbackURL: fallback,
+                        size: CGFloat(StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory))
+                    )
+                    .id(primary ?? fallback ?? "avatar_self")
+                    .clipShape(Circle())
+                    .overlay(
                         Circle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(
-                                width: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory),
-                                height: StoryDesignTokens.innerAvatarSize(hasRing: hasActiveStory)
+                            .stroke(
+                                Color.dynamicBackground(theme: themeManager.currentTheme),
+                                lineWidth: hasActiveStory ? 3 : 0
                             )
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(.white)
-                            )
-                    }
+                    )
                 }
                 .frame(
                     width: StoryDesignTokens.avatarRingSize,
@@ -584,29 +572,24 @@ struct InstagramStoryAvatar: View {
                 Group {
                     if let avatarUrlString = resolvedUserAvatarURL(userStory: userStory),
                        !avatarUrlString.isEmpty {
-                        CustomImageView(
-                            url: avatarUrlString,
-                            cacheKey: "avatar_user_\(userStory.userId)",
-                            size: CGFloat(StoryDesignTokens.avatarImageSize)
-                        ) {
-                            AnyView(
-                                Circle()
-                                    .fill(Color.gray.opacity(0.3))
-                                    .frame(
-                                        width: StoryDesignTokens.avatarImageSize,
-                                        height: StoryDesignTokens.avatarImageSize
-                                    )
-                                    .overlay(
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 28))
-                                            .foregroundColor(.white)
-                                    )
-                            )
+                        CachedAsyncImage(url: avatarUrlString) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Circle()
+                                .fill(Color.gray.opacity(0.3))
+                                .overlay(
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.white)
+                                )
                         }
                         .frame(
                             width: StoryDesignTokens.avatarImageSize,
                             height: StoryDesignTokens.avatarImageSize
                         )
+                        .id(avatarUrlString)
                         .clipShape(Circle())
                         .overlay(
                             Circle()
@@ -703,15 +686,19 @@ private struct EnableViewAlignedBehaviorIfAvailable: ViewModifier {
 /// - Returns: URL del avatar o nil si no está disponible
 @MainActor
 private func resolvedAvatarURL(authService: AuthServiceDirect) -> String? {
-    guard let user = authService.user else { return nil }
-
-    // Intentar obtener de user.picture
-    if let picture = user.picture, !picture.isEmpty {
-        return picture
+    // Priorizar imagen del backend si está disponible
+    if let profilePic = UserProfileService.shared.userProfile?.picture, !profilePic.isEmpty {
+        return cleanAvatarURL(profilePic)
     }
 
-    // Generar avatar con UI Avatars como fallback
-    let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "User"
+    // Fallback a la imagen de Auth0
+    if let userPic = authService.user?.picture, !userPic.isEmpty {
+        return cleanAvatarURL(userPic)
+    }
+
+    // Último recurso: generar avatar con UI Avatars
+    guard let user = authService.user else { return nil }
+    let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
     let normalizedId = user.id
         .replacingOccurrences(of: "user_", with: "")
         .replacingOccurrences(of: "auth0|", with: "")
@@ -720,6 +707,14 @@ private func resolvedAvatarURL(authService: AuthServiceDirect) -> String? {
     let backgroundColor = String(format: "%06X", colorHash)
 
     return "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
+}
+
+/// Limpia URLs de avatar problemáticas
+private func cleanAvatarURL(_ urlString: String) -> String {
+    var s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Remover '?' al final que algunos proveedores agregan
+    while s.hasSuffix("?") { s.removeLast() }
+    return s
 }
 
 /// Resuelve la URL del avatar de un UserStoryGroup
@@ -731,7 +726,7 @@ private func resolvedUserAvatarURL(userStory: UserStoryGroup) -> String? {
     }
 
     // Generar avatar con UI Avatars como fallback
-    let encodedName = userStory.userName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "User"
+    let encodedName = userStory.userName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
     let colorHash = abs(userStory.userId.hashValue) % 16777215
     let backgroundColor = String(format: "%06X", colorHash)
 

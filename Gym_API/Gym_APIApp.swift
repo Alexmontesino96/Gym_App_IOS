@@ -36,7 +36,7 @@ struct Gym_APIApp: App {
                 .onAppear {
                     // Inicializar OneSignal
                     serviceContainer.oneSignalService.initialize()
-                    
+
                     // Verificar estado de autenticación
                     serviceContainer.authService.checkAuthStatus()
                 }

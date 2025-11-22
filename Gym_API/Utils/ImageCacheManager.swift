@@ -47,35 +47,37 @@ class ImageCacheManager: ObservableObject {
 
     /// Get image from cache (memory first, then disk)
     func cachedImage(for url: String) -> UIImage? {
-        let key = url as NSString
+        let normalized = normalizeImageURLKey(url)
+        let key = normalized as NSString
 
         print("DEBUG: 🔍 Looking for cached image - Full URL: \(url)")
-        print("DEBUG: 🔍 Cache key (NSString): \(key)")
+        print("DEBUG: 🔍 Normalized cache key: \(normalized)")
 
         // Check memory cache first
         if let image = imageCache.object(forKey: key) {
-            print("DEBUG: ✅ Memory cache HIT for: \(url.suffix(50))")
+            print("DEBUG: ✅ Memory cache HIT for: \(normalized.suffix(50))")
             return image
         }
 
         // Check disk cache
-        if let image = loadFromDisk(url: url) {
-            print("DEBUG: 💾 Disk cache HIT for: \(url.suffix(50))")
+        if let image = loadFromDisk(url: normalized) {
+            print("DEBUG: 💾 Disk cache HIT for: \(normalized.suffix(50))")
             // Store in memory for faster access (but don't save to disk again)
-            cacheImage(image, for: url, saveToDisk: false)
+            cacheImage(image, for: normalized, saveToDisk: false)
             return image
         }
 
-        print("DEBUG: ❌ Cache MISS for: \(url.suffix(50))")
+        print("DEBUG: ❌ Cache MISS for: \(normalized.suffix(50))")
         return nil
     }
 
     /// Cache image in both memory and disk
     func cacheImage(_ image: UIImage, for url: String, saveToDisk: Bool = true) {
-        let key = url as NSString
+        let normalized = normalizeImageURLKey(url)
+        let key = normalized as NSString
 
         print("DEBUG: 💾 Caching image - Full URL: \(url)")
-        print("DEBUG: 💾 Cache key: \(key)")
+        print("DEBUG: 💾 Normalized key: \(normalized)")
         print("DEBUG: 💾 Image size: \(image.size)")
 
         // Calculate cost (approximate bytes)
@@ -85,26 +87,27 @@ class ImageCacheManager: ObservableObject {
         // Save to disk asynchronously only if needed
         if saveToDisk {
             Task.detached {
-                await self.saveToDisk(image: image, url: url)
+                await self.saveToDisk(image: image, url: normalized)
             }
         }
     }
 
     /// Download and cache image with retry logic
     func downloadImage(from urlString: String, retries: Int = 3) async -> UIImage? {
+        let normalized = normalizeImageURLKey(urlString)
         // Check cache first
-        if let cached = cachedImage(for: urlString) {
+        if let cached = cachedImage(for: normalized) {
             return cached
         }
 
         // Check if already downloading
-        if let existingTask = downloadTasks[urlString] {
+        if let existingTask = downloadTasks[normalized] {
             return await existingTask.value
         }
 
         // Create download task
         let task = Task { () -> UIImage? in
-            guard let url = URL(string: urlString) else {
+            guard let url = URL(string: normalized) else {
                 print("DEBUG: ❌ Invalid URL: \(urlString)")
                 return nil
             }
@@ -112,7 +115,7 @@ class ImageCacheManager: ObservableObject {
             // Retry logic
             for attempt in 1...retries {
                 do {
-                    print("DEBUG: 📥 Downloading image (attempt \(attempt)/\(retries)): \(urlString.suffix(50))")
+                    print("DEBUG: 📥 Downloading image (attempt \(attempt)/\(retries)): \(normalized.suffix(50))")
                     let (data, response) = try await URLSession.shared.data(from: url)
 
                     guard let httpResponse = response as? HTTPURLResponse,
@@ -130,10 +133,10 @@ class ImageCacheManager: ObservableObject {
                         return nil
                     }
 
-                    print("DEBUG: ✅ Image downloaded successfully: \(urlString.suffix(50))")
+                    print("DEBUG: ✅ Image downloaded successfully: \(normalized.suffix(50))")
 
                     // Cache the image
-                    await self.cacheImage(image, for: urlString)
+                    await self.cacheImage(image, for: normalized)
 
                     return image
 
@@ -150,9 +153,9 @@ class ImageCacheManager: ObservableObject {
             return nil
         }
 
-        downloadTasks[urlString] = task
+        downloadTasks[normalized] = task
         let image = await task.value
-        downloadTasks.removeValue(forKey: urlString)
+        downloadTasks.removeValue(forKey: normalized)
 
         return image
     }
@@ -161,8 +164,9 @@ class ImageCacheManager: ObservableObject {
     func preloadImages(_ urls: [String]) {
         Task {
             for url in urls {
-                guard cachedImage(for: url) == nil else { continue }
-                _ = await downloadImage(from: url)
+                let normalized = normalizeImageURLKey(url)
+                guard cachedImage(for: normalized) == nil else { continue }
+                _ = await downloadImage(from: normalized)
             }
         }
     }
@@ -172,11 +176,12 @@ class ImageCacheManager: ObservableObject {
     private nonisolated func diskCacheFilePath(for url: String) -> URL {
         // Use SHA256 hash to create unique, filesystem-safe filename
         // This ensures URLs with query params get different cache files
-        let hash = SHA256.hash(data: Data(url.utf8))
+        let normalized = normalizeImageURLKey(url)
+        let hash = SHA256.hash(data: Data(normalized.utf8))
         let filename = hash.compactMap { String(format: "%02x", $0) }.joined()
         let filePath = diskCacheURL.appendingPathComponent(filename + ".jpg")
 
-        print("DEBUG: 🔑 SHA256 Hash for URL: \(url.suffix(60))")
+        print("DEBUG: 🔑 SHA256 Hash for URL: \(normalized.suffix(60))")
         print("DEBUG: 🔑 Filename: \(filename.prefix(16))...")
         print("DEBUG: 🔑 Full path: \(filePath.lastPathComponent)")
 
@@ -253,4 +258,15 @@ class ImageCacheManager: ObservableObject {
 
         return (0, diskSize ?? 0) // NSCache doesn't expose count
     }
+
+}
+
+// MARK: - Key normalization (file-private, nonisolated)
+fileprivate func normalizeImageURLKey(_ url: String) -> String {
+    var s = url.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Remove stray trailing '?' when there is no query
+    if s.hasSuffix("?") { s.removeLast() }
+    // Remove trailing '#'
+    if s.hasSuffix("#") { s.removeLast() }
+    return s
 }

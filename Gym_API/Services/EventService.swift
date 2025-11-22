@@ -503,8 +503,11 @@ class EventService: ObservableObject {
             var registeredEvents: [Int] = []
             var pendingPaymentEvents: [Int] = []
             for participation in participations {
-                // Solo considerar "registrado" si el estado es REGISTERED
-                let isRegistered = participation.status == "REGISTERED"
+                // Considerar "registrado" si el estado es REGISTERED o ATTENDED
+                // NOTA: EventParticipationWithEvent no tiene paymentStatus,
+                // pero checkUserRegistrationFromParticipations() lo maneja con EventParticipation
+                let isRegistered = participation.status == "REGISTERED" || participation.status == "ATTENDED"
+
                 self.userRegistrationStatus[participation.eventId] = isRegistered
                 if isRegistered {
                     registeredEvents.append(participation.eventId)
@@ -635,8 +638,17 @@ class EventService: ObservableObject {
                 let eventDetail = try configuredJSONDecoder().decode(EventDetail.self, from: data)
                 updateOnMainThread {
                     self.eventDetail = eventDetail
+
+                    // Si el eventDetail incluye participaciones, usarlas
+                    // Esto es útil cuando el endpoint separado falla (ej: 403 por permisos)
+                    if let participants = eventDetail.participants, !participants.isEmpty {
+                        print("✅ Using \(participants.count) participants from event detail response")
+                        self.eventParticipations = participants
+                        // Actualizar estado de registro basado en estas participaciones
+                        self.checkUserRegistrationFromParticipations(eventId: eventId)
+                    }
                 }
-                
+
                 print("✅ Successfully fetched event detail: \(eventDetail.title)")
                 
             } else if httpResponse.statusCode == 401 {
@@ -909,24 +921,24 @@ class EventService: ObservableObject {
         let userId = Int(user.id) ?? 0
 
         // Verificar si el usuario ya está registrado en las participaciones
-        // IMPORTANTE: Solo considerar registrado si el estado NO es:
-        // - PENDING_PAYMENT (esperando pago)
-        // - CANCELLED (cancelado)
-        // - WAITLIST (en lista de espera)
+        // IMPORTANTE: Considerar el estado Y el paymentStatus
         let isRegistered = eventParticipations.contains { participation in
             let isUserParticipation = participation.eventId == eventId && participation.memberId == userId
 
             // Si es la participación del usuario, verificar el estado
             if isUserParticipation {
-                // Estados que NO cuentan como "registrado"
-                let notRegisteredStates: [EventParticipationStatus] = [
-                    .pendingPayment,  // Pago pendiente - NO está registrado hasta que pague
-                    .cancelled,       // Cancelado - obviamente no está registrado
-                    .waitlist         // En lista de espera - no está registrado todavía
-                ]
-
-                // Solo está registrado si NO está en uno de estos estados
-                return !notRegisteredStates.contains(participation.status)
+                // Evaluar según el estado
+                switch participation.status {
+                case .registered, .attended:
+                    // Definitivamente registrado
+                    return true
+                case .pendingPayment:
+                    // Solo está registrado si ya completó el pago
+                    return participation.paymentStatus == .paid
+                case .cancelled, .noShow, .waitlist:
+                    // NO está registrado
+                    return false
+                }
             }
 
             return false
@@ -1069,7 +1081,8 @@ class EventService: ObservableObject {
                             refundDeadlineHours: eventDetail.refundDeadlineHours,
                             partialRefundPercentage: eventDetail.partialRefundPercentage,
                             stripeProductId: eventDetail.stripeProductId,
-                            stripePriceId: eventDetail.stripePriceId
+                            stripePriceId: eventDetail.stripePriceId,
+                            participants: eventDetail.participants
                         )
                         self.eventDetail = updatedDetail
                     }
@@ -1233,7 +1246,8 @@ class EventService: ObservableObject {
                                 refundDeadlineHours: eventDetail.refundDeadlineHours,
                                 partialRefundPercentage: eventDetail.partialRefundPercentage,
                                 stripeProductId: eventDetail.stripeProductId,
-                                stripePriceId: eventDetail.stripePriceId
+                                stripePriceId: eventDetail.stripePriceId,
+                                participants: eventDetail.participants
                             )
                             self.eventDetail = updatedDetail
                         }
@@ -1653,7 +1667,8 @@ class EventService: ObservableObject {
                                     refundDeadlineHours: eventResponse.refundDeadlineHours,
                                     partialRefundPercentage: eventResponse.partialRefundPercentage,
                                     stripeProductId: eventResponse.stripeProductId,
-                                    stripePriceId: eventResponse.stripePriceId
+                                    stripePriceId: eventResponse.stripePriceId,
+                                    participants: eventDetail.participants
                                 )
                                 self.eventDetail = updatedDetail
                             }
@@ -1973,7 +1988,8 @@ class EventService: ObservableObject {
                                 refundDeadlineHours: detail.refundDeadlineHours,
                                 partialRefundPercentage: detail.partialRefundPercentage,
                                 stripeProductId: detail.stripeProductId,
-                                stripePriceId: detail.stripePriceId
+                                stripePriceId: detail.stripePriceId,
+                                participants: detail.participants
                             )
                         }
 

@@ -6,7 +6,8 @@ struct HomeRecentActivitySection: View {
     let classService: ClassService
     let eventService: EventService
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    
+    @State private var hasLoadedOnce = false
+
     private var recentActivities: [ActivityItem] {
         var activities: [ActivityItem] = []
         
@@ -57,9 +58,24 @@ struct HomeRecentActivitySection: View {
     }
     
     var body: some View {
-        // Mostrar skeleton solo si está cargando por primera vez
-        if classService.isLoading || eventService.isLoading {
-            return AnyView(ActivityListSkeleton(themeManager: themeManager))
+        // Mostrar skeleton solo si NO ha cargado nunca Y los servicios están cargando
+        let isInitialLoading = !hasLoadedOnce && (classService.isLoading || eventService.isLoading)
+
+        if isInitialLoading {
+            return AnyView(ActivityListSkeleton(themeManager: themeManager)
+                .onAppear {
+                    // Dar un timeout para evitar skeleton infinito
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        hasLoadedOnce = true
+                    }
+                })
+        }
+
+        // Marcar como cargado si los servicios no están cargando
+        if !classService.isLoading && !eventService.isLoading && !hasLoadedOnce {
+            DispatchQueue.main.async {
+                hasLoadedOnce = true
+            }
         }
 
         // Si ya terminó de cargar y hay actividades, mostrarlas
@@ -85,7 +101,7 @@ struct HomeRecentActivitySection: View {
 
                         VStack(spacing: 0) {
                             ForEach(Array(recentActivities.enumerated()), id: \.element.id) { index, activity in
-                                ActivityRow(activity: activity, themeManager: themeManager)
+                                activityRowView(for: activity)
 
                                 // Divider between items (except last)
                                 if index < recentActivities.count - 1 {
@@ -106,6 +122,63 @@ struct HomeRecentActivitySection: View {
         // Si no hay actividades, no mostrar nada (EmptyView)
         return AnyView(EmptyView())
     }
+
+    // MARK: - Activity Row View
+
+    private func activityRowView(for activity: ActivityItem) -> some View {
+        HStack(spacing: 12) {
+            // Activity icon
+            ZStack {
+                Circle()
+                    .fill(activity.color.opacity(0.15))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: activity.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(activity.color)
+            }
+
+            // Activity info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(activity.title)
+                    .font(.cappedDynamicSystem(size: 15, weight: .semibold, maxSize: 19))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+
+                Text(activity.subtitle)
+                    .font(.cappedDynamicSystem(size: 13, weight: .medium, maxSize: 17))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            // Timestamp
+            Text(relativeTimeString(for: activity.timestamp))
+                .font(.cappedDynamicSystem(size: 11, weight: .medium, maxSize: 14))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+    }
+
+    private func relativeTimeString(for date: Date) -> String {
+        let now = Date()
+        let timeInterval = now.timeIntervalSince(date)
+        let days = Int(timeInterval / 86400)
+        let hours = Int(timeInterval / 3600)
+        let minutes = Int(timeInterval / 60)
+
+        if days > 0 {
+            return "Hace \(days) día\(days > 1 ? "s" : "")"
+        } else if hours > 0 {
+            return "Hace \(hours) hora\(hours > 1 ? "s" : "")"
+        } else if minutes > 0 {
+            return "Hace \(minutes) min"
+        } else {
+            return "Ahora mismo"
+        }
+    }
 }
 
 // MARK: - Activity Item Model
@@ -117,89 +190,12 @@ struct ActivityItem: Identifiable {
     let timestamp: Date
     let icon: String
     let color: Color
-    
+
     enum ActivityType {
         case completedClass
         case completedEvent
         case achievement
         case milestone
-    }
-}
-
-// MARK: - Activity Row
-struct ActivityRow: View {
-    let activity: ActivityItem
-    let themeManager: ThemeManager
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    
-    private var timeFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        formatter.timeZone = TimeZone.current
-        return formatter
-    }
-    
-    private var relativeTimeString: String {
-        let now = Date()
-        let timeInterval = now.timeIntervalSince(activity.timestamp)
-        let days = Int(timeInterval / 86400)
-        let hours = Int(timeInterval / 3600)
-        let minutes = Int(timeInterval / 60)
-        
-        if days > 0 {
-            return "Hace \(days) día\(days > 1 ? "s" : "")"
-        } else if hours > 0 {
-            return "Hace \(hours) hora\(hours > 1 ? "s" : "")"
-        } else if minutes > 0 {
-            return "Hace \(minutes) min"
-        } else {
-            return "Ahora mismo"
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Activity icon
-            ZStack {
-                Circle()
-                    .fill(activity.color.opacity(0.15))
-                    .frame(width: 40, height: 40)
-                
-                Image(systemName: activity.icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(activity.color)
-            }
-            
-            // Activity info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(activity.title)
-                    .font(.cappedDynamicSystem(size: 15, weight: .semibold, maxSize: 19))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    .lineLimit(1)
-                
-                Text(activity.subtitle)
-                    .font(.cappedDynamicSystem(size: 13, weight: .medium, maxSize: 17))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Timestamp
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(relativeTimeString)
-                    .font(.cappedDynamicSystem(size: 11, weight: .medium, maxSize: 14))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                
-                Text(timeFormatter.string(from: activity.timestamp))
-                    .font(.cappedDynamicSystem(size: 10, weight: .medium, maxSize: 13))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-            }
-        }
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(activity.title) \(activity.subtitle) \(relativeTimeString)")
     }
 }
 

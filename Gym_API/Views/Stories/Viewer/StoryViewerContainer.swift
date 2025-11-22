@@ -35,6 +35,9 @@ struct StoryViewerContainer: View {
     @State private var storyToDelete: Story? = nil
     @State private var showDeleteSuccessMessage = false
 
+    // Reaction animations
+    @StateObject private var reactionAnimationManager = ReactionAnimationManager()
+
     // Gesture tracking
     @State private var dragOffset: CGFloat = 0
     @State private var horizontalDragOffset: CGFloat = 0
@@ -407,8 +410,13 @@ struct StoryViewerContainer: View {
                                     print("DEBUG: Send story message -> id: \(s.id), text: \(message)")
                                 },
                                 onReact: { emoji in
+                                    // Trigger flying emoji animation
+                                    reactionAnimationManager.addReaction(emoji, startPosition: CGPoint(x: 0, y: 300))
+
+                                    // Send reaction to backend
                                     Task { await storyService.addReaction(storyId: s.id, emoji: emoji) }
-                                }
+                                },
+                                isPaused: $isPaused
                             )
                         }
                     }
@@ -507,6 +515,11 @@ struct StoryViewerContainer: View {
             }
             .onChange(of: showingDeleteConfirmation) { _, newValue in
                 print("DEBUG: 🗑️ showingDeleteConfirmation cambió a: \(newValue)")
+            }
+            // Flying emojis animation overlay
+            .overlay(alignment: .center) {
+                StoryReactionAnimation(reactions: $reactionAnimationManager.flyingEmojis)
+                    .zIndex(100)
             }
             .overlay(alignment: .top) {
                 if showDeleteSuccessMessage {
@@ -944,6 +957,8 @@ struct StoryContentView: View {
 
 // MARK: - Story Header View
 struct StoryHeaderView: View {
+    @EnvironmentObject var authService: AuthServiceDirect
+
     let userStory: UserStoryGroup
     let story: Story
     let canShowViewers: Bool
@@ -954,7 +969,7 @@ struct StoryHeaderView: View {
     var body: some View {
         HStack(spacing: 12) {
             // User avatar
-            if let avatarUrl = userStory.userAvatar, !avatarUrl.isEmpty, let url = URL(string: avatarUrl) {
+            if let avatarUrl = resolvedAvatarURL(), !avatarUrl.isEmpty, let url = URL(string: avatarUrl) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
@@ -1058,6 +1073,57 @@ struct StoryHeaderView: View {
                     )
             }
         }
+    }
+
+    /// Resuelve el avatar URL correcto priorizando el backend para el usuario actual
+    @MainActor
+    private func resolvedAvatarURL() -> String? {
+        // Verificar si esta story es del usuario actual
+        let isCurrentUser = isOwnStory()
+
+        if isCurrentUser {
+            // Para el usuario actual, priorizar imagen del backend
+            if let profilePic = UserProfileService.shared.userProfile?.picture, !profilePic.isEmpty {
+                return cleanAvatarURL(profilePic)
+            }
+
+            // Fallback a la imagen de Auth0
+            if let userPic = authService.user?.picture, !userPic.isEmpty {
+                return cleanAvatarURL(userPic)
+            }
+
+            // Último recurso: generar avatar con UI Avatars
+            guard let user = authService.user else { return userStory.userAvatar }
+            let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+            let normalizedId = user.id
+                .replacingOccurrences(of: "user_", with: "")
+                .replacingOccurrences(of: "auth0|", with: "")
+
+            let colorHash = abs(normalizedId.hashValue) % 16777215
+            let backgroundColor = String(format: "%06X", colorHash)
+
+            return "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
+        } else {
+            // Para otros usuarios, usar el avatar que viene del backend en UserStoryGroup
+            return userStory.userAvatar.flatMap(cleanAvatarURL)
+        }
+    }
+
+    /// Verifica si la story es del usuario actual
+    private func isOwnStory() -> Bool {
+        if let own = story.isOwnStory { return own }
+        if let userIdStr = authService.user?.id, let userId = Int(userIdStr) {
+            return userStory.userId == userId
+        }
+        return false
+    }
+
+    /// Limpia URLs de avatar problemáticas
+    private func cleanAvatarURL(_ urlString: String) -> String {
+        var s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Remover '?' al final que algunos proveedores agregan
+        while s.hasSuffix("?") { s.removeLast() }
+        return s
     }
 }
 

@@ -233,6 +233,9 @@ struct EventDetail: Codable, Identifiable {
     // Current user participation (if any)
     var currentUserParticipation: EventParticipation?
 
+    // Participants list (if included in response)
+    let participants: [EventParticipation]?
+
     enum CodingKeys: String, CodingKey {
         case id, title, description, location, status
         case startTime = "start_time"
@@ -242,6 +245,7 @@ struct EventDetail: Codable, Identifiable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case participantsCount = "participants_count"
+        case participants
         // Monetization keys
         case isPaid = "is_paid"
         case priceCents = "price_cents"
@@ -351,6 +355,27 @@ struct EventDetail: Codable, Identifiable {
         default:
             return 0
         }
+    }
+
+    // MARK: - Short format helpers for compact UI
+    var shortDateString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "es_ES")
+        formatter.timeZone = TimeZone.current
+
+        if isToday {
+            return "Hoy"
+        } else {
+            formatter.dateFormat = "d MMM"
+            return formatter.string(from: startTime)
+        }
+    }
+
+    var shortTimeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: startTime)
     }
 }
 
