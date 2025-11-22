@@ -1,4 +1,0 @@
-module StreamChat {
-header "StreamChat-Swift.h"
-export *
-}

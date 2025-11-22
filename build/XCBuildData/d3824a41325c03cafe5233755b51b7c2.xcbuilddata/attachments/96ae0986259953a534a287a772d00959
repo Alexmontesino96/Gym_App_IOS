@@ -1,4 +1,0 @@
-module OneSignalFrameworkWrapper {
-umbrella "/Users/alexmontesino/Library/Developer/Xcode/DerivedData/Gym_API-gttvbppsiybwtpahvrbhortrptkr/SourcePackages/checkouts/OneSignal-iOS-SDK/OneSignalFrameworkWrapper/include"
-export *
-}

@@ -1,4 +1,0 @@
-module Auth0 {
-header "Auth0-Swift.h"
-export *
-}
