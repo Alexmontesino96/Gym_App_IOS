@@ -5,6 +5,9 @@
 //  Full-screen Instagram-style story viewer with profile, controls and interactions
 //  Validates against: Flutter story_page_for_mobile.dart (lines 1-350)
 //
+//  Updated December 2024: Integrated new StoryInteractionBar component
+//  See STORY_REACTION_UX_REDESIGN.md for design documentation
+//
 
 import SwiftUI
 
@@ -184,6 +187,7 @@ struct StoryPageView: View {
 // MARK: - Single User Story View
 /// Displays all stories from a single user
 /// Flutter equivalent: StoryWidget (lines 72-285)
+/// Updated: Now includes StoryInteractionBar and double-tap to react
 struct SingleUserStoryView: View {
     // MARK: - Properties
     let userGroup: UserStoryGroup
@@ -192,6 +196,9 @@ struct SingleUserStoryView: View {
     let onComplete: () -> Void
     let onDismiss: () -> Void
 
+    // MARK: - Environment
+    @EnvironmentObject var storyService: StoryService
+
     // MARK: - State
     @StateObject private var controller = StoryController()
     @State private var storyItems: [StoryItem] = []
@@ -199,6 +206,13 @@ struct SingleUserStoryView: View {
     @State private var currentStory: Story?
     @State private var dismissOffset: CGFloat = 0
     @State private var isDismissing: Bool = false
+
+    // MARK: - Interaction State (New)
+    @State private var isPausedForInteraction: Bool = false
+    @State private var showDoubleTapHeart: Bool = false
+    @State private var showReactionConfirmation: Bool = false
+    @State private var confirmationEmoji: String? = nil
+    @State private var showMessageSent: Bool = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -216,7 +230,7 @@ struct SingleUserStoryView: View {
                 },
                 onVerticalSwipeComplete: { direction in
                     if direction == .up || direction == .down {
-                        print("✅ Dismiss completed - direction: \(direction)")
+                        print("Dismiss completed - direction: \(direction)")
                         // Start dismiss animation
                         isDismissing = true
                         let targetOffset: CGFloat = direction == .down ? UIScreen.main.bounds.height : -UIScreen.main.bounds.height
@@ -241,6 +255,10 @@ struct SingleUserStoryView: View {
                 progressPosition: .top
             )
             .allowsHitTesting(!isHorizontalDragging && !isDismissing)  // Block gestures during horizontal drag or dismiss
+            // MARK: - Double-Tap Gesture for Heart Reaction
+            .onTapGesture(count: 2) {
+                handleDoubleTapReaction()
+            }
 
             // Profile header overlay
             // Flutter equivalent: ProfileWidget (lines 196-206)
@@ -256,16 +274,39 @@ struct SingleUserStoryView: View {
 
                     Spacer()
 
-                    // Bottom interaction controls
-                    StoryInteractionControls(
-                        userGroup: userGroup,
-                        controller: controller
-                    )
-                    .opacity(opacityLevel)
-                    .animation(.easeInOut(duration: 0.25), value: opacityLevel)
+                    // MARK: - New Story Interaction Bar
+                    // Only show for other users' stories (not own stories)
+                    if story.isOwnStory != true {
+                        StoryInteractionBar(
+                            story: story,
+                            userAvatar: nil, // Current user's avatar could be passed here
+                            onSendMessage: { message in
+                                handleSendMessage(message, for: story)
+                            },
+                            onSendReaction: { emoji in
+                                handleSendReaction(emoji, for: story)
+                            },
+                            isPaused: $isPausedForInteraction
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 34)
+                        .opacity(opacityLevel)
+                        .animation(.easeInOut(duration: 0.25), value: opacityLevel)
+                    }
                 }
                 .padding(.top, 50) // Space for progress bars
             }
+
+            // MARK: - Reaction Animation Overlay
+            StoryReactionOverlay(
+                showDoubleTapHeart: $showDoubleTapHeart,
+                showReactionConfirmation: $showReactionConfirmation,
+                confirmationEmoji: $confirmationEmoji,
+                showMessageSent: $showMessageSent,
+                onReactionSent: { emoji in
+                    // Already handled in handleSendReaction
+                }
+            )
         }
         .offset(y: dismissOffset)  // Apply offset to ENTIRE container including header
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: dismissOffset)  // Smooth spring animation
@@ -273,29 +314,98 @@ struct SingleUserStoryView: View {
         .onAppear {
             loadStoryItems()
         }
+        .onChange(of: isPausedForInteraction) { _, isPaused in
+            // Sync pause state with story controller
+            if isPaused {
+                controller.pause()
+            } else {
+                controller.play()
+            }
+        }
     }
 
     // MARK: - Helper Methods
     /// Load story items from user group
     /// Flutter equivalent: addStoryItems() (lines 99-114)
     private func loadStoryItems() {
-        print("📸 DEBUG: Loading story items for user: \(userGroup.userName)")
-        print("📸 DEBUG: Active stories count: \(userGroup.activeStories.count)")
+        print("DEBUG: Loading story items for user: \(userGroup.userName)")
+        print("DEBUG: Active stories count: \(userGroup.activeStories.count)")
 
         storyItems = userGroup.activeStories.map { story in
-            print("📸 DEBUG: Creating StoryItem for story \(story.id) - Type: \(story.storyType)")
+            print("DEBUG: Creating StoryItem for story \(story.id) - Type: \(story.storyType)")
             return StoryItem.from(story: story)
         }
 
-        print("📸 DEBUG: StoryItems created: \(storyItems.count)")
+        print("DEBUG: StoryItems created: \(storyItems.count)")
 
         // Set first story as current
         currentStory = userGroup.activeStories.first
 
         if let first = currentStory {
-            print("📸 DEBUG: First story set - ID: \(first.id), Type: \(first.storyType)")
+            print("DEBUG: First story set - ID: \(first.id), Type: \(first.storyType)")
         } else {
-            print("⚠️ DEBUG: No first story found!")
+            print("DEBUG: No first story found!")
+        }
+    }
+
+    // MARK: - Interaction Handlers
+
+    /// Handle double-tap heart reaction
+    /// Design doc: Section 7.9
+    private func handleDoubleTapReaction() {
+        guard let story = currentStory, story.isOwnStory != true else { return }
+
+        // Show heart animation
+        showDoubleTapHeart = true
+
+        // Send reaction to API
+        Task {
+            let success = await storyService.addReaction(storyId: story.id, emoji: "❤️")
+            if success {
+                print("DEBUG: Double-tap heart reaction sent successfully")
+            } else {
+                print("DEBUG: Failed to send double-tap heart reaction")
+            }
+        }
+    }
+
+    /// Handle sending a message reply
+    private func handleSendMessage(_ message: String, for story: Story) {
+        print("DEBUG: Sending message reply: \(message) for story \(story.id)")
+
+        // Show sent confirmation
+        showMessageSent = true
+
+        // Send via API (could use StreamChat or direct API)
+        Task {
+            // For now, send as a reaction with message
+            let success = await storyService.addReaction(storyId: story.id, emoji: "💬", message: message)
+            if success {
+                print("DEBUG: Message sent successfully")
+            } else {
+                print("DEBUG: Failed to send message")
+                // Could show error feedback here
+            }
+        }
+    }
+
+    /// Handle sending an emoji reaction
+    private func handleSendReaction(_ emoji: String, for story: Story) {
+        print("DEBUG: Sending reaction: \(emoji) for story \(story.id)")
+
+        // Show confirmation animation
+        confirmationEmoji = emoji
+        showReactionConfirmation = true
+
+        // Send via API
+        Task {
+            let success = await storyService.addReaction(storyId: story.id, emoji: emoji)
+            if success {
+                print("DEBUG: Reaction sent successfully")
+            } else {
+                print("DEBUG: Failed to send reaction")
+                // Could show error feedback here
+            }
         }
     }
 }
@@ -392,10 +502,12 @@ struct ProfileAvatarView: View {
     }
 }
 
-// MARK: - Story Interaction Controls
+// MARK: - Story Interaction Controls (Legacy)
+/// DEPRECATED - Use StoryInteractionBar instead
+/// Kept for reference and potential rollback
 /// Bottom controls for story interaction (reply, like, share)
 /// Flutter equivalent: Bottom controls section (lines 210-275)
-struct StoryInteractionControls: View {
+struct StoryInteractionControls_Legacy: View {
     let userGroup: UserStoryGroup
     @ObservedObject var controller: StoryController
 

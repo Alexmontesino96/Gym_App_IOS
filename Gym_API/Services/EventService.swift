@@ -331,8 +331,8 @@ class EventService: ObservableObject {
                     request.setValue("Bearer \(delayedToken)", forHTTPHeaderField: "Authorization")
                     print("🔑 Token obtenido después de espera")
                 } else {
-                    print("❌ Sin token después de espera - mostrando datos mock temporalmente")
-                    return createMockEvents()
+                    print("❌ Sin token después de espera - devolviendo array vacío")
+                    return []
                 }
             }
             
@@ -413,8 +413,8 @@ class EventService: ObservableObject {
                                 print("❌ Error en retry final: \(error)")
                             }
                         }
-                        print("❌ Sin authService después de espera - mostrando datos mock temporalmente")
-                        return createMockEvents()
+                        print("❌ Sin authService después de espera - devolviendo array vacío")
+                        return []
                     }
                 }
                 
@@ -1321,81 +1321,6 @@ class EventService: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }
-    }
-    
-    // MARK: - Mock Data para desarrollo
-    private func createMockEvents() -> [Event] {
-        let calendar = Calendar.current
-        let now = Date()
-
-        return [
-            Event(
-                id: 1,
-                title: "Training Run",
-                description: "Sesión de entrenamiento al aire libre con técnicas de running avanzadas",
-                startTime: calendar.date(byAdding: .hour, value: 2, to: now) ?? now,
-                endTime: calendar.date(byAdding: .hour, value: 3, to: now) ?? now,
-                location: "Venetian Bridge",
-                maxParticipants: 20,
-                status: .scheduled,
-                creatorId: 1,
-                createdAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-                updatedAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-                participantsCount: 12,
-                isPaid: false,
-                priceCents: nil,
-                currency: nil,
-                refundPolicy: nil,
-                refundDeadlineHours: nil,
-                partialRefundPercentage: nil,
-                stripeProductId: nil,
-                stripePriceId: nil
-            ),
-            Event(
-                id: 2,
-                title: "Torneo Interno - Nivel Intermedio",
-                description: "Competencia interna para miembros de nivel intermedio",
-                startTime: calendar.date(byAdding: .day, value: 2, to: now) ?? now,
-                endTime: calendar.date(byAdding: .day, value: 2, to: calendar.date(byAdding: .hour, value: 3, to: now) ?? now) ?? now,
-                location: "Gimnasio Principal",
-                maxParticipants: 16,
-                status: .scheduled,
-                creatorId: 2,
-                createdAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-                updatedAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-                participantsCount: 8,
-                isPaid: false,
-                priceCents: nil,
-                currency: nil,
-                refundPolicy: nil,
-                refundDeadlineHours: nil,
-                partialRefundPercentage: nil,
-                stripeProductId: nil,
-                stripePriceId: nil
-            ),
-            Event(
-                id: 3,
-                title: "Clase en la Playa - Miami Beach",
-                description: "Entrenamiento especial en la playa con ejercicios funcionales",
-                startTime: calendar.date(byAdding: .day, value: 8, to: now) ?? now,
-                endTime: calendar.date(byAdding: .day, value: 8, to: calendar.date(byAdding: .hour, value: 2, to: now) ?? now) ?? now,
-                location: "Miami Beach",
-                maxParticipants: 25,
-                status: .scheduled,
-                creatorId: 3,
-                createdAt: calendar.date(byAdding: .day, value: -3, to: now) ?? now,
-                updatedAt: calendar.date(byAdding: .day, value: -3, to: now) ?? now,
-                participantsCount: 15,
-                isPaid: false,
-                priceCents: nil,
-                currency: nil,
-                refundPolicy: nil,
-                refundDeadlineHours: nil,
-                partialRefundPercentage: nil,
-                stripeProductId: nil,
-                stripePriceId: nil
-            )
-        ]
     }
     
     // MARK: - Refresh Data (Optimized)

@@ -5,6 +5,8 @@ struct ModernProfileView: View {
     // MARK: - Environment & State
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var classService: ClassService
+    @EnvironmentObject var eventService: EventService
     @StateObject private var colorCustomizationManager = ColorCustomizationManager.shared
     @StateObject private var profileService = UserProfileService.shared
     @StateObject private var userStatsService = UserStatsService.shared
@@ -21,6 +23,7 @@ struct ModernProfileView: View {
     @StateObject private var gymService = GymService.shared
     @StateObject private var postService = PostService.shared
     @State private var showProfileCelebration = false
+    @State private var showingQRCode = false
 
     // MARK: - Profile Sections
     enum ProfileSection: String, CaseIterable {
@@ -163,6 +166,13 @@ struct ModernProfileView: View {
                 SimpleColorSettingsView()
                     .environmentObject(themeManager)
             }
+            .sheet(isPresented: $showingQRCode) {
+                QRCodeSheet(
+                    qrCode: profileService.userProfile?.qrCode,
+                    userName: profileService.userProfile?.fullName
+                )
+                .environmentObject(themeManager)
+            }
         }
         .overlay(
             // Profile completion celebration overlay
@@ -209,6 +219,14 @@ struct ModernProfileView: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
+
+                // QR Code Button
+                Button(action: { showingQRCode = true }) {
+                    Image(systemName: "qrcode")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
             
@@ -700,6 +718,17 @@ struct ModernProfileView: View {
                 }
                 .frame(maxHeight: 300) // Limitar altura máxima
             }
+
+            // MARK: - Historial de Actividad (movido desde Home)
+            Divider()
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
+
+            HomeRecentActivitySection(
+                themeManager: themeManager,
+                classService: classService,
+                eventService: eventService
+            )
         }
     }
     

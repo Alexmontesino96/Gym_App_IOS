@@ -1193,7 +1193,7 @@ class ChatService: ObservableObject {
     // MARK: - Get Available Coaches
     func getAvailableCoaches() async -> [UserProfile] {
         print("🔍 Obteniendo coaches disponibles...")
-        
+
         // Cargar miembros del gym si es necesario
         await loadGymMembers()
 
@@ -1204,12 +1204,30 @@ class ChatService: ObservableObject {
                          member.gymRole?.lowercased().contains("coach") == true ||
                          member.role.lowercased().contains("trainer") ||
                          member.gymRole?.lowercased().contains("trainer") == true
-            
+
             return isCoach && member.isActive
         }.sorted { $0.fullName < $1.fullName }
-        
+
         print("✅ Coaches encontrados: \(coaches.count)")
         return coaches
+    }
+
+    /// Obtiene TODOS los miembros activos del gimnasio (no solo coaches)
+    /// Usado cuando un TRAINER/ADMIN/OWNER quiere chatear con cualquier usuario
+    func getAllGymMembers() async -> [UserProfile] {
+        print("🔍 Obteniendo todos los miembros del gimnasio...")
+
+        // Cargar miembros del gym si es necesario
+        await loadGymMembers()
+
+        // Obtener todos los miembros del caché centralizado
+        let allMembers = await userCache.getUsers(Array(1...1000))
+        let activeMembers = allMembers.filter { member in
+            return member.isActive
+        }.sorted { $0.fullName < $1.fullName }
+
+        print("✅ Miembros activos encontrados: \(activeMembers.count)")
+        return activeMembers
     }
     
     // MARK: - Helper: Refresh Chat Rooms if Needed

@@ -10,17 +10,75 @@ struct UserPublicProfile: Codable, Identifiable, Equatable {
     let role: String
     let bio: String?
     let isActive: Bool
-    
+    let color: String?
+    let gymRole: String?
+
     enum CodingKeys: String, CodingKey {
-        case id, picture, role, bio
+        case id, picture, role, bio, color
         case firstName = "first_name"
         case lastName = "last_name"
         case isActive = "is_active"
+        case gymRole = "gym_role"
     }
-    
+
     var fullName: String {
         return "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
     }
+
+    var displayRole: String {
+        switch role.uppercased() {
+        case "OWNER": return "Owner"
+        case "ADMIN": return "Admin"
+        case "TRAINER": return "Trainer"
+        case "MEMBER": return "Member"
+        default: return role.capitalized
+        }
+    }
+
+    var displayGymRole: String? {
+        guard let gymRole = gymRole else { return nil }
+        switch gymRole.uppercased() {
+        case "OWNER": return "Owner"
+        case "ADMIN": return "Admin"
+        case "TRAINER": return "Trainer"
+        case "MEMBER": return "Member"
+        default: return gymRole.capitalized
+        }
+    }
+
+    var initials: String {
+        let firstInitial = firstName.prefix(1).uppercased()
+        let lastInitial = lastName.prefix(1).uppercased()
+        return "\(firstInitial)\(lastInitial)"
+    }
+
+    var statusText: String {
+        isActive ? "Activo" : "Inactivo"
+    }
+
+    var statusColor: String {
+        isActive ? "green" : "gray"
+    }
+
+    var profileColor: String {
+        color ?? "#D93333"
+    }
+
+    #if DEBUG
+    static var preview: UserPublicProfile {
+        UserPublicProfile(
+            id: 1,
+            firstName: "Juan",
+            lastName: "Pérez",
+            picture: nil,
+            role: "MEMBER",
+            bio: "Miembro activo del gimnasio",
+            isActive: true,
+            color: "#D93333",
+            gymRole: nil
+        )
+    }
+    #endif
 }
 
 // MARK: - Class Service
@@ -912,6 +970,10 @@ class ClassService: ObservableObject {
         // Limpiar nuevos datos optimizados
         userParticipations = [:]
         lastParticipationStatusUpdate = nil
+
+        // Limpiar date range caching para forzar recarga
+        loadedStartDate = nil
+        loadedEndDate = nil
 
         // Resetear estados
         isLoading = false

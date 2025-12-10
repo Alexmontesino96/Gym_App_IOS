@@ -20,7 +20,8 @@ struct WeeklyProgressCircles: View {
                     goal: 7,
                     title: "Racha",
                     emoji: "🔥",
-                    gradientColors: [.orange, .red]
+                    gradientColors: [.orange, .red],
+                    theme: themeManager.currentTheme
                 )
 
                 // Workouts semanales
@@ -30,7 +31,8 @@ struct WeeklyProgressCircles: View {
                     goal: 7,
                     title: "Workouts",
                     emoji: "💪",
-                    gradientColors: [Color(hex: "#FF416C") ?? .pink, Color(hex: "#8E2DE2") ?? .purple]
+                    gradientColors: [Color(hex: "#FF416C") ?? .pink, Color(hex: "#8E2DE2") ?? .purple],
+                    theme: themeManager.currentTheme
                 )
 
                 // Classes mensuales
@@ -40,7 +42,8 @@ struct WeeklyProgressCircles: View {
                     goal: 12,
                     title: "Classes",
                     emoji: "📅",
-                    gradientColors: [Color(hex: "#4776E6") ?? .blue, Color(hex: "#8E54E9") ?? .purple]
+                    gradientColors: [Color(hex: "#4776E6") ?? .blue, Color(hex: "#8E54E9") ?? .purple],
+                    theme: themeManager.currentTheme
                 )
             }
             .frame(maxWidth: .infinity)

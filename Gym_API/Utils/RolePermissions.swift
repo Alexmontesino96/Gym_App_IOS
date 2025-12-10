@@ -212,7 +212,55 @@ struct RolePermissions {
         guard let role = role?.uppercased() else { return false }
         return ["OWNER", "ADMIN"].contains(role)
     }
-    
+
+    // MARK: - Attendance/Check-in Permissions
+
+    /// Verifica si un usuario puede escanear QR para realizar check-in de asistencia
+    /// TRAINER, ADMIN y OWNER pueden realizar check-in con QR
+    static func canScanQRCheckIn(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN", "TRAINER"].contains(role)
+    }
+
+    // MARK: - Chat/Messaging Permissions
+
+    /// Verifica si un usuario puede iniciar chat con cualquier miembro del gym
+    /// TRAINER, ADMIN y OWNER pueden chatear con cualquier usuario
+    /// MEMBER solo puede chatear con coaches
+    static func canMessageAnyUser(_ role: String?) -> Bool {
+        guard let role = role?.uppercased() else { return false }
+        return ["OWNER", "ADMIN", "TRAINER"].contains(role)
+    }
+
+    /// Verifica si un usuario puede escanear QR basado en su perfil completo
+    /// Verifica tanto el role como el gymRole
+    /// - Parameter profile: Perfil del usuario
+    /// - Returns: true si el usuario está autorizado (verifica role o gymRole)
+    static func canScanQRCheckIn(profile: UserProfile?) -> Bool {
+        guard let profile = profile else { return false }
+
+        // Verificar tanto el role como el gymRole
+        let hasRolePermission = canScanQRCheckIn(profile.role)
+        let hasGymRolePermission = canScanQRCheckIn(profile.gymRole)
+
+        return hasRolePermission || hasGymRolePermission
+    }
+
+    /// Obtiene el nombre del rol autorizado para mostrar en la UI del scanner
+    /// - Parameter profile: Perfil del usuario
+    /// - Returns: Nombre del rol autorizado o nil
+    static func getAuthorizedRoleDisplayName(profile: UserProfile?) -> String? {
+        guard let profile = profile else { return nil }
+
+        if canScanQRCheckIn(profile.role) {
+            return profile.displayRole
+        } else if canScanQRCheckIn(profile.gymRole) {
+            return profile.displayGymRole
+        }
+
+        return nil
+    }
+
     // MARK: - Role Utilities
     
     /// Obtiene el rol formateado para display

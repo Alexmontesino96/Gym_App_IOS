@@ -221,6 +221,24 @@ struct ChatAttachment: Identifiable {
     }
 }
 
+// MARK: - Message Fingerprint
+/// Huella digital de mensaje para deduplicación de mensajes optimistas
+/// Compara contenido, autor, conversación y timestamp (truncado a segundos)
+struct MessageFingerprint: Hashable {
+    let text: String
+    let authorId: String
+    let conversationId: String
+    let timestamp: TimeInterval  // Truncado a segundos
+
+    init(from message: ChatMessage) {
+        self.text = message.text
+        self.authorId = message.authorId
+        self.conversationId = message.conversationId
+        // Truncar a segundos para tolerar delays de red
+        self.timestamp = floor(message.timestamp.timeIntervalSince1970)
+    }
+}
+
 // MARK: - Channel ID Parsing Extension
 extension String {
     

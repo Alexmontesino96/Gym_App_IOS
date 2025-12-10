@@ -5,14 +5,20 @@ struct StreamConfig {
         // Leer API Key desde Info.plist de forma segura
         if let apiKey = Bundle.main.object(forInfoDictionaryKey: "STREAM_CHAT_API_KEY") as? String,
            !apiKey.isEmpty {
+            print("✅ Stream Chat API Key cargado correctamente")
             return apiKey
         } else {
-            #if DEBUG
+            // Manejo robusto sin crash - la app puede funcionar sin chat
             print("⚠️ Stream Chat API Key no configurado en Info.plist")
-            return "dev-stream-key-not-configured"
-            #else
-            fatalError("❌ Stream Chat API Key debe estar configurado en Info.plist para producción")
+            print("⚠️ El sistema de chat estará deshabilitado")
+
+            #if DEBUG
+            // En desarrollo, mostrar advertencia adicional
+            print("⚠️ DEBUG: Configura STREAM_CHAT_API_KEY en Info.plist para habilitar chat")
             #endif
+
+            // Valor vacío seguro - ChatService debe validar antes de usar
+            return ""
         }
     }()
 

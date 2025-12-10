@@ -58,6 +58,7 @@ final class UserDataCacheService: ObservableObject {
     // MARK: - Private Properties
     private let queue = DispatchQueue(label: "com.gymapi.usercache", attributes: .concurrent)
     private var pendingFetches: Set<Int> = []
+    private let baseURL = "https://gymapi-eh6m.onrender.com/api/v1"
 
     // MARK: - Initialization
     private init() {
@@ -278,12 +279,48 @@ final class UserDataCacheService: ObservableObject {
         }
     }
 
-    /// Placeholder for actual API call - should be implemented with real networking
+    /// Fetches user profile from the API
     private func fetchUserProfileFromAPI(_ userId: Int) async -> UserProfile? {
-        // This should be implemented to call the actual API
-        // For now, return nil to indicate not found
-        print("⚠️ API fetch not implemented for user \(userId)")
-        return nil
+        print("🔄 Fetching user profile from API: \(userId)")
+
+        guard let url = URL(string: "\(baseURL)/users/\(userId)") else {
+            print("❌ Invalid URL for user \(userId)")
+            return nil
+        }
+
+        guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET") else {
+            print("⚠️ No se pudo crear request para user \(userId)")
+            return nil
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            // Verificar código de respuesta
+            if let httpResponse = response as? HTTPURLResponse {
+                guard httpResponse.statusCode == 200 else {
+                    print("❌ API error for user \(userId): Status code \(httpResponse.statusCode)")
+                    return nil
+                }
+            }
+
+            // Decodificar respuesta
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let userProfile = try decoder.decode(UserProfile.self, from: data)
+
+            // Guardar en caché
+            await MainActor.run {
+                self.updateUserProfile(userId, profile: userProfile)
+            }
+
+            print("✅ User profile cargado: \(userProfile.fullName)")
+            return userProfile
+
+        } catch {
+            print("❌ Error fetching user profile \(userId): \(error)")
+            return nil
+        }
     }
 
     // MARK: - Deinit
@@ -325,7 +362,9 @@ extension UserPublicProfile {
             picture: profile.picture,
             role: profile.role ?? "member",
             bio: nil,
-            isActive: profile.isActive
+            isActive: profile.isActive,
+            color: profile.color,
+            gymRole: profile.gymRole
         )
     }
 }

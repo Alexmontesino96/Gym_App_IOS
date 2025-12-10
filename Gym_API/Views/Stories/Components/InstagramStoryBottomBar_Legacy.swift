@@ -1,6 +1,18 @@
+//
+//  InstagramStoryBottomBar_Legacy.swift
+//  Gym_API
+//
+//  DEPRECATED - Use StoryInteractionBar instead
+//  This file is kept for reference and potential rollback.
+//  See STORY_REACTION_UX_REDESIGN.md for migration details.
+//
+
 import SwiftUI
 
-struct InstagramStoryBottomBar: View {
+// MARK: - DEPRECATED: Use StoryInteractionBar
+/// Legacy Instagram-style bottom bar component
+/// @available(*, deprecated, message: "Use StoryInteractionBar instead")
+struct InstagramStoryBottomBar_Legacy: View {
     let story: Story
     let onSendMessage: (String) -> Void
     let onReact: (String) -> Void
@@ -28,7 +40,7 @@ struct InstagramStoryBottomBar: View {
         }
         .frame(maxWidth: .infinity)
         .sheet(isPresented: $showReactionPicker) {
-            StoryReactionPicker(isPresented: $showReactionPicker) { emoji in
+            StoryReactionPicker_Legacy(isPresented: $showReactionPicker) { emoji in
                 handleReaction(emoji)
             }
             .presentationDetents([.height(400)])

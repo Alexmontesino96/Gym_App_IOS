@@ -15,9 +15,9 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.1</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>3</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>UIApplicationSceneManifest</key>
@@ -114,5 +114,13 @@
     <!-- Permiso para Calendario (necesario para crear eventos con recordatorio) -->
     <key>NSCalendarsUsageDescription</key>
     <string>Gym App necesita acceso a tu calendario para añadir recordatorios de tus clases y eventos.</string>
+
+    <!-- OneSignal Configuration -->
+    <key>ONESIGNAL_APP_ID</key>
+    <string>57c2285f-1a1a-4431-a5db-7ecd0bab4c5f</string>
+
+    <!-- StreamChat Configuration -->
+    <key>STREAM_CHAT_API_KEY</key>
+    <string>xptswctbxzsw</string>
 </dict>
 </plist>

@@ -42,23 +42,59 @@ protocol ChatProvider: AnyObject {
     func unregisterFromPushNotifications() async throws
 }
 
+// MARK: - Chat Provider State
+/// Estados detallados del ciclo de vida del ChatProvider
+enum ChatProviderState {
+    case notInitialized
+    case initializing
+    case ready
+    case connecting
+    case connected
+    case error(Error)
+    case disconnected
+
+    var isReady: Bool {
+        if case .ready = self { return true }
+        if case .connected = self { return true }
+        return false
+    }
+
+    var displayText: String {
+        switch self {
+        case .notInitialized: return "No inicializado"
+        case .initializing: return "Inicializando..."
+        case .ready: return "Listo"
+        case .connecting: return "Conectando..."
+        case .connected: return "Conectado"
+        case .error(let error): return "Error: \(error.localizedDescription)"
+        case .disconnected: return "Desconectado"
+        }
+    }
+}
+
 // MARK: - Chat Provider Manager
 /// Gestor centralizado que maneja el proveedor de chat actual y proporciona una interfaz unificada
 @MainActor
 class ChatProviderManager: ObservableObject {
     static let shared = ChatProviderManager()
-    
+
     // MARK: - Published Properties
     @Published var currentProvider: ChatProvider?
     @Published var isInitialized = false
     @Published var initializationError: String?
-    
+    @Published private(set) var state: ChatProviderState = .notInitialized  // ✅ NUEVO
+
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: - Configuration
     private let providerType: ChatProviderType
-    
+
+    // MARK: - Computed Properties
+    var isReady: Bool {
+        return state.isReady
+    }
+
     private init() {
         // Por defecto usa GetStream, pero se puede cambiar fácilmente
         self.providerType = .getStream
@@ -69,26 +105,35 @@ class ChatProviderManager: ObservableObject {
     
     /// Inicializa el proveedor de chat con authService opcional
     func initializeProvider(authService: AuthServiceProtocol? = nil) async {
-        guard !isInitialized else { return }
-        
+        // ✅ Evitar reinicializaciones
+        guard case .notInitialized = state else {
+            print("⚠️ ChatProvider ya está inicializado o inicializando (estado: \(state.displayText))")
+            return
+        }
+
+        state = .initializing
+        print("🔄 Inicializando ChatProvider...")
+
         do {
             let provider = try createProvider(type: providerType)
-            
+
             // Configurar authService si es GetStreamChatProvider
             if let streamProvider = provider as? GetStreamChatProvider,
                let authService = authService {
                 streamProvider.setAuthService(authService)
                 print("✅ AuthService configurado en el provider")
             }
-            
+
             currentProvider = provider
             isInitialized = true
             initializationError = nil
-            
+            state = .ready  // ✅ Cambiar a ready
+
             setupProviderObservers(provider)
-            
-            print("✅ Proveedor de chat inicializado: \(providerType)")
+
+            print("✅ Proveedor de chat inicializado: \(providerType) - Estado: \(state.displayText)")
         } catch {
+            state = .error(error)  // ✅ Marcar error
             initializationError = error.localizedDescription
             print("❌ Error inicializando proveedor: \(error)")
         }
@@ -231,8 +276,14 @@ class ChatProviderManager: ObservableObject {
         guard let provider = currentProvider else {
             throw ChatProviderError.notInitialized
         }
-        
+
+        state = .connecting  // ✅ Actualizar estado
+        print("🔌 Conectando a chat...")
+
         try await provider.connect(credentials: credentials)
+
+        state = .connected  // ✅ Marcar como conectado
+        print("✅ Conectado exitosamente al chat - Estado: \(state.displayText)")
     }
 
     /// Resetea el estado del chat provider (para logout/cambio de usuario)
@@ -245,7 +296,8 @@ class ChatProviderManager: ObservableObject {
         currentProvider = nil
         isInitialized = false
         initializationError = nil
-        print("✅ ChatProviderManager reseteado")
+        state = .notInitialized  // ✅ Resetear estado
+        print("✅ ChatProviderManager reseteado - Estado: \(state.displayText)")
     }
 }
 

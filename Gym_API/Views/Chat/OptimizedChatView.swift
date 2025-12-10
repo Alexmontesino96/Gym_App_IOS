@@ -16,6 +16,13 @@ struct OptimizedChatView: View {
     @State private var errorMessage: String?
     @State private var serverUpdateObserver: NSObjectProtocol?
     @State private var messageUpdatesCancellable: AnyCancellable?
+
+    // ✅ NUEVO: Actor-based coordinator para prevenir race conditions
+    private let loadingCoordinator = MessageLoadingCoordinator()
+
+    // ✅ DEPRECATED: Serán reemplazados por loadingCoordinator
+    @State private var messageLoadingTask: Task<Void, Never>?
+    @State private var currentLoadingConversationId: String?
     
     // Computed property para mensajes ordenados (cacheado con límite para memoria)
     private var sortedMessages: [ChatMessage] {
@@ -43,6 +50,26 @@ struct OptimizedChatView: View {
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .navigationBarHidden(true)
         .onAppear {
+            print("💬 ========================================")
+            print("💬 ABRIENDO CHAT")
+            print("💬 ========================================")
+            print("💬 Conversation ID: \(conversationId)")
+            print("💬 Conversation Name: \(conversationName)")
+            print("💬 ChatProvider State: \(chatProviderManager.state.displayText)")
+            print("💬 ChatProvider isReady: \(chatProviderManager.isReady)")
+            print("💬 ChatProvider isInitialized: \(chatProviderManager.isInitialized)")
+
+            // Log mensajes en caché si existen
+            let cachedMessages = MessageCacheManager.shared.getCachedMessages(for: conversationId)
+            if !cachedMessages.isEmpty {
+                print("💬 📦 Mensajes en caché: \(cachedMessages.count)")
+                print("💬 📦 Último mensaje: \(cachedMessages.last?.text ?? "N/A")")
+            } else {
+                print("💬 📦 No hay mensajes en caché")
+            }
+
+            print("💬 ========================================")
+
             loadMessages()
             setupServerUpdateListener()
             setupMessageUpdatesListener()
@@ -50,21 +77,35 @@ struct OptimizedChatView: View {
             markConversationAsRead()
         }
         .onDisappear {
+            print("💬 👋 CERRANDO CHAT")
+
+            // ✅ CRÍTICO: Cancelar coordinator para prevenir race conditions
+            Task {
+                await loadingCoordinator.cancel()
+                print("💬 👋 🧹 MessageLoadingCoordinator cancelado")
+            }
+
+            // DEPRECATED: Mantener por ahora para compatibilidad
+            messageLoadingTask?.cancel()
+            messageLoadingTask = nil
+            currentLoadingConversationId = nil
+
             // Limpiar observers para evitar memory leaks
             if let observer = serverUpdateObserver {
                 NotificationCenter.default.removeObserver(observer)
                 serverUpdateObserver = nil
             }
-            
+
             // Cancelar suscripción a actualizaciones de mensajes
             messageUpdatesCancellable?.cancel()
             messageUpdatesCancellable = nil
-            
-            // Limpiar mensajes antiguos para liberar memoria
+            print("💬 👋 🧹 Observers y suscripciones canceladas")
+
+            // Recortar mensajes para liberar memoria
             if messages.count > 50 {
                 let recentMessages = Array(messages.sorted { $0.timestamp < $1.timestamp }.suffix(50))
                 messages = recentMessages
-                print("🧹 Mensajes recortados a 50 más recientes para liberar memoria")
+                print("💬 👋 🧹 Mensajes recortados a 50 más recientes")
             }
         }
     }
@@ -229,53 +270,54 @@ struct OptimizedChatView: View {
     // MARK: - Actions
     
     /// Carga mensajes usando estrategia cache-first para experiencia instantánea
+    /// ✅ OPTIMIZADO: Usa MessageLoadingCoordinator actor para prevenir race conditions
     private func loadMessages() {
-        print("📱 Cargando mensajes para conversación: \(conversationId)")
-        
-        // 1. Cargar desde caché inmediatamente (sin loading state)
+        print("💬 📦 loadMessages() para: \(conversationId)")
+
+        // 1. Cargar caché inmediatamente (experiencia instantánea)
         let cachedMessages = MessageCacheManager.shared.getCachedMessages(for: conversationId)
-        
+
         if !cachedMessages.isEmpty {
             self.messages = cachedMessages
-            print("📦 Mostrando \(cachedMessages.count) mensajes desde caché")
+            print("💬 📦 Caché cargado: \(cachedMessages.count) mensajes")
         }
-        
-        // 2. Cargar mensajes frescos solo si no hay caché o en background
-        if cachedMessages.isEmpty {
-            isLoading = true
-        }
-        
+
+        // 2. Usar coordinator para carga segura (previene race conditions)
         Task {
+            let shouldShowLoading = cachedMessages.isEmpty
+            if shouldShowLoading {
+                await MainActor.run { isLoading = true }
+            }
+
             do {
-                // Usar el nuevo método con caché si está disponible
-                let freshMessages: [ChatMessage]
-                if let streamProvider = chatProviderManager.currentProvider as? GetStreamChatProvider {
-                    freshMessages = try await streamProvider.getMessagesWithCache(for: conversationId)
-                } else {
-                    // Fallback al método original
-                    freshMessages = try await chatProviderManager.getMessages(for: conversationId)
-                }
-                
-                await MainActor.run {
-                    // Solo actualizar si hay diferencias o si no había caché
-                    if cachedMessages.isEmpty || !messagesAreEqual(freshMessages, self.messages) {
-                        self.messages = freshMessages
-                        print("🔄 Mensajes actualizados: \(freshMessages.count)")
+                // El coordinator garantiza que solo la última request se completa
+                let freshMessages = try await loadingCoordinator.loadMessages(
+                    conversationId: conversationId
+                ) {
+                    // Closure de fetch real
+                    if let streamProvider = chatProviderManager.currentProvider as? GetStreamChatProvider {
+                        return try await streamProvider.getMessagesWithCache(for: conversationId)
                     } else {
-                        print("✅ Mensajes ya están actualizados")
+                        return try await chatProviderManager.getMessages(for: conversationId)
                     }
-                    self.isLoading = false
                 }
-                
+
+                // Actualizar UI - el coordinator ya garantizó que es la conversación correcta
+                await MainActor.run {
+                    if cachedMessages.isEmpty || !messagesAreEqual(freshMessages, messages) {
+                        messages = freshMessages
+                        print("💬 ✅ UI actualizada con \(freshMessages.count) mensajes")
+                    }
+
+                    isLoading = false
+                    errorMessage = nil
+                }
+
             } catch {
                 await MainActor.run {
-                    // Si había caché, mantener los mensajes y solo mostrar error
-                    if cachedMessages.isEmpty {
-                        self.errorMessage = error.localizedDescription
-                    } else {
-                        print("⚠️ Error actualizando mensajes, manteniendo caché: \(error)")
-                    }
-                    self.isLoading = false
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                    print("💬 ❌ Error: \(error)")
                 }
             }
         }
@@ -284,13 +326,23 @@ struct OptimizedChatView: View {
     /// Envía mensaje con UI optimista - aparece inmediatamente
     private func sendMessage() {
         let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        
+        guard !text.isEmpty else {
+            print("💬 📤 Intento de envío cancelado - mensaje vacío")
+            return
+        }
+
+        print("💬 📤 ========================================")
+        print("💬 📤 ENVIANDO MENSAJE")
+        print("💬 📤 Conversación: \(conversationId)")
+        print("💬 📤 Texto: \(text.prefix(50))...")
+        print("💬 📤 Longitud: \(text.count) caracteres")
+
         messageText = ""
-        
+
         // Usar un ID temporal específico para poder rastrearlo
         let tempId = "temp_\(UUID().uuidString)"
-        
+        print("💬 📤 ID temporal asignado: \(tempId)")
+
         let optimisticMessage = ChatMessage(
             id: tempId,
             conversationId: conversationId,
@@ -302,98 +354,115 @@ struct OptimizedChatView: View {
             isFromCurrentUser: true,
             syncStatus: .sending // Marcar como enviando
         )
-        
+
         // Agregar inmediatamente a la UI (al final de la lista)
         messages.append(optimisticMessage)
-        print("📝 Mensaje agregado optimistamente a la UI con ID temporal: \(tempId)")
-        
+        print("💬 📤 ✅ Mensaje agregado optimistamente a la UI")
+        print("💬 📤 Total de mensajes en UI: \(messages.count)")
+
         Task {
             do {
+                print("💬 📤 🌐 Enviando al servidor...")
                 let _ = try await chatProviderManager.sendMessage(optimisticMessage, to: conversationId)
-                print("✅ Mensaje enviado exitosamente")
-                
+                print("💬 📤 ✅ Mensaje enviado exitosamente al servidor")
+                print("💬 📤 ========================================")
+
                 // Cuando llegue el mensaje real del servidor con el ID correcto,
                 // se detectará como duplicado y no se agregará de nuevo
-                
+
             } catch {
+                print("💬 📤 ❌ Error al enviar mensaje: \(error.localizedDescription)")
+
                 await MainActor.run {
                     // Marcar mensaje como fallido en UI
                     if let index = self.messages.firstIndex(where: { $0.id == tempId }) {
                         var failedMessage = optimisticMessage
                         failedMessage.syncStatus = .failed
                         self.messages[index] = failedMessage
-                        print("❌ Mensaje marcado como fallido en UI")
+                        print("💬 📤 ❌ Mensaje marcado como fallido en UI (índice: \(index))")
+                    } else {
+                        print("💬 📤 ⚠️ No se pudo encontrar el mensaje temporal en la lista")
                     }
                     self.errorMessage = error.localizedDescription
+                    print("💬 📤 ========================================")
                 }
             }
         }
     }
     
     /// Configura listener para actualizaciones desde servidor en background
+    /// ✅ MEJORADO: Con validación de conversationId para prevenir race conditions
     private func setupServerUpdateListener() {
+        let targetConversationId = conversationId
+
         serverUpdateObserver = NotificationCenter.default.addObserver(
             forName: .messagesUpdatedFromServer,
             object: nil,
             queue: .main
         ) { [self] notification in
-            guard let notificationConversationId = notification.userInfo?["conversationId"] as? String,
-                  notificationConversationId == self.conversationId,
-                  let freshMessages = notification.userInfo?["messages"] as? [ChatMessage] else { return }
-            
-            print("🔄 Actualizando mensajes desde servidor en background")
-            
-            // Solo actualizar si hay diferencias reales
-            if !messagesAreEqual(freshMessages, self.messages) {
-                self.messages = freshMessages
-                print("✅ UI actualizada con mensajes frescos del servidor")
+
+            // ✅ Verificar que el update es para esta conversación
+            guard let updateConversationId = notification.userInfo?["conversationId"] as? String,
+                  updateConversationId == targetConversationId,
+                  conversationId == targetConversationId else {
+                return
+            }
+
+            guard let freshMessages = notification.userInfo?["messages"] as? [ChatMessage] else {
+                return
+            }
+
+            if !messagesAreEqual(messages, freshMessages) {
+                messages = freshMessages
+                print("🔄 Mensajes actualizados desde servidor")
             }
         }
     }
     
     /// Configura listener para actualizaciones individuales de mensajes (estado de sync)
+    /// ✅ MEJORADO: Con doble verificación de conversationId para prevenir race conditions
     private func setupMessageUpdatesListener() {
-        guard let provider = chatProviderManager.currentProvider else { return }
-        
-        let currentConversationId = conversationId
-        
+        guard let provider = chatProviderManager.currentProvider else {
+            print("⚠️ No hay provider disponible")
+            return
+        }
+
+        // ✅ Capturar conversationId actual
+        let targetConversationId = conversationId
+
+        print("📡 Configurando listener para: \(targetConversationId)")
+
         messageUpdatesCancellable = provider.messageUpdatesPublisher
             .receive(on: DispatchQueue.main)
-            .sink { update in
-                guard update.conversationId == currentConversationId else { return }
-                
+            .sink { [self] update in
+
+                // ✅ FILTRO CRÍTICO 1: Verificar conversationId del update
+                guard update.conversationId == targetConversationId else {
+                    return
+                }
+
+                // ✅ FILTRO CRÍTICO 2: Verificar que la vista sigue en esa conversación
+                guard conversationId == targetConversationId else {
+                    print("⚠️ Vista cambió de conversación, ignorando update")
+                    return
+                }
+
+                print("📨 Update recibido para conversación actual: \(update.type)")
+
                 switch update.type {
-                case .updated:
-                    // Actualizar el mensaje en el array local
-                    if let index = self.messages.firstIndex(where: { $0.id == update.message.id }) {
-                        self.messages[index] = update.message
-                        print("✅ Mensaje actualizado: \(update.message.id) - Estado: \(update.message.syncStatus)")
-                    }
-                    
                 case .new:
-                    // Verificar si es un mensaje que acabamos de enviar (evitar duplicados)
-                    // Los mensajes optimistas tienen syncStatus .sending o .synced y son del usuario actual
-                    let isDuplicate = update.message.isFromCurrentUser && 
-                                     self.messages.contains(where: { msg in
-                                         msg.isFromCurrentUser && 
-                                         msg.text == update.message.text &&
-                                         abs(msg.timestamp.timeIntervalSince(update.message.timestamp)) < 5 // Dentro de 5 segundos
-                                     })
-                    
-                    if !isDuplicate {
-                        self.messages.append(update.message)
-                        print("➕ Nuevo mensaje agregado: \(update.message.id)")
-                        // Si estamos viendo este chat y el mensaje es de otro usuario, marcar leído
-                        if !update.message.isFromCurrentUser {
-                            markConversationAsRead()
-                        }
-                    } else {
-                        print("⚠️ Ignorando mensaje duplicado: \(update.message.text.prefix(20))...")
+                    // Usar smart merge para prevenir duplicados optimistas
+                    handleNewMessage(update.message)
+
+                case .updated:
+                    if let index = messages.firstIndex(where: { $0.id == update.message.id }) {
+                        messages[index] = update.message
+                        print("✅ Mensaje actualizado")
                     }
-                    
+
                 case .deleted:
-                    self.messages.removeAll { $0.id == update.message.id }
-                    print("🗑️ Mensaje eliminado: \(update.message.id)")
+                    messages.removeAll { $0.id == update.message.id }
+                    print("✅ Mensaje eliminado")
                 }
             }
     }
@@ -401,16 +470,42 @@ struct OptimizedChatView: View {
     /// Compara dos arrays de mensajes para detectar diferencias
     private func messagesAreEqual(_ messages1: [ChatMessage], _ messages2: [ChatMessage]) -> Bool {
         guard messages1.count == messages2.count else { return false }
-        
+
         for i in 0..<min(messages1.count, messages2.count) {
-            if messages1[i].id != messages2[i].id || 
+            if messages1[i].id != messages2[i].id ||
                messages1[i].text != messages2[i].text ||
                messages1[i].syncStatus != messages2[i].syncStatus {
                 return false
             }
         }
-        
+
         return true
+    }
+
+    /// Maneja nuevo mensaje con smart merge para eliminar duplicados optimistas
+    /// Busca mensajes optimistas con mismo fingerprint y los promociona al ID real
+    private func handleNewMessage(_ message: ChatMessage) {
+        // 1. Crear fingerprint del mensaje entrante
+        let fingerprint = MessageFingerprint(from: message)
+
+        // 2. Buscar mensaje optimista con mismo fingerprint
+        if let optimisticIndex = messages.firstIndex(where: { msg in
+            msg.id.hasPrefix("temp_") &&
+            MessageFingerprint(from: msg) == fingerprint
+        }) {
+            // 3. Reemplazar mensaje optimista con confirmado
+            var confirmed = message
+            confirmed.syncStatus = .synced
+            messages[optimisticIndex] = confirmed
+            print("✅ Mensaje optimista promovido: \(optimisticIndex) -> ID real \(message.id)")
+
+        } else if !messages.contains(where: { $0.id == message.id }) {
+            // 4. Es mensaje nuevo de otro usuario (no optimista)
+            messages.append(message)
+            print("📨 Mensaje nuevo recibido: \(message.id)")
+        } else {
+            print("⏭️ Mensaje ya existe (ID duplicado ignorado): \(message.id)")
+        }
     }
 
     /// Marca la conversación como leída en el proveedor (GetStream)

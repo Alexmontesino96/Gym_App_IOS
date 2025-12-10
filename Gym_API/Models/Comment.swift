@@ -7,15 +7,67 @@ struct Comment: Codable, Identifiable {
     let id: Int
     let postId: Int
     let userId: Int
-    var text: String
+    let gymId: Int
+    var commentText: String
     var likeCount: Int
     var isEdited: Bool
-    let isDeleted: Bool
     let createdAt: Date
     let updatedAt: Date?
     let editedAt: Date?
-    var user: UserPreview
+    var userInfo: UserPreview?
     var hasLiked: Bool
+
+    // NOTA: No se define CodingKeys para que el decoder use .convertFromSnakeCase automáticamente
+    // post_id -> postId, user_id -> userId, comment_text -> commentText, etc.
+
+    /// Computed property para acceder al usuario (compatibilidad)
+    var user: UserPreview {
+        // Si no hay userInfo, crear un placeholder
+        userInfo ?? UserPreview(
+            id: userId,
+            fullName: "Usuario desconocido",
+            profilePictureUrl: nil,
+            role: "member"
+        )
+    }
+
+    /// Alias para compatibilidad con el código existente
+    var text: String {
+        get { commentText }
+        set { commentText = newValue }
+    }
+
+    // MARK: - Inicializadores
+
+    /// Inicializador custom para compatibilidad con código existente que usa 'text'
+    init(
+        id: Int,
+        postId: Int,
+        userId: Int,
+        text: String,
+        likeCount: Int,
+        isEdited: Bool,
+        isDeleted: Bool = false, // Parámetro legacy, ignorado
+        createdAt: Date,
+        updatedAt: Date?,
+        editedAt: Date?,
+        user: UserPreview,
+        hasLiked: Bool,
+        gymId: Int = 0
+    ) {
+        self.id = id
+        self.postId = postId
+        self.userId = userId
+        self.gymId = gymId
+        self.commentText = text
+        self.likeCount = likeCount
+        self.isEdited = isEdited
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.editedAt = editedAt
+        self.userInfo = user
+        self.hasLiked = hasLiked
+    }
 
     /// Indica si el comentario pertenece al usuario actual
     var isOwnComment: Bool {

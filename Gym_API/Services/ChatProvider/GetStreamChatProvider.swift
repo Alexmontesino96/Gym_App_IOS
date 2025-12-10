@@ -25,6 +25,7 @@ class GetStreamChatProvider: ChatProvider {
     private var cancellables = Set<AnyCancellable>()
     private var authService: AuthServiceProtocol?
     private var lastChannelSync: [String: Date] = [:]
+    private var currentCredentials: ChatCredentials?  // ✅ Almacenar credenciales actuales
     
     // Public accessor for current user ID
     var currentUserId: String? {
@@ -50,20 +51,38 @@ class GetStreamChatProvider: ChatProvider {
         print("   - User ID: \(credentials.userId)")
         print("   - Token: \(String(credentials.token.prefix(20)))...")
         print("   - User Name: \(credentials.userInfo?.name ?? "N/A")")
-        
+
+        // ✅ Guardar credenciales actuales
+        self.currentCredentials = credentials
+
         _connectionState = .connecting
-        
+
         // Configurar cliente
         let config = ChatClientConfig(apiKey: APIKey(credentials.apiKey))
         print("🔧 Configurando ChatClient con API Key: \(credentials.apiKey)")
         chatClient = ChatClient(config: config)
         
-        // Crear token provider
-        let tokenProvider: TokenProvider = { completion in
+        // Crear token provider que usa credenciales actuales almacenadas
+        let tokenProvider: TokenProvider = { [weak self] completion in
             print("🎫 Token provider llamado")
+
+            guard let self = self else {
+                print("❌ Self es nil en tokenProvider")
+                completion(.failure(NSError(domain: "GetStreamChatProvider", code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Provider desasignado"])))
+                return
+            }
+
+            guard let credentials = self.currentCredentials else {
+                print("❌ No hay credenciales almacenadas")
+                completion(.failure(NSError(domain: "GetStreamChatProvider", code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "No hay credenciales"])))
+                return
+            }
+
             print("🎫 Token recibido: \(credentials.token)")
             print("🎫 UserId esperado: \(credentials.userId)")
-            
+
             do {
                 let token = try Token(rawValue: credentials.token)
                 print("✅ Token creado exitosamente")
@@ -72,37 +91,6 @@ class GetStreamChatProvider: ChatProvider {
             } catch {
                 print("❌ Error creando token: \(error)")
                 print("❌ Error localizedDescription: \(error.localizedDescription)")
-                
-                // Intentar decodificar el token manualmente para ver qué contiene
-                let parts = credentials.token.split(separator: ".")
-                if parts.count == 3 {
-                    print("🔍 Token tiene 3 partes correctas")
-                    
-                    // Decodificar payload
-                    let payloadPart = String(parts[1])
-                    var base64 = payloadPart
-                        .replacingOccurrences(of: "-", with: "+")
-                        .replacingOccurrences(of: "_", with: "/")
-                    
-                    // Agregar padding
-                    let remainder = base64.count % 4
-                    if remainder > 0 {
-                        base64 += String(repeating: "=", count: 4 - remainder)
-                    }
-                    
-                    if let data = Data(base64Encoded: base64),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        print("🔍 Payload del token:")
-                        for (key, value) in json {
-                            print("   \(key): \(value)")
-                        }
-                    } else {
-                        print("❌ No se pudo decodificar el payload del token")
-                    }
-                } else {
-                    print("❌ Token no tiene el formato correcto (3 partes)")
-                }
-                
                 completion(.failure(error))
             }
         }
@@ -149,23 +137,32 @@ class GetStreamChatProvider: ChatProvider {
         }
     }
     
+    /// Actualiza las credenciales almacenadas (para refresh de token)
+    func updateCredentials(_ newCredentials: ChatCredentials) {
+        print("🔄 Actualizando credenciales almacenadas...")
+        print("   - Nuevo token: \(String(newCredentials.token.prefix(20)))...")
+        self.currentCredentials = newCredentials
+        print("✅ Credenciales actualizadas")
+    }
+
     func disconnect() async {
         print("🔌 Desconectando de GetStream...")
-        
+
         _connectionState = .disconnected
-        
+
         // Limpiar controladores
         channelControllers.removeAll()
         cancellables.removeAll()
-        
+
         // Desconectar cliente
         if let client = chatClient {
             await client.disconnect()
         }
-        
+
         chatClient = nil
         currentUser = nil
-        
+        currentCredentials = nil  // ✅ Limpiar credenciales al desconectar
+
         print("✅ Desconectado de GetStream")
     }
     
@@ -338,13 +335,21 @@ class GetStreamChatProvider: ChatProvider {
         guard let channelController = getOrCreateChannelController(for: conversationId) else {
             throw ChatProviderError.conversationNotFound
         }
-        
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             channelController.markRead { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
                     continuation.resume()
+
+                    // Notificar a UnreadCountService que el canal fue marcado como leído
+                    NotificationCenter.default.post(
+                        name: .chatRoomUpdated,
+                        object: nil,
+                        userInfo: ["channelId": conversationId]
+                    )
+                    print("📬 Notificación enviada: canal marcado como leído \(conversationId)")
                 }
             }
         }
@@ -912,17 +917,27 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
                     let chatMessage = convertStreamMessage(message, conversationId: channelController.cid?.id ?? "")
                     let update = MessageUpdate(type: .new, message: chatMessage, conversationId: chatMessage.conversationId)
                     _messageUpdates.send(update)
-                    
+
+                    // Notificar a UnreadCountService sobre el nuevo mensaje
+                    if !message.isSentByCurrentUser {
+                        NotificationCenter.default.post(
+                            name: .newMessageReceived,
+                            object: nil,
+                            userInfo: ["channelId": chatMessage.conversationId]
+                        )
+                        print("📬 Notificación enviada: nuevo mensaje en canal \(chatMessage.conversationId)")
+                    }
+
                 case .update(let message, _):
                     let chatMessage = convertStreamMessage(message, conversationId: channelController.cid?.id ?? "")
                     let update = MessageUpdate(type: .updated, message: chatMessage, conversationId: chatMessage.conversationId)
                     _messageUpdates.send(update)
-                    
+
                 case .remove(let message, _):
                     let chatMessage = convertStreamMessage(message, conversationId: channelController.cid?.id ?? "")
                     let update = MessageUpdate(type: .deleted, message: chatMessage, conversationId: chatMessage.conversationId)
                     _messageUpdates.send(update)
-                    
+
                 case .move:
                     // No necesario manejar por ahora
                     break
@@ -958,6 +973,14 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
             let conversation = await convertStreamChannel(channel.item)
             let update = ConversationUpdate(type: .updated, conversation: conversation)
             _conversationUpdates.send(update)
+
+            // Notificar a UnreadCountService sobre la actualización del canal
+            NotificationCenter.default.post(
+                name: .chatRoomUpdated,
+                object: nil,
+                userInfo: ["channelId": conversation.id]
+            )
+            print("📬 Notificación enviada: canal actualizado \(conversation.id)")
         }
     }
     

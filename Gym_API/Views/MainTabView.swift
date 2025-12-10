@@ -8,6 +8,7 @@ struct MainTabView: View {
     @State private var pendingTheme: ThemeManager.AppTheme?
     @State private var showWelcomeAnimation = false
     @StateObject private var userStatsService = UserStatsService.shared
+    @StateObject private var unreadCountService = UnreadCountService.shared
     
     var body: some View {
         ZStack {
@@ -50,6 +51,7 @@ struct MainTabView: View {
                 Image(systemName: selectedTab == 3 ? "message.fill" : "message")
                 Text("Social")
             }
+            .badge(unreadCountService.totalUnreadCount > 0 ? unreadCountService.totalUnreadCount : 0)
             .tag(3)
 
             // Profile Tab

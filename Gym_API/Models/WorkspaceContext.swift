@@ -52,6 +52,23 @@ struct WorkspaceInfo: Codable {
         case maxClients = "max_clients"
         case specialties
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        type = try container.decode(String.self, forKey: .type)
+        // isPersonalTrainer es opcional - default false si no viene
+        isPersonalTrainer = try container.decodeIfPresent(Bool.self, forKey: .isPersonalTrainer) ?? false
+        displayName = try container.decode(String.self, forKey: .displayName)
+        entityLabel = try container.decode(String.self, forKey: .entityLabel)
+        timezone = try container.decode(String.self, forKey: .timezone)
+        email = try container.decode(String.self, forKey: .email)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        address = try container.decodeIfPresent(String.self, forKey: .address)
+        maxClients = try container.decodeIfPresent(Int.self, forKey: .maxClients)
+        specialties = try container.decodeIfPresent([String].self, forKey: .specialties)
+    }
 }
 
 // MARK: - Workspace Features

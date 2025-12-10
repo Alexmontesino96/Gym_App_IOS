@@ -4,10 +4,17 @@ struct ClassesView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var classService: ClassService
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var attendanceService: AttendanceService
     @StateObject private var gymService = GymService.shared
+    @StateObject private var profileService = UserProfileService.shared
     @State private var selectedDate = Date()
     @State private var isRefreshing = false
     @State private var showingCreateSession = false
+    @State private var showingQRScanner = false
+    @State private var showingClassSelection = false
+    @State private var selectedSessionForScanner: SessionWithClass?
+    @State private var showError = false
+    @State private var errorMessage = ""
     
     // Filtered classes based on selected date
     private var filteredClasses: [GymClass] {
@@ -44,6 +51,15 @@ struct ClassesView: View {
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         Spacer()
+
+                        // QR Scanner button (solo para ADMIN/TRAINER/OWNER)
+                        if RolePermissions.canScanQRCheckIn(gymService.currentGym?.userRoleInGym) {
+                            Button(action: handleScannerButtonTap) {
+                                Image(systemName: "qrcode.viewfinder")
+                                    .font(.system(size: 24, weight: .semibold))
+                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -112,7 +128,7 @@ struct ClassesView: View {
                             .padding(.vertical, 20)
                         }
                         
-                        // Floating Action Button (always visible for admins and owners)
+                        // Floating Action Button (solo para crear sesión)
                         if RolePermissions.canCreateSessions(gymService.currentGym?.userRoleInGym) {
                             FABContainer(position: .bottomTrailing) {
                                 FloatingActionButton(
@@ -158,6 +174,56 @@ struct ClassesView: View {
                 .environmentObject(authService)
                 .environmentObject(classService)
         }
+        .fullScreenCover(isPresented: $showingQRScanner) {
+            QRScannerView(preSelectedSession: selectedSessionForScanner)
+                .environmentObject(attendanceService)
+                .environmentObject(classService)
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+                .onDisappear {
+                    selectedSessionForScanner = nil
+                }
+        }
+        .sheet(isPresented: $showingClassSelection) {
+            ClassSelectionSheet(
+                sessions: attendanceService.availableSessions,
+                onSessionSelected: { session in
+                    selectedSessionForScanner = session
+                    showingClassSelection = false
+                    showingQRScanner = true
+                },
+                onCancel: {
+                    showingClassSelection = false
+                }
+            )
+            .environmentObject(themeManager)
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    // MARK: - Scanner Button Handler
+
+    private func handleScannerButtonTap() {
+        Task {
+            await attendanceService.getAvailableSessionsForCheckIn()
+
+            let sessionCount = attendanceService.availableSessions.count
+
+            if sessionCount == 0 {
+                errorMessage = "No hay clases disponibles para check-in en este momento"
+                showError = true
+            } else if sessionCount >= 3 {
+                // 3+ clases: Mostrar selector PRIMERO
+                showingClassSelection = true
+            } else {
+                // 1-2 clases: Abrir scanner directamente
+                showingQRScanner = true
+            }
+        }
     }
     
     // MARK: - Refresh Function
@@ -200,5 +266,6 @@ struct ClassesView: View {
     ClassesView()
         .environmentObject(AuthServiceDirect())
         .environmentObject(ClassService())
+        .environmentObject(ServiceContainer.shared.attendanceService)
         .environmentObject(ThemeManager())
 }

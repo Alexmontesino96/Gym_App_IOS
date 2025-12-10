@@ -514,7 +514,7 @@ final class UnifiedChatService: ObservableObject {
 
     /// Fetch Stream token from API
     private func fetchStreamToken(token: String) async throws -> StreamTokenResponse {
-        let urlString = "\(baseURL)/chat/stream-token"
+        let urlString = "\(baseURL)/chat/token"
         guard let url = URL(string: urlString) else {
             throw ChatServiceError.invalidURL
         }

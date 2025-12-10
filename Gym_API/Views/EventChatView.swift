@@ -11,6 +11,7 @@ struct EventChatView: View {
             conversationId: "event_\(eventId)",
             conversationName: eventTitle
         )
+        .id("event_\(eventId)") // ✅ CRÍTICO: Fuerza recrear la vista cuando cambia eventId
         .environmentObject(themeManager)
     }
 }

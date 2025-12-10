@@ -18,6 +18,10 @@ class ImageLoaderService: ObservableObject {
     private static var activeLoaders: [String: ImageLoaderService] = [:]
     private static let loaderQueue = DispatchQueue(label: "image-loader.pool")
 
+    // Control de frecuencia para cleanOldCache
+    private static var lastCleanupDate: Date?
+    private static let cleanupInterval: TimeInterval = 60 * 60 // 1 hora
+
     // Configuración de caché mejorada
     static let shared = ImageLoaderService()
 
@@ -26,8 +30,12 @@ class ImageLoaderService: ObservableObject {
         Self.memoryCache.countLimit = 100 // máximo 100 imágenes
         Self.memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB máximo
 
-        // Limpiar caché antiguo al iniciar (versiones anteriores)
-        Self.cleanOldCache()
+        // Limpiar caché antiguo solo si ha pasado suficiente tiempo
+        if Self.lastCleanupDate == nil ||
+           Date().timeIntervalSince(Self.lastCleanupDate!) > Self.cleanupInterval {
+            Self.cleanOldCache()
+            Self.lastCleanupDate = Date()
+        }
     }
 
     // Obtener o crear loader para un cacheKey específico
@@ -69,10 +77,7 @@ class ImageLoaderService: ObservableObject {
         if let cached = Self.memoryCache.object(forKey: versionedKey as NSString) {
             debugLog("🧠 [ImageLoader] Memory cache hit for key: \(cacheKey)")
             self.image = cached
-            // Programar remoción del pool (ya tenemos la imagen)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                Self.removeLoader(forKey: cacheKey)
-            }
+            // Mantener loader en pool - NO remover prematuramente
             return
         }
 
@@ -83,10 +88,7 @@ class ImageLoaderService: ObservableObject {
             let cost = diskImage.size.width * diskImage.size.height * 4
             Self.memoryCache.setObject(diskImage, forKey: versionedKey as NSString, cost: Int(cost))
             self.image = diskImage
-            // Programar remoción del pool (ya tenemos la imagen)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                Self.removeLoader(forKey: cacheKey)
-            }
+            // Mantener loader en pool - NO remover prematuramente
             return
         }
 
@@ -113,14 +115,12 @@ class ImageLoaderService: ObservableObject {
                     self?.isLoading = false
                     switch completion {
                     case .finished:
-                        // Remover del pool después de completar (con delay para permitir que se muestre la imagen)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            Self.removeLoader(forKey: originalCacheKey)
-                        }
+                        // ARREGLADO: NO remover del pool - mantener loaders para reutilización
+                        debugLog("✅ [ImageLoader] Completed successfully, keeping loader in pool for: \(originalCacheKey)")
                     case .failure(let error):
                         print("❌ [ImageLoader] Network error: \(error.localizedDescription)")
                         self?.error = error
-                        // Remover del pool también en caso de error
+                        // Solo remover del pool en caso de error para liberar memoria
                         Self.removeLoader(forKey: originalCacheKey)
                     }
                 },
@@ -271,12 +271,31 @@ class ImageLoaderService: ObservableObject {
                 for file in files {
                     // Eliminar archivos más antiguos de 7 días o que no contengan la versión actual
                     let filename = file.lastPathComponent
-                    if !filename.hasPrefix(cacheVersion + "_") {
+
+                    // ARREGLADO: Decodificar el filename base64 antes de verificar la versión
+                    let filenameWithoutExt = filename.replacingOccurrences(of: ".img", with: "")
+                    var shouldDelete = false
+
+                    if let data = Data(base64Encoded: filenameWithoutExt),
+                       let decodedKey = String(data: data, encoding: .utf8) {
+                        // Verificar si la clave decodificada tiene la versión correcta
+                        if !decodedKey.hasPrefix(cacheVersion + "_") {
+                            shouldDelete = true
+                            debugLog("🗑️ [ImageLoader] Removing old version cache file: \(filename) (decoded: \(decodedKey))")
+                        }
+                    } else {
+                        // Archivo corrupto o formato antiguo - eliminar
+                        shouldDelete = true
+                        debugLog("🗑️ [ImageLoader] Removing corrupted cache file: \(filename)")
+                    }
+
+                    // Eliminar si es versión antigua o corrupto
+                    if shouldDelete {
                         try? fm.removeItem(at: file)
-                        debugLog("🗑️ [ImageLoader] Removed old cache file: \(filename)")
                     } else if let attrs = try? fm.attributesOfItem(atPath: file.path),
                               let creationDate = attrs[.creationDate] as? Date,
                               now.timeIntervalSince(creationDate) > 7 * 24 * 60 * 60 {
+                        // Eliminar archivos más antiguos de 7 días
                         try? fm.removeItem(at: file)
                         debugLog("🗑️ [ImageLoader] Removed expired cache file: \(filename)")
                     }

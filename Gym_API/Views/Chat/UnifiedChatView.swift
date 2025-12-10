@@ -14,6 +14,7 @@ struct UnifiedChatView: View {
             conversationId: conversationId,
             conversationName: conversationName
         )
+        .id(conversationId) // ✅ CRÍTICO: Fuerza recrear la vista cuando cambia conversationId
         .environmentObject(themeManager)
     }
 }

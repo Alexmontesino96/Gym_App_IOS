@@ -27,31 +27,39 @@ struct AuthenticatedView: View {
         
         return Group {
             if let error = initializationError {
-                // Mostrar error de inicialización
+                // Mostrar error de conexión
                 VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(.red)
-                    
-                    Text("Error de Inicialización")
-                        .font(.title2)
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 60))
+                        .foregroundColor(.red.opacity(0.6))
+
+                    Text("Error de Conexión")
+                        .font(.title)
                         .fontWeight(.bold)
-                    
+
                     Text(error)
                         .font(.body)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    
-                    Button("Reintentar") {
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 40)
+
+                    Button(action: {
+                        // Reintentar carga de perfil
                         initializationError = nil
-                        setupServices()
+                        profileCheckCompleted = false
+                        checkUserProfile()
+                    }) {
+                        Text("Reintentar")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(width: 200, height: 50)
+                            .background(Color.blue)
+                            .cornerRadius(10)
                     }
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
                 }
-                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+                .transition(.opacity)
             } else if authService.isAuthenticated {
                 let _ = print("🔍 Usuario autenticado, verificando profile completion...")
                 
@@ -247,14 +255,25 @@ struct AuthenticatedView: View {
             print("🔧 Usuario no autenticado, saltando verificación de perfil")
             return
         }
-        
+
         print("🔧 Verificando completitud del perfil...")
         Task {
             // Cargar el perfil del usuario (evitar recargas innecesarias)
             await profileService.fetchUserProfileIfStale()
-            
+
             await MainActor.run {
-                // Log detallado del perfil recibido
+                // Verificar si hubo error de red al cargar
+                if profileService.lastLoadAttemptFailed {
+                    print("⚠️ [AuthenticatedView] Error al cargar perfil - mostrando error de conexión")
+
+                    // No forzar ProfileCompletion, mostrar error de conexión
+                    initializationError = "No se pudo cargar tu perfil. Verifica tu conexión a internet e intenta de nuevo."
+                    showingProfileCompletion = false
+                    profileCheckCompleted = true
+                    return
+                }
+
+                // Si se cargó correctamente, verificar si está completo
                 if let profile = profileService.userProfile {
                     print("🔧 [AuthenticatedView] Perfil cargado desde servidor:")
                     print("🔧 [AuthenticatedView] - ID: \(profile.id)")
@@ -268,16 +287,19 @@ struct AuthenticatedView: View {
                     print("🔧 [AuthenticatedView] - Auth0ID: \(profile.auth0Id)")
                     print("🔧 [AuthenticatedView] - CreatedAt: \(profile.createdAt)")
                     print("🔧 [AuthenticatedView] - UpdatedAt: \(profile.updatedAt)")
+
+                    let isComplete = profileService.isProfileComplete()
+                    print("🔧 Profile complete: \(isComplete)")
+
+                    showingProfileCompletion = !isComplete
+                    profileCheckCompleted = true
                 } else {
-                    print("🔧 [AuthenticatedView] ❌ No se pudo cargar el perfil del usuario")
+                    // userProfile es nil y NO fue error de red = perfil realmente incompleto
+                    print("🔧 [AuthenticatedView] ❌ userProfile es nil - perfil incompleto")
+                    showingProfileCompletion = true
+                    profileCheckCompleted = true
                 }
-                
-                let isComplete = profileService.isProfileComplete()
-                print("🔧 Profile complete: \(isComplete)")
-                
-                showingProfileCompletion = !isComplete
-                profileCheckCompleted = true
-                
+
                 print("🔧 showingProfileCompletion: \(showingProfileCompletion)")
                 print("🔧 profileCheckCompleted: \(profileCheckCompleted)")
             }

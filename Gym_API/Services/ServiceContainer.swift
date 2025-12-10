@@ -29,6 +29,8 @@ class ServiceContainer: ObservableObject {
     let storyService: StoryService
     let activityService: ActivityService
     let postService: PostService
+    let attendanceService: AttendanceService
+    let unreadCountService = UnreadCountService.shared // Singleton for unread message tracking
 
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -36,6 +38,7 @@ class ServiceContainer: ObservableObject {
     
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
+    private var isChatInitialized = false  // ✅ Evitar inicializaciones duplicadas
     
     // MARK: - Initialization
     private init() {
@@ -60,6 +63,7 @@ class ServiceContainer: ObservableObject {
             self.storyService = StoryService()
             self.activityService = ActivityService()
             self.postService = PostService()
+            self.attendanceService = AttendanceService(classService: self.classService)
 
             // Configure dependencies automatically
             setupDependencies()
@@ -69,10 +73,25 @@ class ServiceContainer: ObservableObject {
             
             print("✅ ServiceContainer inicializado con todas las dependencias configuradas")
         } catch {
-            print("❌ Error crítico al inicializar ServiceContainer: \(error)")
+            print("❌ Error al inicializar ServiceContainer: \(error)")
             self.initializationError = "Error al inicializar servicios: \(error.localizedDescription)"
-            // Inicializar servicios mínimos para evitar crash
-            fatalError("No se pudo inicializar ServiceContainer: \(error)")
+
+            // En lugar de crashear, inicializar servicios mínimos para continuar
+            #if DEBUG
+            print("❌ DEBUG: ServiceContainer tuvo errores al inicializar: \(error)")
+            print("❌ DEBUG: La app continuará con funcionalidad limitada")
+            #else
+            // En producción, log silencioso y continuar con servicios mínimos
+            print("⚠️ ServiceContainer: Algunos servicios no pudieron inicializarse correctamente")
+            #endif
+
+            // Inicializar servicios críticos con valores por defecto si fallan
+            self.authService = self.authService ?? AuthServiceDirect()
+            self.themeManager = self.themeManager ?? ThemeManager()
+            self.oneSignalService = self.oneSignalService ?? OneSignalService.shared
+
+            // Marcar como inicializado con errores
+            self.isInitialized = true
         }
     }
     
@@ -94,14 +113,158 @@ class ServiceContainer: ObservableObject {
         surveyService.gymService = gymService
         workspaceContextService.authService = authService
         storyService.authService = authService
+        activityService.authService = authService
+        attendanceService.authService = authService
 
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
+
+        // Configure UnreadCountService (uses ChatProviderManager.shared internally)
+        unreadCountService.configure()
+
+        // ✅ NUEVO: Configurar ChatProviderManager para inicialización automática
+        configureChatProvider()
 
         // Mark as initialized
         isInitialized = true
 
         // Configure HTTP client auth dependency
         HTTPClient.shared.authService = authService
+    }
+
+    // MARK: - Chat Provider Configuration
+
+    /// Configura ChatProviderManager para inicialización automática
+    private func configureChatProvider() {
+        print("💬 Configurando ChatProviderManager...")
+
+        // Observar cambios de autenticación para conectar/desconectar
+        authService.$isAuthenticated
+            .dropFirst() // Ignorar valor inicial
+            .sink { [weak self] isAuthenticated in
+                guard let self = self else { return }
+
+                if isAuthenticated {
+                    Task {
+                        await self.initializeChatProvider()
+                    }
+                } else {
+                    Task {
+                        await self.disconnectChatProvider()
+                    }
+                }
+            }
+            .store(in: &cancellables)
+
+        print("✅ ChatProviderManager configurado para inicialización automática")
+    }
+
+    /// Inicializa el ChatProvider con el usuario autenticado
+    private func initializeChatProvider() async {
+        // ✅ Evitar inicializaciones duplicadas
+        guard !isChatInitialized else {
+            print("⚠️ ChatProvider ya está inicializado, omitiendo...")
+            return
+        }
+
+        guard let user = authService.user else {
+            print("⚠️ No se puede inicializar chat: usuario no autenticado")
+            return
+        }
+
+        // ✅ NUEVO: Verificar que existe un gymId antes de inicializar
+        guard gymService.currentGymId != nil else {
+            print("⚠️ No se puede inicializar chat: gym no seleccionado aún")
+            print("💡 El chat se inicializará automáticamente cuando se seleccione un gym")
+            return
+        }
+
+        print("🔄 Inicializando ChatProvider automáticamente...")
+        print("   - User ID: \(user.id)")
+        print("   - User Name: \(user.name)")
+        print("   - Gym ID: \(gymService.currentGymId ?? -1)")
+
+        // Inicializar provider con authService
+        await ChatProviderManager.shared.initializeProvider(authService: authService)
+
+        // ✅ NUEVO: Obtener token de Stream y conectar
+        print("🔑 Obteniendo token de GetStream...")
+
+        do {
+            // Obtener token de acceso
+            guard let accessToken = await authService.getValidAccessToken() else {
+                print("❌ No se pudo obtener access token")
+                return
+            }
+
+            // Obtener token de Stream desde la API
+            let streamTokenResponse = try await fetchStreamToken(accessToken: accessToken)
+            print("✅ Token de Stream obtenido")
+            print("   - API Key: \(streamTokenResponse.apiKey)")
+            print("   - Internal User ID: \(streamTokenResponse.internalUserId)")
+
+            // Crear credenciales para conectar
+            let credentials = ChatCredentials(
+                token: streamTokenResponse.token,
+                apiKey: streamTokenResponse.apiKey,
+                userId: "user_\(streamTokenResponse.internalUserId)",
+                userInfo: ChatUser(
+                    id: "user_\(streamTokenResponse.internalUserId)",
+                    name: user.name,
+                    avatarURL: user.picture,
+                    metadata: [
+                        "email": user.email,
+                        "internalId": streamTokenResponse.internalUserId
+                    ]
+                )
+            )
+
+            // Conectar al chat
+            print("🔌 Conectando a GetStream...")
+            try await ChatProviderManager.shared.connect(credentials: credentials)
+            print("✅ ChatProvider conectado exitosamente")
+
+            // ✅ Marcar como inicializado
+            isChatInitialized = true
+
+        } catch {
+            print("❌ Error inicializando ChatProvider: \(error)")
+            print("❌ Error localizedDescription: \(error.localizedDescription)")
+            // No marcar como inicializado si falla
+        }
+    }
+
+    /// Obtiene el token de Stream desde la API
+    private func fetchStreamToken(accessToken: String) async throws -> StreamTokenResponse {
+        let urlString = "https://gymapi-eh6m.onrender.com/api/v1/chat/token"
+        guard let url = URL(string: urlString) else {
+            throw NSError(domain: "ServiceContainer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        }
+
+        guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET") else {
+            throw NSError(domain: "ServiceContainer", code: -1, userInfo: [NSLocalizedDescriptionKey: "No se pudo crear request"])
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "ServiceContainer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw NSError(domain: "ServiceContainer", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode)"])
+        }
+
+        let decoder = JSONDecoder()
+        // ✅ No usar keyDecodingStrategy porque StreamTokenResponse ya tiene CodingKeys definidos
+        return try decoder.decode(StreamTokenResponse.self, from: data)
+    }
+
+    /// Desconecta el ChatProvider al hacer logout
+    private func disconnectChatProvider() async {
+        print("🔌 Desconectando ChatProvider...")
+        await ChatProviderManager.shared.reset()
+        isChatInitialized = false  // ✅ Resetear bandera para permitir reinicialización
+        print("✅ ChatProvider desconectado")
     }
     
     // MARK: - Observer Setup
@@ -171,22 +334,48 @@ class ServiceContainer: ObservableObject {
         oneSignalService.sendTag(key: "user_email", value: user.email)
     }
 
-    /// Maneja cambios en la selección de gym - precarga stories
+    /// Maneja cambios en la selección de gym - precarga datos del nuevo gym
     private func handleGymSelectionChange(_ gymId: Int?) {
         guard let gymId = gymId else {
-            print("🏋️ ServiceContainer: Gym deseleccionado, limpiando stories")
+            print("🏋️ ServiceContainer: Gym deseleccionado, limpiando datos")
             storyService.feedStories = []
             storyService.myStories = []
+            classService.clearCache()
+            eventService.clearEventsOnLogout()
             return
         }
 
         print("🏋️ ServiceContainer detectó selección de gym: \(gymId)")
-        print("📸 Iniciando precarga automática de stories...")
+        print("📸 Limpiando datos del gym anterior y precargando del nuevo...")
 
+        // Limpiar datos del gym anterior
+        classService.clearCache()
+        eventService.clearEventsOnLogout()
+        storyService.clearCache()
+
+        // ✅ NUEVO: Inicializar ChatProvider cuando se selecciona gym
+        // (solo si el usuario está autenticado)
+        if authService.isAuthenticated {
+            Task {
+                await initializeChatProvider()
+            }
+        }
+
+        // Precargar datos del nuevo gym
         Task {
-            await storyService.fetchStoriesFeed()
+            async let storiesTask = storyService.fetchStoriesFeed()
+            async let eventsTask = eventService.fetchEvents()
+            async let sessionsTask = classService.loadSessionsForDateIfNeeded(date: Date())
+
+            await storiesTask
+            await eventsTask
+            await sessionsTask
+
             await MainActor.run {
-                print("✅ Stories precargadas: \(storyService.feedStories.count) usuarios con historias")
+                print("✅ Datos del gym \(gymId) precargados:")
+                print("   - Stories: \(storyService.feedStories.count) usuarios")
+                print("   - Eventos: \(eventService.events.count)")
+                print("   - Sesiones: \(classService.sessions.count)")
             }
         }
     }
@@ -229,6 +418,21 @@ class ServiceContainer: ObservableObject {
         storyService.clearCache()
         storyService.feedStories = []
         storyService.myStories = []
+
+        // Clear events data and cache
+        eventService.clearEventsOnLogout()
+
+        // Clear classes/sessions data
+        classService.clearCache()
+
+        // Clear activity feed data
+        activityService.activities = []
+        activityService.currentRankings = []
+        activityService.insights = []
+        activityService.realtimeStats = nil
+
+        // Clear unread message counts
+        unreadCountService.clearAll()
 
         print("✅ Datos de usuario limpiados")
     }
@@ -301,6 +505,7 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.workspaceContextService)
             .environmentObject(serviceContainer.activityService)
             .environmentObject(serviceContainer.postService)
+            .environmentObject(serviceContainer.attendanceService)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

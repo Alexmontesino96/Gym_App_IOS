@@ -9,6 +9,7 @@ struct HomeView: View {
     @StateObject private var profileService = UserProfileService.shared
     @ObservedObject private var userStatsService = UserStatsService.shared
     @EnvironmentObject var surveyService: SurveyService
+    @EnvironmentObject var activityService: ActivityService  // Activity feed service
     @StateObject private var paymentService = EventPaymentService.shared  // Add payment service
     @StateObject private var storyService = StoryService()  // Story service for Instagram-style stories
     @StateObject private var postService = PostService()  // Post service for social feed
@@ -127,6 +128,16 @@ struct HomeView: View {
                                 .environmentObject(themeManager)
                                 .environmentObject(profileService)
 
+                            // 2.5. Live Pulse Banner (personas entrenando ahora)
+                            LivePulseBanner()
+                                .environmentObject(activityService)
+                                .environmentObject(themeManager)
+
+                            // 2.6. Gym Activity Stream (actividad del gym en tiempo real)
+                            GymActivityStream()
+                                .environmentObject(activityService)
+                                .environmentObject(themeManager)
+
                             // 3. Hero Class Card (CTA principal con gradiente vibrante)
                             if let nextClass = nextUserClass {
                                 HeroClassCard(
@@ -143,10 +154,11 @@ struct HomeView: View {
                                 .environmentObject(themeManager)
                             }
 
+                            // ELIMINADO - Duplicación 100% con WeeklyCheckInCard
                             // 4. Weekly Progress Circles (metas semanales)
-                            WeeklyProgressCircles()
-                                .environmentObject(userStatsService)
-                                .environmentObject(themeManager)
+                            // WeeklyProgressCircles()
+                            //     .environmentObject(userStatsService)
+                            //     .environmentObject(themeManager)
 
                             // 5. Stats Summary (colapsado por defecto)
                             WeeklyCheckInCard()
@@ -159,27 +171,29 @@ struct HomeView: View {
                                 .environmentObject(eventService)
                                 .environmentObject(themeManager)
 
-                            // 7. Social Activity Feed (actividad del gym)
-                            SocialActivityFeed()
-                                .environmentObject(postService)
+                            // 6.5. Rankings Carousel (top del día con fotos)
+                            RankingsCarousel()
+                                .environmentObject(activityService)
                                 .environmentObject(themeManager)
 
-                            // 8. Smart Actions con efectos 3D
-                            SmartActionsSection(
-                                themeManager: themeManager,
-                                authService: authService,
-                                eventService: eventService,
-                                classService: classService,
-                                profileService: profileService,
-                                userStatsService: userStatsService,
-                                membershipService: MembershipService.shared,
-                                locationService: LocationService.shared
-                            )
+                            // ELIMINADO - Accesos rápidos removidos por solicitud del usuario
+                            // 7. Smart Actions con efectos 3D
+                            // SmartActionsSection(
+                            //     themeManager: themeManager,
+                            //     authService: authService,
+                            //     eventService: eventService,
+                            //     classService: classService,
+                            //     profileService: profileService,
+                            //     userStatsService: userStatsService,
+                            //     membershipService: MembershipService.shared,
+                            //     locationService: LocationService.shared
+                            // )
 
+                            // ELIMINADO - Duplicación con YourWeekSection + HeroClassCard
                             // 9. Live Activity Card (eventos en vivo)
-                            LiveActivityCard()
-                                .environmentObject(eventService)
-                                .environmentObject(themeManager)
+                            // LiveActivityCard()
+                            //     .environmentObject(eventService)
+                            //     .environmentObject(themeManager)
 
                             // 10. Survey Card (mantener si hay encuestas disponibles)
                             SurveyHomeCard()
@@ -191,12 +205,13 @@ struct HomeView: View {
                                 .environmentObject(userStatsServiceLocal)
                                 .environmentObject(themeManager)
 
+                            // MOVIDO A PERFIL - Información retrospectiva
                             // 12. Recent Activity (actividad reciente)
-                            HomeRecentActivitySection(
-                                themeManager: themeManager,
-                                classService: classService,
-                                eventService: eventService
-                            )
+                            // HomeRecentActivitySection(
+                            //     themeManager: themeManager,
+                            //     classService: classService,
+                            //     eventService: eventService
+                            // )
 
                             Spacer(minLength: 100)
                         }
@@ -213,6 +228,7 @@ struct HomeView: View {
                 await userStatsService.fetchComprehensiveStats()
                 await surveyService.getAvailableSurveys()
                 await classService.forceRefreshSessions(date: Date())
+                await activityService.fetchAllData()
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -342,6 +358,13 @@ struct HomeView: View {
                         let storiesCount = await MainActor.run { storyService.feedStories.count }
                         debugLog("🏠 [Parallel] fetchStoriesFeed completado - Count: \(storiesCount)")
                     }
+
+                    // Grupo 9: Activity Feed (realtime, rankings, insights)
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando fetchAllData de ActivityService...")
+                        await activityService.fetchAllData()
+                        debugLog("🏠 [Parallel] ActivityService fetchAllData completado")
+                    }
                 }
 
                 debugLog("🏠 Todas las cargas paralelas completadas")
@@ -353,6 +376,10 @@ struct HomeView: View {
                     }
                 }
             }
+        }
+        .onDisappear {
+            debugLog("🏠 HomeView.onDisappear - Deteniendo timer de realtime updates")
+            activityService.stopRealtimeUpdates()
         }
     }
 }
@@ -383,6 +410,10 @@ extension HomeView {
         debugLog("🏠 Configurando LocationService...")
         LocationService.shared.requestLocationPermission()
 
+        // Start realtime activity updates (every 30 seconds)
+        debugLog("🏠 Iniciando actualizaciones en tiempo real de ActivityService...")
+        activityService.startRealtimeUpdates(interval: 30)
+
         debugLog("🏠 setupServices completado")
     }
 
@@ -395,6 +426,7 @@ extension HomeView {
         await classService.loadTrainers()
         await classService.forceRefreshSessions(date: Date())
         await storyService.fetchStoriesFeed()
+        await activityService.fetchAllData()
         HapticManager.shared.play(.success)
     }
 }
@@ -518,6 +550,11 @@ struct CompactHeroHeader: View {
 
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
+    @ObservedObject private var profileService = UserProfileService.shared
+
+    // Cache para mantener la última URL y cacheKey válidos del avatar durante recargas
+    @State private var cachedAvatarURL: String = ""
+    @State private var cachedAvatarCacheKey: String = ""
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -567,58 +604,110 @@ struct CompactHeroHeader: View {
                 HapticManager.shared.buttonTap()
                 onAvatarTap()
             }) {
-                Group {
-                    if let urlString = resolvedAvatarURL(authService: authService), !urlString.isEmpty,
-                       let user = authService.user {
-                        let normalizedId = user.id
-                            .replacingOccurrences(of: "user_", with: "")
-                            .replacingOccurrences(of: "auth0|", with: "")
-                        CustomImageView(url: urlString, cacheKey: "avatar_compact_\(normalizedId)", size: 44) {
-                            AnyView(
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            gradient: Gradient(colors: [
-                                                Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
-                                                Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
-                                            ]),
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .overlay(
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 20, weight: .medium))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    )
-                            )
-                        }
-                        .clipShape(Circle())
-                    } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
-                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
-                                    ]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 44, height: 44)
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            )
-                    }
-                }
-                .frame(width: 44, height: 44)
+                avatarView
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(PlainButtonStyle())
         }
         .padding(.vertical, 12)
+        .onAppear {
+            updateCachedAvatarURL()
+        }
+        .onChange(of: profileService.userProfile?.picture) { _, _ in
+            updateCachedAvatarURL()
+        }
+    }
+
+    // Actualiza la URL y cacheKey cacheados solo cuando tenemos valores válidos
+    private func updateCachedAvatarURL() {
+        let newURL = computeAvatarURL()
+        let newCacheKey = computeAvatarCacheKey()
+
+        // Solo actualizar si tenemos valores válidos y no estamos cargando
+        // o si el cache está vacío (primera carga)
+        let shouldUpdate = cachedAvatarURL.isEmpty || cachedAvatarCacheKey.isEmpty || !profileService.isLoading
+
+        if !newURL.isEmpty && shouldUpdate {
+            cachedAvatarURL = newURL
+        }
+        if !newCacheKey.isEmpty && newCacheKey != "avatar_header_default" && shouldUpdate {
+            cachedAvatarCacheKey = newCacheKey
+        } else if cachedAvatarCacheKey.isEmpty && !newCacheKey.isEmpty {
+            // Primera carga - usar cualquier cacheKey disponible
+            cachedAvatarCacheKey = newCacheKey
+        }
+    }
+
+    // MARK: - Avatar View
+
+    @ViewBuilder
+    private var avatarView: some View {
+        // Usar URL y cacheKey cacheados para evitar cambios durante recarga
+        let avatarURL = cachedAvatarURL.isEmpty ? computeAvatarURL() : cachedAvatarURL
+        let cacheKey = cachedAvatarCacheKey.isEmpty ? computeAvatarCacheKey() : cachedAvatarCacheKey
+
+        if !avatarURL.isEmpty {
+            CustomImageView(url: avatarURL, cacheKey: cacheKey, size: 44) {
+                AnyView(avatarPlaceholder)
+            }
+            .clipShape(Circle())
+            .id(cacheKey) // Estabilizar el view para evitar recreaciones innecesarias
+        } else {
+            avatarPlaceholder
+        }
+    }
+
+    private var avatarPlaceholder: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3),
+                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 44, height: 44)
+            .overlay(
+                Image(systemName: "person.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            )
+    }
+
+    private func computeAvatarURL() -> String {
+        // Priority 1: Backend profile picture
+        if let profilePic = profileService.userProfile?.picture, !profilePic.isEmpty {
+            return cleanURL(profilePic)
+        }
+        // Priority 2: Auth0 user picture
+        if let userPic = authService.user?.picture, !userPic.isEmpty {
+            return cleanURL(userPic)
+        }
+        // Priority 3: Generated avatar from name
+        let name = authService.user?.name ?? userName
+        let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
+        let bg = String(format: "%06X", abs(name.hashValue) % 0xFFFFFF)
+        return "https://ui-avatars.com/api/?name=\(encoded)&size=128&background=\(bg)&color=fff&format=png"
+    }
+
+    private func computeAvatarCacheKey() -> String {
+        // Usar solo el userId para el cache key - la URL ya contiene info única de la foto
+        if let userId = authService.user?.id {
+            let normalizedId = userId
+                .replacingOccurrences(of: "user_", with: "")
+                .replacingOccurrences(of: "auth0|", with: "")
+            return "avatar_header_\(normalizedId)"
+        }
+        return "avatar_header_default"
+    }
+
+    private func cleanURL(_ urlString: String) -> String {
+        var s = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        while s.hasSuffix("?") { s.removeLast() }
+        return s
     }
 }
 

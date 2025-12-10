@@ -7,7 +7,8 @@ class UserProfileService: ObservableObject {
     @Published var userProfile: UserProfile?
     @Published var isLoading = false
     @Published var error: Error?
-    
+    @Published var lastLoadAttemptFailed = false  // Distingue error de red de perfil incompleto
+
     // MARK: - Private Properties
     private let baseURL = apiBaseURL
     private var cancellables = Set<AnyCancellable>()
@@ -30,6 +31,7 @@ class UserProfileService: ObservableObject {
         userProfile = nil
         error = nil
         isLoading = false
+        lastLoadAttemptFailed = false  // Reset del flag
     }
     
     // MARK: - Get Auth Token
@@ -55,6 +57,7 @@ class UserProfileService: ObservableObject {
             await MainActor.run {
                 self.error = UserProfileError.invalidURL
                 self.isLoading = false
+                self.lastLoadAttemptFailed = true  // Error al cargar
             }
             return
         }
@@ -65,6 +68,7 @@ class UserProfileService: ObservableObject {
                 self.userProfile = nil
                 self.error = UserProfileError.noAuthToken
                 self.isLoading = false
+                self.lastLoadAttemptFailed = true  // Error al cargar
             }
             return
         }
@@ -87,6 +91,7 @@ class UserProfileService: ObservableObject {
                             self.isLoading = false
                             self.error = nil
                             self.lastFetchedAt = Date()
+                            self.lastLoadAttemptFailed = false  // Carga exitosa
                         }
                         
                         debugLog("✅ [UserProfileService] Profile loaded successfully")
@@ -97,6 +102,7 @@ class UserProfileService: ObservableObject {
                             self.userProfile = nil
                             self.error = UserProfileError.decodingError(error)
                             self.isLoading = false
+                            self.lastLoadAttemptFailed = true  // Error al cargar
                         }
                     }
                 } else {
@@ -105,6 +111,7 @@ class UserProfileService: ObservableObject {
                         self.userProfile = nil
                         self.error = UserProfileError.httpError(httpResponse.statusCode)
                         self.isLoading = false
+                        self.lastLoadAttemptFailed = true  // Error al cargar
                     }
                 }
             }
@@ -114,6 +121,7 @@ class UserProfileService: ObservableObject {
                 self.userProfile = nil
                 self.error = UserProfileError.networkError(error)
                 self.isLoading = false
+                self.lastLoadAttemptFailed = true  // Error al cargar
             }
         }
     }
@@ -217,9 +225,16 @@ class UserProfileService: ObservableObject {
     /// Verifica si el perfil del usuario tiene los campos básicos completos
     /// Criterios: nombre/apellido no vacíos, altura/peso > 0, edad dentro de un rango razonable
     func isProfileComplete() -> Bool {
-        guard let profile = userProfile else { 
-            print("🔍 [isProfileComplete] userProfile es nil")
-            return false 
+        // Si la última carga falló por error de red, asumimos perfil completo
+        // para no forzar al usuario a ProfileCompletionView incorrectamente
+        if lastLoadAttemptFailed {
+            print("🔍 [isProfileComplete] Última carga falló - asumiendo completo para evitar UX incorrecto")
+            return true  // No podemos determinar estado real, asumimos completo
+        }
+
+        guard let profile = userProfile else {
+            print("🔍 [isProfileComplete] userProfile es nil - perfil incompleto")
+            return false  // Perfil realmente incompleto o nunca se cargó
         }
         
         print("🔍 [isProfileComplete] Verificando perfil para usuario: \(profile.fullName)")

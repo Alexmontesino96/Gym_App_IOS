@@ -1,13 +1,20 @@
 //
-//  StoryReactionBar.swift
+//  StoryReactionBar_Legacy.swift
 //  Gym_API
 //
 //  Created on November 2024
 //
+//  DEPRECATED - Use StoryInteractionBar instead
+//  This file is kept for reference and potential rollback.
+//  See STORY_REACTION_UX_REDESIGN.md for migration details.
+//
 
 import SwiftUI
 
-struct StoryReactionBar: View {
+// MARK: - DEPRECATED: Use StoryInteractionBar
+/// Legacy reaction bar component
+/// @available(*, deprecated, message: "Use StoryInteractionBar instead")
+struct StoryReactionBar_Legacy: View {
     let story: Story
     let onReaction: (String) -> Void
     let onMessage: () -> Void
@@ -61,7 +68,7 @@ struct StoryReactionBar: View {
                         .background(
                             RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.08))
                         )
-                        .accessibilityLabel("Más reacciones")
+                        .accessibilityLabel("Mas reacciones")
                 }
                 .buttonStyle(.plain)
             }
@@ -73,14 +80,14 @@ struct StoryReactionBar: View {
             Capsule().fill(.ultraThinMaterial.opacity(0.9))
         )
         .sheet(isPresented: $showingAllReactions) {
-            AllReactionsView(onSelect: sendReaction)
+            AllReactionsView_Legacy(onSelect: sendReaction)
                 .presentationDetents([.height(220)])
         }
         .overlay(
             // Reaction animation overlay
             Group {
                 if showReactionAnimation, let reaction = selectedReaction {
-                    FloatingReaction(emoji: reaction)
+                    FloatingReaction_Legacy(emoji: reaction)
                         .onAppear {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                                 showReactionAnimation = false
@@ -103,8 +110,9 @@ struct StoryReactionBar: View {
     }
 }
 
-// MARK: - Reaction Button
-struct ReactionButton: View {
+// MARK: - DEPRECATED: Reaction Button
+/// @available(*, deprecated, message: "Use QuickReactionButton instead")
+struct ReactionButton_Legacy: View {
     let emoji: String
     let isSelected: Bool
     let onTap: () -> Void
@@ -135,8 +143,9 @@ struct ReactionButton: View {
     }
 }
 
-// MARK: - All Reactions View
-struct AllReactionsView: View {
+// MARK: - DEPRECATED: All Reactions View
+/// @available(*, deprecated, message: "Use StoryReactionMiniPicker instead")
+struct AllReactionsView_Legacy: View {
     let onSelect: (String) -> Void
     @Environment(\.dismiss) var dismiss
 
@@ -169,8 +178,9 @@ struct AllReactionsView: View {
     }
 }
 
-// MARK: - Floating Reaction Animation
-struct FloatingReaction: View {
+// MARK: - DEPRECATED: Floating Reaction Animation
+/// @available(*, deprecated, message: "Use StoryReactionConfirmation instead")
+struct FloatingReaction_Legacy: View {
     let emoji: String
     @State private var offset: CGFloat = 0
     @State private var opacity: Double = 1

@@ -14,6 +14,7 @@ struct SocialFeedView: View {
     @StateObject private var eventService = ServiceContainer.shared.eventService
     @StateObject private var activityService = ServiceContainer.shared.activityService
     @StateObject private var postService = ServiceContainer.shared.postService
+    @StateObject private var unreadCountService = UnreadCountService.shared
 
     // MARK: - State Variables
     @State private var conversations: [ChatConversation] = []
@@ -105,7 +106,7 @@ struct SocialFeedView: View {
 
                 Spacer()
 
-                // Instagram-style chat icon (paperplane)
+                // Instagram-style chat icon (paperplane) with unread badge
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         showingMessagesSheet = true
@@ -116,6 +117,12 @@ struct SocialFeedView: View {
                     Image(systemName: "paperplane")
                         .font(.system(size: 24, weight: .regular))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .notificationBadge(
+                            count: unreadCountService.totalUnreadCount,
+                            size: .small,
+                            alignment: .topTrailing,
+                            offset: CGSize(width: 6, height: -6)
+                        )
                 }
             }
             .frame(height: 44)
@@ -422,6 +429,7 @@ struct SocialFeedView: View {
                 conversationId: conversation.id,
                 conversationName: conversation.name ?? "Chat"
             )
+            .id(conversation.id)  // ✅ Forzar recreación cuando cambia conversación
             .environmentObject(themeManager)
             .environmentObject(authService)
             .onAppear {
@@ -516,22 +524,67 @@ struct SocialFeedView: View {
         guard !hasInitialized else { return }
         hasInitialized = true
 
-        // Show skeleton if no cached data
+        // 1. Mostrar skeleton si no hay datos en caché
         if conversations.isEmpty {
             isLoadingFromCache = true
         }
 
-        // Cargar primero desde caché de forma síncrona
+        // 2. Cargar desde caché INMEDIATAMENTE
         loadConversationsFromCache()
 
-        // Luego inicializar el sistema de chat y cargar desde GetStream
+        // 3. Inicializar en background CON ORDEN CORRECTO
         Task {
             isUpdatingFromServer = true
+
+            // ✅ PASO 1: Asegurar que ChatProvider esté listo
+            await ensureChatProviderReady()
+
+            // ✅ PASO 2: Inicializar sistema de chat (si no está inicializado)
             await initializeChatSystem()
+
+            // ✅ PASO 3: Cargar conversaciones SIEMPRE (incluso si ya estaba inicializado)
+            print("📋 Cargando conversaciones desde SocialFeedView...")
+            print("   - chatProviderManager.isReady ANTES de loadConversations: \(chatProviderManager.isReady)")
             await loadConversations()
-            isUpdatingFromServer = false
-            isLoadingFromCache = false
+            print("✅ loadConversations() completado desde initializeIfNeeded")
+
+            await MainActor.run {
+                isUpdatingFromServer = false
+                isLoadingFromCache = false
+            }
         }
+    }
+
+    // ✅ NUEVO: Asegurar que ChatProvider esté listo antes de continuar
+    private func ensureChatProviderReady() async {
+        let maxRetries = 10
+        var retries = 0
+
+        while !chatProviderManager.isReady && retries < maxRetries {
+            print("⏳ Esperando ChatProvider... intento \(retries + 1)/\(maxRetries)")
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            retries += 1
+        }
+
+        if chatProviderManager.isReady {
+            print("✅ ChatProvider listo - Estado: \(chatProviderManager.state.displayText)")
+        } else {
+            print("⚠️ ChatProvider no se inicializó a tiempo - Estado: \(chatProviderManager.state.displayText)")
+        }
+    }
+
+    // ✅ NUEVO: Precargar miembros del gym para enriquecer avatares
+    private func preloadGymMembers() async {
+        // Asegurar que ChatService tenga auth configurado antes de llamar a la API
+        let chatService = ChatService.shared
+        if chatService.authService == nil {
+            chatService.authService = authService
+            if let uid = authService.user?.id {
+                chatService.setCurrentUserIdFromString(uid)
+            }
+        }
+        await chatService.loadGymMembers()
+        print("✅ Gym members precargados para avatares")
     }
 
     private func loadConversationsFromCache() {
@@ -543,19 +596,47 @@ struct SocialFeedView: View {
 
             print("✅ Conversaciones desde caché: \(cachedConversations.count)")
 
-            // Convertir a ChatConversation
+            // Convertir a ChatConversation con datos completos
             self.conversations = cachedConversations.map { cached in
-                ChatConversation(
+                // ✅ Reconstruir members desde el caché
+                let members = cached.members.map { cachedMember in
+                    ChatUser(
+                        id: cachedMember.id,
+                        name: cachedMember.name,
+                        avatarURL: cachedMember.avatarURL
+                    )
+                }
+
+                // ✅ Reconstruir lastMessage si existe
+                let lastMessage: ChatMessage?
+                if let id = cached.lastMessageId, let text = cached.lastMessageText {
+                    lastMessage = ChatMessage(
+                        id: id,
+                        conversationId: cached.id,
+                        text: text,
+                        authorId: "",  // No crítico para preview
+                        authorName: cached.lastMessageAuthor ?? "Usuario",
+                        timestamp: cached.lastMessageTimestamp ?? cached.lastActivity,
+                        isFromCurrentUser: false,
+                        attachments: []
+                    )
+                } else {
+                    lastMessage = nil
+                }
+
+                return ChatConversation(
                     id: cached.id,
                     name: cached.name,
                     type: ChatConversation.ConversationType(rawValue: cached.type) ?? .general,
-                    members: [],
-                    lastMessage: nil,
+                    members: members,           // ✅ CON DATOS
+                    lastMessage: lastMessage,   // ✅ CON DATOS
                     lastActivity: cached.lastActivity,
-                    unreadCount: 0,
+                    unreadCount: cached.unreadCount,
                     metadata: [:]
                 )
             }.sorted { $0.lastActivity > $1.lastActivity }
+
+            print("DEBUG: Cargadas \(conversations.count) conversaciones desde caché con members y lastMessage completos")
         } else {
             print("📦 No hay conversaciones en caché")
         }
@@ -583,21 +664,37 @@ struct SocialFeedView: View {
     }
 
     private func loadConversations() async {
-        guard chatProviderManager.isInitialized else { return }
+        print("📋 loadConversations() iniciado")
+        print("   - chatProviderManager.isInitialized: \(chatProviderManager.isInitialized)")
+        print("   - chatProviderManager.isReady: \(chatProviderManager.isReady)")
+        print("   - chatProviderManager.state: \(chatProviderManager.state.displayText)")
+
+        guard chatProviderManager.isInitialized else {
+            print("❌ loadConversations() abortado: ChatProvider no inicializado")
+            return
+        }
+
         // Prevent overlapping loads
         var shouldReturn = false
         await MainActor.run {
             if isLoadingConversations { shouldReturn = true } else { isLoadingConversations = true }
         }
-        if shouldReturn { return }
+        if shouldReturn {
+            print("❌ loadConversations() abortado: Ya hay una carga en proceso")
+            return
+        }
 
+        print("✅ loadConversations() continúa - llamando a getConversations()...")
         do {
             let loadedConversations = try await chatProviderManager.getConversations()
+            print("✅ getConversations() retornó \(loadedConversations.count) conversaciones")
 
             await MainActor.run {
+                print("📝 Asignando \(loadedConversations.count) conversaciones al array")
                 self.conversations = loadedConversations.sorted { conversation1, conversation2 in
                     conversation1.lastActivity > conversation2.lastActivity
                 }
+                print("✅ Array conversations actualizado con \(self.conversations.count) elementos")
                 self.errorMessage = nil
 
                 // Precargar imágenes de avatar para mejorar performance
@@ -607,12 +704,14 @@ struct SocialFeedView: View {
                 self.saveConversationsToCache(loadedConversations)
                 self.isLoadingConversations = false
             }
+            print("✅ loadConversations() completado exitosamente")
         } catch {
             await MainActor.run {
                 self.errorMessage = "Error cargando conversaciones: \(error.localizedDescription)"
                 self.isLoadingConversations = false
             }
             print("❌ Error cargando conversaciones: \(error)")
+            print("❌ Error details: \(error)")
         }
     }
 
@@ -663,13 +762,22 @@ struct SocialFeedView: View {
                     lastActivity: conversation.lastActivity,
                     lastMessageText: conversation.lastMessage?.text,
                     lastMessageAuthor: conversation.lastMessage?.authorName,
-                    unreadCount: conversation.unreadCount
+                    lastMessageTimestamp: conversation.lastMessage?.timestamp,  // ✅ NUEVO
+                    lastMessageId: conversation.lastMessage?.id,                // ✅ NUEVO
+                    unreadCount: conversation.unreadCount,
+                    members: conversation.members.map { member in               // ✅ NUEVO: Serializar members
+                        CachedChatUser(
+                            id: member.id,
+                            name: member.name,
+                            avatarURL: member.avatarURL
+                        )
+                    }
                 )
             }
             do {
                 let data = try JSONEncoder().encode(cachedConversations)
                 UserDefaults.standard.set(data, forKey: "CachedConversations")
-                print("💾 Conversaciones guardadas en caché: \(cachedConversations.count)")
+                print("💾 Conversaciones guardadas en caché: \(cachedConversations.count) con members completos")
             } catch {
                 print("❌ Error guardando conversaciones en caché: \(error)")
             }
@@ -1031,8 +1139,7 @@ extension SocialFeedView {
             // Configurar currentUserId interno con el valor del backend para evitar logs con subject Auth0
             ChatService.shared.setCurrentUserId(tokenResponse.internalUserId)
 
-            // Cargar conversaciones después de conectar
-            await loadConversations()
+            // ✅ Las conversaciones se cargarán desde initializeIfNeeded() para evitar duplicados
 
         } catch {
             await MainActor.run {

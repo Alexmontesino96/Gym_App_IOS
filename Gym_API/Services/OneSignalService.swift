@@ -19,26 +19,37 @@ class OneSignalService: ObservableObject {
         if let appIdFromBundle = Bundle.main.object(forInfoDictionaryKey: "ONESIGNAL_APP_ID") as? String,
            !appIdFromBundle.isEmpty {
             self.appId = appIdFromBundle
+            print("✅ OneSignal App ID cargado correctamente")
         } else {
-            // En desarrollo, usar un valor por defecto (que debe ser reemplazado)
+            // Manejo robusto sin crash - la app puede funcionar sin notificaciones
+            print("⚠️ OneSignal App ID no configurado en Info.plist")
+            print("⚠️ Las notificaciones push estarán deshabilitadas")
+            self.appId = "" // Valor vacío seguro
+
             #if DEBUG
-            print("⚠️ OneSignal App ID no configurado en Info.plist, usando valor de desarrollo")
-            self.appId = "dev-app-id-not-configured"
-            #else
-            fatalError("❌ OneSignal App ID debe estar configurado en Info.plist para producción")
+            // En desarrollo, mostrar advertencia adicional
+            print("⚠️ DEBUG: Configura ONESIGNAL_APP_ID en Info.plist para habilitar notificaciones")
             #endif
         }
     }
     
     func initialize() {
         print("🔔 Inicializando OneSignal...")
-        
+
         // Validar App ID antes de inicializar
         guard !appId.isEmpty else {
-            print("❌ OneSignal App ID está vacío")
+            print("⚠️ OneSignal deshabilitado: App ID no configurado o vacío")
+            print("⚠️ La aplicación continuará funcionando sin notificaciones push")
             return
         }
-        
+
+        // Validar formato del App ID (UUID)
+        guard appId.count == 36 && appId.contains("-") else {
+            print("⚠️ OneSignal App ID tiene formato inválido: \(appId)")
+            print("⚠️ Debe ser un UUID válido (ej: 57c2285f-1a1a-4431-a5db-7ecd0bab4c5f)")
+            return
+        }
+
         do {
             // Solo habilitar debug logging en desarrollo
             #if DEBUG
@@ -47,13 +58,14 @@ class OneSignalService: ObservableObject {
 
             // OneSignal initialization con try-catch implícito
             OneSignal.initialize(appId, withLaunchOptions: nil)
-            
+
             // Check current permission status first
             checkNotificationPermissionStatus()
-            
-            print("✅ OneSignal inicializado correctamente")
+
+            print("✅ OneSignal inicializado correctamente con App ID: \(appId)")
         } catch {
-            print("❌ Error al inicializar OneSignal: \(error)")
+            print("⚠️ Error al inicializar OneSignal: \(error)")
+            print("⚠️ La aplicación continuará funcionando sin notificaciones push")
         }
     }
     

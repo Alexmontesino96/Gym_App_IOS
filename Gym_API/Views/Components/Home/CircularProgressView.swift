@@ -7,6 +7,7 @@ struct CircularProgressView: View {
     let title: String
     let emoji: String
     let gradientColors: [Color]
+    var theme: ThemeManager.AppTheme = .dark
 
     @State private var animatedProgress: Double = 0
 
@@ -16,7 +17,7 @@ struct CircularProgressView: View {
                 // Background circle
                 Circle()
                     .stroke(
-                        Color.white.opacity(0.1),
+                        Color.dynamicTextSecondary(theme: theme).opacity(0.2),
                         lineWidth: 6
                     )
                     .frame(width: 70, height: 70)
@@ -45,7 +46,7 @@ struct CircularProgressView: View {
                         .font(.title2)
                     Text("\(current)")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.dynamicText(theme: theme))
                 }
             }
 
@@ -53,11 +54,11 @@ struct CircularProgressView: View {
             VStack(spacing: 2) {
                 Text("\(current)/\(goal)")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.dynamicText(theme: theme).opacity(0.9))
 
                 Text(title)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
             }
         }
         .frame(width: 85)
@@ -71,7 +72,7 @@ struct CircularProgressView: View {
 
 #Preview {
     ZStack {
-        Color.black.ignoresSafeArea()
+        Color.dynamicBackground(theme: .dark).ignoresSafeArea()
 
         HStack(spacing: 24) {
             CircularProgressView(
@@ -80,7 +81,8 @@ struct CircularProgressView: View {
                 goal: 7,
                 title: "Streak",
                 emoji: "🔥",
-                gradientColors: [.orange, .red]
+                gradientColors: [.orange, .red],
+                theme: .dark
             )
 
             CircularProgressView(
@@ -89,7 +91,8 @@ struct CircularProgressView: View {
                 goal: 4,
                 title: "Workouts",
                 emoji: "💪",
-                gradientColors: [.pink, .purple]
+                gradientColors: [.pink, .purple],
+                theme: .dark
             )
 
             CircularProgressView(
@@ -98,7 +101,8 @@ struct CircularProgressView: View {
                 goal: 12,
                 title: "Classes",
                 emoji: "📅",
-                gradientColors: [.blue, .purple]
+                gradientColors: [.blue, .purple],
+                theme: .dark
             )
         }
     }

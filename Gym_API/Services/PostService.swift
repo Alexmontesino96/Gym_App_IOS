@@ -70,7 +70,56 @@ class PostService: ObservableObject, PostServicing {
     private static func createDecoder() -> JSONDecoder {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            // Intentar múltiples formatos de fecha
+            // 1. ISO8601 con microsegundos (lo que envía el backend)
+            let microsecondsFormatter = DateFormatter()
+            microsecondsFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+            microsecondsFormatter.locale = Locale(identifier: "en_US_POSIX")
+            microsecondsFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+            if let date = microsecondsFormatter.date(from: dateString) {
+                return date
+            }
+
+            // 2. ISO8601 con milisegundos
+            let millisecondsFormatter = DateFormatter()
+            millisecondsFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+            millisecondsFormatter.locale = Locale(identifier: "en_US_POSIX")
+            millisecondsFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+            if let date = millisecondsFormatter.date(from: dateString) {
+                return date
+            }
+
+            // 3. ISO8601 sin fracción de segundo
+            let noFractionFormatter = DateFormatter()
+            noFractionFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            noFractionFormatter.locale = Locale(identifier: "en_US_POSIX")
+            noFractionFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+            if let date = noFractionFormatter.date(from: dateString) {
+                return date
+            }
+
+            // 4. ISO8601 estándar con timezone
+            let iso8601Formatter = ISO8601DateFormatter()
+            iso8601Formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = iso8601Formatter.date(from: dateString) {
+                return date
+            }
+
+            // 5. ISO8601 estándar sin fracción
+            let iso8601NoFractionFormatter = ISO8601DateFormatter()
+            if let date = iso8601NoFractionFormatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date string: \(dateString)"
+            )
+        }
         return decoder
     }
 
@@ -563,42 +612,76 @@ class PostService: ObservableObject, PostServicing {
     // MARK: - Comentarios
 
     func addComment(postId: Int, text: String, mentionedUserIds: [Int]? = nil) async throws -> Comment {
-        let endpoint = baseURL.appendingPathComponent("posts/\(postId)/comment")
+        print("🌐 [PostService] addComment() - postId: \(postId)")
+        print("📝 [PostService] Comment text: '\(text.prefix(100))'")
 
-        var requestBody: [String: Any] = ["text": text]
+        let endpoint = baseURL.appendingPathComponent("posts/\(postId)/comment")
+        print("🔗 [PostService] URL (addComment): \(endpoint.absoluteString)")
+
+        var requestBody: [String: Any] = ["comment_text": text]
         if let mentionedUserIds = mentionedUserIds {
             requestBody["mentioned_user_ids"] = mentionedUserIds
+            print("👥 [PostService] Mentioned users: \(mentionedUserIds)")
         }
 
         let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
 
+        // Log del request body
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("📤 [PostService] Request body: \(jsonString)")
+        }
+
         guard var request = await httpClient.makeRequest(url: endpoint, method: "POST") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (addComment)")
             throw PostServiceError.unauthorized
         }
 
         request.httpBody = jsonData
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        print("📤 [PostService] Enviando request (addComment)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (addComment)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (addComment)")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code (addComment): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (addComment): \(responseString)")
+        }
+
         if httpResponse.statusCode == 404 {
+            print("❌ [PostService] Post no encontrado (addComment)")
             throw PostServiceError.postNotFound
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (addComment): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        let result = try decoder.decode(CreateCommentResponse.self, from: data)
-        return result.comment
+        print("🔄 [PostService] Decodificando CreateCommentResponse...")
+        do {
+            let result = try decoder.decode(CreateCommentResponse.self, from: data)
+            print("✅ [PostService] Comentario creado exitosamente")
+            print("   ID: \(result.comment.id)")
+            print("   User: \(result.comment.user.fullName)")
+            print("   Text: \(result.comment.commentText)")
+            return result.comment
+        } catch {
+            print("❌ [PostService] Error decodificando CreateCommentResponse: \(error)")
+            throw error
+        }
     }
 
     func getComments(postId: Int, limit: Int = 20, offset: Int = 0) async throws -> PagedResponse<Comment> {
+        print("🌐 [PostService] getComments() - postId: \(postId), limit: \(limit), offset: \(offset)")
+
         let endpoint = baseURL.appendingPathComponent("posts/\(postId)/comments")
         var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -607,113 +690,233 @@ class PostService: ObservableObject, PostServicing {
         ]
 
         guard let url = components?.url else {
+            print("❌ [PostService] URL inválida (getComments)")
             throw PostServiceError.invalidURL
         }
 
+        print("🔗 [PostService] URL (getComments): \(url.absoluteString)")
+
         guard let request = await httpClient.makeRequest(url: url, method: "GET") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (getComments)")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request (getComments)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (getComments)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (getComments)")
             throw PostServiceError.invalidResponse
+        }
+
+        print("📊 [PostService] Status code (getComments): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (getComments): \(responseString.prefix(1000))")
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (getComments): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        return try decoder.decode(PagedResponse<Comment>.self, from: data)
+        print("🔄 [PostService] Decodificando PagedResponse<Comment>...")
+        do {
+            let result = try decoder.decode(PagedResponse<Comment>.self, from: data)
+            print("✅ [PostService] Comentarios cargados - Total: \(result.comments?.count ?? 0)")
+
+            // Log detallado de cada comentario
+            if let comments = result.comments {
+                for (index, comment) in comments.enumerated() {
+                    print("   📝 Comentario #\(index + 1):")
+                    print("      ID: \(comment.id)")
+                    print("      User: \(comment.user.fullName)")
+                    print("      Text: \(comment.commentText.prefix(50))...")
+                    print("      Likes: \(comment.likeCount)")
+                }
+            }
+
+            return result
+        } catch let DecodingError.keyNotFound(key, context) {
+            print("❌ [PostService] Key '\(key.stringValue)' no encontrado (getComments)")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.keyNotFound(key, context)
+        } catch let DecodingError.typeMismatch(type, context) {
+            print("❌ [PostService] Type mismatch para tipo \(type) (getComments)")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.typeMismatch(type, context)
+        } catch let DecodingError.valueNotFound(type, context) {
+            print("❌ [PostService] Value not found para tipo \(type) (getComments)")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.valueNotFound(type, context)
+        } catch let DecodingError.dataCorrupted(context) {
+            print("❌ [PostService] Data corrupted (getComments)")
+            print("   Context: \(context.debugDescription)")
+            print("   CodingPath: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+            throw DecodingError.dataCorrupted(context)
+        } catch {
+            print("❌ [PostService] Error desconocido decodificando (getComments): \(error)")
+            throw error
+        }
     }
 
     func editComment(commentId: Int, text: String) async throws -> Comment {
-        let endpoint = baseURL.appendingPathComponent("posts/comments/\(commentId)")
+        print("🌐 [PostService] editComment() - commentId: \(commentId)")
+        print("📝 [PostService] New text: '\(text.prefix(100))'")
 
-        let requestBody = ["text": text]
+        let endpoint = baseURL.appendingPathComponent("posts/comments/\(commentId)")
+        print("🔗 [PostService] URL (editComment): \(endpoint.absoluteString)")
+
+        let requestBody = ["comment_text": text]
         let jsonData = try JSONSerialization.data(withJSONObject: requestBody)
 
+        // Log del request body
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("📤 [PostService] Request body: \(jsonString)")
+        }
+
         guard var request = await httpClient.makeRequest(url: endpoint, method: "PUT") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (editComment)")
             throw PostServiceError.unauthorized
         }
 
         request.httpBody = jsonData
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        print("📤 [PostService] Enviando request (editComment)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (editComment)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (editComment)")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code (editComment): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (editComment): \(responseString)")
+        }
+
         if httpResponse.statusCode == 404 {
+            print("❌ [PostService] Comentario no encontrado (editComment)")
             throw CommentError.notFound
         }
 
         if httpResponse.statusCode == 403 {
+            print("❌ [PostService] No autorizado para editar este comentario (editComment)")
             throw CommentError.unauthorized
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (editComment): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
-        return try decoder.decode(Comment.self, from: data)
+        print("🔄 [PostService] Decodificando Comment...")
+        do {
+            let comment = try decoder.decode(Comment.self, from: data)
+            print("✅ [PostService] Comentario editado exitosamente")
+            print("   ID: \(comment.id)")
+            print("   New text: \(comment.commentText)")
+            print("   Is edited: \(comment.isEdited)")
+            return comment
+        } catch {
+            print("❌ [PostService] Error decodificando Comment: \(error)")
+            throw error
+        }
     }
 
     func deleteComment(commentId: Int) async throws {
+        print("🌐 [PostService] deleteComment() - commentId: \(commentId)")
+
         let endpoint = baseURL.appendingPathComponent("posts/comments/\(commentId)")
+        print("🔗 [PostService] URL (deleteComment): \(endpoint.absoluteString)")
 
         guard let request = await httpClient.makeRequest(url: endpoint, method: "DELETE") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (deleteComment)")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request (deleteComment)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (deleteComment)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (deleteComment)")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code (deleteComment): \(httpResponse.statusCode)")
+
         if httpResponse.statusCode == 404 {
+            print("❌ [PostService] Comentario no encontrado (deleteComment)")
             throw CommentError.notFound
         }
 
         if httpResponse.statusCode == 403 {
+            print("❌ [PostService] No autorizado para eliminar este comentario (deleteComment)")
             throw CommentError.unauthorized
         }
 
         // 204 No Content es éxito
         guard httpResponse.statusCode == 204 || (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (deleteComment): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
+
+        print("✅ [PostService] Comentario eliminado exitosamente")
     }
 
     func toggleCommentLike(commentId: Int) async throws -> (liked: Bool, totalLikes: Int) {
+        print("🌐 [PostService] toggleCommentLike() - commentId: \(commentId)")
+
         let endpoint = baseURL.appendingPathComponent("posts/comments/\(commentId)/like")
+        print("🔗 [PostService] URL (toggleCommentLike): \(endpoint.absoluteString)")
 
         guard let request = await httpClient.makeRequest(url: endpoint, method: "POST") else {
+            print("❌ [PostService] No autorizado - makeRequest falló (toggleCommentLike)")
             throw PostServiceError.unauthorized
         }
 
+        print("📤 [PostService] Enviando request (toggleCommentLike)...")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("📥 [PostService] Respuesta recibida (toggleCommentLike)")
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ [PostService] Respuesta no es HTTPURLResponse (toggleCommentLike)")
             throw PostServiceError.invalidResponse
         }
 
+        print("📊 [PostService] Status code (toggleCommentLike): \(httpResponse.statusCode)")
+
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📄 [PostService] Response (toggleCommentLike): \(responseString)")
+        }
+
         if httpResponse.statusCode == 404 {
+            print("❌ [PostService] Comentario no encontrado (toggleCommentLike)")
             throw CommentError.notFound
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let error = try? decoder.decode(ErrorResponse.self, from: data)
+            print("❌ [PostService] Error del servidor (toggleCommentLike): \(error?.detail ?? "desconocido")")
             throw PostServiceError.serverError(error?.detail ?? "Error desconocido")
         }
 
+        print("🔄 [PostService] Decodificando ToggleCommentLikeResponse...")
         let result = try decoder.decode(ToggleCommentLikeResponse.self, from: data)
+        print("✅ [PostService] Like toggled exitosamente")
+        print("   Action: \(result.action)")
+        print("   Total likes: \(result.totalLikes)")
         return (liked: result.action == "liked", totalLikes: result.totalLikes)
     }
 

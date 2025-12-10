@@ -20,6 +20,7 @@ class SocialFeedViewModel: ObservableObject {
     private var currentOffset = 0
     private let pageSize = 20
     private var cancellables = Set<AnyCancellable>()
+    private var loadTask: Task<Void, Never>?
 
     // MARK: - Feed Type
 
@@ -46,6 +47,10 @@ class SocialFeedViewModel: ObservableObject {
         print("🔄 [SocialFeedViewModel] loadInitial() llamado")
         print("📊 [SocialFeedViewModel] Feed type: \(feedType)")
 
+        // Cancelar task anterior si existe
+        loadTask?.cancel()
+        print("🔄 [SocialFeedViewModel] Task anterior cancelado (si existía)")
+
         guard !isLoading else {
             print("⚠️ [SocialFeedViewModel] Ya está cargando, saliendo...")
             return
@@ -57,10 +62,22 @@ class SocialFeedViewModel: ObservableObject {
         posts = []
 
         print("🚀 [SocialFeedViewModel] Iniciando carga de posts...")
-        await loadPosts()
-        print("✅ [SocialFeedViewModel] Carga completada - Posts: \(posts.count)")
 
-        isLoading = false
+        // Crear nuevo task
+        loadTask = Task {
+            await loadPosts()
+
+            // Solo actualizar si no fue cancelado
+            if !Task.isCancelled {
+                print("✅ [SocialFeedViewModel] Carga completada - Posts: \(posts.count)")
+            } else {
+                print("⚠️ [SocialFeedViewModel] Carga cancelada")
+            }
+
+            isLoading = false
+        }
+
+        await loadTask?.value
     }
 
     /// Carga más posts (paginación)
@@ -102,6 +119,12 @@ class SocialFeedViewModel: ObservableObject {
     private func loadPosts() async {
         print("🔍 [SocialFeedViewModel] loadPosts() - Offset: \(currentOffset), PageSize: \(pageSize)")
 
+        // Verificar si el Task fue cancelado antes de empezar
+        guard !Task.isCancelled else {
+            print("⚠️ [SocialFeedViewModel] Task cancelado antes de cargar posts")
+            return
+        }
+
         do {
             let response: PagedResponse<Post>
 
@@ -121,6 +144,12 @@ class SocialFeedViewModel: ObservableObject {
             case .userPosts(let userId):
                 print("👤 [SocialFeedViewModel] Cargando posts de usuario: \(userId)")
                 response = try await postService.getUserPosts(userId: userId, limit: pageSize, offset: currentOffset)
+            }
+
+            // Verificar cancelación después de la request
+            guard !Task.isCancelled else {
+                print("⚠️ [SocialFeedViewModel] Task cancelado después de recibir respuesta")
+                return
             }
 
             print("📦 [SocialFeedViewModel] Respuesta recibida:")
@@ -158,9 +187,20 @@ class SocialFeedViewModel: ObservableObject {
             errorMessage = nil
 
         } catch {
-            errorMessage = error.localizedDescription
-            print("❌ [SocialFeedViewModel] Error cargando posts: \(error)")
-            print("❌ [SocialFeedViewModel] Error localizado: \(error.localizedDescription)")
+            // No mostrar error si el Task fue cancelado
+            if Task.isCancelled {
+                print("⚠️ [SocialFeedViewModel] Request cancelada - No se muestra error")
+            } else {
+                // Verificar si es un error de cancelación de URL
+                let nsError = error as NSError
+                if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+                    print("⚠️ [SocialFeedViewModel] URL request cancelada - No se muestra error")
+                } else {
+                    errorMessage = error.localizedDescription
+                    print("❌ [SocialFeedViewModel] Error cargando posts: \(error)")
+                    print("❌ [SocialFeedViewModel] Error localizado: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -176,5 +216,12 @@ class SocialFeedViewModel: ObservableObject {
 
     var shouldShowError: Bool {
         errorMessage != nil && posts.isEmpty
+    }
+
+    // MARK: - Deinit
+
+    deinit {
+        loadTask?.cancel()
+        print("🗑️ [SocialFeedViewModel] Deinicializado - Task cancelado")
     }
 }

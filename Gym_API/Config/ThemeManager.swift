@@ -3,9 +3,9 @@ import Combine
 
 // MARK: - Theme Manager
 class ThemeManager: ObservableObject {
-    @Published var currentTheme: AppTheme = .dark
-    @Published var selectedLightAccentHex: String = "#D94A4A"
-    @Published var selectedDarkAccentHex: String = "#C43421" // darker red (propuesto)
+    @Published var currentTheme: AppTheme = .light
+    @Published var selectedLightAccentHex: String = "#26A69A" // Teal/Verde azul
+    @Published var selectedDarkAccentHex: String = "#4DB6AC" // Teal claro para modo oscuro
     
     enum AppTheme: String, CaseIterable {
         case light = "light"
@@ -46,7 +46,7 @@ class ThemeManager: ObservableObject {
         if let darkHex = UserDefaults.standard.string(forKey: "selectedDarkAccentHex") {
             selectedDarkAccentHex = darkHex
         } else {
-            selectedDarkAccentHex = "#C43421" // Default to darker red for dark mode
+            selectedDarkAccentHex = "#4DB6AC" // Default to teal for dark mode
         }
     }
 }
@@ -143,7 +143,7 @@ extension Color {
     static let lightTextTertiary = Color(red: 0.45, green: 0.45, blue: 0.45) // #737373 - Contrast 5.2:1 ✅ (antes 2.8:1)
     static let lightBorderPrimary = Color(red: 0.68, green: 0.68, blue: 0.68) // #ADADAD - Contrast 4.6:1 ✅ (antes 1.9:1)
     static let lightBorderSecondary = Color(red: 0.75, green: 0.75, blue: 0.75) // #BFBFBF - Contrast 3.2:1 ✅
-    static let lightAccentPrimary = Color(red: 0.85, green: 0.29, blue: 0.29) // #D94A4A - Red para modo claro
+    static let lightAccentPrimary = Color(red: 0.15, green: 0.65, blue: 0.60) // #26A69A - Teal para modo claro
     static let lightShadow = Color.black.opacity(0.1) // Sombras suaves para modo claro
     
     // MARK: - Dark Theme Colors (WCAG 2.1 AA Compliant)
@@ -156,7 +156,7 @@ extension Color {
     static let darkTextTertiary = Color(red: 0.68, green: 0.68, blue: 0.68) // #ADADAD - Contrast 7.3:1 ✅ (antes 2.8:1)
     static let darkBorderPrimary = Color(red: 0.45, green: 0.45, blue: 0.45) // #737373 - Contrast 5.2:1 ✅ (antes 2.1:1)
     static let darkBorderSecondary = Color(red: 0.35, green: 0.35, blue: 0.35) // #595959 - Contrast 3.8:1 ✅
-    static let darkAccentPrimary = Color(red: 0.85, green: 0.29, blue: 0.29) // #D94A4A - Slightly darker red
+    static let darkAccentPrimary = Color(red: 0.30, green: 0.71, blue: 0.67) // #4DB6AC - Teal claro para modo oscuro
     static let darkShadow = Color.black.opacity(0.25) // Sombras para modo oscuro
 
     // MARK: - Semantic Colors (para Social Feed)
@@ -233,9 +233,9 @@ extension ThemeManager {
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard
         if theme == .light {
-            return defaults.string(forKey: "selectedLightAccentHex") ?? "#D94A4A"
+            return defaults.string(forKey: "selectedLightAccentHex") ?? "#26A69A" // Teal
         } else {
-            return defaults.string(forKey: "selectedDarkAccentHex") ?? "#C43421"
+            return defaults.string(forKey: "selectedDarkAccentHex") ?? "#4DB6AC" // Teal claro
         }
     }
 }
