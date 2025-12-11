@@ -40,14 +40,51 @@ class MessageCacheManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Obtiene mensajes desde caché para una conversación
+    /// Obtiene mensajes desde caché para una conversación (ASYNC - Background decoding)
+    /// Retorna array vacío si no hay caché disponible
+    /// ✅ OPTIMIZADO: JSON decoding en background thread para no bloquear UI
+    func getCachedMessagesAsync(for conversationId: String) async -> [ChatMessage] {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                let fileURL = self.getCacheFileURL(for: conversationId)
+
+                guard self.fileManager.fileExists(atPath: fileURL.path) else {
+                    print("📦 No hay caché para conversación: \(conversationId)")
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                do {
+                    // Lectura y decodificación en background thread
+                    let data = try Data(contentsOf: fileURL)
+                    let cache = try JSONDecoder().decode(ConversationMessageCache.self, from: data)
+                    let messages = cache.messages.map { $0.toChatMessage() }
+                    print("📦 [Background] Cargados \(messages.count) mensajes desde caché para: \(conversationId)")
+                    continuation.resume(returning: messages)
+                } catch {
+                    print("❌ Error cargando caché para \(conversationId): \(error)")
+                    // Eliminar archivo corrupto
+                    try? self.fileManager.removeItem(at: fileURL)
+                    continuation.resume(returning: [])
+                }
+            }
+        }
+    }
+
+    /// Obtiene mensajes desde caché para una conversación (SYNC - Para compatibilidad)
+    /// ⚠️ DEPRECATED: Usa getCachedMessagesAsync() para mejor performance
     /// Retorna array vacío si no hay caché disponible
     func getCachedMessages(for conversationId: String) -> [ChatMessage] {
         guard let cacheData = loadConversationCache(conversationId: conversationId) else {
             print("📦 No hay caché para conversación: \(conversationId)")
             return []
         }
-        
+
         let messages = cacheData.messages.map { $0.toChatMessage() }
         print("📦 Cargados \(messages.count) mensajes desde caché para: \(conversationId)")
         return messages

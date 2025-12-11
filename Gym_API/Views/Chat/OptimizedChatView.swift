@@ -271,21 +271,21 @@ struct OptimizedChatView: View {
     
     /// Carga mensajes usando estrategia cache-first para experiencia instantánea
     /// ✅ OPTIMIZADO: Usa MessageLoadingCoordinator actor para prevenir race conditions
+    /// ✅ OPTIMIZADO: Background JSON decoding para no bloquear UI
     private func loadMessages() {
         print("💬 📦 loadMessages() para: \(conversationId)")
 
-        // 1. Cargar caché inmediatamente (experiencia instantánea)
-        let cachedMessages = MessageCacheManager.shared.getCachedMessages(for: conversationId)
-
-        if !cachedMessages.isEmpty {
-            self.messages = cachedMessages
-            print("💬 📦 Caché cargado: \(cachedMessages.count) mensajes")
-        }
-
-        // 2. Usar coordinator para carga segura (previene race conditions)
+        // 1. Usar coordinator para carga segura (previene race conditions)
         Task {
-            let shouldShowLoading = cachedMessages.isEmpty
-            if shouldShowLoading {
+            // Cargar caché en background (no bloquea UI)
+            let cachedMessages = await MessageCacheManager.shared.getCachedMessagesAsync(for: conversationId)
+
+            if !cachedMessages.isEmpty {
+                await MainActor.run {
+                    self.messages = cachedMessages
+                    print("💬 📦 [Background] Caché cargado: \(cachedMessages.count) mensajes")
+                }
+            } else {
                 await MainActor.run { isLoading = true }
             }
 
