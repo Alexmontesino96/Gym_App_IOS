@@ -43,6 +43,7 @@ class MessageCacheManager: ObservableObject {
     /// Obtiene mensajes desde caché para una conversación (ASYNC - Background decoding)
     /// Retorna array vacío si no hay caché disponible
     /// ✅ OPTIMIZADO: JSON decoding en background thread para no bloquear UI
+    /// ✅ OPTIMIZADO: Usa MemoryBudgetManager para prevenir SIGKILL
     func getCachedMessagesAsync(for conversationId: String) async -> [ChatMessage] {
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -64,8 +65,22 @@ class MessageCacheManager: ObservableObject {
                     let data = try Data(contentsOf: fileURL)
                     let cache = try JSONDecoder().decode(ConversationMessageCache.self, from: data)
                     let messages = cache.messages.map { $0.toChatMessage() }
-                    print("📦 [Background] Cargados \(messages.count) mensajes desde caché para: \(conversationId)")
-                    continuation.resume(returning: messages)
+
+                    // Verificar presupuesto de memoria en main thread
+                    Task { @MainActor in
+                        let estimatedMB = MemoryBudgetManager.estimatedSize(forMessageCount: messages.count)
+                        let budgetKey = "messageCache_\(conversationId)"
+
+                        if MemoryBudgetManager.shared.allocate(estimatedMB, for: budgetKey, category: .messageCache) {
+                            print("📦 [Background] Cargados \(messages.count) mensajes desde caché para: \(conversationId)")
+                            print("💰 Presupuesto asignado: \(String(format: "%.2f", estimatedMB))MB")
+                            continuation.resume(returning: messages)
+                        } else {
+                            print("⚠️ No hay presupuesto disponible para caché de \(conversationId)")
+                            print("⚠️ Retornando vacío para evitar SIGKILL")
+                            continuation.resume(returning: [])
+                        }
+                    }
                 } catch {
                     print("❌ Error cargando caché para \(conversationId): \(error)")
                     // Eliminar archivo corrupto

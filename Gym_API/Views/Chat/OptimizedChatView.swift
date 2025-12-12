@@ -85,6 +85,11 @@ struct OptimizedChatView: View {
                 print("💬 👋 🧹 MessageLoadingCoordinator cancelado")
             }
 
+            // ✅ CRÍTICO: Liberar presupuesto de memoria
+            let budgetKey = "messageCache_\(conversationId)"
+            MemoryBudgetManager.shared.deallocate(for: budgetKey)
+            print("💬 👋 💰 Presupuesto de memoria liberado para: \(conversationId)")
+
             // DEPRECATED: Mantener por ahora para compatibilidad
             messageLoadingTask?.cancel()
             messageLoadingTask = nil
