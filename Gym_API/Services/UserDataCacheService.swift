@@ -299,7 +299,27 @@ final class UserDataCacheService: ObservableObject {
             // Verificar código de respuesta
             if let httpResponse = response as? HTTPURLResponse {
                 guard httpResponse.statusCode == 200 else {
-                    print("❌ API error for user \(userId): Status code \(httpResponse.statusCode)")
+                    // Manejo específico por código de error
+                    switch httpResponse.statusCode {
+                    case 403:
+                        // 403 Forbidden - Usuario de otro gym o sin permisos
+                        // Logging reducido para no contaminar logs
+                        #if DEBUG
+                        print("⚠️ Usuario \(userId) no accesible (403 Forbidden) - probablemente de otro gym")
+                        #endif
+
+                    case 404:
+                        #if DEBUG
+                        print("⚠️ Usuario \(userId) no encontrado (404)")
+                        #endif
+
+                    case 500...599:
+                        // Error del servidor - estos sí son críticos
+                        print("❌ Error del servidor para user \(userId): Status \(httpResponse.statusCode)")
+
+                    default:
+                        print("❌ API error for user \(userId): Status code \(httpResponse.statusCode)")
+                    }
                     return nil
                 }
             }
