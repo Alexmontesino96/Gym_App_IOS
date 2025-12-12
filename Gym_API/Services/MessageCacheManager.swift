@@ -45,14 +45,15 @@ class MessageCacheManager: ObservableObject {
     /// ✅ OPTIMIZADO: JSON decoding en background thread para no bloquear UI
     /// ✅ OPTIMIZADO: Usa MemoryBudgetManager para prevenir SIGKILL
     func getCachedMessagesAsync(for conversationId: String) async -> [ChatMessage] {
+        // Capturar fileURL antes del dispatch para evitar actor isolation issues
+        let fileURL = getCacheFileURL(for: conversationId)
+
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else {
                     continuation.resume(returning: [])
                     return
                 }
-
-                let fileURL = self.getCacheFileURL(for: conversationId)
 
                 guard self.fileManager.fileExists(atPath: fileURL.path) else {
                     print("📦 No hay caché para conversación: \(conversationId)")

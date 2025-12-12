@@ -20,15 +20,18 @@ struct OptimizedChatView: View {
     // ✅ NUEVO: Actor-based coordinator para prevenir race conditions
     private let loadingCoordinator = MessageLoadingCoordinator()
 
+    // ✅ NUEVO: Message window para lazy loading y reducción de memoria
+    private let messageWindow = MessageWindow()
+    @State private var visibleMessages: [ChatMessage] = []
+
     // ✅ DEPRECATED: Serán reemplazados por loadingCoordinator
     @State private var messageLoadingTask: Task<Void, Never>?
     @State private var currentLoadingConversationId: String?
-    
-    // Computed property para mensajes ordenados (cacheado con límite para memoria)
+
+    // Computed property para mensajes ordenados (ahora usa window en vez de array completo)
     private var sortedMessages: [ChatMessage] {
-        let sorted = messages.sorted { $0.timestamp < $1.timestamp }
-        // Limitar en UI a máximo 100 mensajes para evitar memory issues
-        return Array(sorted.suffix(100))
+        // Obtener mensajes del window en vez de array completo
+        return visibleMessages.sorted { $0.timestamp < $1.timestamp }
     }
     
     init(conversationId: String, conversationName: String) {
@@ -83,6 +86,10 @@ struct OptimizedChatView: View {
             Task {
                 await loadingCoordinator.cancel()
                 print("💬 👋 🧹 MessageLoadingCoordinator cancelado")
+
+                // ✅ CRÍTICO: Limpiar MessageWindow para liberar memoria
+                await messageWindow.clear()
+                print("💬 👋 🪟 MessageWindow limpiado")
             }
 
             // ✅ CRÍTICO: Liberar presupuesto de memoria
@@ -277,6 +284,7 @@ struct OptimizedChatView: View {
     /// Carga mensajes usando estrategia cache-first para experiencia instantánea
     /// ✅ OPTIMIZADO: Usa MessageLoadingCoordinator actor para prevenir race conditions
     /// ✅ OPTIMIZADO: Background JSON decoding para no bloquear UI
+    /// ✅ OPTIMIZADO: MessageWindow para lazy loading y reducción de memoria
     private func loadMessages() {
         print("💬 📦 loadMessages() para: \(conversationId)")
 
@@ -286,9 +294,18 @@ struct OptimizedChatView: View {
             let cachedMessages = await MessageCacheManager.shared.getCachedMessagesAsync(for: conversationId)
 
             if !cachedMessages.isEmpty {
+                // Inicializar window con mensajes del caché
+                let messageIds = cachedMessages.sorted { $0.timestamp < $1.timestamp }.map { $0.id }
+                await messageWindow.initialize(with: messageIds)
+                await messageWindow.loadMessages(cachedMessages)
+
+                // Obtener mensajes visibles del window
+                let windowedMessages = await messageWindow.getVisibleMessages()
+
                 await MainActor.run {
-                    self.messages = cachedMessages
-                    print("💬 📦 [Background] Caché cargado: \(cachedMessages.count) mensajes")
+                    self.visibleMessages = windowedMessages
+                    self.messages = cachedMessages  // Mantener para compatibilidad
+                    print("💬 📦 [Background] Caché cargado: \(cachedMessages.count) mensajes total, \(windowedMessages.count) visibles")
                 }
             } else {
                 await MainActor.run { isLoading = true }
@@ -307,11 +324,26 @@ struct OptimizedChatView: View {
                     }
                 }
 
+                // Inicializar window con mensajes frescos
+                let messageIds = freshMessages.sorted { $0.timestamp < $1.timestamp }.map { $0.id }
+                await messageWindow.initialize(with: messageIds)
+                await messageWindow.loadMessages(freshMessages)
+
+                // Obtener mensajes visibles del window
+                let windowedMessages = await messageWindow.getVisibleMessages()
+
                 // Actualizar UI - el coordinator ya garantizó que es la conversación correcta
                 await MainActor.run {
                     if cachedMessages.isEmpty || !messagesAreEqual(freshMessages, messages) {
-                        messages = freshMessages
-                        print("💬 ✅ UI actualizada con \(freshMessages.count) mensajes")
+                        self.messages = freshMessages  // Mantener para compatibilidad
+                        self.visibleMessages = windowedMessages
+                        print("💬 ✅ UI actualizada con \(freshMessages.count) mensajes total, \(windowedMessages.count) visibles")
+
+                        #if DEBUG
+                        Task {
+                            await messageWindow.debugPrintStatus()
+                        }
+                        #endif
                     }
 
                     isLoading = false
@@ -489,6 +521,7 @@ struct OptimizedChatView: View {
 
     /// Maneja nuevo mensaje con smart merge para eliminar duplicados optimistas
     /// Busca mensajes optimistas con mismo fingerprint y los promociona al ID real
+    /// ✅ OPTIMIZADO: Actualiza tanto el array messages como el MessageWindow
     private func handleNewMessage(_ message: ChatMessage) {
         // 1. Crear fingerprint del mensaje entrante
         let fingerprint = MessageFingerprint(from: message)
@@ -508,6 +541,17 @@ struct OptimizedChatView: View {
             // 4. Es mensaje nuevo de otro usuario (no optimista)
             messages.append(message)
             print("📨 Mensaje nuevo recibido: \(message.id)")
+
+            // Agregar al window
+            Task {
+                await messageWindow.appendMessage(message)
+
+                // Actualizar mensajes visibles
+                let windowedMessages = await messageWindow.getVisibleMessages()
+                await MainActor.run {
+                    self.visibleMessages = windowedMessages
+                }
+            }
         } else {
             print("⏭️ Mensaje ya existe (ID duplicado ignorado): \(message.id)")
         }
