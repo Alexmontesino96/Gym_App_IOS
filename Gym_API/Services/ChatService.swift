@@ -1255,7 +1255,7 @@ class ChatService: ObservableObject {
                          member.role.lowercased().contains("trainer") ||
                          member.gymRole?.lowercased().contains("trainer") == true
 
-            return isCoach && member.isActive
+            return isCoach && (member.isActive ?? true)  // ✅ Default true si no está presente
         }.sorted { $0.fullName < $1.fullName }
 
         print("✅ Coaches encontrados: \(coaches.count)")
@@ -1273,7 +1273,7 @@ class ChatService: ObservableObject {
         // Obtener todos los miembros del caché centralizado
         let allMembers = await userCache.getUsers(Array(1...1000))
         let activeMembers = allMembers.filter { member in
-            return member.isActive
+            return member.isActive ?? true  // ✅ Default true si no está presente
         }.sorted { $0.fullName < $1.fullName }
 
         print("✅ Miembros activos encontrados: \(activeMembers.count)")

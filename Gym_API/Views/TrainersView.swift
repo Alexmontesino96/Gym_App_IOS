@@ -167,11 +167,11 @@ struct TrainerCard: View {
                 // Active status
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(trainer.isActive ? Color.green : Color.red)
+                        .fill((trainer.isActive ?? true) ? Color.green : Color.red)
                         .frame(width: 6, height: 6)
-                    Text(trainer.isActive ? "Active" : "Inactive")
+                    Text((trainer.isActive ?? true) ? "Active" : "Inactive")
                         .font(.system(size: 10))
-                        .foregroundColor(trainer.isActive ? Color.green : Color.red)
+                        .foregroundColor((trainer.isActive ?? true) ? Color.green : Color.red)
                 }
                 .padding(.top, 2)
             }

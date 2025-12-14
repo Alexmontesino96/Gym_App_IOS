@@ -398,7 +398,7 @@ struct UserRow: View {
                             )
 
                         // Status
-                        if user.isActive {
+                        if user.isActive ?? true {
                             HStack(spacing: 4) {
                                 Circle()
                                     .fill(Color.green)
