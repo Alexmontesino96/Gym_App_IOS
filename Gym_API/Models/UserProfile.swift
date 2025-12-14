@@ -10,9 +10,9 @@ import Foundation
 // MARK: - User Profile Model
 struct UserProfile: Codable, Identifiable, Equatable {
     let id: Int
-    let email: String
-    let isActive: Bool
-    let isSuperuser: Bool
+    let email: String?  // ✅ Opcional - algunos usuarios no tienen email
+    let isActive: Bool?  // ✅ Opcional - algunos usuarios no tienen este campo
+    let isSuperuser: Bool?  // ✅ Opcional - algunos usuarios no tienen este campo
     let firstName: String
     let lastName: String
     let role: String

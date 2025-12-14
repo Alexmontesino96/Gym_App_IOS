@@ -12,7 +12,8 @@ struct ChatRoom: Codable, Identifiable {
     let createdAt: Date
     let lastMessageAt: Date?
     let lastMessageText: String?
-    
+    let isHidden: Bool  // ✅ NUEVO - Indica si el chat está oculto para el usuario
+
     enum CodingKeys: String, CodingKey {
         case id, name
         case isDirect = "is_direct"
@@ -22,6 +23,48 @@ struct ChatRoom: Codable, Identifiable {
         case createdAt = "created_at"
         case lastMessageAt = "last_message_at"
         case lastMessageText = "last_message_text"
+        case isHidden = "is_hidden"  // ✅ NUEVO
+    }
+
+    // ✅ Inicializador regular (memberwise) - soporta creación manual
+    init(
+        id: Int,
+        name: String? = nil,
+        isDirect: Bool,
+        eventId: Int? = nil,
+        streamChannelId: String,
+        streamChannelType: String,
+        createdAt: Date,
+        lastMessageAt: Date? = nil,
+        lastMessageText: String? = nil,
+        isHidden: Bool = false  // ✅ Default a false
+    ) {
+        self.id = id
+        self.name = name
+        self.isDirect = isDirect
+        self.eventId = eventId
+        self.streamChannelId = streamChannelId
+        self.streamChannelType = streamChannelType
+        self.createdAt = createdAt
+        self.lastMessageAt = lastMessageAt
+        self.lastMessageText = lastMessageText
+        self.isHidden = isHidden
+    }
+
+    // ✅ Inicializador desde JSON (decoder) - soporta decodificación
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        isDirect = try container.decode(Bool.self, forKey: .isDirect)
+        eventId = try container.decodeIfPresent(Int.self, forKey: .eventId)
+        streamChannelId = try container.decode(String.self, forKey: .streamChannelId)
+        streamChannelType = try container.decode(String.self, forKey: .streamChannelType)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        lastMessageAt = try container.decodeIfPresent(Date.self, forKey: .lastMessageAt)
+        lastMessageText = try container.decodeIfPresent(String.self, forKey: .lastMessageText)
+        // Si el backend no envía isHidden, asume false
+        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
     }
     
     // MARK: - Computed Properties
@@ -696,43 +739,43 @@ class ChatService: ObservableObject {
     }
     
     private func performGetMyRooms() async {
-        updateOnMainThread {
+        await MainActor.run {
             self.isLoadingRooms = true
             self.roomsErrorMessage = nil
         }
-        
+
         guard let url = URL(string: "\(baseURL)/chat/my-rooms") else {
-            updateOnMainThread {
+            await MainActor.run {
                 self.roomsErrorMessage = "URL inválida"
                 self.isLoadingRooms = false
             }
             return
         }
-        
+
         guard let request = await createAuthenticatedRequest(url: url) else {
-            updateOnMainThread {
+            await MainActor.run {
                 self.roomsErrorMessage = "No se pudo crear request autenticado"
                 self.isLoadingRooms = false
             }
             return
         }
-        
+
         do {
             let (data, response) = try await session.data(for: request)
-            
+
             if let httpResponse = response as? HTTPURLResponse {
                 print("📡 Response status for my rooms: \(httpResponse.statusCode)")
-                
+
                 if httpResponse.statusCode == 200 {
                     let decoder = JSONDecoder()
                     decoder.dateDecodingStrategy = .custom { decoder in
                         let container = try decoder.singleValueContainer()
                         let dateString = try container.decode(String.self)
-                        
+
                         let formatter = DateFormatter()
                         formatter.locale = Locale(identifier: "en_US_POSIX")
                         formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                        
+
                         let dateFormats = [
                             "yyyy-MM-dd'T'HH:mm:ss'Z'",
                             "yyyy-MM-dd'T'HH:mm:ss",
@@ -741,26 +784,33 @@ class ChatService: ObservableObject {
                             "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
                             "yyyy-MM-dd'T'HH:mm:ss.SSS"
                         ]
-                        
+
                         for format in dateFormats {
                             formatter.dateFormat = format
                             if let date = formatter.date(from: dateString) {
                                 return date
                             }
                         }
-                        
+
                         throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string '\(dateString)'")
                     }
-                    
+
                     let rooms = try decoder.decode([ChatRoom].self, from: data)
-                    
-                    updateOnMainThread {
+
+                    // ✅ CRÍTICO: Usar await MainActor.run para asegurar que se complete la actualización
+                    await MainActor.run {
                         // Ordenar por fecha efectiva al cargar inicialmente
                         self.chatRooms = rooms.sorted { $0.effectiveDate > $1.effectiveDate }
                         self.isLoadingRooms = false
                     }
-                    
+
                     print("💬 Salas de chat cargadas exitosamente: \(rooms.count)")
+                    print("📋 ChatRooms después de actualización: \(self.chatRooms.count)")
+
+                    // Log de los primeros 3 rooms para debugging
+                    for (index, room) in self.chatRooms.prefix(3).enumerated() {
+                        print("   [Room \(index)] id=\(room.id), streamId=\(room.streamChannelId), name=\(room.name ?? "sin nombre")")
+                    }
                     
                     // Cargar mensajes guardados inmediatamente después de cargar rooms
                     loadLastMessagesFromStorage()
@@ -773,8 +823,8 @@ class ChatService: ObservableObject {
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
                     print("❌ Error getting my rooms: \(errorString)")
-                    
-                    updateOnMainThread {
+
+                    await MainActor.run {
                         self.roomsErrorMessage = "Error al obtener salas de chat: \(httpResponse.statusCode)"
                         self.isLoadingRooms = false
                     }
@@ -782,8 +832,8 @@ class ChatService: ObservableObject {
             }
         } catch {
             print("❌ Error fetching my rooms: \(error)")
-            
-            updateOnMainThread {
+
+            await MainActor.run {
                 self.roomsErrorMessage = "Error de red: \(error.localizedDescription)"
                 self.isLoadingRooms = false
             }

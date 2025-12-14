@@ -668,6 +668,16 @@ struct FeedTabsView: View {
             chatService.setCurrentUserIdFromString(user.id)
             print("👤 FeedTabsView: ChatService configurado con userId: \(user.id)")
 
+            // ✅ Cargar ChatRooms desde backend ANTES de necesitarlos para delete
+            print("🔄 [DEBUG] Llamando a chatService.getMyRooms()...")
+            await chatService.getMyRooms()
+            print("✅ [DEBUG] getMyRooms() completado. ChatRooms count: \(chatService.chatRooms.count)")
+
+            // Log de cada room para debugging
+            for (index, room) in chatService.chatRooms.enumerated() {
+                print("   [DEBUG] Room[\(index)]: id=\(room.id), streamId=\(room.streamChannelId), name=\(room.name ?? "sin nombre")")
+            }
+
             // Obtener token real desde la API
             await obtenerCredencialesReales(user: user)
 
@@ -940,19 +950,65 @@ struct FeedTabsView: View {
 
     private func deleteConversation(_ conversation: ChatConversation) {
         print("🗑️ Eliminando conversación: \(conversation.name ?? conversation.id)")
+        print("🔍 Buscando ChatRoom con streamChannelId: \(conversation.id)")
+        print("📋 Total de ChatRooms cargados: \(ChatService.shared.chatRooms.count)")
 
-        // Remove from current list with animation
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            conversations.removeAll { $0.id == conversation.id }
+        // Log todos los streamChannelIds disponibles
+        for (index, room) in ChatService.shared.chatRooms.enumerated() {
+            print("   [\(index)] roomId: \(room.id), streamChannelId: \(room.streamChannelId)")
         }
 
-        // TODO: Implement actual delete functionality with backend API
-        // For now, just remove from local list and update cache
-        saveConversationsToCache(conversations)
-        print("✅ Conversation deleted locally (backend integration pending)")
+        // Buscar ChatRoom correspondiente usando streamChannelId
+        if let chatRoom = ChatService.shared.chatRooms.first(where: { $0.streamChannelId == conversation.id }) {
+            print("✅ ChatRoom encontrado! roomId: \(chatRoom.id), streamChannelId: \(chatRoom.streamChannelId)")
+            // ✅ Tenemos el roomId, eliminar del backend
+            Task {
+                do {
+                    let response = try await ServiceContainer.shared.chatManagementService.deleteConversation(room: chatRoom)
+                    print("✅ Conversación eliminada del backend: \(response.messagesDeleted) mensajes borrados")
 
-        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-        impactFeedback.impactOccurred()
+                    // Remove from UI with animation
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            conversations.removeAll { $0.id == conversation.id }
+                        }
+                        saveConversationsToCache(conversations)
+
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                        impactFeedback.impactOccurred()
+                    }
+                } catch {
+                    print("❌ Error al eliminar conversación del backend: \(error.localizedDescription)")
+
+                    // Aún así eliminar localmente
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            conversations.removeAll { $0.id == conversation.id }
+                        }
+                        saveConversationsToCache(conversations)
+
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                        impactFeedback.impactOccurred()
+                    }
+                }
+            }
+        } else {
+            // ⚠️ No encontramos el ChatRoom, solo eliminar localmente
+            print("❌ ChatRoom NO encontrado para streamChannelId: '\(conversation.id)'")
+            print("❌ Razones posibles:")
+            print("   1. ChatRooms aún no cargados desde /my-rooms")
+            print("   2. Formato de streamChannelId no coincide")
+            print("   3. ChatRoom no existe en el backend")
+            print("⚠️ Eliminando solo localmente como fallback")
+
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                conversations.removeAll { $0.id == conversation.id }
+            }
+            saveConversationsToCache(conversations)
+
+            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+            impactFeedback.impactOccurred()
+        }
     }
 
 }

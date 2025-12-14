@@ -277,7 +277,7 @@ struct AuthenticatedView: View {
                 if let profile = profileService.userProfile {
                     print("🔧 [AuthenticatedView] Perfil cargado desde servidor:")
                     print("🔧 [AuthenticatedView] - ID: \(profile.id)")
-                    print("🔧 [AuthenticatedView] - Email: \(profile.email)")
+                    print("🔧 [AuthenticatedView] - Email: \(profile.email ?? "Sin email")")
                     print("🔧 [AuthenticatedView] - FirstName: '\(profile.firstName)'")
                     print("🔧 [AuthenticatedView] - LastName: '\(profile.lastName)'")
                     print("🔧 [AuthenticatedView] - Height: \(profile.height?.description ?? "nil")")

@@ -1191,18 +1191,48 @@ extension SocialFeedView {
     private func deleteConversation(_ conversation: ChatConversation) {
         print("🗑️ Eliminando conversación: \(conversation.name ?? conversation.id)")
 
-        // Remove from current list with animation
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            conversations.removeAll { $0.id == conversation.id }
+        // Buscar ChatRoom correspondiente usando streamChannelId
+        if let chatRoom = ChatService.shared.chatRooms.first(where: { $0.streamChannelId == conversation.id }) {
+            // ✅ Tenemos el roomId, eliminar del backend
+            Task {
+                do {
+                    let response = try await ServiceContainer.shared.chatManagementService.deleteConversation(room: chatRoom)
+                    print("✅ Conversación eliminada del backend: \(response.messagesDeleted) mensajes borrados")
+
+                    // Remove from UI with animation
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            conversations.removeAll { $0.id == conversation.id }
+                        }
+                        saveConversationsToCache(conversations)
+
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                        impactFeedback.impactOccurred()
+                    }
+                } catch {
+                    print("❌ Error al eliminar conversación del backend: \(error.localizedDescription)")
+
+                    // Aún así eliminar localmente
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            conversations.removeAll { $0.id == conversation.id }
+                        }
+                        saveConversationsToCache(conversations)
+                    }
+                }
+            }
+        } else {
+            // ⚠️ No encontramos el ChatRoom, solo eliminar localmente
+            print("⚠️ ChatRoom no encontrado para streamChannelId: \(conversation.id), eliminando solo localmente")
+
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                conversations.removeAll { $0.id == conversation.id }
+            }
+            saveConversationsToCache(conversations)
+
+            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+            impactFeedback.impactOccurred()
         }
-
-        // TODO: Implement actual delete functionality with backend API
-        // For now, just remove from local list and update cache
-        saveConversationsToCache(conversations)
-        print("✅ Conversation deleted locally (backend integration pending)")
-
-        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-        impactFeedback.impactOccurred()
     }
 }
 

@@ -31,6 +31,7 @@ class ServiceContainer: ObservableObject {
     let postService: PostService
     let attendanceService: AttendanceService
     let unreadCountService = UnreadCountService.shared // Singleton for unread message tracking
+    let chatManagementService = ChatManagementService.shared // Singleton for chat management (hide, leave, delete)
 
     // MARK: - Published Properties
     @Published var isInitialized = false

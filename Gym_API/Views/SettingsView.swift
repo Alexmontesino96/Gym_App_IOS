@@ -183,8 +183,8 @@ struct UserInfoHeader: View {
                 Text(profile.fullName)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                
-                Text(profile.email)
+
+                Text(profile.email ?? "Sin email")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 

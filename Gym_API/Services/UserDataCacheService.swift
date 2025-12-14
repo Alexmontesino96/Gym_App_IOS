@@ -283,7 +283,8 @@ final class UserDataCacheService: ObservableObject {
     private func fetchUserProfileFromAPI(_ userId: Int) async -> UserProfile? {
         print("🔄 Fetching user profile from API: \(userId)")
 
-        guard let url = URL(string: "\(baseURL)/users/\(userId)") else {
+        // ✅ Usar endpoint que permite MEMBERS: /users/profile/{user_id}
+        guard let url = URL(string: "\(baseURL)/users/profile/\(userId)") else {
             print("❌ Invalid URL for user \(userId)")
             return nil
         }
