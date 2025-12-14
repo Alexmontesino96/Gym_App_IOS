@@ -383,7 +383,7 @@ extension UserPublicProfile {
             picture: profile.picture,
             role: profile.role ?? "member",
             bio: nil,
-            isActive: profile.isActive,
+            isActive: profile.isActive ?? true,  // ✅ Default true si no está presente
             color: profile.color,
             gymRole: profile.gymRole
         )
