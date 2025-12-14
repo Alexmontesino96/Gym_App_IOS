@@ -656,19 +656,14 @@ struct FeedTabsView: View {
     }
 
     private func initializeChatSystem() async {
-        guard !chatProviderManager.isInitialized else { return }
-
-        // Pasar authService al inicializar el provider
-        await chatProviderManager.initializeProvider(authService: authService)
-
-        // Configurar ChatService con el ID del usuario autenticado
+        // Configurar ChatService SIEMPRE (incluso si ya está inicializado)
         if let user = authService.user {
             let chatService = ChatService.shared
             chatService.authService = authService
             chatService.setCurrentUserIdFromString(user.id)
             print("👤 FeedTabsView: ChatService configurado con userId: \(user.id)")
 
-            // ✅ Cargar ChatRooms desde backend ANTES de necesitarlos para delete
+            // ✅ CRÍTICO: Cargar ChatRooms SIEMPRE, incluso si chatProvider ya está inicializado
             print("🔄 [DEBUG] Llamando a chatService.getMyRooms()...")
             await chatService.getMyRooms()
             print("✅ [DEBUG] getMyRooms() completado. ChatRooms count: \(chatService.chatRooms.count)")
@@ -677,12 +672,24 @@ struct FeedTabsView: View {
             for (index, room) in chatService.chatRooms.enumerated() {
                 print("   [DEBUG] Room[\(index)]: id=\(room.id), streamId=\(room.streamChannelId), name=\(room.name ?? "sin nombre")")
             }
+        }
 
+        // Solo inicializar el provider si no está inicializado
+        guard !chatProviderManager.isInitialized else {
+            print("⚠️ ChatProvider ya inicializado, saltando inicialización pero ChatRooms ya cargados")
+            return
+        }
+
+        // Pasar authService al inicializar el provider
+        await chatProviderManager.initializeProvider(authService: authService)
+
+        // Configurar credenciales y conversaciones solo en primera inicialización
+        if let user = authService.user {
             // Obtener token real desde la API
             await obtenerCredencialesReales(user: user)
 
             // Precargar miembros del gym para enriquecer avatares en conversaciones
-            await chatService.loadGymMembers()
+            await ChatService.shared.loadGymMembers()
         }
     }
 
