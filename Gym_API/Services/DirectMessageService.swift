@@ -8,24 +8,46 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Chat Room Member Model
+struct ChatRoomMemberResponse: Codable {
+    let userId: Int
+    let role: String?
+    let joinedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case role
+        case joinedAt = "joined_at"
+    }
+}
+
 // MARK: - Chat Room Models for API Response
 struct ChatRoomResponse: Codable {
-    let name: String
-    let isDirect: Bool
-    let eventId: Int?
     let id: Int
+    let name: String
     let streamChannelId: String
     let streamChannelType: String
+    let isDirect: Bool
     let createdAt: String
-    
+    let eventId: Int?
+    // Campos opcionales que pueden o no venir del backend
+    let gymId: Int?
+    let status: String?
+    let isHidden: Bool?
+    let members: [ChatRoomMemberResponse]?
+
     enum CodingKeys: String, CodingKey {
-        case name
-        case isDirect = "is_direct"
-        case eventId = "event_id"
         case id
+        case name
         case streamChannelId = "stream_channel_id"
         case streamChannelType = "stream_channel_type"
+        case isDirect = "is_direct"
         case createdAt = "created_at"
+        case eventId = "event_id"
+        case gymId = "gym_id"
+        case status
+        case isHidden = "is_hidden"
+        case members
     }
 }
 
@@ -47,10 +69,28 @@ extension ChatRoomResponse {
             }
         }
         
-        // Convertir fecha string a Date
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let createdDate = dateFormatter.date(from: createdAt) ?? Date()
+        // Convertir fecha string a Date con fallback robusto
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        var createdDate: Date?
+
+        // Intentar parsear con formato ISO8601 estándar primero
+        createdDate = isoFormatter.date(from: createdAt)
+
+        // Si falla, intentar agregar 'Z' al final (UTC)
+        if createdDate == nil {
+            let dateWithZ = createdAt + "Z"
+            createdDate = isoFormatter.date(from: dateWithZ)
+        }
+
+        // Si aún falla, intentar sin fracciones de segundo
+        if createdDate == nil {
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            createdDate = isoFormatter.date(from: createdAt)
+        }
+
+        let finalDate = createdDate ?? Date()
         
         return ChatChannelData(
             id: streamChannelId,
@@ -59,7 +99,7 @@ extension ChatRoomResponse {
             participants: participants,
             lastMessage: nil,
             lastMessageAt: nil,
-            createdAt: createdDate,
+            createdAt: finalDate,
             unreadCount: 0,
             isActive: true
         )

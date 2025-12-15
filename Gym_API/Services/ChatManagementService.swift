@@ -17,6 +17,7 @@ enum ChatManagementError: LocalizedError {
     case groupNotEmpty(membersCount: Int)
     case noPermission
     case notFound
+    case conflict(String)
     case serverError(String)
     case networkError(Error)
 
@@ -34,6 +35,8 @@ enum ChatManagementError: LocalizedError {
             return "No tienes permisos para realizar esta acción."
         case .notFound:
             return "Chat no encontrado."
+        case .conflict(let message):
+            return message
         case .serverError(let message):
             return message
         case .networkError(let error):
@@ -98,6 +101,11 @@ struct ChatDeleteConversationResponse: Codable {
         case roomId = "room_id"
         case messagesDeleted = "messages_deleted"
     }
+}
+
+struct DeleteOrphanChannelResponse: Codable {
+    let success: Bool
+    let message: String
 }
 
 // MARK: - Error Response
@@ -174,6 +182,12 @@ class ChatManagementService: ObservableObject {
 
         case 404:
             throw ChatManagementError.notFound
+
+        case 409:
+            if let errorResponse = try? JSONDecoder().decode(ChatErrorResponse.self, from: data) {
+                throw ChatManagementError.conflict(errorResponse.detail)
+            }
+            throw ChatManagementError.conflict("Conflicto al eliminar el canal")
 
         default:
             throw ChatManagementError.serverError("Error del servidor (\(httpResponse.statusCode))")
@@ -387,6 +401,86 @@ class ChatManagementService: ObservableObject {
             throw error
         } catch {
             throw ChatManagementError.networkError(error)
+        }
+    }
+
+    /// Elimina un canal huérfano (que NO existe en la base de datos pero sí en Stream)
+    /// - Parameter channelId: ID del canal en Stream (puede incluir o no el prefijo "messaging:")
+    /// - Returns: Respuesta con el resultado
+    /// - Throws: ChatManagementError si falla
+    /// - Note: Solo el creador (owner) puede eliminar canales huérfanos
+    func deleteOrphanChannel(channelId: String) async throws -> DeleteOrphanChannelResponse {
+        print("🔄 Eliminando canal huérfano: \(channelId)")
+
+        guard let url = createURL(path: "/channels/orphan/\(channelId)") else {
+            throw ChatManagementError.serverError("URL inválida")
+        }
+
+        guard let request = await HTTPClient.shared.makeRequest(url: url, method: "DELETE") else {
+            throw ChatManagementError.serverError("No se pudo crear la solicitud")
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            // Log respuesta del backend
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("📥 Respuesta del backend (Delete Orphan Channel): \(responseString)")
+            }
+
+            let result: DeleteOrphanChannelResponse = try handleResponse(data: data, response: response, type: DeleteOrphanChannelResponse.self)
+            print("✅ Canal huérfano eliminado: \(channelId)")
+            print("   📊 Resultado: success=\(result.success), message=\(result.message)")
+
+            return result
+        } catch let error as ChatManagementError {
+            throw error
+        } catch {
+            throw ChatManagementError.networkError(error)
+        }
+    }
+
+    /// Elimina un grupo con fallback automático a canal huérfano
+    /// - Parameters:
+    ///   - roomId: ID del grupo en la base de datos
+    ///   - channelId: ID del canal en Stream (para fallback si el grupo no existe en BD)
+    ///   - hardDelete: Si debe eliminarse de Stream Chat (default: true)
+    /// - Returns: Mensaje de éxito
+    /// - Throws: ChatManagementError si falla
+    /// - Note: Primero intenta eliminar como grupo normal. Si retorna 404, intenta como huérfano.
+    func deleteGroupSmart(roomId: Int, channelId: String, hardDelete: Bool = true) async throws -> String {
+        print("🔄 Eliminando grupo con fallback inteligente: roomId=\(roomId), channelId=\(channelId)")
+
+        do {
+            // Paso 1: Intentar eliminación normal
+            let response = try await deleteGroup(roomId: roomId, hardDelete: hardDelete)
+            print("✅ Grupo eliminado correctamente (existía en BD)")
+            return response.message
+
+        } catch ChatManagementError.notFound {
+            // Paso 2: Si 404, el grupo no existe en BD → intentar como huérfano
+            print("⚠️ Grupo no encontrado en BD, intentando eliminar como canal huérfano...")
+
+            do {
+                let orphanResponse = try await deleteOrphanChannel(channelId: channelId)
+                print("✅ Canal huérfano eliminado correctamente")
+                return orphanResponse.message
+
+            } catch ChatManagementError.conflict(let message) {
+                // El backend dice que SÍ existe en BD (inconsistencia)
+                print("❌ Conflicto: el backend indica que el canal existe en BD")
+                throw ChatManagementError.conflict(message)
+
+            } catch {
+                // Otros errores del endpoint de huérfanos
+                print("❌ Error eliminando como huérfano: \(error)")
+                throw error
+            }
+
+        } catch {
+            // Otros errores del endpoint normal (403, 400, etc.)
+            print("❌ Error eliminando grupo: \(error)")
+            throw error
         }
     }
 

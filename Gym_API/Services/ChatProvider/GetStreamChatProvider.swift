@@ -396,10 +396,13 @@ class GetStreamChatProvider: ChatProvider {
         if let rooms = await chatService.getMyRoomsFromAPI() {
             print("📋 Salas obtenidas de la API: \(rooms.count)")
             for room in rooms {
-                // Los IDs de la API vienen sin prefijo "messaging:", pero Stream los usa con prefijo
-                // Mapear el ID base (como viene de la API)
-                roomNameMap[room.streamChannelId] = room.name
-                print("   - \(room.streamChannelId) → \(room.name)")
+                // La API incluye el prefijo "messaging:" o "event_", pero Stream usa solo el ID base
+                // Eliminar el prefijo para que coincida con channel.cid.id
+                let cleanId = room.streamChannelId
+                    .replacingOccurrences(of: "messaging:", with: "")
+                    .replacingOccurrences(of: "event_", with: "")
+                roomNameMap[cleanId] = room.name
+                print("   - \(room.streamChannelId) → \(cleanId) → \(room.name)")
             }
             print("✅ Mapa de nombres cargado: \(roomNameMap.count) entradas")
             
@@ -678,7 +681,48 @@ class GetStreamChatProvider: ChatProvider {
             channelControllers.removeValue(forKey: conversationId)
         }
     }
-    
+
+    // ⚠️ MÉTODO DEPRECADO - NO USAR DIRECTAMENTE
+    // ❌ VULNERABILIDAD DE SEGURIDAD: No valida gym_id, permisos, ni tipo de canal
+    // ✅ USAR: ChatManagementService.deleteGroupSmart() o deleteOrphanChannel() en su lugar
+    //
+    // Este método se mantiene comentado para referencia, pero NO debe usarse.
+    // Todo debe pasar por el backend que valida:
+    // - gym_id correcto
+    // - Permisos de usuario (owner, admin, etc.)
+    // - Tipo de canal (no permite eliminar canales de eventos)
+    // - Audit logging
+    /*
+    func deleteChannel(channelId: String) async throws {
+        print("🗑️ deleteChannel iniciado para: \(channelId)")
+
+        guard let channelController = getOrCreateChannelController(for: channelId) else {
+            print("❌ No se pudo obtener channelController para: \(channelId)")
+            throw ChatProviderError.conversationNotFound
+        }
+
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                print("📡 Eliminando canal de Stream Chat: \(channelId)")
+                channelController.deleteChannel { error in
+                    if let error = error {
+                        print("❌ Error eliminando canal \(channelId): \(error)")
+                        continuation.resume(throwing: error)
+                    } else {
+                        print("✅ Canal eliminado exitosamente de Stream Chat: \(channelId)")
+                        // Limpiar el controlador del caché
+                        self.channelControllers.removeValue(forKey: channelId)
+                        continuation.resume()
+                    }
+                }
+            }
+        } catch {
+            print("❌ Error en deleteChannel: \(error)")
+            throw error
+        }
+    }
+    */
+
     // MARK: - User Management
     
     func setCurrentUser(_ user: ChatUser) async throws {

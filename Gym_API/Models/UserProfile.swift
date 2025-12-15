@@ -27,7 +27,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
     let qrCode: String?
     let createdAt: Date?  // ✅ Opcional - algunos usuarios no tienen este campo
     let updatedAt: Date?  // ✅ Opcional - algunos usuarios no tienen este campo
-    let auth0Id: String
+    let auth0Id: String?  // ✅ Opcional - algunos usuarios no tienen este campo
     let picture: String?
     let color: String?
 

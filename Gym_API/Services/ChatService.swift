@@ -690,7 +690,8 @@ class ChatService: ObservableObject {
     
     // MARK: - Get My Rooms (usando nuevo endpoint)
     func getMyRoomsFromAPI() async -> [ChatRoomResponse]? {
-        guard let url = URL(string: "\(baseURL)/chat/my-rooms") else {
+        // Por defecto NO incluir chats ocultos en la lista principal
+        guard let url = URL(string: "\(baseURL)/chat/my-rooms?include_hidden=false") else {
             print("❌ URL inválida para my-rooms")
             return nil
         }
@@ -724,7 +725,91 @@ class ChatService: ObservableObject {
         
         return nil
     }
-    
+
+    /// Busca un ChatRoom específico por streamChannelId, incluyendo chats ocultos
+    /// - Parameter streamChannelId: ID del canal en Stream (sin prefijo "messaging:")
+    /// - Returns: ChatRoom si existe, nil si no se encuentra
+    func findChatRoom(byStreamChannelId streamChannelId: String) async -> ChatRoom? {
+        print("🔍 Buscando ChatRoom con streamChannelId: \(streamChannelId) (incluye ocultos)")
+
+        guard let url = URL(string: "\(baseURL)/chat/my-rooms?include_hidden=true") else {
+            print("❌ URL inválida para my-rooms")
+            return nil
+        }
+
+        guard let request = await createAuthenticatedRequest(url: url) else {
+            print("❌ No se pudo crear request autenticado")
+            return nil
+        }
+
+        do {
+            let (data, response) = try await session.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    let decoder = JSONDecoder()
+                    let rooms = try decoder.decode([ChatRoomResponse].self, from: data)
+
+                    // Convertir a ChatRoom y buscar por streamChannelId
+                    let chatRooms = rooms.compactMap { response -> ChatRoom? in
+                        // Convertir createdAt String a Date
+                        // El backend puede enviar fechas con o sin 'Z' al final
+                        let isoFormatter = ISO8601DateFormatter()
+                        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+                        var createdDate: Date?
+
+                        // Intentar parsear con formato ISO8601 estándar primero
+                        createdDate = isoFormatter.date(from: response.createdAt)
+
+                        // Si falla, intentar agregar 'Z' al final (UTC)
+                        if createdDate == nil {
+                            let dateWithZ = response.createdAt + "Z"
+                            createdDate = isoFormatter.date(from: dateWithZ)
+                        }
+
+                        // Si aún falla, intentar sin fracciones de segundo
+                        if createdDate == nil {
+                            isoFormatter.formatOptions = [.withInternetDateTime]
+                            createdDate = isoFormatter.date(from: response.createdAt)
+                        }
+
+                        guard let finalDate = createdDate else {
+                            print("⚠️ No se pudo parsear fecha: \(response.createdAt)")
+                            return nil
+                        }
+
+                        return ChatRoom(
+                            id: response.id,
+                            name: response.name,
+                            isDirect: response.isDirect,
+                            eventId: response.eventId,
+                            streamChannelId: response.streamChannelId.replacingOccurrences(of: "messaging:", with: ""),
+                            streamChannelType: response.streamChannelType,
+                            createdAt: finalDate,
+                            isHidden: response.isHidden ?? false
+                        )
+                    }
+
+                    // Buscar el ChatRoom que coincida
+                    let cleanStreamChannelId = streamChannelId.replacingOccurrences(of: "messaging:", with: "")
+                    if let found = chatRooms.first(where: { $0.streamChannelId == cleanStreamChannelId }) {
+                        print("✅ ChatRoom encontrado: roomId=\(found.id), isHidden=\(found.isHidden)")
+                        return found
+                    } else {
+                        print("❌ ChatRoom NO encontrado en lista completa (incluye \(chatRooms.count) chats)")
+                    }
+                } else {
+                    print("❌ Error HTTP: \(httpResponse.statusCode)")
+                }
+            }
+        } catch {
+            print("❌ Error buscando ChatRoom: \(error)")
+        }
+
+        return nil
+    }
+
     // MARK: - Get My Rooms (método original)
     func getMyRooms() async {
         // Cancelar tarea anterior si existe
@@ -744,7 +829,8 @@ class ChatService: ObservableObject {
             self.roomsErrorMessage = nil
         }
 
-        guard let url = URL(string: "\(baseURL)/chat/my-rooms") else {
+        // Por defecto NO incluir chats ocultos en la lista principal
+        guard let url = URL(string: "\(baseURL)/chat/my-rooms?include_hidden=false") else {
             await MainActor.run {
                 self.roomsErrorMessage = "URL inválida"
                 self.isLoadingRooms = false

@@ -1000,18 +1000,101 @@ struct FeedTabsView: View {
                 }
             }
         } else {
-            // ⚠️ No encontramos el ChatRoom, solo eliminar localmente
-            print("❌ ChatRoom NO encontrado para streamChannelId: '\(conversation.id)'")
-            print("❌ Razones posibles:")
-            print("   1. ChatRooms aún no cargados desde /my-rooms")
-            print("   2. Formato de streamChannelId no coincide")
-            print("   3. ChatRoom no existe en el backend")
-            print("⚠️ Eliminando solo localmente como fallback")
+            // ⚠️ No encontramos el ChatRoom en la lista cargada
+            print("❌ ChatRoom NO encontrado en lista local para streamChannelId: '\(conversation.id)'")
+            print("🔍 Buscando en backend con include_hidden=true...")
 
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                conversations.removeAll { $0.id == conversation.id }
+            // Buscar en el backend incluyendo chats ocultos
+            Task {
+                if let hiddenChatRoom = await ChatService.shared.findChatRoom(byStreamChannelId: conversation.id) {
+                    // ✅ Encontrado! Puede estar oculto
+                    print("✅ ChatRoom encontrado en backend (isHidden=\(hiddenChatRoom.isHidden))")
+
+                    do {
+                        let response = try await ServiceContainer.shared.chatManagementService.deleteConversation(room: hiddenChatRoom)
+                        print("✅ Conversación eliminada del backend: \(response.messagesDeleted) mensajes borrados")
+
+                        // Eliminar de la UI local
+                        await MainActor.run {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                conversations.removeAll { $0.id == conversation.id }
+                            }
+                            saveConversationsToCache(conversations)
+
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                            impactFeedback.impactOccurred()
+                        }
+
+                    } catch {
+                        print("❌ Error al eliminar conversación: \(error.localizedDescription)")
+
+                        // Aún así eliminar localmente
+                        await MainActor.run {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                conversations.removeAll { $0.id == conversation.id }
+                            }
+                            saveConversationsToCache(conversations)
+
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                            impactFeedback.impactOccurred()
+                        }
+                    }
+
+                } else {
+                    // ❌ No existe ni siquiera con include_hidden=true → es huérfano
+                    print("❌ ChatRoom NO existe en backend (verificado con include_hidden=true)")
+                    print("🔒 Eliminando canal huérfano usando endpoint seguro del backend...")
+
+                    do {
+                        // Usar el endpoint seguro que valida gym_id, permisos, etc.
+                        let response = try await ServiceContainer.shared.chatManagementService.deleteOrphanChannel(channelId: conversation.id)
+                        print("✅ Canal huérfano eliminado correctamente: \(response.message)")
+
+                        // Eliminar de la UI local
+                        await MainActor.run {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                conversations.removeAll { $0.id == conversation.id }
+                            }
+                            saveConversationsToCache(conversations)
+
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                            impactFeedback.impactOccurred()
+                        }
+
+                    } catch ChatManagementError.noPermission, ChatManagementError.notAMember {
+                        // El usuario no es el creador del canal huérfano o no es miembro
+                        print("⚠️ No puedes eliminar este canal huérfano (no eres el creador)")
+                        print("ℹ️ El canal será eliminado solo de tu vista local")
+                        print("ℹ️ Nota: Solo el creador del canal puede eliminarlo permanentemente del servidor")
+
+                        // Eliminar solo de la UI local
+                        await MainActor.run {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                conversations.removeAll { $0.id == conversation.id }
+                            }
+                            saveConversationsToCache(conversations)
+
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                            impactFeedback.impactOccurred()
+                        }
+
+                    } catch {
+                        print("⚠️ Error eliminando canal: \(error.localizedDescription)")
+                        print("ℹ️ Eliminando solo de la vista local")
+
+                        // Aún así eliminar localmente para limpiar la UI
+                        await MainActor.run {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                conversations.removeAll { $0.id == conversation.id }
+                            }
+                            saveConversationsToCache(conversations)
+
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+                            impactFeedback.impactOccurred()
+                        }
+                    }
+                }
             }
-            saveConversationsToCache(conversations)
 
             let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
             impactFeedback.impactOccurred()

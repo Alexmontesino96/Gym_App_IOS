@@ -487,7 +487,8 @@ final class UnifiedChatService: ObservableObject {
 
     /// Fetch chat rooms from API
     private func fetchChatRooms(token: String) async throws -> [UnifiedChatRoom] {
-        let urlString = "\(baseURL)/chat/my-rooms"
+        // Por defecto NO incluir chats ocultos en la lista principal
+        let urlString = "\(baseURL)/chat/my-rooms?include_hidden=false"
         guard let url = URL(string: urlString) else {
             throw ChatServiceError.invalidURL
         }
