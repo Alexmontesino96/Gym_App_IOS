@@ -467,6 +467,7 @@ struct FeedTabsView: View {
 
                 // Start loading state
                 isUpdatingFromServer = true
+                print("🔄 Iniciando creación de chat con \(selectedCoach.fullName) - ID: \(selectedCoach.id)")
 
                 // Create direct chat with selected coach
                 Task {
@@ -474,9 +475,29 @@ struct FeedTabsView: View {
                     chatService.authService = authService
                     if let user = authService.user {
                         chatService.setCurrentUserIdFromString(user.id)
+                        print("👤 Current user ID configurado: \(user.id)")
                     }
 
-                    if let directChatRoom = await chatService.getDirectChatWithCoach(selectedCoach) {
+                    print("⏳ Llamando a getDirectChatWithCoach...")
+
+                    // Agregar timeout de 30 segundos
+                    let result = await withTaskGroup(of: ChatRoom?.self) { group in
+                        group.addTask {
+                            await chatService.getDirectChatWithCoach(selectedCoach)
+                        }
+
+                        group.addTask {
+                            // Timeout de 30 segundos
+                            try? await Task.sleep(nanoseconds: 30_000_000_000)
+                            print("⏰ Timeout de 30s alcanzado para chat directo")
+                            return nil
+                        }
+
+                        // Retornar el primero que complete
+                        return await group.next() ?? nil
+                    }
+
+                    if let directChatRoom = result {
                             print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
 
                             // Convert ChatRoom to ChatConversation for navigation
@@ -524,10 +545,11 @@ struct FeedTabsView: View {
 
                         } else {
                             await MainActor.run {
-                                errorMessage = "No se pudo crear el chat con \(selectedCoach.fullName)"
+                                errorMessage = "No se pudo crear el chat con \(selectedCoach.fullName). Intenta de nuevo."
                                 isUpdatingFromServer = false
                             }
                             print("❌ No se pudo crear chat directo con \(selectedCoach.fullName)")
+                            print("❌ El request pudo haber fallado o alcanzado timeout de 30s")
                     }
                 }
             }
