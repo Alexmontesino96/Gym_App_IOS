@@ -499,6 +499,11 @@ struct FeedTabsView: View {
 
                     if let directChatRoom = result {
                             print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
+                            print("📝 Room ID: \(directChatRoom.id), Stream Channel: \(directChatRoom.streamChannelId)")
+
+                            // Dar tiempo al backend para crear el canal en Stream
+                            print("⏳ Esperando 2s para que Stream sincronice el canal...")
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
 
                             // Convert ChatRoom to ChatConversation for navigation
                             // Pre-populate members with the coach and the current user (when available)
@@ -533,6 +538,9 @@ struct FeedTabsView: View {
                                 if !conversations.contains(where: { $0.id == conversation.id }) {
                                     conversations.insert(conversation, at: 0)
                                     saveConversationsToCache(conversations)
+                                    print("➕ Conversación nueva agregada a la lista")
+                                } else {
+                                    print("✅ Conversación ya existe en la lista")
                                 }
 
                                 // Navigate to chat
@@ -541,6 +549,13 @@ struct FeedTabsView: View {
                                 isUpdatingFromServer = false
 
                                 print("📱 Navegando a chat con coach: \(selectedCoach.fullName)")
+                            }
+
+                            // Refrescar la lista de conversaciones en background
+                            print("🔄 Refrescando lista de conversaciones en background...")
+                            Task {
+                                await loadConversations()
+                                print("✅ Lista de conversaciones refrescada")
                             }
 
                         } else {
