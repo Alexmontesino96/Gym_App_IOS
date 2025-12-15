@@ -1260,43 +1260,77 @@ class ChatService: ObservableObject {
                 print("📡 Response status for direct chat: \(httpResponse.statusCode)")
                 
                 if httpResponse.statusCode == 200 {
-                    let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .custom { decoder in
-                        let container = try decoder.singleValueContainer()
-                        let dateString = try container.decode(String.self)
-                        
-                        let formatter = DateFormatter()
-                        formatter.locale = Locale(identifier: "en_US_POSIX")
-                        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                        
-                        let dateFormats = [
-                            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
-                            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-                        ]
-                        
-                        for format in dateFormats {
-                            formatter.dateFormat = format
-                            if let date = formatter.date(from: dateString) {
-                                return date
+                    print("✅ API retornó 200 - iniciando decodificación...")
+
+                    // Log del JSON recibido para debugging
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("📝 JSON recibido: \(jsonString)")
+                    }
+
+                    do {
+                        let decoder = JSONDecoder()
+                        decoder.dateDecodingStrategy = .custom { decoder in
+                            let container = try decoder.singleValueContainer()
+                            let dateString = try container.decode(String.self)
+
+                            let formatter = DateFormatter()
+                            formatter.locale = Locale(identifier: "en_US_POSIX")
+                            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+
+                            let dateFormats = [
+                                "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+                                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",  // Sin Z
+                                "yyyy-MM-dd'T'HH:mm:ss.SSS"      // Sin Z
+                            ]
+
+                            for format in dateFormats {
+                                formatter.dateFormat = format
+                                if let date = formatter.date(from: dateString) {
+                                    return date
+                                }
+                            }
+
+                            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string '\(dateString)'")
+                        }
+
+                        let directChatRoom = try decoder.decode(ChatRoom.self, from: data)
+
+                        updateOnMainThread {
+                            self.isLoadingRooms = false
+                        }
+
+                        print("💬 Chat directo obtenido exitosamente: \(directChatRoom.streamChannelId)")
+                        print("✅ Decodificación completada - retornando ChatRoom")
+
+                        // Actualizar la lista de chat rooms si el nuevo chat no existe
+                        await refreshChatRoomsIfNeeded(with: directChatRoom)
+
+                        return directChatRoom
+                    } catch {
+                        print("❌ Error de decodificación en getDirectChat: \(error)")
+                        if let decodingError = error as? DecodingError {
+                            switch decodingError {
+                            case .keyNotFound(let key, let context):
+                                print("❌ Campo faltante: \(key.stringValue) - \(context.debugDescription)")
+                            case .typeMismatch(let type, let context):
+                                print("❌ Tipo incorrecto para: \(type) - \(context.debugDescription)")
+                            case .valueNotFound(let type, let context):
+                                print("❌ Valor no encontrado para: \(type) - \(context.debugDescription)")
+                            case .dataCorrupted(let context):
+                                print("❌ Datos corruptos: \(context.debugDescription)")
+                            @unknown default:
+                                print("❌ Error de decodificación desconocido")
                             }
                         }
-                        
-                        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string '\(dateString)'")
+
+                        updateOnMainThread {
+                            self.roomsErrorMessage = "Error decodificando respuesta: \(error.localizedDescription)"
+                            self.isLoadingRooms = false
+                        }
+                        return nil
                     }
-                    
-                    let directChatRoom = try decoder.decode(ChatRoom.self, from: data)
-                    
-                    updateOnMainThread {
-                        self.isLoadingRooms = false
-                    }
-                    
-                    print("💬 Chat directo obtenido exitosamente: \(directChatRoom.streamChannelId)")
-                    
-                    // Actualizar la lista de chat rooms si el nuevo chat no existe
-                    await refreshChatRoomsIfNeeded(with: directChatRoom)
-                    
-                    return directChatRoom
                     
                 } else {
                     let errorString = String(data: data, encoding: .utf8) ?? "Error desconocido"
