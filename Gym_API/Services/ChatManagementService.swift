@@ -144,7 +144,7 @@ class ChatManagementService: ObservableObject {
         switch httpResponse.statusCode {
         case 200...299:
             let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            // No usar .convertFromSnakeCase porque tenemos CodingKeys manuales
             return try decoder.decode(T.self, from: data)
 
         case 400:
