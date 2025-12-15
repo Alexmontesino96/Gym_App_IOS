@@ -444,7 +444,9 @@ class GetStreamChatProvider: ChatProvider {
 
         // Configurar authService si está disponible
         if let authService = self.authService as? AuthServiceDirect {
-            chatService.authService = authService
+            await MainActor.run {
+                chatService.authService = authService
+            }
         }
 
         guard let apiRooms = await chatService.getMyRoomsFromAPI() else {
