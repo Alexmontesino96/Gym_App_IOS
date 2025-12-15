@@ -467,4 +467,9 @@ extension UserDataCacheService {
             $0.fullName.lowercased().contains(lowercaseQuery)
         }
     }
+
+    /// Get all cached user profiles (no API calls)
+    func getAllCachedProfiles() -> [UserProfile] {
+        return Array(userProfiles.values)
+    }
 }

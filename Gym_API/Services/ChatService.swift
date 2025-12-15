@@ -1333,8 +1333,10 @@ class ChatService: ObservableObject {
         // Cargar miembros del gym si es necesario
         await loadGymMembers()
 
-        // Obtener todos los miembros del caché centralizado
-        let allMembers = await userCache.getUsers(Array(1...1000)) // Obtener todos los usuarios disponibles
+        // ✅ SOLO obtener usuarios que están en cache (no intentar 1-1000)
+        let allMembers = await userCache.getAllCachedProfiles()
+        print("📋 Usuarios en cache: \(allMembers.count)")
+
         let coaches = allMembers.filter { member in
             let isCoach = member.role.lowercased().contains("coach") ||
                          member.gymRole?.lowercased().contains("coach") == true ||
@@ -1356,8 +1358,10 @@ class ChatService: ObservableObject {
         // Cargar miembros del gym si es necesario
         await loadGymMembers()
 
-        // Obtener todos los miembros del caché centralizado
-        let allMembers = await userCache.getUsers(Array(1...1000))
+        // ✅ SOLO obtener usuarios que están en cache (no intentar 1-1000)
+        let allMembers = await userCache.getAllCachedProfiles()
+        print("📋 Usuarios en cache: \(allMembers.count)")
+
         let activeMembers = allMembers.filter { member in
             return member.isActive ?? true  // ✅ Default true si no está presente
         }.sorted { $0.fullName < $1.fullName }
