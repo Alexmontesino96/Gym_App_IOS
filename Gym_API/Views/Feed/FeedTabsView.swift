@@ -513,9 +513,8 @@ struct FeedTabsView: View {
                             print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
                             print("📝 Room ID: \(directChatRoom.id), Stream Channel: \(directChatRoom.streamChannelId)")
 
-                            // Dar tiempo al backend para crear el canal en Stream
-                            print("⏳ Esperando 2s para que Stream sincronice el canal...")
-                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            // El backend ya creó el canal en Stream antes de responder 200 OK
+                            // No necesitamos delay - el canal ya existe
 
                             // Convert ChatRoom to ChatConversation for navigation
                             // Pre-populate members with the coach and the current user (when available)
