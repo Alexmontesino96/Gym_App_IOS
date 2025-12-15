@@ -483,19 +483,31 @@ struct FeedTabsView: View {
                     // Agregar timeout de 30 segundos
                     let result = await withTaskGroup(of: ChatRoom?.self) { group in
                         group.addTask {
-                            await chatService.getDirectChatWithCoach(selectedCoach)
+                            print("🔵 Task 1: Iniciando getDirectChatWithCoach...")
+                            let room = await chatService.getDirectChatWithCoach(selectedCoach)
+                            print("🔵 Task 1: getDirectChatWithCoach completado - resultado: \(room != nil ? "✅ ChatRoom" : "❌ nil")")
+                            return room
                         }
 
                         group.addTask {
-                            // Timeout de 30 segundos
+                            print("🟡 Task 2: Iniciando timeout de 30s...")
                             try? await Task.sleep(nanoseconds: 30_000_000_000)
-                            print("⏰ Timeout de 30s alcanzado para chat directo")
+                            print("⏰ Task 2: Timeout de 30s alcanzado")
                             return nil
                         }
 
                         // Retornar el primero que complete
-                        return await group.next() ?? nil
+                        print("⏳ Esperando primer resultado del TaskGroup...")
+                        let firstResult = await group.next()
+                        print("📊 TaskGroup retornó: \(firstResult != nil ? "✅ ChatRoom" : "❌ nil")")
+
+                        // Cancelar tareas restantes
+                        group.cancelAll()
+
+                        return firstResult ?? nil
                     }
+
+                    print("📦 Resultado final del TaskGroup: \(result != nil ? "✅ ChatRoom obtenido" : "❌ nil recibido")")
 
                     if let directChatRoom = result {
                             print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
