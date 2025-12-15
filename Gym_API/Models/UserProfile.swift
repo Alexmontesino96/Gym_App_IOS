@@ -25,8 +25,8 @@ struct UserProfile: Codable, Identifiable, Equatable {
     let healthConditions: String?
     let gymRole: String?
     let qrCode: String?
-    let createdAt: Date
-    let updatedAt: Date
+    let createdAt: Date?  // ✅ Opcional - algunos usuarios no tienen este campo
+    let updatedAt: Date?  // ✅ Opcional - algunos usuarios no tienen este campo
     let auth0Id: String
     let picture: String?
     let color: String?
@@ -84,6 +84,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
     }
 
     var memberSince: String {
+        guard let createdAt = createdAt else { return "N/A" }
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
         return formatter.string(from: createdAt)

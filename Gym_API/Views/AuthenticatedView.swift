@@ -285,8 +285,8 @@ struct AuthenticatedView: View {
                     print("🔧 [AuthenticatedView] - BirthDate: \(profile.birthDate?.description ?? "nil")")
                     print("🔧 [AuthenticatedView] - Bio: \(profile.bio?.description ?? "nil")")
                     print("🔧 [AuthenticatedView] - Auth0ID: \(profile.auth0Id)")
-                    print("🔧 [AuthenticatedView] - CreatedAt: \(profile.createdAt)")
-                    print("🔧 [AuthenticatedView] - UpdatedAt: \(profile.updatedAt)")
+                    print("🔧 [AuthenticatedView] - CreatedAt: \(profile.createdAt?.description ?? "nil")")
+                    print("🔧 [AuthenticatedView] - UpdatedAt: \(profile.updatedAt?.description ?? "nil")")
 
                     let isComplete = profileService.isProfileComplete()
                     print("🔧 Profile complete: \(isComplete)")
