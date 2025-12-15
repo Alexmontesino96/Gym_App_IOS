@@ -430,149 +430,123 @@ class GetStreamChatProvider: ChatProvider {
     
     
     func getConversations() async throws -> [ChatConversation] {
-        print("📋 getConversations() iniciado")
-        
+        print("📋 getConversations() iniciado - NUEVA LÓGICA: API como fuente de verdad")
+
         guard let chatClient = chatClient else {
             print("❌ ChatClient no inicializado")
             throw ChatProviderError.notInitialized
         }
-        
+
         print("✅ ChatClient disponible")
-        
-        // Crear query para obtener canales
-        let userId = currentUser?.id ?? ""
-        print("👤 Buscando canales para usuario: \(userId)")
-        
-        // Cambiar query para mostrar TODOS los canales donde el usuario es miembro
-        // Eliminar sort restrictivo por lastMessageAt que puede ocultar canales sin mensajes
-        let query = ChannelListQuery(filter: .containMembers(userIds: [userId]))
-        print("🔍 Query sin sort restrictivo creado para obtener TODOS los canales del usuario: \(query)")
-        print("🔍 Esto debería incluir canales donde es miembro pero no ha escrito mensajes")
-        
-        let channelListController = chatClient.channelListController(query: query)
-        print("🎮 ChannelListController creado")
-        
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            print("📡 Sincronizando channelListController...")
-            channelListController.synchronize { error in
-                if let error = error {
-                    print("❌ Error sincronizando channels: \(error)")
-                    print("❌ Error localizedDescription: \(error.localizedDescription)")
-                    continuation.resume(throwing: error)
-                } else {
-                    print("✅ Sincronización de channels exitosa")
-                    continuation.resume()
-                }
-            }
+
+        // ✅ PASO 1: Obtener rooms desde la API (fuente de verdad)
+        let chatService = ChatService.shared
+
+        // Configurar authService si está disponible
+        if let authService = self.authService as? AuthServiceDirect {
+            chatService.authService = authService
         }
-        
-        print("📊 Número de canales encontrados con query SIN sort restrictivo: \(channelListController.channels.count)")
-        print("🔍 COMPARACIÓN: Antes teníamos 9 canales, ahora tenemos: \(channelListController.channels.count)")
-        
-        // Obtener nombres desde la API
-        let roomNameMap: [String: String]
-        if await MainActor.run(resultType: Bool.self, body: { true }) {
-            roomNameMap = await fetchRoomNamesFromAPI()
-        } else {
-            roomNameMap = [:]
+
+        guard let apiRooms = await chatService.getMyRoomsFromAPI() else {
+            print("❌ No se pudieron obtener rooms desde la API")
+            throw ChatProviderError.unknown(NSError(domain: "GetStreamProvider", code: -1, userInfo: [NSLocalizedDescriptionKey: "No se pudieron obtener rooms desde la API"]))
         }
-        
-        // Log de canales raw con análisis detallado
-        print("🔍 ANÁLISIS DETALLADO DE CANALES ENCONTRADOS:")
-        for (index, channel) in channelListController.channels.enumerated() {
-            print("🔍 Canal \(index + 1):")
-            print("   - ID: \(channel.cid)")
-            print("   - Name: \(channel.name ?? "Sin nombre")")
-            print("   - API Name: \(roomNameMap[channel.cid.id] ?? "❌ NO EN API")")
-            print("   - Type: \(channel.type)")
-            print("   - Members: \(channel.memberCount)")
-            print("   - Created: \(channel.createdAt)")
-            print("   - Last Message: \(channel.lastMessageAt?.description ?? "⚠️ SIN MENSAJES")")
-            print("   - Latest Messages Count: \(channel.latestMessages.count)")
-            
-            // Verificar si existe en la API
-            if roomNameMap[channel.cid.id] != nil {
-                print("   ✅ Canal existe en API")
-            } else {
-                print("   ❌ Canal NO existe en API - puede ser canal directo o creado manualmente")
-            }
+
+        print("✅ Rooms obtenidas desde API: \(apiRooms.count)")
+        for room in apiRooms {
+            print("   - \(room.streamChannelId) → \(room.name)")
         }
-        
-        // Análisis de canales faltantes de la API (normalizar IDs para comparación)
-        // Stream IDs: messaging:event_615_d3d94468 -> event_615_d3d94468
-        // API IDs: event_615_d3d94468 (ya sin prefijo)
-        let foundChannelIds = Set(channelListController.channels.map { channel in
-            let fullId = channel.cid.id
-            // Remover prefijo "messaging:" si existe
-            return fullId.hasPrefix("messaging:") ? String(fullId.dropFirst("messaging:".count)) : fullId
-        })
-        
-        let apiChannelIds = Set(roomNameMap.keys.map { apiId in
-            // Los IDs de la API ya vienen sin prefijo, pero por si acaso
-            return apiId.hasPrefix("messaging:") ? String(apiId.dropFirst("messaging:".count)) : apiId
-        })
-        
-        let missingFromStream = apiChannelIds.subtracting(foundChannelIds)
-        
-        print("📊 ANÁLISIS DE COBERTURA:")
-        print("   - Canales en API: \(apiChannelIds.count)")
-        print("   - Canales encontrados en Stream: \(foundChannelIds.count)")
-        print("   - Canales faltantes en Stream: \(missingFromStream.count)")
-        
-        if !missingFromStream.isEmpty {
-            print("🔍 CANALES DE LA API QUE NO APARECEN EN STREAM:")
-            for missingId in missingFromStream {
-                print("   - \(missingId) → \(roomNameMap[missingId] ?? "N/A")")
-            }
-        }
-        
-        // Convertir canales a nuestro modelo con nombres enriquecidos
-        // FILTRAR: Solo incluir canales que existen en la API (no huérfanos)
+
+        // ✅ PASO 2: Para cada room de la API, buscar el canal en Stream
         var conversations: [ChatConversation] = []
-        var filteredCount = 0
 
-        for channel in channelListController.channels {
-            // Normalizar el ID del canal para buscar en roomNameMap
-            let normalizedChannelId = channel.cid.id.hasPrefix("messaging:") ?
-                String(channel.cid.id.dropFirst("messaging:".count)) : channel.cid.id
+        for room in apiRooms {
+            // Limpiar el ID del canal (eliminar prefijo "messaging:" o "event_")
+            let cleanChannelId = room.streamChannelId
+                .replacingOccurrences(of: "messaging:", with: "")
+                .replacingOccurrences(of: "event_", with: "")
 
-            // Buscar en roomNameMap tanto con el ID normalizado como sin normalizar
-            let apiName = roomNameMap[normalizedChannelId] ?? roomNameMap[channel.cid.id]
+            print("🔍 Buscando canal en Stream: \(cleanChannelId)")
 
-            // ❌ FILTRAR: Si el canal NO existe en la API, NO incluirlo
-            guard let name = apiName else {
-                print("⚠️ Canal \(channel.cid.id) no existe en la API - FILTRADO")
-                filteredCount += 1
+            // Intentar obtener el canal de Stream para acceder a mensajes y metadata
+            let channelId = try ChannelId(type: .messaging, id: cleanChannelId)
+            let channelController = chatClient.channelController(for: channelId)
+
+            // Sincronizar el canal para obtener los datos más recientes
+            do {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    channelController.synchronize { error in
+                        if let error = error {
+                            print("⚠️ Error sincronizando canal \(cleanChannelId): \(error)")
+                            // No lanzar error, continuar con datos básicos de la API
+                            continuation.resume()
+                        } else {
+                            print("✅ Canal \(cleanChannelId) sincronizado desde Stream")
+                            continuation.resume()
+                        }
+                    }
+                }
+
+                // Si el canal existe en Stream, usar sus datos
+                if let channel = channelController.channel {
+                    var conversation = await convertStreamChannel(channel)
+
+                    // Usar el nombre de la API
+                    let finalName: String
+                    if cleanChannelId.contains("direct_user_") {
+                        finalName = resolveDirectChatName(from: room.name, channelId: cleanChannelId)
+                    } else {
+                        finalName = room.name
+                    }
+
+                    conversation = ChatConversation(
+                        id: conversation.id,
+                        name: finalName,
+                        type: conversation.type,
+                        members: conversation.members,
+                        lastMessage: conversation.lastMessage,
+                        lastActivity: conversation.lastActivity,
+                        unreadCount: conversation.unreadCount,
+                        metadata: conversation.metadata
+                    )
+
+                    conversations.append(conversation)
+                    print("✅ Conversación agregada: \(finalName)")
+                } else {
+                    // El canal no existe en Stream, crear conversación básica con datos de la API
+                    print("⚠️ Canal \(cleanChannelId) no existe en Stream, usando datos de API")
+
+                    let finalName: String
+                    if cleanChannelId.contains("direct_user_") {
+                        finalName = resolveDirectChatName(from: room.name, channelId: cleanChannelId)
+                    } else {
+                        finalName = room.name
+                    }
+
+                    let conversation = ChatConversation(
+                        id: room.streamChannelId,
+                        name: finalName,
+                        type: room.isDirect ? .direct : .group,
+                        members: [],
+                        lastMessage: nil,
+                        lastActivity: room.toChatChannelData().createdAt,
+                        unreadCount: 0,
+                        metadata: [:]
+                    )
+
+                    conversations.append(conversation)
+                    print("✅ Conversación básica agregada: \(finalName)")
+                }
+            } catch {
+                print("❌ Error procesando canal \(cleanChannelId): \(error)")
+                // Continuar con el siguiente room
                 continue
             }
-
-            var conversation = await convertStreamChannel(channel)
-
-            // Para chats directos, resolver el nombre del usuario opuesto
-            let finalName: String
-            if channel.cid.id.contains("direct_user_") {
-                finalName = resolveDirectChatName(from: name, channelId: channel.cid.id)
-            } else {
-                finalName = name
-            }
-
-            conversation = ChatConversation(
-                id: conversation.id,
-                name: finalName, // Usar el nombre resuelto
-                type: conversation.type,
-                members: conversation.members,
-                lastMessage: conversation.lastMessage,
-                lastActivity: conversation.lastActivity,
-                unreadCount: conversation.unreadCount,
-                metadata: conversation.metadata
-            )
-
-            conversations.append(conversation)
         }
 
-        print("✅ Conversaciones convertidas con nombres enriquecidos: \(conversations.count)")
-        print("🗑️ Canales huérfanos filtrados: \(filteredCount)")
-        
+        print("✅ Conversaciones obtenidas desde API: \(conversations.count)")
+        print("🔄 Cache de Stream NO se usa - API es la fuente de verdad")
+
         return conversations
     }
     
