@@ -464,120 +464,52 @@ struct FeedTabsView: View {
             isPresented: $showingUserSelector,
             onCoachSelected: { selectedCoach in
                 print("🏃‍♂️ Coach seleccionado: \(selectedCoach.fullName)")
+                print("✨ LAZY CREATION: Creando conversación temporal SIN llamar al backend")
 
-                // Start loading state
-                isUpdatingFromServer = true
-                print("🔄 Iniciando creación de chat con \(selectedCoach.fullName) - ID: \(selectedCoach.id)")
+                // ✅ PATRÓN CORRECTO: Crear conversación TEMPORAL sin llamar al backend
+                // El canal real se creará cuando el usuario envíe el primer mensaje
 
-                // Create direct chat with selected coach
-                Task {
-                    let chatService = ChatService.shared
-                    chatService.authService = authService
-                    if let user = authService.user {
-                        chatService.setCurrentUserIdFromString(user.id)
-                        print("👤 Current user ID configurado: \(user.id)")
-                    }
+                var provisionalMembers: [ChatUser] = []
+                let coachUser = ChatUser(
+                    id: "user_\(selectedCoach.id)",
+                    name: selectedCoach.fullName,
+                    avatarURL: selectedCoach.picture
+                )
+                provisionalMembers.append(coachUser)
 
-                    print("⏳ Llamando a getDirectChatWithCoach...")
-
-                    // Agregar timeout de 30 segundos
-                    let result = await withTaskGroup(of: ChatRoom?.self) { group in
-                        group.addTask {
-                            print("🔵 Task 1: Iniciando getDirectChatWithCoach...")
-                            let room = await chatService.getDirectChatWithCoach(selectedCoach)
-                            print("🔵 Task 1: getDirectChatWithCoach completado - resultado: \(room != nil ? "✅ ChatRoom" : "❌ nil")")
-                            return room
-                        }
-
-                        group.addTask {
-                            print("🟡 Task 2: Iniciando timeout de 30s...")
-                            try? await Task.sleep(nanoseconds: 30_000_000_000)
-                            print("⏰ Task 2: Timeout de 30s alcanzado")
-                            return nil
-                        }
-
-                        // Retornar el primero que complete
-                        print("⏳ Esperando primer resultado del TaskGroup...")
-                        let firstResult = await group.next()
-                        print("📊 TaskGroup retornó: \(firstResult != nil ? "✅ ChatRoom" : "❌ nil")")
-
-                        // Cancelar tareas restantes
-                        group.cancelAll()
-
-                        return firstResult ?? nil
-                    }
-
-                    print("📦 Resultado final del TaskGroup: \(result != nil ? "✅ ChatRoom obtenido" : "❌ nil recibido")")
-
-                    if let directChatRoom = result {
-                            print("✅ Chat directo creado exitosamente con \(selectedCoach.fullName)")
-                            print("📝 Room ID: \(directChatRoom.id), Stream Channel: \(directChatRoom.streamChannelId)")
-
-                            // El backend ya creó el canal en Stream antes de responder 200 OK
-                            // No necesitamos delay - el canal ya existe
-
-                            // Convert ChatRoom to ChatConversation for navigation
-                            // Pre-populate members with the coach and the current user (when available)
-                            var provisionalMembers: [ChatUser] = []
-                            let coachUser = ChatUser(
-                                id: "user_\(selectedCoach.id)",
-                                name: selectedCoach.fullName,
-                                avatarURL: selectedCoach.picture
-                            )
-                            provisionalMembers.append(coachUser)
-                            if let providerUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId {
-                                provisionalMembers.append(ChatUser(id: providerUserId, name: authService.user?.name ?? "Me", avatarURL: authService.user?.picture))
-                            }
-
-                            let conversation = ChatConversation(
-                                id: directChatRoom.streamChannelId,
-                                name: selectedCoach.fullName,
-                                type: .direct,
-                                members: provisionalMembers,
-                                lastMessage: nil,
-                                lastActivity: directChatRoom.effectiveDate,
-                                unreadCount: 0,
-                                metadata: [
-                                    "coach_id": selectedCoach.id,
-                                    "coach_name": selectedCoach.fullName,
-                                    "room_id": directChatRoom.id
-                                ]
-                            )
-
-                            await MainActor.run {
-                                // Update conversations list if this is a new conversation
-                                if !conversations.contains(where: { $0.id == conversation.id }) {
-                                    conversations.insert(conversation, at: 0)
-                                    saveConversationsToCache(conversations)
-                                    print("➕ Conversación nueva agregada a la lista")
-                                } else {
-                                    print("✅ Conversación ya existe en la lista")
-                                }
-
-                                // Navigate to chat
-                                selectedConversation = conversation
-                                showingChat = true
-                                isUpdatingFromServer = false
-
-                                print("📱 Navegando a chat con coach: \(selectedCoach.fullName)")
-                            }
-
-                            // Refrescar la lista de conversaciones en background
-                            print("🔄 Refrescando lista de conversaciones en background...")
-                            Task {
-                                await loadConversations()
-                                print("✅ Lista de conversaciones refrescada")
-                            }
-
-                        } else {
-                            await MainActor.run {
-                                errorMessage = "No se pudo crear el chat con \(selectedCoach.fullName). Intenta de nuevo."
-                                isUpdatingFromServer = false
-                            }
-                            print("❌ No se pudo crear chat directo con \(selectedCoach.fullName)")
-                            print("❌ El request pudo haber fallado o alcanzado timeout de 30s")
-                    }
+                if let providerUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId {
+                    provisionalMembers.append(ChatUser(
+                        id: providerUserId,
+                        name: authService.user?.name ?? "Me",
+                        avatarURL: authService.user?.picture
+                    ))
                 }
+
+                // ID temporal que indica que el canal NO ha sido creado aún
+                let temporalId = "temp_direct_\(selectedCoach.id)"
+
+                let provisionalConversation = ChatConversation(
+                    id: temporalId,
+                    name: selectedCoach.fullName,
+                    type: .direct,
+                    members: provisionalMembers,
+                    lastMessage: nil,
+                    lastActivity: Date(),
+                    unreadCount: 0,
+                    metadata: [
+                        "coach_id": selectedCoach.id,
+                        "coach_name": selectedCoach.fullName,
+                        "is_temporary": true,  // ✅ Marca como temporal
+                        "needs_creation": true  // ✅ Indica que necesita crearse al enviar mensaje
+                    ]
+                )
+
+                // Navegar inmediatamente sin crear el canal
+                selectedConversation = provisionalConversation
+                showingChat = true
+
+                print("✅ Navegando a chat temporal con \(selectedCoach.fullName)")
+                print("💡 Canal se creará cuando se envíe el primer mensaje")
             }
         )
         .environmentObject(themeManager)

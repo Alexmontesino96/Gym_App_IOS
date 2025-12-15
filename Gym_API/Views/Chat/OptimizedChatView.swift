@@ -5,17 +5,32 @@ import Combine
 struct OptimizedChatView: View {
     let conversationId: String
     let conversationName: String
-    
+
     @StateObject private var chatProviderManager = ChatProviderManager.shared
     @EnvironmentObject private var themeManager: ThemeManager
+    @EnvironmentObject private var authService: AuthServiceDirect
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var messageText = ""
     @State private var messages: [ChatMessage] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var serverUpdateObserver: NSObjectProtocol?
     @State private var messageUpdatesCancellable: AnyCancellable?
+
+    // ✅ LAZY CREATION: ID real del canal después de crearlo
+    @State private var realChannelId: String?
+    @State private var isCreatingChannel = false
+
+    // ✅ LAZY CREATION: Computed property para ID efectivo del canal
+    private var effectiveChannelId: String {
+        return realChannelId ?? conversationId
+    }
+
+    // ✅ LAZY CREATION: Detectar si es canal temporal
+    private var isTemporaryChannel: Bool {
+        return conversationId.hasPrefix("temp_direct_")
+    }
 
     // ✅ NUEVO: Actor-based coordinator para prevenir race conditions
     private let loadingCoordinator = MessageLoadingCoordinator()
@@ -288,6 +303,12 @@ struct OptimizedChatView: View {
     private func loadMessages() {
         print("💬 📦 loadMessages() para: \(conversationId)")
 
+        // ✅ LAZY CREATION: Si es canal temporal, no cargar mensajes (aún no existe)
+        if isTemporaryChannel {
+            print("✨ LAZY CREATION: Canal temporal - no hay mensajes que cargar")
+            return
+        }
+
         // 1. Usar coordinator para carga segura (previene race conditions)
         Task {
             // Cargar caché en background (no bloquea UI)
@@ -371,55 +392,88 @@ struct OptimizedChatView: View {
         print("💬 📤 ========================================")
         print("💬 📤 ENVIANDO MENSAJE")
         print("💬 📤 Conversación: \(conversationId)")
+        print("💬 📤 Es temporal: \(isTemporaryChannel)")
         print("💬 📤 Texto: \(text.prefix(50))...")
         print("💬 📤 Longitud: \(text.count) caracteres")
 
         messageText = ""
 
-        // Usar un ID temporal específico para poder rastrearlo
-        let tempId = "temp_\(UUID().uuidString)"
-        print("💬 📤 ID temporal asignado: \(tempId)")
-
-        let optimisticMessage = ChatMessage(
-            id: tempId,
-            conversationId: conversationId,
-            text: text,
-            authorId: "current_user", // TODO: Get actual user ID
-            authorName: "Current User", // TODO: Get actual user name
-            authorAvatarURL: nil, // TODO: Get current user avatar URL
-            timestamp: Date(),
-            isFromCurrentUser: true,
-            syncStatus: .sending // Marcar como enviando
-        )
-
-        // Agregar inmediatamente a la UI (al final de la lista)
-        messages.append(optimisticMessage)
-        print("💬 📤 ✅ Mensaje agregado optimistamente a la UI")
-        print("💬 📤 Total de mensajes en UI: \(messages.count)")
-
         Task {
             do {
+                // ✅ LAZY CREATION: Si es canal temporal, crear primero en backend
+                let targetChannelId: String
+                if isTemporaryChannel && realChannelId == nil {
+                    print("✨ LAZY CREATION: Canal temporal detectado - creando en backend...")
+                    await MainActor.run {
+                        isCreatingChannel = true
+                    }
+
+                    // Extraer userId del ID temporal: temp_direct_{userId}
+                    let userIdString = conversationId.replacingOccurrences(of: "temp_direct_", with: "")
+                    guard let userId = Int(userIdString) else {
+                        throw NSError(domain: "OptimizedChatView", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid user ID from temporal conversation ID"])
+                    }
+
+                    print("✨ Extrayendo userId: \(userId)")
+
+                    // Crear canal real en backend
+                    let chatService = ChatService.shared
+                    chatService.authService = authService
+                    if let user = authService.user {
+                        chatService.setCurrentUserIdFromString(user.id)
+                    }
+
+                    guard let chatRoom = await chatService.getDirectChat(withUserId: userId) else {
+                        throw NSError(domain: "OptimizedChatView", code: -2, userInfo: [NSLocalizedDescriptionKey: "No se pudo crear el canal directo"])
+                    }
+
+                    print("✅ LAZY CREATION: Canal creado exitosamente: \(chatRoom.streamChannelId)")
+
+                    await MainActor.run {
+                        realChannelId = chatRoom.streamChannelId
+                        isCreatingChannel = false
+                    }
+
+                    targetChannelId = chatRoom.streamChannelId
+                    print("✅ LAZY CREATION: Usando ID real: \(targetChannelId)")
+                } else {
+                    targetChannelId = effectiveChannelId
+                    print("📋 Usando canal existente: \(targetChannelId)")
+                }
+
+                // Usar un ID temporal específico para poder rastrearlo
+                let tempId = "temp_\(UUID().uuidString)"
+                print("💬 📤 ID temporal asignado: \(tempId)")
+
+                let optimisticMessage = ChatMessage(
+                    id: tempId,
+                    conversationId: targetChannelId,
+                    text: text,
+                    authorId: "current_user",
+                    authorName: "Current User",
+                    authorAvatarURL: nil,
+                    timestamp: Date(),
+                    isFromCurrentUser: true,
+                    syncStatus: .sending
+                )
+
+                // Agregar inmediatamente a la UI
+                await MainActor.run {
+                    messages.append(optimisticMessage)
+                    print("💬 📤 ✅ Mensaje agregado optimistamente a la UI")
+                    print("💬 📤 Total de mensajes en UI: \(messages.count)")
+                }
+
                 print("💬 📤 🌐 Enviando al servidor...")
-                let _ = try await chatProviderManager.sendMessage(optimisticMessage, to: conversationId)
+                let _ = try await chatProviderManager.sendMessage(optimisticMessage, to: targetChannelId)
                 print("💬 📤 ✅ Mensaje enviado exitosamente al servidor")
                 print("💬 📤 ========================================")
-
-                // Cuando llegue el mensaje real del servidor con el ID correcto,
-                // se detectará como duplicado y no se agregará de nuevo
 
             } catch {
                 print("💬 📤 ❌ Error al enviar mensaje: \(error.localizedDescription)")
 
                 await MainActor.run {
-                    // Marcar mensaje como fallido en UI
-                    if let index = self.messages.firstIndex(where: { $0.id == tempId }) {
-                        var failedMessage = optimisticMessage
-                        failedMessage.syncStatus = .failed
-                        self.messages[index] = failedMessage
-                        print("💬 📤 ❌ Mensaje marcado como fallido en UI (índice: \(index))")
-                    } else {
-                        print("💬 📤 ⚠️ No se pudo encontrar el mensaje temporal en la lista")
-                    }
+                    isCreatingChannel = false
                     self.errorMessage = error.localizedDescription
                     print("💬 📤 ========================================")
                 }
@@ -559,12 +613,18 @@ struct OptimizedChatView: View {
 
     /// Marca la conversación como leída en el proveedor (GetStream)
     private func markConversationAsRead() {
+        // ✅ LAZY CREATION: No marcar como leído canales temporales
+        if isTemporaryChannel {
+            print("✨ LAZY CREATION: Canal temporal - no hay nada que marcar como leído")
+            return
+        }
+
         let lastMessageId = sortedMessages.last?.id ?? ""
         Task {
             guard let provider = chatProviderManager.currentProvider else { return }
             do {
-                try await provider.markAsRead(messagesUpTo: lastMessageId, in: conversationId)
-                print("✅ Conversación marcada como leída: \(conversationId)")
+                try await provider.markAsRead(messagesUpTo: lastMessageId, in: effectiveChannelId)
+                print("✅ Conversación marcada como leída: \(effectiveChannelId)")
             } catch {
                 print("❌ Error al marcar como leído: \(error)")
             }
