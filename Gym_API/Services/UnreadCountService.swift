@@ -28,6 +28,7 @@ class UnreadCountService: ObservableObject {
     private var isLoading = false
     private var lastLoadTimestamp: Date?
     private let throttleInterval: TimeInterval = 5.0 // Mínimo 5 segundos entre cargas
+    private var isThrottleActive = false // Flag para evitar logs repetitivos
 
     // MARK: - Initialization
     private init() {
@@ -86,7 +87,10 @@ class UnreadCountService: ObservableObject {
     private func loadUnreadCountsThrottled() async {
         // Verificar si ya estamos cargando
         if isLoading {
-            print("⏸️ Ya hay una carga en progreso, ignorando solicitud")
+            if !isThrottleActive {
+                print("⏸️ Ya hay una carga en progreso, ignorando solicitudes subsecuentes")
+                isThrottleActive = true
+            }
             return
         }
 
@@ -94,8 +98,18 @@ class UnreadCountService: ObservableObject {
         if let lastLoad = lastLoadTimestamp {
             let timeSinceLastLoad = Date().timeIntervalSince(lastLoad)
             if timeSinceLastLoad < throttleInterval {
-                print("⏸️ Throttle activo: esperando \(Int(throttleInterval - timeSinceLastLoad))s más")
+                // Solo imprimir la primera vez que se activa el throttle
+                if !isThrottleActive {
+                    print("⏸️ Throttle activo: esperando \(Int(throttleInterval - timeSinceLastLoad))s antes de la próxima carga")
+                    isThrottleActive = true
+                }
                 return
+            } else {
+                // Throttle expiró, resetear flag
+                if isThrottleActive {
+                    print("✅ Throttle finalizado, listo para cargar")
+                    isThrottleActive = false
+                }
             }
         }
 

@@ -123,18 +123,10 @@ class GetStreamChatProvider: ChatProvider {
         
         setupRealtimeListeners()
         print("✅ Conectado a GetStream exitosamente")
-        
-        // Intentar obtener conversaciones para debugging
-        print("🔍 Intentando obtener conversaciones para debugging...")
-        do {
-            let conversations = try await getConversations()
-            print("💬 Conversaciones obtenidas: \(conversations.count)")
-            for (index, conversation) in conversations.enumerated() {
-                print("   \(index + 1). ID: \(conversation.id), Name: \(conversation.name ?? "Sin nombre"), Members: \(conversation.members.count)")
-            }
-        } catch {
-            print("❌ Error obteniendo conversaciones: \(error)")
-        }
+
+        // ❌ ELIMINADO: No obtener conversaciones durante la conexión
+        // Esto causaba delays porque getConversations() llama a la API
+        // Las conversaciones se cargarán cuando el usuario navegue a la vista de chat
     }
     
     /// Actualiza las credenciales almacenadas (para refresh de token)
