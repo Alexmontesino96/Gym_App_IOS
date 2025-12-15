@@ -527,43 +527,51 @@ class GetStreamChatProvider: ChatProvider {
         }
         
         // Convertir canales a nuestro modelo con nombres enriquecidos
+        // FILTRAR: Solo incluir canales que existen en la API (no huérfanos)
         var conversations: [ChatConversation] = []
+        var filteredCount = 0
+
         for channel in channelListController.channels {
-            var conversation = await convertStreamChannel(channel)
-            
-            // Usar el nombre de la API si está disponible
             // Normalizar el ID del canal para buscar en roomNameMap
-            let normalizedChannelId = channel.cid.id.hasPrefix("messaging:") ? 
+            let normalizedChannelId = channel.cid.id.hasPrefix("messaging:") ?
                 String(channel.cid.id.dropFirst("messaging:".count)) : channel.cid.id
-            
+
             // Buscar en roomNameMap tanto con el ID normalizado como sin normalizar
             let apiName = roomNameMap[normalizedChannelId] ?? roomNameMap[channel.cid.id]
-            
-            if let name = apiName {
-                // Para chats directos, resolver el nombre del usuario opuesto
-                let finalName: String
-                if channel.cid.id.contains("direct_user_") {
-                    finalName = resolveDirectChatName(from: name, channelId: channel.cid.id)
-                } else {
-                    finalName = name
-                }
-                
-                conversation = ChatConversation(
-                    id: conversation.id,
-                    name: finalName, // Usar el nombre resuelto
-                    type: conversation.type,
-                    members: conversation.members,
-                    lastMessage: conversation.lastMessage,
-                    lastActivity: conversation.lastActivity,
-                    unreadCount: conversation.unreadCount,
-                    metadata: conversation.metadata
-                )
+
+            // ❌ FILTRAR: Si el canal NO existe en la API, NO incluirlo
+            guard let name = apiName else {
+                print("⚠️ Canal \(channel.cid.id) no existe en la API - FILTRADO")
+                filteredCount += 1
+                continue
             }
-            
+
+            var conversation = await convertStreamChannel(channel)
+
+            // Para chats directos, resolver el nombre del usuario opuesto
+            let finalName: String
+            if channel.cid.id.contains("direct_user_") {
+                finalName = resolveDirectChatName(from: name, channelId: channel.cid.id)
+            } else {
+                finalName = name
+            }
+
+            conversation = ChatConversation(
+                id: conversation.id,
+                name: finalName, // Usar el nombre resuelto
+                type: conversation.type,
+                members: conversation.members,
+                lastMessage: conversation.lastMessage,
+                lastActivity: conversation.lastActivity,
+                unreadCount: conversation.unreadCount,
+                metadata: conversation.metadata
+            )
+
             conversations.append(conversation)
         }
-        
+
         print("✅ Conversaciones convertidas con nombres enriquecidos: \(conversations.count)")
+        print("🗑️ Canales huérfanos filtrados: \(filteredCount)")
         
         return conversations
     }
