@@ -519,11 +519,14 @@ class GetStreamChatProvider: ChatProvider {
                         finalName = room.name
                     }
 
+                    // ✅ FIX: Poblar members para chats directos desde channel ID
+                    let members: [ChatUser] = room.isDirect ? extractMembersFromChannelId(cleanChannelId, chatRoomName: room.name) : []
+
                     let conversation = ChatConversation(
                         id: room.streamChannelId,
                         name: finalName,
                         type: room.isDirect ? .direct : .group,
-                        members: [],
+                        members: members,
                         lastMessage: nil,
                         lastActivity: room.toChatChannelData().createdAt,
                         unreadCount: 0,
@@ -1075,5 +1078,63 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
             print("⚠️ El formato del nombre de la API no es el esperado: \(apiName)")
             return apiName
         }
+    }
+
+    /// Extrae miembros de un canal directo desde el channel ID y nombres
+    /// - Parameters:
+    ///   - channelId: ID del canal en formato direct_gym_X_user_Y_gym_X_user_Z
+    ///   - chatRoomName: Nombre del chat room desde la API (ej: "Chat Alex Montesino - Jose Paul Rodriguez")
+    /// - Returns: Array de ChatUser con los dos participantes del chat directo
+    private func extractMembersFromChannelId(_ channelId: String, chatRoomName: String) -> [ChatUser] {
+        print("👥 Extrayendo members desde channel ID: \(channelId)")
+        print("📝 Nombre del chat room: \(chatRoomName)")
+
+        // Extraer IDs de usuario del channel ID
+        let pattern = "direct_gym_\\d+_user_(\\d+)_gym_\\d+_user_(\\d+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: channelId, range: NSRange(channelId.startIndex..., in: channelId)) else {
+            print("❌ No se pudo extraer user IDs del channel ID")
+            return []
+        }
+
+        guard let range1 = Range(match.range(at: 1), in: channelId),
+              let range2 = Range(match.range(at: 2), in: channelId),
+              let userId1 = Int(String(channelId[range1])),
+              let userId2 = Int(String(channelId[range2])) else {
+            print("❌ No se pudieron convertir user IDs")
+            return []
+        }
+
+        print("🔍 User IDs extraídos: \(userId1), \(userId2)")
+
+        // Remover "Chat " del inicio si existe y dividir por " - "
+        let cleanName = chatRoomName.replacingOccurrences(of: "Chat ", with: "")
+        let names = cleanName.components(separatedBy: " - ")
+
+        var user1Name = "User \(userId1)"
+        var user2Name = "User \(userId2)"
+
+        if names.count == 2 {
+            user1Name = names[0].trimmingCharacters(in: .whitespaces)
+            user2Name = names[1].trimmingCharacters(in: .whitespaces)
+            print("👤 Nombres extraídos: '\(user1Name)', '\(user2Name)'")
+        } else {
+            print("⚠️ No se pudieron extraer nombres del chat room name")
+        }
+
+        let member1 = ChatUser(
+            id: "user_\(userId1)",
+            name: user1Name,
+            avatarURL: nil  // Se obtendrá dinámicamente desde UserDataCacheService
+        )
+
+        let member2 = ChatUser(
+            id: "user_\(userId2)",
+            name: user2Name,
+            avatarURL: nil  // Se obtendrá dinámicamente desde UserDataCacheService
+        )
+
+        print("✅ Members creados: 2 usuarios")
+        return [member1, member2]
     }
 }
