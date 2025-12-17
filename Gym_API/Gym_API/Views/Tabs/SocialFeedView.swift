@@ -1265,13 +1265,24 @@ struct ConversationAvatarView: View {
     private var otherUser: ChatUser? {
         // For direct conversations, get the other user (not current user)
         if conversation.type == .direct {
+            // 🔍 DEBUG: Log members info
+            print("🔍 [ConversationAvatarView] Conversation: \(conversation.id)")
+            print("🔍 [ConversationAvatarView] Members count: \(conversation.members.count)")
+            for member in conversation.members {
+                print("🔍 [ConversationAvatarView] Member: id=\(member.id), name=\(member.name)")
+            }
+            print("🔍 [ConversationAvatarView] Current user ID: \(currentUserId ?? "nil")")
+
             // Filter to get the other user
             if let currentUserId = currentUserId {
-                return conversation.members.first { user in
+                let other = conversation.members.first { user in
                     !isCurrentUser(userId: user.id, currentUserId: currentUserId)
                 }
+                print("🔍 [ConversationAvatarView] Other user selected: \(other?.id ?? "nil") - \(other?.name ?? "nil")")
+                return other
             } else {
                 // Fallback to first member if we don't have current user ID
+                print("⚠️ [ConversationAvatarView] No current user ID - using first member")
                 return conversation.members.first
             }
         }
