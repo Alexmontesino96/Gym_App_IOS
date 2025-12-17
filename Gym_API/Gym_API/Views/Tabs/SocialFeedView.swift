@@ -726,17 +726,17 @@ struct SocialFeedView: View {
 
                 if let otherUser = otherUser {
                     if let avatarURL = otherUser.avatarURL, !avatarURL.isEmpty {
-                        // Avatar real del usuario
-                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
-                        imagesToPreload.append((url: avatarURL, cacheKey: "avatar_user_\(normalizedId)"))
+                        // Avatar real del usuario - ✅ FIX: Usar userAvatarCacheKey()
+                        imagesToPreload.append((url: avatarURL, cacheKey: otherUser.id.userAvatarCacheKey()))
                     } else {
                         // Avatar generado con UI Avatars
                         let encodedName = otherUser.name.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed) ?? "User"
-                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
-                        let colorHash = abs(normalizedId.hashValue) % 16777215
+                        let numericId = otherUser.id.extractNumericUserId()
+                        let colorHash = abs(numericId.hashValue) % 16777215
                         let backgroundColor = String(format: "%06X", colorHash)
                         let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
-                        imagesToPreload.append((url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)"))
+                        // ✅ FIX: Usar uiAvatarCacheKey()
+                        imagesToPreload.append((url: avatarServiceURL, cacheKey: otherUser.id.uiAvatarCacheKey()))
                     }
                 }
             }
@@ -1265,24 +1265,13 @@ struct ConversationAvatarView: View {
     private var otherUser: ChatUser? {
         // For direct conversations, get the other user (not current user)
         if conversation.type == .direct {
-            // 🔍 DEBUG: Log members info
-            print("🔍 [ConversationAvatarView] Conversation: \(conversation.id)")
-            print("🔍 [ConversationAvatarView] Members count: \(conversation.members.count)")
-            for member in conversation.members {
-                print("🔍 [ConversationAvatarView] Member: id=\(member.id), name=\(member.name)")
-            }
-            print("🔍 [ConversationAvatarView] Current user ID: \(currentUserId ?? "nil")")
-
             // Filter to get the other user
             if let currentUserId = currentUserId {
-                let other = conversation.members.first { user in
+                return conversation.members.first { user in
                     !isCurrentUser(userId: user.id, currentUserId: currentUserId)
                 }
-                print("🔍 [ConversationAvatarView] Other user selected: \(other?.id ?? "nil") - \(other?.name ?? "nil")")
-                return other
             } else {
                 // Fallback to first member if we don't have current user ID
-                print("⚠️ [ConversationAvatarView] No current user ID - using first member")
                 return conversation.members.first
             }
         }
@@ -1290,46 +1279,17 @@ struct ConversationAvatarView: View {
     }
 
     /// Determines if a given member userId refers to the current user, accounting for different ID formats.
+    /// Uses extractNumericUserId() extension for consistent ID comparison.
     private func isCurrentUser(userId: String, currentUserId: String) -> Bool {
-        // Common formats:
-        // - Stream member id: "gym_4_user_10" or "user_123"
-        // - Current user id from provider: "user_10"
-        // - Current user id from Auth0: "auth0|abc" (fallback path)
-
         // Direct match
         if userId == currentUserId { return true }
 
-        // Extract numeric ID from both strings
-        // Pattern matches: gym_X_user_Y, user_Y, or just Y
-        func extractNumericId(_ id: String) -> String? {
-            // Try pattern: gym_X_user_Y
-            if let range = id.range(of: #"gym_\d+_user_(\d+)"#, options: .regularExpression) {
-                let match = id[range]
-                if let userIdRange = match.range(of: #"\d+$"#, options: .regularExpression) {
-                    return String(match[userIdRange])
-                }
-            }
-            // Try pattern: user_Y
-            if let range = id.range(of: #"user_(\d+)"#, options: .regularExpression) {
-                let match = id[range]
-                if let userIdRange = match.range(of: #"\d+$"#, options: .regularExpression) {
-                    return String(match[userIdRange])
-                }
-            }
-            // If it's just a number or auth0 format, return as-is
-            return id
-        }
+        // Compare numeric IDs extracted from both strings
+        // Handles formats: gym_X_user_Y, user_Y, Y
+        let normalizedMember = userId.extractNumericUserId()
+        let normalizedCurrent = currentUserId.extractNumericUserId()
 
-        let normalizedMember = extractNumericId(userId)
-        let normalizedCurrent = extractNumericId(currentUserId)
-
-        print("🔍 [isCurrentUser] Comparing: \(userId) (→ \(normalizedMember ?? "nil")) vs \(currentUserId) (→ \(normalizedCurrent ?? "nil"))")
-
-        if let member = normalizedMember, let current = normalizedCurrent {
-            return member == current
-        }
-
-        return false
+        return normalizedMember == normalizedCurrent
     }
 
     private var conversationIcon: String {
@@ -1376,17 +1336,18 @@ struct ConversationAvatarView: View {
                 // Profile photo or fallback
                 Group {
                     if let user = otherUser, let avatarURL = user.avatarURL, !avatarURL.isEmpty {
-                        let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
-                        CustomImageView(url: avatarURL, cacheKey: "avatar_user_\(normalizedId)", size: size) {
+                        // ✅ FIX: Usar userAvatarCacheKey() para cache key consistente
+                        CustomImageView(url: avatarURL, cacheKey: user.id.userAvatarCacheKey(), size: size) {
                             AnyView(fallbackContent)
                         }
                     } else if let user = otherUser {
                         let encodedName = user.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "User"
-                        let normalizedId = user.id.replacingOccurrences(of: "user_", with: "")
-                        let colorHash = abs(normalizedId.hashValue) % 16777215
+                        let numericId = user.id.extractNumericUserId()
+                        let colorHash = abs(numericId.hashValue) % 16777215
                         let backgroundColor = String(format: "%06X", colorHash)
                         let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
-                        CustomImageView(url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)", size: size) {
+                        // ✅ FIX: Usar uiAvatarCacheKey() para cache key consistente
+                        CustomImageView(url: avatarServiceURL, cacheKey: user.id.uiAvatarCacheKey(), size: size) {
                             AnyView(fallbackContent)
                         }
                     } else {

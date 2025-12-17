@@ -718,17 +718,17 @@ struct FeedTabsView: View {
 
                 if let otherUser = otherUser {
                     if let avatarURL = otherUser.avatarURL, !avatarURL.isEmpty {
-                        // Avatar real del usuario
-                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
-                        imagesToPreload.append((url: avatarURL, cacheKey: "avatar_user_\(normalizedId)"))
+                        // Avatar real del usuario - ✅ FIX: Usar userAvatarCacheKey()
+                        imagesToPreload.append((url: avatarURL, cacheKey: otherUser.id.userAvatarCacheKey()))
                     } else {
                         // Avatar generado con UI Avatars
                         let encodedName = otherUser.name.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed) ?? "User"
-                        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
-                        let colorHash = abs(normalizedId.hashValue) % 16777215
+                        let numericId = otherUser.id.extractNumericUserId()
+                        let colorHash = abs(numericId.hashValue) % 16777215
                         let backgroundColor = String(format: "%06X", colorHash)
                         let avatarServiceURL = "https://ui-avatars.com/api/?name=\(encodedName)&size=128&background=\(backgroundColor)&color=fff&format=png"
-                        imagesToPreload.append((url: avatarServiceURL, cacheKey: "uiavatar_\(normalizedId)"))
+                        // ✅ FIX: Usar uiAvatarCacheKey()
+                        imagesToPreload.append((url: avatarServiceURL, cacheKey: otherUser.id.uiAvatarCacheKey()))
                     }
                 }
             }

@@ -835,13 +835,23 @@ class GetStreamChatProvider: ChatProvider {
                 group.addTask {
                     let streamAvatar = member.imageURL?.absoluteString
                     var finalAvatar = streamAvatar
+
+                    // ✅ FIX: Usar extractNumericUserId() para obtener ID correcto
                     if finalAvatar == nil || finalAvatar?.isEmpty == true {
-                        let normalized = member.id.replacingOccurrences(of: "user_", with: "")
-                        if let internalId = Int(normalized) {
+                        let numericId = member.id.extractNumericUserId()
+                        if let internalId = Int(numericId) {
                             let pic = await UserDataCacheService.shared.getUserProfile(internalId)?.picture
-                            if let p = pic, !p.isEmpty { finalAvatar = p }
+                            if let p = pic, !p.isEmpty {
+                                finalAvatar = p
+                                print("✅ [convertStreamChannel] Avatar obtenido desde UserDataCacheService para user \(internalId): \(p)")
+                            } else {
+                                print("⚠️ [convertStreamChannel] No se encontró avatar en UserDataCacheService para user \(internalId)")
+                            }
+                        } else {
+                            print("❌ [convertStreamChannel] No se pudo convertir '\(numericId)' a Int")
                         }
                     }
+
                     return ChatUser(
                         id: member.id,
                         name: member.name ?? "Usuario",
