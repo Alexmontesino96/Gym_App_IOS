@@ -1292,16 +1292,43 @@ struct ConversationAvatarView: View {
     /// Determines if a given member userId refers to the current user, accounting for different ID formats.
     private func isCurrentUser(userId: String, currentUserId: String) -> Bool {
         // Common formats:
-        // - Stream member id: "user_123"
-        // - Current user id from provider: "user_123"
+        // - Stream member id: "gym_4_user_10" or "user_123"
+        // - Current user id from provider: "user_10"
         // - Current user id from Auth0: "auth0|abc" (fallback path)
+
+        // Direct match
         if userId == currentUserId { return true }
-        // Normalize: remove leading "user_" if present
-        let normalizedMember = userId.replacingOccurrences(of: "user_", with: "")
-        let normalizedCurrent = currentUserId.replacingOccurrences(of: "user_", with: "")
-        if normalizedMember == normalizedCurrent { return true }
-        // Also match if member equals "user_\(normalizedCurrent)"
-        if userId == "user_\(normalizedCurrent)" { return true }
+
+        // Extract numeric ID from both strings
+        // Pattern matches: gym_X_user_Y, user_Y, or just Y
+        func extractNumericId(_ id: String) -> String? {
+            // Try pattern: gym_X_user_Y
+            if let range = id.range(of: #"gym_\d+_user_(\d+)"#, options: .regularExpression) {
+                let match = id[range]
+                if let userIdRange = match.range(of: #"\d+$"#, options: .regularExpression) {
+                    return String(match[userIdRange])
+                }
+            }
+            // Try pattern: user_Y
+            if let range = id.range(of: #"user_(\d+)"#, options: .regularExpression) {
+                let match = id[range]
+                if let userIdRange = match.range(of: #"\d+$"#, options: .regularExpression) {
+                    return String(match[userIdRange])
+                }
+            }
+            // If it's just a number or auth0 format, return as-is
+            return id
+        }
+
+        let normalizedMember = extractNumericId(userId)
+        let normalizedCurrent = extractNumericId(currentUserId)
+
+        print("🔍 [isCurrentUser] Comparing: \(userId) (→ \(normalizedMember ?? "nil")) vs \(currentUserId) (→ \(normalizedCurrent ?? "nil"))")
+
+        if let member = normalizedMember, let current = normalizedCurrent {
+            return member == current
+        }
+
         return false
     }
 
