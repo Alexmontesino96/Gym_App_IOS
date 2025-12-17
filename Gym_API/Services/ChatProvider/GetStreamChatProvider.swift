@@ -487,7 +487,8 @@ class GetStreamChatProvider: ChatProvider {
 
                     // Usar el nombre de la API
                     let finalName: String
-                    if cleanChannelId.contains("direct_user_") {
+                    // ✅ FIX: Detectar chats directos con formato direct_gym_X_user_Y_gym_X_user_Z
+                    if cleanChannelId.hasPrefix("direct_") && cleanChannelId.contains("_user_") {
                         finalName = resolveDirectChatName(from: room.name, channelId: cleanChannelId)
                     } else {
                         finalName = room.name
@@ -511,7 +512,8 @@ class GetStreamChatProvider: ChatProvider {
                     print("⚠️ Canal \(cleanChannelId) no existe en Stream, usando datos de API")
 
                     let finalName: String
-                    if cleanChannelId.contains("direct_user_") {
+                    // ✅ FIX: Detectar chats directos con formato direct_gym_X_user_Y_gym_X_user_Z
+                    if cleanChannelId.hasPrefix("direct_") && cleanChannelId.contains("_user_") {
                         finalName = resolveDirectChatName(from: room.name, channelId: cleanChannelId)
                     } else {
                         finalName = room.name
@@ -1020,7 +1022,8 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
         print("🔍 Channel ID: \(channelId)")
         
         // Extraer IDs de usuario del channel ID
-        let pattern = "direct_user_(\\d+)_user_(\\d+)"
+        // ✅ FIX: Actualizar patrón para formato direct_gym_X_user_Y_gym_X_user_Z
+        let pattern = "direct_gym_\\d+_user_(\\d+)_gym_\\d+_user_(\\d+)"
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: channelId, range: NSRange(channelId.startIndex..., in: channelId)) else {
             print("❌ No se pudo extraer IDs de usuario del channel ID")

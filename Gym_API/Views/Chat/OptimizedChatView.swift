@@ -89,7 +89,10 @@ struct OptimizedChatView: View {
             print("💬 ========================================")
 
             loadMessages()
-            setupServerUpdateListener()
+            // ✅ LAZY CREATION: No configurar listener para canales temporales hasta que se creen
+            if !isTemporaryChannel {
+                setupServerUpdateListener(for: conversationId)
+            }
             setupMessageUpdatesListener()
             // Marcar como leído al entrar al chat
             markConversationAsRead()
@@ -300,19 +303,21 @@ struct OptimizedChatView: View {
     /// ✅ OPTIMIZADO: Usa MessageLoadingCoordinator actor para prevenir race conditions
     /// ✅ OPTIMIZADO: Background JSON decoding para no bloquear UI
     /// ✅ OPTIMIZADO: MessageWindow para lazy loading y reducción de memoria
+    /// ✅ LAZY CREATION: Usa effectiveChannelId para soportar canales creados dinámicamente
     private func loadMessages() {
-        print("💬 📦 loadMessages() para: \(conversationId)")
-
-        // ✅ LAZY CREATION: Si es canal temporal, no cargar mensajes (aún no existe)
-        if isTemporaryChannel {
-            print("✨ LAZY CREATION: Canal temporal - no hay mensajes que cargar")
+        // ✅ LAZY CREATION: Si es canal temporal y aún no se ha creado, no cargar mensajes
+        if isTemporaryChannel && realChannelId == nil {
+            print("✨ LAZY CREATION: Canal temporal sin crear - no hay mensajes que cargar")
             return
         }
+
+        let channelId = effectiveChannelId
+        print("💬 📦 loadMessages() para: \(channelId)")
 
         // 1. Usar coordinator para carga segura (previene race conditions)
         Task {
             // Cargar caché en background (no bloquea UI)
-            let cachedMessages = await MessageCacheManager.shared.getCachedMessagesAsync(for: conversationId)
+            let cachedMessages = await MessageCacheManager.shared.getCachedMessagesAsync(for: channelId)
 
             if !cachedMessages.isEmpty {
                 // Inicializar window con mensajes del caché
@@ -335,13 +340,13 @@ struct OptimizedChatView: View {
             do {
                 // El coordinator garantiza que solo la última request se completa
                 let freshMessages = try await loadingCoordinator.loadMessages(
-                    conversationId: conversationId
+                    conversationId: channelId
                 ) {
                     // Closure de fetch real
                     if let streamProvider = chatProviderManager.currentProvider as? GetStreamChatProvider {
-                        return try await streamProvider.getMessagesWithCache(for: conversationId)
+                        return try await streamProvider.getMessagesWithCache(for: channelId)
                     } else {
-                        return try await chatProviderManager.getMessages(for: conversationId)
+                        return try await chatProviderManager.getMessages(for: channelId)
                     }
                 }
 
@@ -432,6 +437,9 @@ struct OptimizedChatView: View {
                     await MainActor.run {
                         realChannelId = chatRoom.streamChannelId
                         isCreatingChannel = false
+
+                        // ✅ Configurar listener ahora que tenemos el canal real
+                        setupServerUpdateListener(for: chatRoom.streamChannelId)
                     }
 
                     targetChannelId = chatRoom.streamChannelId
@@ -483,8 +491,14 @@ struct OptimizedChatView: View {
     
     /// Configura listener para actualizaciones desde servidor en background
     /// ✅ MEJORADO: Con validación de conversationId para prevenir race conditions
-    private func setupServerUpdateListener() {
-        let targetConversationId = conversationId
+    /// ✅ LAZY CREATION: Acepta channelId como parámetro para soportar canales creados dinámicamente
+    private func setupServerUpdateListener(for channelId: String) {
+        // Limpiar listener anterior si existe
+        if let observer = serverUpdateObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        let targetConversationId = channelId
 
         serverUpdateObserver = NotificationCenter.default.addObserver(
             forName: .messagesUpdatedFromServer,
@@ -494,8 +508,7 @@ struct OptimizedChatView: View {
 
             // ✅ Verificar que el update es para esta conversación
             guard let updateConversationId = notification.userInfo?["conversationId"] as? String,
-                  updateConversationId == targetConversationId,
-                  conversationId == targetConversationId else {
+                  updateConversationId == targetConversationId else {
                 return
             }
 
@@ -505,7 +518,7 @@ struct OptimizedChatView: View {
 
             if !messagesAreEqual(messages, freshMessages) {
                 messages = freshMessages
-                print("🔄 Mensajes actualizados desde servidor")
+                print("🔄 Mensajes actualizados desde servidor para canal: \(channelId)")
             }
         }
     }
