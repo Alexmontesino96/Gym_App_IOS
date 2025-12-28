@@ -32,6 +32,7 @@ class ServiceContainer: ObservableObject {
     let attendanceService: AttendanceService
     let unreadCountService = UnreadCountService.shared // Singleton for unread message tracking
     let chatManagementService = ChatManagementService.shared // Singleton for chat management (hide, leave, delete)
+    let nutritionService = NutritionService.shared // Singleton for nutrition plans and meal tracking
 
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -116,6 +117,7 @@ class ServiceContainer: ObservableObject {
         storyService.authService = authService
         activityService.authService = authService
         attendanceService.authService = authService
+        nutritionService.configure(authService: authService, gymService: gymService)
 
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
@@ -435,6 +437,9 @@ class ServiceContainer: ObservableObject {
         // Clear unread message counts
         unreadCountService.clearAll()
 
+        // Clear nutrition data
+        nutritionService.clearData()
+
         print("✅ Datos de usuario limpiados")
     }
     
@@ -507,6 +512,7 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.activityService)
             .environmentObject(serviceContainer.postService)
             .environmentObject(serviceContainer.attendanceService)
+            .environmentObject(serviceContainer.nutritionService)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

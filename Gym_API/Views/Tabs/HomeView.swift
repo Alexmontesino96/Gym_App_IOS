@@ -14,6 +14,7 @@ struct HomeView: View {
     @StateObject private var storyService = StoryService()  // Story service for Instagram-style stories
     @StateObject private var postService = PostService()  // Post service for social feed
     @StateObject private var userStatsServiceLocal = UserStatsService.shared  // For HeroProgressWidget
+    @ObservedObject private var nutritionService = NutritionService.shared  // Nutrition service for meal plans
     @State private var currentDate = Date()
     @State private var showComebackView = false
     @State private var showStreakDetail = false  // Show streak detail view
@@ -128,6 +129,14 @@ struct HomeView: View {
                                 .environmentObject(themeManager)
                                 .environmentObject(profileService)
 
+                            // CONDICIONAL: Si usuario tiene plan ACTIVO, mostrarlo en posición alta (prioridad 3)
+                            if nutritionService.todayPlan != nil {
+                                NutritionHomeBannerSection()
+                                    .environmentObject(nutritionService)
+                                    .environmentObject(themeManager)
+                                    .transition(.move(edge: .top).combined(with: .opacity))
+                            }
+
                             // 2.5. Live Pulse Banner (personas entrenando ahora)
                             LivePulseBanner()
                                 .environmentObject(activityService)
@@ -137,6 +146,13 @@ struct HomeView: View {
                             GymActivityStream()
                                 .environmentObject(activityService)
                                 .environmentObject(themeManager)
+
+                            // Si NO tiene plan activo, mostrarlo aquí (descubrimiento - posición 5)
+                            if nutritionService.todayPlan == nil {
+                                NutritionHomeBannerSection()
+                                    .environmentObject(nutritionService)
+                                    .environmentObject(themeManager)
+                            }
 
                             // 3. Hero Class Card (CTA principal con gradiente vibrante)
                             if let nextClass = nextUserClass {

@@ -178,7 +178,7 @@ struct TimeInfo: Codable {
 
 struct ClassInfo: Codable, Identifiable {
     let name: String
-    let description: String
+    let description: String?
     let duration: Int
     let maxCapacity: Int
     let difficultyLevel: DifficultyLevel
