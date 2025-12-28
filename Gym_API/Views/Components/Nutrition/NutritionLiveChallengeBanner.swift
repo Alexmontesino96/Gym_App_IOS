@@ -30,7 +30,7 @@ struct NutritionLiveChallengeBanner: View {
 
     var body: some View {
         Button(action: handleTap) {
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
                 // Header Row
                 headerRow
 
@@ -61,7 +61,7 @@ struct NutritionLiveChallengeBanner: View {
                 // CTA Row
                 ctaRow
             }
-            .padding(20)
+            .padding(24) // Increased from 20 for better margins
             .background(bannerBackground)
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
@@ -300,7 +300,7 @@ struct NutritionUpcomingChallengeBanner: View {
                         .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 }
             }
-            .padding(16)
+            .padding(20) // Increased from 16 for better margins
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
@@ -340,8 +340,8 @@ struct NutritionDiscoverBanner: View {
             onTap?()
         }) {
             ZStack(alignment: .topTrailing) {
-                // Main content
-                VStack(alignment: .leading, spacing: 12) {
+                // Main content with increased padding
+                VStack(alignment: .leading, spacing: 10) {
                     // Badge "DESCUBRE" with emoji
                     HStack(spacing: 6) {
                         Text("✨")
@@ -359,46 +359,49 @@ struct NutritionDiscoverBanner: View {
 
                     // Title
                     Text("Planes de Nutrición")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 20, weight: .bold)) // Reduced from 22
                         .foregroundColor(.white)
 
-                    // Description
+                    // Description - adjusted for better fit
                     Text("Alcanza tus objetivos con planes personalizados")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .medium)) // Reduced from 14
                         .foregroundColor(.white.opacity(0.9))
                         .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.trailing, 80) // Space for button
 
-                    Spacer()
+                    Spacer(minLength: 8)
 
-                    // Social proof stats
+                    // Social proof stats with better spacing
                     HStack(spacing: 20) {
                         HStack(spacing: 6) {
                             Image(systemName: "person.2.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 11)) // Reduced from 12
                             Text("250+ activos")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold)) // Reduced from 12
                         }
                         .foregroundColor(.white.opacity(0.85))
 
                         HStack(spacing: 6) {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 11)) // Reduced from 12
                             Text("4.8 rating")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold)) // Reduced from 12
                         }
                         .foregroundColor(.white.opacity(0.85))
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 24) // Increased from 20
+                .padding(.vertical, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 140) // Increased height for better presence
+                .frame(height: 150) // Increased from 140 for better spacing
 
-                // CTA Button (top-right)
+                // CTA Button with better positioning
                 Text("EXPLORAR")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold)) // Reduced from 13
                     .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14) // Reduced from 16
+                    .padding(.vertical, 7) // Reduced from 8
                     .background(
                         Capsule()
                             .fill(Color.white.opacity(0.25))
@@ -407,7 +410,8 @@ struct NutritionDiscoverBanner: View {
                                     .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
                             )
                     )
-                    .padding([.top, .trailing], 16)
+                    .padding(.top, 20) // Increased from 16
+                    .padding(.trailing, 20) // Increased from 16
             }
             .background(
                 LinearGradient(

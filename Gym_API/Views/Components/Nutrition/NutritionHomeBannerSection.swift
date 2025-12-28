@@ -22,7 +22,7 @@ struct NutritionHomeBannerSection: View {
         VStack(spacing: 12) {
             // Banner Content
             bannerContent
-                .frame(minHeight: 140) // Aumentada altura mínima para mejor presencia
+                .frame(minHeight: 150) // Aumentada altura mínima para evitar texto cortado
                 .scaleEffect(hasAppeared ? 1.0 : 0.95)
                 .opacity(hasAppeared ? 1.0 : 0.0)
                 .offset(y: hasAppeared ? 0 : 10)
