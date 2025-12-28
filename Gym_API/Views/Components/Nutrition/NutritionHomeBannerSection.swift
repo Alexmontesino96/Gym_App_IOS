@@ -22,10 +22,11 @@ struct NutritionHomeBannerSection: View {
         VStack(spacing: 12) {
             // Banner Content
             bannerContent
-                .frame(minHeight: 170) // Aumentada altura para dar más espacio al contenido
+                .frame(minHeight: 180) // Aumentada altura para más espacio superior
                 .scaleEffect(hasAppeared ? 1.0 : 0.95)
                 .opacity(hasAppeared ? 1.0 : 0.0)
                 .offset(y: hasAppeared ? 0 : 10)
+                .padding(.top, -10) // Reducir espacio con el widget anterior (GymActivityStream)
 
             // ELIMINADO: Botón redundante "Explorar todos los planes"
             // La navegación debe ser solo desde el banner principal

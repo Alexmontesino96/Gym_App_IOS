@@ -61,7 +61,9 @@ struct NutritionLiveChallengeBanner: View {
                 // CTA Row
                 ctaRow
             }
-            .padding(28) // Aumentado para más espacio interno
+            .padding(.horizontal, 28)
+            .padding(.top, 32) // Mayor padding superior
+            .padding(.bottom, 28)
             .background(bannerBackground)
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
@@ -300,7 +302,9 @@ struct NutritionUpcomingChallengeBanner: View {
                         .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 }
             }
-            .padding(24) // Aumentado para más espacio interno
+            .padding(.horizontal, 24)
+            .padding(.top, 28) // Mayor padding superior
+            .padding(.bottom, 24)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
@@ -392,9 +396,10 @@ struct NutritionDiscoverBanner: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                .padding(.vertical, 24) // Aumentado padding vertical
+                .padding(.top, 30) // Mayor padding superior
+                .padding(.bottom, 24)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 170) // Aumentado de 150 a 170 para más espacio
+                .frame(height: 180) // Aumentado para acomodar el mayor padding superior
 
                 // CTA Button with better positioning
                 Text("EXPLORAR")
@@ -410,8 +415,8 @@ struct NutritionDiscoverBanner: View {
                                     .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
                             )
                     )
-                    .padding(.top, 20) // Increased from 16
-                    .padding(.trailing, 20) // Increased from 16
+                    .padding(.top, 24) // Ajustado para el mayor padding superior
+                    .padding(.trailing, 20)
             }
             .background(
                 LinearGradient(
