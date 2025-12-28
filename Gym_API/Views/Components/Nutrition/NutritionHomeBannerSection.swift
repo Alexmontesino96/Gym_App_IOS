@@ -30,6 +30,7 @@ struct NutritionHomeBannerSection: View {
             // ELIMINADO: Botón redundante "Explorar todos los planes"
             // La navegación debe ser solo desde el banner principal
         }
+        .padding(.vertical, 8) // Margen vertical para separación con otros componentes
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2)) {
                 hasAppeared = true
