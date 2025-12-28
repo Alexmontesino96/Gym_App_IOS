@@ -22,7 +22,7 @@ struct NutritionHomeBannerSection: View {
         VStack(spacing: 12) {
             // Banner Content
             bannerContent
-                .frame(minHeight: 150) // Aumentada altura mínima para evitar texto cortado
+                .frame(minHeight: 170) // Aumentada altura para dar más espacio al contenido
                 .scaleEffect(hasAppeared ? 1.0 : 0.95)
                 .opacity(hasAppeared ? 1.0 : 0.0)
                 .offset(y: hasAppeared ? 0 : 10)
@@ -30,7 +30,6 @@ struct NutritionHomeBannerSection: View {
             // ELIMINADO: Botón redundante "Explorar todos los planes"
             // La navegación debe ser solo desde el banner principal
         }
-        .padding(.vertical, 8) // Margen vertical para separación con otros componentes
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2)) {
                 hasAppeared = true
