@@ -63,6 +63,7 @@ struct NutritionLiveChallengeBanner: View {
             }
             .padding(24) // Increased from 20 for better margins
             .background(bannerBackground)
+            .padding(.horizontal, 20) // Padding para mantener margen desde los bordes
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
         }
@@ -309,6 +310,7 @@ struct NutritionUpcomingChallengeBanner: View {
                             .stroke(Color.orange.opacity(0.3), lineWidth: 1)
                     )
             )
+            .padding(.horizontal, 20) // Padding para mantener margen desde los bordes
             .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
@@ -429,6 +431,7 @@ struct NutritionDiscoverBanner: View {
                     .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
             )
             .shadow(color: Color.green.opacity(0.3), radius: 20, y: 10)
+            .padding(.horizontal, 20) // Padding interno para mantener margen desde los bordes
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
         }
