@@ -26,7 +26,6 @@ struct NutritionHomeBannerSection: View {
                 .scaleEffect(hasAppeared ? 1.0 : 0.95)
                 .opacity(hasAppeared ? 1.0 : 0.0)
                 .offset(y: hasAppeared ? 0 : 10)
-                .padding(.horizontal, -16) // Compensar el padding del VStack padre en HomeView
 
             // ELIMINADO: Botón redundante "Explorar todos los planes"
             // La navegación debe ser solo desde el banner principal
