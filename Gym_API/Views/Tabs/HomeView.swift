@@ -252,6 +252,11 @@ struct HomeView: View {
                                 .environmentObject(eventService)
                                 .environmentObject(themeManager)
 
+                            // 8. Goal Progress Bar (métricas de progreso hacia metas)
+                            HeroProgressWidget()
+                                .environmentObject(userStatsServiceLocal)
+                                .environmentObject(themeManager)
+
                             // ELIMINADO - Duplicación con YourWeekSection + HeroClassCard
                             // 9. Live Activity Card (eventos en vivo)
                             // LiveActivityCard()
@@ -261,11 +266,6 @@ struct HomeView: View {
                             // 10. Survey Card (mantener si hay encuestas disponibles)
                             SurveyHomeCard()
                                 .environmentObject(surveyService)
-                                .environmentObject(themeManager)
-
-                            // 11. Hero Progress Widget (métricas en profundidad)
-                            HeroProgressWidget()
-                                .environmentObject(userStatsServiceLocal)
                                 .environmentObject(themeManager)
 
                             // MOVIDO A PERFIL - Información retrospectiva
