@@ -234,24 +234,23 @@ struct HomeView: View {
                                 .environmentObject(activityService)
                                 .environmentObject(themeManager)
 
-                            // 6. Your Week Section (próximos eventos/clases)
+                            // 6. Quick Actions Bar (accesos rápidos para acciones frecuentes)
+                            SmartActionsSection(
+                                themeManager: themeManager,
+                                authService: authService,
+                                eventService: eventService,
+                                classService: classService,
+                                profileService: profileService,
+                                userStatsService: userStatsService,
+                                membershipService: MembershipService.shared,
+                                locationService: LocationService.shared
+                            )
+
+                            // 7. Your Week Section (próximos eventos/clases)
                             YourWeekSection()
                                 .environmentObject(classService)
                                 .environmentObject(eventService)
                                 .environmentObject(themeManager)
-
-                            // ELIMINADO - Accesos rápidos removidos por solicitud del usuario
-                            // 7. Smart Actions con efectos 3D
-                            // SmartActionsSection(
-                            //     themeManager: themeManager,
-                            //     authService: authService,
-                            //     eventService: eventService,
-                            //     classService: classService,
-                            //     profileService: profileService,
-                            //     userStatsService: userStatsService,
-                            //     membershipService: MembershipService.shared,
-                            //     locationService: LocationService.shared
-                            // )
 
                             // ELIMINADO - Duplicación con YourWeekSection + HeroClassCard
                             // 9. Live Activity Card (eventos en vivo)
