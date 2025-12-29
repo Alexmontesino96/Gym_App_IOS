@@ -27,31 +27,73 @@ struct HomeView: View {
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: currentDate)
         let weekday = Calendar.current.component(.weekday, from: currentDate)
+        let streak = userStatsService.userStats.currentStreak
+        let workoutsThisWeek = userStatsService.userStats.weeklyClasses
 
-        // Saludo más cálido y personalizado
-        switch hour {
-        case 0..<6:
-            return "Wow, empezando temprano hoy"
-        case 6..<12:
-            // Lunes especial
-            if weekday == 2 {
-                return "Linda mañana para arrancar la semana"
+        // Saludo contextual basado en actividad del usuario
+
+        // Primero checar rachas significativas
+        if streak >= 30 {
+            return "¡Un mes sin parar! Eres leyenda 🏆"
+        } else if streak >= 14 {
+            return "¡2 semanas de constancia! Imparable 💪"
+        } else if streak >= 7 {
+            return "¡Una semana completa! En fuego 🔥"
+        } else if streak >= 3 {
+            return "¡\(streak) días seguidos! Vas con todo 💯"
+        }
+
+        // Si no hay racha significativa, checar actividad semanal
+        if workoutsThisWeek == 0 {
+            // Usuario inactivo esta semana - motivar según hora
+            switch hour {
+            case 0..<6:
+                return "El mejor momento para empezar es ahora"
+            case 6..<12:
+                if weekday == 2 { // Lunes
+                    return "Nueva semana, nuevas metas por cumplir"
+                }
+                return "Hoy es el día perfecto para empezar"
+            case 12..<18:
+                return "Aún hay tiempo para tu primer workout"
+            case 18..<24:
+                return "¿Qué tal cerrar el día con ejercicio?"
+            default:
+                return "Tu momento de brillar te espera"
             }
-            return "Linda mañana para empezar fuerte"
-        case 12..<18:
-            // Viernes especial
-            if weekday == 6 {
-                return "Hermosa tarde para cerrar la semana"
+        } else if workoutsThisWeek >= 3 {
+            // Usuario muy activo - celebrar
+            switch hour {
+            case 0..<12:
+                return "¡Ya llevas \(workoutsThisWeek) workouts esta semana! 🎯"
+            case 12..<18:
+                return "Increíble semana - \(workoutsThisWeek) sesiones ya ⚡"
+            default:
+                return "¡\(workoutsThisWeek) workouts! Eres inspiración 🌟"
             }
-            return "Hermosa tarde para moverte"
-        case 18..<24:
-            // Fin de semana
-            if weekday == 1 || weekday == 7 {
-                return "Perfecto momento para ti este fin de semana"
+        } else {
+            // Usuario moderadamente activo - mantener momentum
+            switch hour {
+            case 0..<6:
+                return "Wow, empezando temprano hoy"
+            case 6..<12:
+                if weekday == 2 {
+                    return "Linda mañana para continuar tu semana"
+                }
+                return "Buen día para seguir avanzando"
+            case 12..<18:
+                if weekday == 6 {
+                    return "Hermosa tarde para cerrar fuerte"
+                }
+                return "Perfecto momento para moverte"
+            case 18..<24:
+                if weekday == 1 || weekday == 7 {
+                    return "Aprovecha el fin de semana"
+                }
+                return "Todavía hay tiempo para ti"
+            default:
+                return "Tu momento es ahora"
             }
-            return "Todavía tienes tiempo para ti"
-        default:
-            return "Hermosa tarde para moverte"
         }
     }
     
@@ -187,15 +229,15 @@ struct HomeView: View {
                                 .environmentObject(userStatsService)
                                 .environmentObject(themeManager)
 
+                            // 5.5. Rankings Carousel (movido arriba para mayor visibilidad)
+                            RankingsCarousel()
+                                .environmentObject(activityService)
+                                .environmentObject(themeManager)
+
                             // 6. Your Week Section (próximos eventos/clases)
                             YourWeekSection()
                                 .environmentObject(classService)
                                 .environmentObject(eventService)
-                                .environmentObject(themeManager)
-
-                            // 6.5. Rankings Carousel (top del día con fotos)
-                            RankingsCarousel()
-                                .environmentObject(activityService)
                                 .environmentObject(themeManager)
 
                             // ELIMINADO - Accesos rápidos removidos por solicitud del usuario
