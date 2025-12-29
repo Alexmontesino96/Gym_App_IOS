@@ -373,10 +373,9 @@ struct NutritionDiscoverBanner: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.trailing, 80) // Space for button
+                        .padding(.bottom, 4) // Reducir espacio antes de los stats
 
-                    Spacer(minLength: 12)
-
-                    // Social proof stats with better spacing
+                    // Social proof stats - movidos hacia arriba con mejor contraste
                     HStack(spacing: 20) {
                         HStack(spacing: 6) {
                             Image(systemName: "person.2.fill")
@@ -384,7 +383,11 @@ struct NutritionDiscoverBanner: View {
                             Text("250+ activos")
                                 .font(.system(size: 11, weight: .semibold))
                         }
-                        .foregroundColor(.white.opacity(0.85))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.25))
+                        .cornerRadius(6)
 
                         HStack(spacing: 6) {
                             Image(systemName: "star.fill")
@@ -392,8 +395,14 @@ struct NutritionDiscoverBanner: View {
                             Text("4.8 rating")
                                 .font(.system(size: 11, weight: .semibold))
                         }
-                        .foregroundColor(.white.opacity(0.85))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.25))
+                        .cornerRadius(6)
                     }
+
+                    Spacer(minLength: 8)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 30) // Mayor padding superior
@@ -421,8 +430,8 @@ struct NutritionDiscoverBanner: View {
             .background(
                 LinearGradient(
                     colors: [
-                        Color(hex: "#11998E") ?? .green,  // Verde esmeralda
-                        Color(hex: "#38EF7D") ?? .green   // Verde teal brillante
+                        (Color(hex: "#11998E") ?? .green).opacity(0.75),  // Verde esmeralda con menor saturación
+                        (Color(hex: "#38EF7D") ?? .green).opacity(0.75)   // Verde teal con menor saturación
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

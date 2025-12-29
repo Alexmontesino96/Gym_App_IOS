@@ -12,15 +12,25 @@ struct GymActivityStream: View {
     private let maxVisibleActivities = 5
 
     var body: some View {
+        Group {
+            // Solo mostrar el widget si hay actividades
+            // Cuando está vacío, no ocupa espacio en absoluto
+            if !activityService.activities.isEmpty {
+                mainContent
+            }
+        }
+    }
+
+    // MARK: - Main Content
+
+    private var mainContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             headerView
 
-            // Activity list or empty state
+            // Activity list o loading
             if activityService.isLoading && activityService.activities.isEmpty {
                 loadingView
-            } else if activityService.activities.isEmpty {
-                emptyStateView
             } else {
                 activityListView
             }
@@ -134,25 +144,6 @@ struct GymActivityStream: View {
         }
     }
 
-    // MARK: - Empty State
-
-    private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "figure.walk.circle")
-                .font(.system(size: 40, weight: .light))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
-
-            Text("No hay actividad reciente")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-
-            Text("Se el primero en entrenar hoy")
-                .font(.system(size: 12))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-    }
 }
 
 // MARK: - Activity Stream Row

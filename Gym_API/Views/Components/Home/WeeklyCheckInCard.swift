@@ -127,9 +127,9 @@ struct WeeklyCheckInCard: View {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Color(red: 0.85, green: 0.2, blue: 0.2))
-                Text("\(userStatsService.userStats.currentStreak) días")
+                Text(userStatsService.userStats.currentStreak == 0 ? "🎯 Comienza tu viaje" : "\(userStatsService.userStats.currentStreak) días")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .foregroundColor(userStatsService.userStats.currentStreak == 0 ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicText(theme: themeManager.currentTheme))
             }
 
             Circle()
@@ -140,9 +140,9 @@ struct WeeklyCheckInCard: View {
                 Image(systemName: "figure.run")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.blue)
-                Text("\(weeklyWorkouts) workouts")
+                Text(weeklyWorkouts == 0 ? "¡Primera clase gratis!" : "\(weeklyWorkouts) workouts")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .foregroundColor(weeklyWorkouts == 0 ? .green : Color.dynamicText(theme: themeManager.currentTheme))
             }
 
             Spacer()

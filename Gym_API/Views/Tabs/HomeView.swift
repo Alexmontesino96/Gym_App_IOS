@@ -129,6 +129,22 @@ struct HomeView: View {
                                 .environmentObject(themeManager)
                                 .environmentObject(profileService)
 
+                            // 2.3 CTA Principal - Reservar Primera Clase (Solo usuarios nuevos)
+                            if userStatsService.userStats.currentStreak == 0 {
+                                PrimaryCTAButton(
+                                    action: {
+                                        HapticManager.shared.play(.medium)
+                                        // Navegar a la pestaña de clases
+                                        NotificationCenter.default.post(name: .openClassesTab, object: nil)
+
+                                        // Track analytics
+                                        debugLog("📊 CTA Principal clicked - Navigate to Classes")
+                                    }
+                                )
+                                .transition(.opacity.combined(with: .scale))
+                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: userStatsService.userStats.currentStreak)
+                            }
+
                             // 2.5. Live Pulse Banner (personas entrenando ahora)
                             LivePulseBanner()
                                 .environmentObject(activityService)
@@ -1143,6 +1159,97 @@ struct StatCardSkeleton: View {
         .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
         .onAppear {
             isAnimating = true
+        }
+    }
+}
+
+// MARK: - Primary CTA Button
+struct PrimaryCTAButton: View {
+    let action: () -> Void
+    @State private var isPressed = false
+    @State private var isPulsing = false
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        Button(action: {
+            isPressed = true
+            HapticManager.shared.play(.medium)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isPressed = false
+                action()
+            }
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 18, weight: .semibold))
+                    .rotationEffect(.degrees(isPulsing ? 5 : -5))
+
+                VStack(spacing: 2) {
+                    Text("Reserva tu Primera Clase")
+                        .font(.system(size: 17, weight: .bold))
+                    Text("¡GRATIS HOY!")
+                        .font(.system(size: 12, weight: .bold))
+                        .tracking(1)
+                        .opacity(0.9)
+                }
+
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .offset(x: isPulsing ? 3 : 0)
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .background(
+                ZStack {
+                    // Gradiente de fondo con animación
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "#D93333") ?? .red,
+                            Color(hex: "#FF6B6B") ?? .red.opacity(0.8)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+
+                    // Efecto de brillo animado
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0),
+                            Color.white.opacity(0.3),
+                            Color.white.opacity(0)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: 60)
+                    .offset(x: isPulsing ? 200 : -200)
+                    .animation(.easeInOut(duration: 2.5).repeatForever(autoreverses: false), value: isPulsing)
+                }
+            )
+            .cornerRadius(16)
+            .shadow(color: (Color(hex: "#D93333") ?? .red).opacity(0.3), radius: 12, x: 0, y: 6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
         }
     }
 }
