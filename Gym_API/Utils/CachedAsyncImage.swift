@@ -147,7 +147,7 @@ struct StoryImageView: View {
         CachedAsyncImage(url: url) { image in
             image
                 .resizable()
-                .scaledToFit() // Cambiado para mostrar imagen completa sin recortes
+                .scaledToFill() // Volver a fill para llenar el espacio disponible
         } placeholder: {
             ZStack {
                 Color.gray
@@ -176,7 +176,7 @@ struct StoryImageWithError: View {
             if let image = loader.image {
                 Image(uiImage: image)
                     .resizable()
-                    .scaledToFit() // Cambiado para mostrar imagen completa sin recortes
+                    .scaledToFill() // Volver a fill para llenar el espacio disponible
             } else if loader.isLoading {
                 ZStack {
                     Color.gray

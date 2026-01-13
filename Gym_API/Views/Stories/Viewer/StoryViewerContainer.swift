@@ -98,14 +98,14 @@ struct StoryViewerContainer: View {
         if let currentUser = currentUserStory,
            let currentStory = currentStory {
             ZStack {
-                // Fondo negro para áreas vacías
+                // Fondo negro para toda la pantalla
                 Color.black.ignoresSafeArea()
 
-                // Contenido de la story con padding para respetar header y footer
+                // Contenido de la story que ocupa toda la pantalla
                 StoryContentView(story: currentStory, isPaused: $isPaused)
-                    .padding(.top, 100) // Espacio para header y barras de progreso
-                    .padding(.bottom, 120) // Espacio para barra de interacciones
+                    .ignoresSafeArea()
 
+                // Overlay con header y footer sobre la imagen
                 storyOverlay(currentUser: currentUser, currentStory: currentStory, geometry: geometry)
                 tapAreas(geometry: geometry)
                 reactionAnimations()
@@ -169,10 +169,16 @@ struct StoryViewerContainer: View {
 
     private var topGradient: some View {
         LinearGradient(
-            colors: [Color.black.opacity(0.7), Color.clear],
+            colors: [
+                Color.black.opacity(0.8),
+                Color.black.opacity(0.5),
+                Color.black.opacity(0.2),
+                Color.clear
+            ],
             startPoint: .top,
             endPoint: .bottom
         )
+        .frame(height: 200)
     }
 
     // MARK: - Bottom Section
@@ -222,10 +228,16 @@ struct StoryViewerContainer: View {
 
     private var bottomGradient: some View {
         LinearGradient(
-            colors: [Color.clear, Color.black.opacity(0.4)],
+            colors: [
+                Color.clear,
+                Color.black.opacity(0.2),
+                Color.black.opacity(0.5),
+                Color.black.opacity(0.7)
+            ],
             startPoint: .top,
             endPoint: .bottom
         )
+        .frame(height: 200)
     }
 
     // MARK: - Tap Areas
@@ -760,8 +772,7 @@ struct StoryContentView: View {
             case .image:
                 if let mediaUrl = story.mediaUrl, !mediaUrl.isEmpty {
                     StoryImageWithError(url: mediaUrl)
-                        .scaledToFit() // Cambio de fill a fit para mostrar la imagen completa
-                        .frame(maxWidth: proxy.size.width, maxHeight: proxy.size.height)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
                         .id(story.id) // Force view recreation when story changes
                         .onAppear {
@@ -789,8 +800,7 @@ struct StoryContentView: View {
             case .video:
                 if let mediaUrl = story.mediaUrl, let url = URL(string: mediaUrl) {
                     VideoStoryView(url: url, isPaused: $isPaused)
-                        .scaledToFit() // También aplicar a videos
-                        .frame(maxWidth: proxy.size.width, maxHeight: proxy.size.height)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
                         .id(story.id)
                 } else {
