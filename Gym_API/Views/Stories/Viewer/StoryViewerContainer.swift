@@ -98,8 +98,13 @@ struct StoryViewerContainer: View {
         if let currentUser = currentUserStory,
            let currentStory = currentStory {
             ZStack {
+                // Fondo negro para áreas vacías
+                Color.black.ignoresSafeArea()
+
+                // Contenido de la story con padding para respetar header y footer
                 StoryContentView(story: currentStory, isPaused: $isPaused)
-                    .ignoresSafeArea()
+                    .padding(.top, 100) // Espacio para header y barras de progreso
+                    .padding(.bottom, 120) // Espacio para barra de interacciones
 
                 storyOverlay(currentUser: currentUser, currentStory: currentStory, geometry: geometry)
                 tapAreas(geometry: geometry)
@@ -755,7 +760,8 @@ struct StoryContentView: View {
             case .image:
                 if let mediaUrl = story.mediaUrl, !mediaUrl.isEmpty {
                     StoryImageWithError(url: mediaUrl)
-                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .scaledToFit() // Cambio de fill a fit para mostrar la imagen completa
+                        .frame(maxWidth: proxy.size.width, maxHeight: proxy.size.height)
                         .clipped()
                         .id(story.id) // Force view recreation when story changes
                         .onAppear {
@@ -783,7 +789,8 @@ struct StoryContentView: View {
             case .video:
                 if let mediaUrl = story.mediaUrl, let url = URL(string: mediaUrl) {
                     VideoStoryView(url: url, isPaused: $isPaused)
-                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .scaledToFit() // También aplicar a videos
+                        .frame(maxWidth: proxy.size.width, maxHeight: proxy.size.height)
                         .clipped()
                         .id(story.id)
                 } else {
