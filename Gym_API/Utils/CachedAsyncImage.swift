@@ -147,7 +147,7 @@ struct StoryImageView: View {
         CachedAsyncImage(url: url) { image in
             image
                 .resizable()
-                .scaledToFit() // Ajustar imagen completa dentro del contenedor
+                .scaledToFill() // Instagram Stories usa scaledToFill para llenar la pantalla
         } placeholder: {
             ZStack {
                 Color.gray
@@ -176,7 +176,7 @@ struct StoryImageWithError: View {
             if let image = loader.image {
                 Image(uiImage: image)
                     .resizable()
-                    .scaledToFit() // Ajustar imagen completa dentro del contenedor
+                    .scaledToFill() // Instagram Stories usa scaledToFill para llenar la pantalla
             } else if loader.isLoading {
                 ZStack {
                     Color.gray

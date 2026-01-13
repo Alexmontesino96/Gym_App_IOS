@@ -101,21 +101,9 @@ struct StoryViewerContainer: View {
                 // Fondo negro para toda la pantalla
                 Color.black.ignoresSafeArea()
 
-                // Contenedor central para la imagen con márgenes seguros
-                VStack(spacing: 0) {
-                    // Espacio para header (progress bars + user info + buttons)
-                    Color.clear
-                        .frame(height: 120)
-
-                    // Contenido de la story en el área central
-                    StoryContentView(story: currentStory, isPaused: $isPaused)
-                        .background(Color.black)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    // Espacio para footer (caption + interaction bar + safe area)
-                    Color.clear
-                        .frame(height: 140)
-                }
+                // Contenido de la story con aspect ratio 9:16 (Instagram Stories)
+                StoryContentView(story: currentStory, isPaused: $isPaused)
+                    .ignoresSafeArea()
 
                 // Overlay con header y footer sobre la imagen
                 storyOverlay(currentUser: currentUser, currentStory: currentStory, geometry: geometry)
@@ -780,12 +768,17 @@ struct StoryContentView: View {
     var body: some View {
         GeometryReader { proxy in
         ZStack {
+            // Fondo negro para áreas vacías cuando la imagen no llena todo
+            Color.black
+
             switch story.storyType {
             case .image:
                 if let mediaUrl = story.mediaUrl, !mediaUrl.isEmpty {
+                    // Instagram Stories usa 9:16 aspect ratio con scaledToFill
                     StoryImageWithError(url: mediaUrl)
+                        .aspectRatio(9/16, contentMode: .fill)
                         .frame(width: proxy.size.width, height: proxy.size.height)
-                        .clipped()
+                        .clipped() // Importante: recorta el contenido que se sale
                         .id(story.id) // Force view recreation when story changes
                         .onAppear {
                             print("DEBUG: 🖼️ Loading story image for Story ID: \(story.id)")
@@ -812,8 +805,9 @@ struct StoryContentView: View {
             case .video:
                 if let mediaUrl = story.mediaUrl, let url = URL(string: mediaUrl) {
                     VideoStoryView(url: url, isPaused: $isPaused)
+                        .aspectRatio(9/16, contentMode: .fill)
                         .frame(width: proxy.size.width, height: proxy.size.height)
-                        .clipped()
+                        .clipped() // Importante: recorta el contenido que se sale
                         .id(story.id)
                 } else {
                     Color.black
