@@ -101,9 +101,21 @@ struct StoryViewerContainer: View {
                 // Fondo negro para toda la pantalla
                 Color.black.ignoresSafeArea()
 
-                // Contenido de la story que ocupa toda la pantalla
-                StoryContentView(story: currentStory, isPaused: $isPaused)
-                    .ignoresSafeArea()
+                // Contenedor central para la imagen con márgenes seguros
+                VStack(spacing: 0) {
+                    // Espacio para header (progress bars + user info + buttons)
+                    Color.clear
+                        .frame(height: 120)
+
+                    // Contenido de la story en el área central
+                    StoryContentView(story: currentStory, isPaused: $isPaused)
+                        .background(Color.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    // Espacio para footer (caption + interaction bar + safe area)
+                    Color.clear
+                        .frame(height: 140)
+                }
 
                 // Overlay con header y footer sobre la imagen
                 storyOverlay(currentUser: currentUser, currentStory: currentStory, geometry: geometry)
