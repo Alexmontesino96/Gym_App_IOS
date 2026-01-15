@@ -3,15 +3,29 @@ import SwiftUI
 struct EventChatView: View {
     let eventId: String
     let eventTitle: String
+    let streamChannelId: String? // Opcional para usar el ID correcto del canal de Stream
     @ObservedObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
-    
+
+    // Constructor con streamChannelId opcional
+    init(eventId: String, eventTitle: String, streamChannelId: String? = nil, authService: AuthServiceDirect) {
+        self.eventId = eventId
+        self.eventTitle = eventTitle
+        self.streamChannelId = streamChannelId
+        self.authService = authService
+    }
+
     var body: some View {
-        OptimizedChatView(
-            conversationId: "event_\(eventId)",
+        let finalConversationId = streamChannelId ?? "event_\(eventId)"
+        let _ = print("🎯 [EventChatView] Usando conversationId: \(finalConversationId)")
+        let _ = print("🎯 [EventChatView] streamChannelId recibido: \(streamChannelId ?? "nil")")
+        let _ = print("🎯 [EventChatView] eventId: \(eventId)")
+
+        return OptimizedChatView(
+            conversationId: finalConversationId, // Usa streamChannelId si está disponible
             conversationName: eventTitle
         )
-        .id("event_\(eventId)") // ✅ CRÍTICO: Fuerza recrear la vista cuando cambia eventId
+        .id(finalConversationId) // ✅ CRÍTICO: Fuerza recrear la vista cuando cambia el ID
         .environmentObject(themeManager)
     }
 }

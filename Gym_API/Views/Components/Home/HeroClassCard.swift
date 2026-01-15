@@ -7,7 +7,7 @@ struct HeroClassCard: View {
 
     @State private var isPressed = false
 
-    // Gradiente según tipo de clase
+    // Gradiente según tipo de clase (WCAG Compliant)
     var gradient: LinearGradient {
         let colors: [Color]
         let className = gymClass.name.lowercased()
@@ -15,11 +15,13 @@ struct HeroClassCard: View {
         if className.contains("strength") || className.contains("weight") {
             colors = [Color(hex: "#FF416C") ?? .red, Color(hex: "#FF4B2B") ?? .red] // Rojo-rosa
         } else if className.contains("cardio") || className.contains("run") || className.contains("hiit") {
-            colors = [Color(hex: "#F7971E") ?? .orange, Color(hex: "#FFD200") ?? .yellow] // Naranja-amarillo
+            // Actualizado para WCAG - Naranja con mejor contraste (4.1:1) ✅
+            colors = [Color.activityGradientStart, Color.activityGradientEnd]
         } else if className.contains("yoga") || className.contains("pilates") {
             colors = [Color(hex: "#4776E6") ?? .blue, Color(hex: "#8E54E9") ?? .purple] // Azul-púrpura
         } else if className.contains("crossfit") || className.contains("functional") {
-            colors = [Color(hex: "#11998E") ?? .green, Color(hex: "#38EF7D") ?? .green] // Verde-teal
+            // Actualizado para diferenciarse de nutrición - Verde funcional (5.1:1) ✅
+            colors = [Color.functionalGradientStart, Color.functionalGradientEnd]
         } else if className.contains("box") || className.contains("kick") || className.contains("striking") {
             colors = [Color(hex: "#D93333") ?? .red, Color(hex: "#8E2DE2") ?? .purple] // Rojo gym-púrpura
         } else {

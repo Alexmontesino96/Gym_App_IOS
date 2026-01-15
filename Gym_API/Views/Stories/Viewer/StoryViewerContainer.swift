@@ -35,6 +35,10 @@ struct StoryViewerContainer: View {
     @State private var storyToDelete: Story? = nil
     @State private var showDeleteSuccessMessage = false
 
+    // Animation states for improved visual transitions
+    @State private var contentLoaded = false
+    @State private var contentScale: CGFloat = 0.95
+
     // Reaction animations
     @StateObject private var reactionAnimationManager = ReactionAnimationManager()
 
@@ -101,9 +105,29 @@ struct StoryViewerContainer: View {
                 // Fondo negro para toda la pantalla
                 Color.black.ignoresSafeArea()
 
-                // Contenido de la story con aspect ratio 9:16 (Instagram Stories)
+                // Contenido de la story con aspect ratio 9:16 (Instagram Stories) y animaciones
                 StoryContentView(story: currentStory, isPaused: $isPaused)
                     .ignoresSafeArea()
+                    .scaleEffect(contentScale)
+                    .opacity(contentLoaded ? 1 : 0)
+                    .onAppear {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            contentLoaded = true
+                            contentScale = 1.0
+                        }
+                    }
+                    .onChange(of: currentStoryIndex) { _ in
+                        // Reset and animate for new story
+                        contentLoaded = false
+                        contentScale = 0.95
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                contentLoaded = true
+                                contentScale = 1.0
+                            }
+                        }
+                    }
 
                 // Overlay con header y footer sobre la imagen
                 storyOverlay(currentUser: currentUser, currentStory: currentStory, geometry: geometry)
@@ -118,7 +142,7 @@ struct StoryViewerContainer: View {
     @ViewBuilder
     private func storyOverlay(currentUser: UserStoryGroup, currentStory: Story, geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            topSection(currentUser: currentUser, currentStory: currentStory)
+            topSection(currentUser: currentUser, currentStory: currentStory, geometry: geometry)
             Spacer()
             bottomSection(currentStory: currentStory, geometry: geometry)
         }
@@ -126,8 +150,12 @@ struct StoryViewerContainer: View {
 
     // MARK: - Top Section
     @ViewBuilder
-    private func topSection(currentUser: UserStoryGroup, currentStory: Story) -> some View {
+    private func topSection(currentUser: UserStoryGroup, currentStory: Story, geometry: GeometryProxy) -> some View {
         VStack(spacing: 8) {
+            // Spacer for safe area / notch
+            Color.clear
+                .frame(height: max(geometry.safeAreaInsets.top, 20))
+
             progressBars(currentUser: currentUser)
             userHeader(currentUser: currentUser, currentStory: currentStory)
         }
@@ -140,12 +168,12 @@ struct StoryViewerContainer: View {
             currentIndex: currentStoryIndex,
             durations: currentUser.activeStories.defaultDurations(),
             isPaused: isPaused,
-            barHeight: 3,
-            barSpacing: 4,
+            barHeight: 2.5,  // Más delgadas pero visibles (era 3)
+            barSpacing: 4,   // Más espacio entre barras (era 3)
             onSegmentComplete: { nextStory() }
         )
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
+        .padding(.horizontal, 16)  // Más padding lateral (era 8)
+        .padding(.top, 12)         // Más espacio superior (era 4)
     }
 
     private func userHeader(currentUser: UserStoryGroup, currentStory: Story) -> some View {
@@ -163,22 +191,23 @@ struct StoryViewerContainer: View {
                 showingDeleteConfirmation = true
             }
         )
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 16)  // Más padding (era 4)
+        .padding(.vertical, 8)      // Más padding vertical
     }
 
     private var topGradient: some View {
         LinearGradient(
             colors: [
-                Color.black.opacity(0.8),
-                Color.black.opacity(0.5),
-                Color.black.opacity(0.2),
+                Color.black.opacity(0.45),  // Menos opaco (era 0.65)
+                Color.black.opacity(0.25),  // Menos opaco (era 0.35)
+                Color.black.opacity(0.08),  // Menos opaco (era 0.12)
                 Color.clear
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 200)
+        .frame(height: 120)  // Menos altura (era 140)
+        .allowsHitTesting(false)  // No bloquear toques
     }
 
     // MARK: - Bottom Section
@@ -202,13 +231,10 @@ struct StoryViewerContainer: View {
         Text(caption)
             .font(.body)
             .foregroundColor(.white)
+            .shadow(color: .black.opacity(0.6), radius: 2, x: 0, y: 1)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
     }
 
     private func interactionBar(currentStory: Story) -> some View {
@@ -230,14 +256,15 @@ struct StoryViewerContainer: View {
         LinearGradient(
             colors: [
                 Color.clear,
-                Color.black.opacity(0.2),
-                Color.black.opacity(0.5),
-                Color.black.opacity(0.7)
+                Color.black.opacity(0.15),  // Más sutil (era 0.22)
+                Color.black.opacity(0.35),  // Más sutil (era 0.48)
+                Color.black.opacity(0.50)   // Más sutil (era 0.6)
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 200)
+        .frame(height: 120)  // Menos altura (era 140)
+        .allowsHitTesting(false)
     }
 
     // MARK: - Tap Areas
@@ -246,7 +273,7 @@ struct StoryViewerContainer: View {
         VStack(spacing: 0) {
             // Empty space for header (progress bars + user info + buttons)
             Color.clear
-                .frame(height: 100)
+                .frame(height: max(72, geometry.safeAreaInsets.top + 36))
                 .allowsHitTesting(false)
 
             HStack(spacing: 0) {
@@ -863,21 +890,21 @@ struct StoryHeaderView: View {
                         image
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)  // Más grande (era 28)
                             .clipShape(Circle())
                     case .failure(_):
                         Circle()
                             .fill(Color.gray)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)  // Más grande
                             .overlay(
                                 Image(systemName: "person.fill")
                                     .foregroundColor(.white.opacity(0.6))
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 18))  // Más grande
                             )
                     case .empty:
                         Circle()
                             .fill(Color.gray.opacity(0.3))
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)  // Más grande
                             .overlay(
                                 ProgressView()
                                     .scaleEffect(0.7)
@@ -886,7 +913,7 @@ struct StoryHeaderView: View {
                     @unknown default:
                         Circle()
                             .fill(Color.gray)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)  // Más grande
                     }
                 }
                 .onAppear {
@@ -897,13 +924,12 @@ struct StoryHeaderView: View {
             // User name and time
             VStack(alignment: .leading, spacing: 2) {
                 Text(userStory.userName)
-                    .font(.footnote)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 14, weight: .semibold))  // Más grande (era caption)
                     .foregroundColor(.white)
 
                 Text(story.createdAt, style: .relative)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
+                    .font(.system(size: 12))  // Más grande
+                    .foregroundColor(.white.opacity(0.7))
             }
 
             Spacer()
@@ -911,19 +937,24 @@ struct StoryHeaderView: View {
             // Story info
             if canShowViewers {
                 Button(action: { onViewersTap?() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "eye")
+                    HStack(spacing: 6) {
+                        Image(systemName: "eye.fill")
                         Text(story.formattedViewCount)
                     }
-                    .font(.caption)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(.ultraThinMaterial)
+                            .fill(Color.white.opacity(0.15))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                            )
                     )
                 }
+                .buttonStyle(ScaleButtonStyle())
                 .accessibilityLabel("Visto por \(story.viewCount) personas. Tocar para ver la lista de espectadores")
             }
 
@@ -934,14 +965,19 @@ struct StoryHeaderView: View {
                     deleteAction()
                 }) {
                     Image(systemName: "trash")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.white)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 36, height: 36)  // Más grande (era 30)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(Color.white.opacity(0.15))
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                                )
                         )
                 }
+                .buttonStyle(ScaleButtonStyle())
                 .accessibilityLabel("Eliminar historia")
                 .onAppear {
                     print("DEBUG: 🗑️ Botón de eliminar renderizado")
@@ -951,14 +987,19 @@ struct StoryHeaderView: View {
             // Close button
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 36, height: 36)  // Más grande
                     .background(
                         Circle()
-                            .fill(.ultraThinMaterial)
+                            .fill(Color.white.opacity(0.15))
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                            )
                     )
             }
+            .buttonStyle(ScaleButtonStyle())
         }
     }
 
@@ -1056,6 +1097,7 @@ struct TapArea: View {
             }
     }
 }
+
 
 // MARK: - Preview
 struct StoryViewerContainer_Previews: PreviewProvider {

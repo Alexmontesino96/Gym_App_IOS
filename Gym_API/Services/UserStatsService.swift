@@ -26,6 +26,10 @@ class UserStatsService: ObservableObject {
     @Published var lastAttendanceDate: Date?
     @Published var daysInactive: Int = 0
 
+    // Dashboard Summary data
+    @Published var dashboardSummary: DashboardSummary?
+    @Published var hasAttendedFirstClass: Bool = false  // 🆕 NEW field from backend
+
     @Published var isLoading = false
     @Published var error: Error?
     
@@ -65,6 +69,8 @@ class UserStatsService: ObservableObject {
         lastAttendedClass = nil
         lastAttendanceDate = nil
         daysInactive = 0
+        dashboardSummary = nil
+        hasAttendedFirstClass = false
         isLoading = false
         error = nil
         lastWorkoutHistoryUpdate = nil
@@ -159,6 +165,93 @@ class UserStatsService: ObservableObject {
     }
     
     /// Obtiene el historial de entrenamientos real del usuario (eventos + clases)
+    /// Obtiene el dashboard summary del usuario con el nuevo campo hasAttendedFirstClass
+    func fetchDashboardSummary() async {
+        print("🔍 [UserStatsService] fetchDashboardSummary() iniciado")
+
+        guard let token = await authService?.getValidAccessToken() else {
+            print("❌ [UserStatsService] Missing auth token for dashboard")
+            return
+        }
+
+        guard let gymId = gymService?.currentGymId else {
+            print("❌ [UserStatsService] No gym ID selected for dashboard")
+            return
+        }
+
+        let urlString = "\(baseURL)/users/dashboard/summary"
+        print("📡 [UserStatsService] Dashboard URL: \(urlString)")
+        print("📡 [UserStatsService] Using Gym ID: \(gymId)")
+        guard let url = URL(string: urlString) else {
+            print("❌ [UserStatsService] Invalid dashboard URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(String(gymId), forHTTPHeaderField: "X-Gym-ID")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📡 [UserStatsService] Dashboard response status: \(httpResponse.statusCode)")
+
+                if httpResponse.statusCode == 200 {
+                    // Log raw response for debugging
+                    if let jsonString = String(data: data, encoding: .utf8) {
+                        print("📡 [UserStatsService] Dashboard raw response: \(jsonString)")
+                    }
+
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+
+                    let dashboard = try decoder.decode(DashboardSummary.self, from: data)
+
+                    await MainActor.run {
+                        self.dashboardSummary = dashboard
+                        self.hasAttendedFirstClass = dashboard.hasAttendedFirstClass
+
+                        print("✅ [UserStatsService] Dashboard decoded successfully:")
+                        print("   - hasAttendedFirstClass: \(dashboard.hasAttendedFirstClass)")
+                        print("   - currentStreak: \(dashboard.currentStreak)")
+                        print("   - weeklyWorkouts: \(dashboard.weeklyWorkouts)")
+                        print("   - membershipStatus: \(dashboard.membershipStatus)")
+
+                        // También actualizar algunos campos relacionados si existen
+                        // UserStats es struct con let properties, entonces recreamos la instancia
+                        if dashboard.currentStreak > 0 || dashboard.weeklyWorkouts > 0 {
+                            self.userStats = UserStats(
+                                weeklyClasses: dashboard.weeklyWorkouts,
+                                weeklyEvents: self.userStats.weeklyEvents,
+                                weeklyHours: self.userStats.weeklyHours,
+                                monthlyClasses: self.userStats.monthlyClasses,
+                                totalStreak: self.userStats.totalStreak,
+                                currentStreak: dashboard.currentStreak,
+                                lastUpdated: Date()
+                            )
+                        }
+                        if let lastDate = dashboard.lastAttendanceDate {
+                            self.lastAttendanceDate = lastDate
+                        }
+
+                        print("✅ [UserStatsService] Dashboard loaded - hasAttendedFirstClass: \(dashboard.hasAttendedFirstClass)")
+                    }
+                } else {
+                    print("❌ [UserStatsService] Dashboard HTTP Error: \(httpResponse.statusCode)")
+                    // Log error response body
+                    if let errorString = String(data: data, encoding: .utf8) {
+                        print("❌ [UserStatsService] Error response: \(errorString)")
+                    }
+                }
+            }
+        } catch {
+            print("❌ [UserStatsService] Error fetching dashboard: \(error)")
+        }
+    }
+
     func fetchWorkoutHistory() async {
         // Verificar cache antes de hacer request
         if isWorkoutHistoryCacheValid() {

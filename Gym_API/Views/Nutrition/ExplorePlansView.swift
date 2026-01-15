@@ -20,6 +20,9 @@ struct ExplorePlansView: View {
     @State private var selectedCategory: NutritionCategory = .all
     @State private var isRefreshing = false
     @State private var appearAnimation = false
+    @State private var explorePlans: [NutritionPlan] = []
+    @State private var currentPage = 1
+    @State private var hasMorePages = false
 
     // MARK: - Category Enum
 
@@ -60,13 +63,14 @@ struct ExplorePlansView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: true) {
             if nutritionService.isLoading && filteredPlans.isEmpty {
                 loadingView
             } else {
                 contentView
             }
         }
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .refreshable {
             await refreshData()
         }
@@ -81,39 +85,47 @@ struct ExplorePlansView: View {
     // MARK: - Content View
 
     private var contentView: some View {
-        LazyVStack(spacing: 24) {
+        VStack(spacing: 0) {
             // Search Bar
             searchBar
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 20)
 
             // Category Chips
             categoryChips
+                .padding(.top, 16)
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 20)
 
-            // Recommended Section
-            if selectedCategory == .all && searchText.isEmpty {
-                recommendedSection
-                    .opacity(appearAnimation ? 1 : 0)
-                    .offset(y: appearAnimation ? 0 : 20)
-            }
+            // Scrollable Content
+            LazyVStack(spacing: 24) {
+                // Recommended Section
+                if selectedCategory == .all && searchText.isEmpty {
+                    recommendedSection
+                        .padding(.horizontal, 20)
+                        .opacity(appearAnimation ? 1 : 0)
+                        .offset(y: appearAnimation ? 0 : 20)
+                }
 
-            // Plans Grid
-            if filteredPlans.isEmpty {
-                emptySearchView
-            } else {
-                plansGridSection
-                    .opacity(appearAnimation ? 1 : 0)
-                    .offset(y: appearAnimation ? 0 : 20)
-            }
+                // Plans Grid
+                if filteredPlans.isEmpty {
+                    emptySearchView
+                        .padding(.horizontal, 20)
+                } else {
+                    plansGridSection
+                        .padding(.horizontal, 20)
+                        .opacity(appearAnimation ? 1 : 0)
+                        .offset(y: appearAnimation ? 0 : 20)
+                }
 
-            // Bottom spacing
-            Spacer()
-                .frame(height: 40)
+                // Bottom spacing
+                Spacer()
+                    .frame(height: 40)
+            }
+            .padding(.top, 16)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
     }
 
     // MARK: - Search Bar
@@ -163,6 +175,7 @@ struct ExplorePlansView: View {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             selectedCategory = category
                         }
+                        categoryChanged()
                     }
                     .environmentObject(themeManager)
                 }
@@ -218,9 +231,9 @@ struct ExplorePlansView: View {
 
             // 2-column Grid
             LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16)
-            ], spacing: 16) {
+                GridItem(.flexible(), spacing: 12),
+                GridItem(.flexible(), spacing: 12)
+            ], spacing: 12) {
                 ForEach(filteredPlans) { plan in
                     ExplorePlanCard(plan: plan) {
                         onPlanSelected(plan)
@@ -279,24 +292,10 @@ struct ExplorePlansView: View {
 
     // MARK: - Computed Properties
 
-    private var allPlans: [NutritionPlan] {
-        var plans = nutritionService.templatePlans + nutritionService.availablePlans
-        // Remove duplicates by ID
-        var seen = Set<Int>()
-        plans = plans.filter { plan in
-            if seen.contains(plan.id) {
-                return false
-            }
-            seen.insert(plan.id)
-            return true
-        }
-        return plans
-    }
-
     private var filteredPlans: [NutritionPlan] {
-        var plans = allPlans
+        var plans = explorePlans
 
-        // Filter by search text
+        // Local filtering by search text
         if !searchText.isEmpty {
             plans = plans.filter {
                 $0.title.localizedCaseInsensitiveContains(searchText) ||
@@ -304,30 +303,12 @@ struct ExplorePlansView: View {
             }
         }
 
-        // Filter by category
-        switch selectedCategory {
-        case .all:
-            break
-        case .weightLoss:
-            plans = plans.filter { $0.goal == .weightLoss }
-        case .muscleGain:
-            plans = plans.filter { $0.goal == .muscleGain }
-        case .detox:
-            plans = plans.filter { $0.tags.contains("detox") || $0.title.localizedCaseInsensitiveContains("detox") }
-        case .vegan:
-            plans = plans.filter { $0.dietaryRestrictions.contains(.vegan) }
-        case .keto:
-            plans = plans.filter { $0.dietaryRestrictions.contains(.keto) }
-        case .maintenance:
-            plans = plans.filter { $0.goal == .maintenance }
-        }
-
         return plans
     }
 
     private var recommendedPlan: NutritionPlan? {
         // Get the most popular plan that user hasn't followed
-        return allPlans
+        return explorePlans
             .filter { !$0.isFollowedByUser }
             .sorted { ($0.followersCount ?? 0) > ($1.followersCount ?? 0) }
             .first
@@ -346,17 +327,73 @@ struct ExplorePlansView: View {
     // MARK: - Actions
 
     private func loadDataIfNeeded() {
-        if nutritionService.templatePlans.isEmpty && !nutritionService.isLoading {
+        print("ExplorePlansView: loadDataIfNeeded called")
+        print("   - explorePlans.isEmpty: \(explorePlans.isEmpty)")
+        print("   - nutritionService.isLoading: \(nutritionService.isLoading)")
+
+        if explorePlans.isEmpty && !nutritionService.isLoading {
+            print("ExplorePlansView: Iniciando carga de planes...")
             Task {
-                await nutritionService.getDashboard()
+                await loadPlans()
             }
+        }
+    }
+
+    private func loadPlans() async {
+        print("ExplorePlansView: loadPlans() - Reseteando página a 1")
+        currentPage = 1
+        await loadPlansWithFilters()
+    }
+
+    private func loadPlansWithFilters() async {
+        let goal = selectedCategory.goalFilter
+        print("ExplorePlansView: loadPlansWithFilters()")
+        print("   - Categoría seleccionada: \(selectedCategory.rawValue)")
+        print("   - Goal filter: \(goal?.rawValue ?? "nil")")
+        print("   - Página actual: \(currentPage)")
+
+        let plans = await nutritionService.getPlans(
+            planType: nil,
+            status: nil,
+            goal: goal,
+            page: currentPage,
+            perPage: 20
+        )
+
+        print("ExplorePlansView: Planes recibidos: \(plans.count)")
+
+        if currentPage == 1 {
+            explorePlans = plans
+            print("ExplorePlansView: Reemplazando planes existentes con \(plans.count) nuevos planes")
+        } else {
+            explorePlans.append(contentsOf: plans)
+            print("ExplorePlansView: Agregando \(plans.count) planes a los \(explorePlans.count - plans.count) existentes")
+        }
+
+        // Assume has more pages if we got a full page of results
+        hasMorePages = plans.count == 20
+
+        print("ExplorePlansView: Estado final:")
+        print("   - Total planes cargados: \(explorePlans.count)")
+        print("   - Tiene más páginas: \(hasMorePages)")
+
+        // Imprimir algunos planes para verificar
+        for (index, plan) in explorePlans.prefix(3).enumerated() {
+            print("   - Plan \(index + 1): \(plan.title)")
         }
     }
 
     private func refreshData() async {
         isRefreshing = true
-        await nutritionService.getDashboard()
+        await loadPlans()
         isRefreshing = false
+    }
+
+    private func categoryChanged() {
+        print("ExplorePlansView: categoryChanged() - Categoría cambió a \(selectedCategory.rawValue)")
+        Task {
+            await loadPlans()
+        }
     }
 }
 
@@ -411,7 +448,6 @@ struct RecommendedPlanCard: View {
     let onTap: () -> Void
 
     @EnvironmentObject var themeManager: ThemeManager
-    @State private var isPressed = false
 
     var body: some View {
         Button(action: {
@@ -476,7 +512,7 @@ struct RecommendedPlanCard: View {
                         .environmentObject(themeManager)
 
                     if let calories = plan.targetCalories {
-                        StatPill(icon: "flame.fill", text: "\(calories) kcal")
+                        StatPill(icon: "flame.fill", text: "\(Int(calories)) kcal")
                             .environmentObject(themeManager)
                     }
 
@@ -522,15 +558,8 @@ struct RecommendedPlanCard: View {
                             )
                     )
             )
-            .scaleEffect(isPressed ? 0.98 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
         }
         .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
     }
 }
 
@@ -542,7 +571,6 @@ struct ExplorePlanCard: View {
     let onTap: () -> Void
 
     @EnvironmentObject var themeManager: ThemeManager
-    @State private var isPressed = false
 
     var body: some View {
         Button(action: {
@@ -550,7 +578,7 @@ struct ExplorePlanCard: View {
             impact.impactOccurred()
             onTap()
         }) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 // Header
                 HStack {
                     PlanTypeBadge(planType: plan.planType, compact: true)
@@ -571,8 +599,9 @@ struct ExplorePlanCard: View {
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 // Goal
                 HStack(spacing: 4) {
@@ -588,7 +617,7 @@ struct ExplorePlanCard: View {
                     Label("\(plan.durationDays)d", systemImage: "calendar")
                     Spacer()
                     if let calories = plan.targetCalories {
-                        Label("\(calories)", systemImage: "flame.fill")
+                        Label("\(Int(calories))", systemImage: "flame.fill")
                     }
                 }
                 .font(.system(size: 10))
@@ -612,19 +641,14 @@ struct ExplorePlanCard: View {
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
             }
             .padding(14)
-            .frame(height: 170)
+            .frame(minHeight: 160, idealHeight: 170, maxHeight: 180)
+            .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
             )
-            .scaleEffect(isPressed ? 0.96 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
     }
 }
 

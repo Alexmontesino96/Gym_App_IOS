@@ -104,9 +104,11 @@ struct EventDetailContent: View {
     @State private var selectedChatEvent: Event?
     @State private var currentRegistrationState: Bool?
     @State private var shakeOffset: CGFloat = 0
+    @State private var isLoadingChatRooms = false
     @Binding var showingPaymentSheet: Bool
     @Binding var currentPaymentIntent: PaymentIntent?
     @Binding var currentParticipationId: Int?
+    @StateObject private var chatService = ChatService.shared
 
     // Computed property para contar participantes activos (mismo filtro que ParticipantsSection)
     private var activeParticipantsCount: Int {
@@ -158,6 +160,7 @@ struct EventDetailContent: View {
                     eventDetail: eventDetail,
                     eventService: eventService,
                     paymentService: paymentService,
+                    chatService: chatService,
                     authService: authService,
                     currentRegistrationState: $currentRegistrationState,
                     shakeOffset: $shakeOffset,
@@ -190,6 +193,7 @@ struct EventDetailContent: View {
                     EventChatView(
                         eventId: String(event.id),
                         eventTitle: event.title,
+                        streamChannelId: chatService.chatRooms.first(where: { $0.eventId == event.id })?.streamChannelId,
                         authService: authService
                     )
                 },
@@ -201,6 +205,24 @@ struct EventDetailContent: View {
             // Inicializar el estado actual con el estado inicial si está disponible
             if currentRegistrationState == nil {
                 currentRegistrationState = initialRegistrationState
+            }
+
+            // Cargar las salas de chat si no están cargadas
+            if chatService.chatRooms.isEmpty && !isLoadingChatRooms {
+                Task {
+                    print("📱 [EventDetailContent] Cargando salas de chat...")
+                    isLoadingChatRooms = true
+                    await chatService.getMyRooms()
+                    isLoadingChatRooms = false
+                    print("📱 [EventDetailContent] Salas cargadas: \(chatService.chatRooms.count)")
+
+                    // Log para debug
+                    if let eventRoom = chatService.chatRooms.first(where: { $0.eventId == eventDetail.id }) {
+                        print("📱 [EventDetailContent] Encontrada sala para evento \(eventDetail.id): \(eventRoom.streamChannelId ?? "sin ID")")
+                    } else {
+                        print("📱 [EventDetailContent] No se encontró sala para evento \(eventDetail.id)")
+                    }
+                }
             }
         }
         .onChange(of: eventService.userRegistrationStatus[eventDetail.id]) {
@@ -561,6 +583,7 @@ struct EventActionButtons: View {
     let eventDetail: EventDetail
     @ObservedObject var eventService: EventService
     @ObservedObject var paymentService: EventPaymentService
+    @ObservedObject var chatService: ChatService
     let authService: AuthServiceDirect
     @Binding var currentRegistrationState: Bool?
     @Binding var shakeOffset: CGFloat
@@ -697,29 +720,54 @@ struct EventActionButtons: View {
             // Chat Button
             if currentRegistrationState ?? eventService.isUserRegistered(eventId: eventDetail.id) {
                 Button(action: {
-                    selectedChatEvent = Event(
-                        id: eventDetail.id,
-                        title: eventDetail.title,
-                        description: eventDetail.description,
-                        startTime: Date(),
-                        endTime: Date().addingTimeInterval(3600),
-                        location: eventDetail.location,
-                        maxParticipants: eventDetail.maxParticipants,
-                        status: eventDetail.status,
-                        creatorId: 0,
-                        createdAt: Date(),
-                        updatedAt: Date(),
-                        participantsCount: eventDetail.participantsCount,
-                        isPaid: eventDetail.isPaid,
-                        priceCents: eventDetail.priceCents,
-                        currency: eventDetail.currency,
-                        refundPolicy: eventDetail.refundPolicy,
-                        refundDeadlineHours: eventDetail.refundDeadlineHours,
-                        partialRefundPercentage: eventDetail.partialRefundPercentage,
-                        stripeProductId: eventDetail.stripeProductId,
-                        stripePriceId: eventDetail.stripePriceId
-                    )
-                    showingEventChat = true
+                    Task {
+                        // Cargar las salas si no están disponibles
+                        if chatService.chatRooms.isEmpty {
+                            print("💬 [EventActionButtons] Cargando salas de chat antes de navegar...")
+                            await chatService.getMyRooms()
+                            print("💬 [EventActionButtons] Salas cargadas: \(chatService.chatRooms.count)")
+                        }
+
+                        // Verificar si tenemos el streamChannelId
+                        let eventRoom = chatService.chatRooms.first(where: { $0.eventId == eventDetail.id })
+                        if let streamChannelId = eventRoom?.streamChannelId {
+                            print("💬 [EventActionButtons] Navegando con streamChannelId: \(streamChannelId)")
+                        } else {
+                            print("⚠️ [EventActionButtons] No se encontró streamChannelId para evento \(eventDetail.id)")
+                        }
+
+                        // Navegar al tab de Social/Mensajes y abrir el chat del evento
+                        let event = Event(
+                            id: eventDetail.id,
+                            title: eventDetail.title,
+                            description: eventDetail.description,
+                            startTime: Date(),
+                            endTime: Date().addingTimeInterval(3600),
+                            location: eventDetail.location,
+                            maxParticipants: eventDetail.maxParticipants,
+                            status: eventDetail.status,
+                            creatorId: 0,
+                            createdAt: Date(),
+                            updatedAt: Date(),
+                            participantsCount: eventDetail.participantsCount,
+                            isPaid: eventDetail.isPaid,
+                            priceCents: eventDetail.priceCents,
+                            currency: eventDetail.currency,
+                            refundPolicy: eventDetail.refundPolicy,
+                            refundDeadlineHours: eventDetail.refundDeadlineHours,
+                            partialRefundPercentage: eventDetail.partialRefundPercentage,
+                            stripeProductId: eventDetail.stripeProductId,
+                            stripePriceId: eventDetail.stripePriceId
+                        )
+
+                        // Send notification to navigate to Social tab
+                        NotificationCenter.default.post(
+                            name: .openEventChat,
+                            object: event
+                        )
+
+                        print("🔥 Navigating to Social tab with event chat: \(event.title)")
+                    }
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "bubble.left")

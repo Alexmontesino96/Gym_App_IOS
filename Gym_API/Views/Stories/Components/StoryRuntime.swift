@@ -77,28 +77,51 @@ struct StoryView: View {
 
     @ViewBuilder
     private func contentView(for story: Story) -> some View {
-        switch story.storyType {
-        case .image:
-            if let urlStr = story.mediaUrl, let url = URL(string: urlStr) {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    ProgressView().tint(.white)
+        GeometryReader { geometry in
+            let storyFrame = StoryDimensions.calculateStoryFrame(for: geometry.size)
+
+            ZStack {
+                // Background for letterboxing
+                Color.black.ignoresSafeArea()
+
+                // Story content in 9:16 container
+                Group {
+                    switch story.storyType {
+                    case .image:
+                        InstagramStoryImageView(
+                            imageURL: story.mediaUrl,
+                            localImage: nil
+                        )
+                        .frame(width: storyFrame.width, height: storyFrame.height)
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                        .clipped()
+
+                    case .text:
+                        VStack {
+                            Spacer()
+                            Text(story.caption ?? "")
+                                .foregroundColor(.white)
+                                .font(.title)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, StoryDimensions.horizontalPadding)
+                            Spacer()
+                        }
+                        .frame(width: storyFrame.width, height: storyFrame.height)
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+
+                    default:
+                        // Basic fallback for other types
+                        VStack {
+                            Text(story.caption ?? "Story")
+                                .foregroundColor(.white)
+                                .padding()
+                        }
+                        .frame(width: storyFrame.width, height: storyFrame.height)
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    }
                 }
-                .ignoresSafeArea()
-            } else {
-                Color.gray.ignoresSafeArea()
+                .clipShape(RoundedRectangle(cornerRadius: 0))
             }
-        case .text:
-            Text(story.caption ?? "")
-                .foregroundColor(.white)
-                .font(.title)
-                .padding()
-        default:
-            // Basic fallback for other types
-            Text(story.caption ?? "Story")
-                .foregroundColor(.white)
-                .padding()
         }
     }
 

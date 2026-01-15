@@ -63,12 +63,9 @@ struct ComebackCTASection: View {
             .frame(height: 56)
             .background(
                 ZStack {
-                    // Gradient background basado en urgencia
+                    // Gradient background basado en urgencia (WCAG Compliant)
                     LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color(hex: urgency.color) ?? Color.dynamicAccent(theme: theme),
-                            (Color(hex: urgency.color) ?? Color.dynamicAccent(theme: theme)).opacity(0.8)
-                        ]),
+                        gradient: Gradient(colors: Color.urgencyGradientColors(for: urgency)),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -81,7 +78,7 @@ struct ComebackCTASection: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(
-                color: (Color(hex: urgency.color) ?? Color.dynamicAccent(theme: theme)).opacity(0.4),
+                color: Color.urgencyGradientColors(for: urgency).first?.opacity(0.4) ?? Color.dynamicAccent(theme: theme).opacity(0.4),
                 radius: isPrimaryPressed ? 4 : 12,
                 x: 0,
                 y: isPrimaryPressed ? 2 : 6

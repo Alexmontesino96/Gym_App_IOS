@@ -284,33 +284,96 @@ struct GymSelectionCard: View {
     let themeManager: ThemeManager
     let onTap: () -> Void
 
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 16) {
-                // Gym Icon/Logo
-                ZStack {
-                    Circle()
-                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        .frame(width: 60, height: 60)
+    @State private var isPressed = false
 
-                    if let logoUrl = gym.logoUrl, !logoUrl.isEmpty {
-                        AsyncImage(url: URL(string: logoUrl)) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Image(systemName: isPersonalTrainer ? "person.fill" : "building.2.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white)
+    var body: some View {
+        Button(action: {
+            // Haptic feedback
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
+            onTap()
+        }) {
+            HStack(spacing: 16) {
+                // Enhanced Gym Logo with UX Improvements
+                ZStack {
+                    // Intelligent background system
+                    if gym.logoUrl == nil || gym.logoUrl!.isEmpty {
+                        // Full background with gradient when no logo
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.dynamicAccent(theme: themeManager.currentTheme),
+                                        Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.8)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 90, height: 90)
+                    }
+
+                    // Logo with enhanced loading states
+                    if let logoUrl = gym.logoUrl, !logoUrl.isEmpty, let url = URL(string: logoUrl) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 120, height: 120) // Slightly smaller for internal padding
+                                    .clipShape(Circle())
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+
+                            case .failure(_):
+                                // Error state with elegant fallback
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                        .frame(width: 90, height: 90)
+
+                                    Image(systemName: isPersonalTrainer ? "person.fill" : "building.2.fill")
+                                        .font(.system(size: 36, weight: .medium))
+                                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                }
+
+                            case .empty:
+                                // Loading state with shimmer effect
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.3))
+                                        .frame(width: 90, height: 90)
+
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: Color.dynamicAccent(theme: themeManager.currentTheme)))
+                                        .scaleEffect(1.2)
+                                }
+
+                            @unknown default:
+                                Image(systemName: isPersonalTrainer ? "person.fill" : "building.2.fill")
+                                    .font(.system(size: 36, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
                         }
-                        .frame(width: 60, height: 60)
+                        .frame(width: 90, height: 90)
                         .clipShape(Circle())
                     } else {
+                        // No logo URL - show enhanced icon
                         Image(systemName: isPersonalTrainer ? "person.fill" : "building.2.fill")
-                            .font(.system(size: 24))
+                            .font(.system(size: 36, weight: .medium))
                             .foregroundColor(.white)
+                            .frame(width: 90, height: 90)
+                    }
+
+                    // Selection indicator with animation
+                    if isSelected {
+                        Circle()
+                            .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 3)
+                            .frame(width: 96, height: 96)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
                     }
                 }
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
 
                 // Gym Info
                 VStack(alignment: .leading, spacing: 8) {
@@ -387,6 +450,13 @@ struct GymSelectionCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+        .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = pressing
+            }
+        }, perform: {})
     }
 }
 

@@ -568,7 +568,7 @@ extension SmartActionsSection {
                 priority: .medium,
                 type: .social,
                 destination: AnyView(
-                    SocialFeedView()
+                    SocialFeedView(pendingEventChat: .constant(nil))
                         .environmentObject(themeManager)
                         .environmentObject(authService)
                 ),

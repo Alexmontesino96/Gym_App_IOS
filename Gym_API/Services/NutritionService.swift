@@ -141,15 +141,15 @@ class NutritionService: ObservableObject {
                     let dashboard = try customDateDecoder.decode(NutritionDashboard.self, from: data)
                     self.dashboard = dashboard
                     self.todayPlan = dashboard.todayPlan
-                    self.livePlans = dashboard.livePlans
-                    self.templatePlans = dashboard.templatePlans
-                    self.availablePlans = dashboard.availablePlans
+                    self.livePlans = dashboard.livePlans ?? []
+                    self.templatePlans = dashboard.templatePlans ?? []
+                    self.availablePlans = dashboard.availablePlans ?? []
                     self.userStats = dashboard.stats
 
                     print("NutritionService: Dashboard cargado exitosamente")
-                    print("   - Live plans: \(dashboard.livePlans.count)")
-                    print("   - Template plans: \(dashboard.templatePlans.count)")
-                    print("   - Available plans: \(dashboard.availablePlans.count)")
+                    print("   - Live plans: \(dashboard.livePlans?.count ?? 0)")
+                    print("   - Template plans: \(dashboard.templatePlans?.count ?? 0)")
+                    print("   - Available plans: \(dashboard.availablePlans?.count ?? 0)")
                     print("   - Today plan: \(dashboard.todayPlan != nil ? "Si" : "No")")
                 } else if httpResponse.statusCode == 401 {
                     print("NutritionService: Token expirado, reintentando...")
@@ -199,8 +199,8 @@ class NutritionService: ObservableObject {
         planType: PlanType? = nil,
         status: PlanStatus? = nil,
         goal: NutritionGoal? = nil,
-        skip: Int = 0,
-        limit: Int = 20
+        page: Int = 1,
+        perPage: Int = 20
     ) async -> [NutritionPlan] {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
@@ -213,8 +213,8 @@ class NutritionService: ObservableObject {
 
         var urlComponents = URLComponents(string: "\(baseURL)/nutrition/plans")!
         var queryItems: [URLQueryItem] = [
-            URLQueryItem(name: "skip", value: String(skip)),
-            URLQueryItem(name: "limit", value: String(limit))
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "per_page", value: String(perPage))
         ]
 
         if let planType = planType {
@@ -237,17 +237,45 @@ class NutritionService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
 
+            print("NutritionService: Request headers:")
+            print("   Authorization: Bearer ***")
+            print("   X-Gym-ID: \(gymId)")
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
+                print("NutritionService: Plans response status \(httpResponse.statusCode)")
+
+                // Imprimir la respuesta completa para debug
+                if let jsonString = String(data: data, encoding: .utf8) {
+                    print("NutritionService: Plans response JSON:")
+                    print("=====================================")
+                    // Solo imprimir los primeros 1000 caracteres para no saturar los logs
+                    let truncated = String(jsonString.prefix(1000))
+                    print(truncated)
+                    if jsonString.count > 1000 {
+                        print("... (truncated, total: \(jsonString.count) chars)")
+                    }
+                    print("=====================================")
+                }
+
                 if httpResponse.statusCode == 200 {
                     let planResponse = try customDateDecoder.decode(PlanListResponse.self, from: data)
                     isLoading = false
-                    print("NutritionService: Planes cargados: \(planResponse.items.count)")
-                    return planResponse.items
+                    print("NutritionService: Planes cargados exitosamente")
+                    print("   - Total planes: \(planResponse.plans.count)")
+                    print("   - Página: \(planResponse.page)/\(planResponse.total)")
+                    print("   - Tiene más páginas: \(planResponse.hasNext)")
+
+                    // Imprimir algunos detalles de los planes
+                    for (index, plan) in planResponse.plans.prefix(3).enumerated() {
+                        print("   - Plan \(index + 1): \(plan.title) (ID: \(plan.id), Goal: \(plan.goal.rawValue))")
+                    }
+
+                    return planResponse.plans
                 } else if httpResponse.statusCode == 401 {
                     isLoading = false
-                    return await getPlans(planType: planType, status: status, goal: goal, skip: skip, limit: limit)
+                    return await getPlans(planType: planType, status: status, goal: goal, page: page, perPage: perPage)
                 } else {
                     errorMessage = "Error al obtener planes: HTTP \(httpResponse.statusCode)"
                 }
@@ -255,6 +283,28 @@ class NutritionService: ObservableObject {
         } catch {
             errorMessage = "Error al obtener planes: \(error.localizedDescription)"
             print("NutritionService: Error obteniendo planes: \(error)")
+
+            // Si es un error de decodificacion, intentar imprimir el JSON
+            if let decodingError = error as? DecodingError {
+                print("NutritionService: Detalles del error de decodificacion:")
+                switch decodingError {
+                case .typeMismatch(let type, let context):
+                    print("   - Type mismatch: esperaba \(type)")
+                    print("   - Path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                    print("   - Debug: \(context.debugDescription)")
+                case .valueNotFound(let type, let context):
+                    print("   - Value not found: \(type)")
+                    print("   - Path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                case .keyNotFound(let key, let context):
+                    print("   - Key not found: \(key.stringValue)")
+                    print("   - Path: \(context.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                case .dataCorrupted(let context):
+                    print("   - Data corrupted")
+                    print("   - Debug: \(context.debugDescription)")
+                @unknown default:
+                    print("   - Unknown decoding error")
+                }
+            }
         }
 
         isLoading = false
@@ -749,16 +799,20 @@ class NutritionService: ObservableObject {
 // MARK: - Supporting Types
 
 struct PlanListResponse: Codable {
-    let items: [NutritionPlan]
+    let plans: [NutritionPlan]
     let total: Int
     let page: Int
     let perPage: Int
+    let hasNext: Bool
+    let hasPrev: Bool
 
     enum CodingKeys: String, CodingKey {
-        case items
+        case plans
         case total
         case page
         case perPage = "per_page"
+        case hasNext = "has_next"
+        case hasPrev = "has_prev"
     }
 }
 

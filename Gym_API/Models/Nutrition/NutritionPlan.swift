@@ -119,10 +119,10 @@ struct NutritionPlan: Codable, Identifiable {
     let dietaryRestrictions: [DietaryRestriction]
     let durationDays: Int
     let isRecurring: Bool
-    let targetCalories: Int?
-    let targetProteinG: Int?
-    let targetCarbsG: Int?
-    let targetFatG: Int?
+    let targetCalories: Double?
+    let targetProteinG: Double?
+    let targetCarbsG: Double?
+    let targetFatG: Double?
 
     // Live plan specific fields
     let liveStartDate: Date?
@@ -204,10 +204,10 @@ struct NutritionPlan: Codable, Identifiable {
         dietaryRestrictions: [DietaryRestriction],
         durationDays: Int,
         isRecurring: Bool,
-        targetCalories: Int? = nil,
-        targetProteinG: Int? = nil,
-        targetCarbsG: Int? = nil,
-        targetFatG: Int? = nil,
+        targetCalories: Double? = nil,
+        targetProteinG: Double? = nil,
+        targetCarbsG: Double? = nil,
+        targetFatG: Double? = nil,
         liveStartDate: Date? = nil,
         liveEndDate: Date? = nil,
         isLiveActive: Bool,
@@ -294,10 +294,10 @@ struct NutritionPlan: Codable, Identifiable {
 
         durationDays = try container.decode(Int.self, forKey: .durationDays)
         isRecurring = try container.decode(Bool.self, forKey: .isRecurring)
-        targetCalories = try container.decodeIfPresent(Int.self, forKey: .targetCalories)
-        targetProteinG = try container.decodeIfPresent(Int.self, forKey: .targetProteinG)
-        targetCarbsG = try container.decodeIfPresent(Int.self, forKey: .targetCarbsG)
-        targetFatG = try container.decodeIfPresent(Int.self, forKey: .targetFatG)
+        targetCalories = try container.decodeIfPresent(Double.self, forKey: .targetCalories)
+        targetProteinG = try container.decodeIfPresent(Double.self, forKey: .targetProteinG)
+        targetCarbsG = try container.decodeIfPresent(Double.self, forKey: .targetCarbsG)
+        targetFatG = try container.decodeIfPresent(Double.self, forKey: .targetFatG)
 
         liveStartDate = try container.decodeIfPresent(Date.self, forKey: .liveStartDate)
         liveEndDate = try container.decodeIfPresent(Date.self, forKey: .liveEndDate)

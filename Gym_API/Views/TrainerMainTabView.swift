@@ -49,7 +49,7 @@ struct TrainerMainTabView: View {
 
             // Social (Messages + Feed)
             AnimatedTabContent(isSelected: selectedTab == 3) {
-                SocialFeedView()
+                SocialFeedView(pendingEventChat: .constant(nil))
             }
             .tabItem {
                 Image(systemName: selectedTab == 3 ? "message.fill" : "message")

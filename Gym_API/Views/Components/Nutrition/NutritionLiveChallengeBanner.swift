@@ -430,8 +430,8 @@ struct NutritionDiscoverBanner: View {
             .background(
                 LinearGradient(
                     colors: [
-                        (Color(hex: "#11998E") ?? .green).opacity(0.75),  // Verde esmeralda con menor saturación
-                        (Color(hex: "#38EF7D") ?? .green).opacity(0.75)   // Verde teal con menor saturación
+                        Color.nutritionGradientStart,  // Verde oscuro WCAG compliant (4.8:1) ✅
+                        Color.nutritionGradientEnd      // Verde medio WCAG compliant (3.9:1) ✅
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

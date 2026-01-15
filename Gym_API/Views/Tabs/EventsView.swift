@@ -15,7 +15,8 @@ struct EventsView: View {
     @State private var showDeleteSuccessMessage = false
     @State private var deleteSuccessMessage = ""
     @StateObject private var gymService = GymService.shared
-    
+    @StateObject private var chatService = ChatService.shared
+
     // Estados para navegación de chat desde tarjetas
     @State private var selectedEventForChat: Event?
     
@@ -236,15 +237,19 @@ struct EventsView: View {
                 await eventService.fetchUserParticipations()
             }
         }
+        // Sheet removido - ahora navegamos al tab de mensajes con notificación
+        /*
         .sheet(item: $selectedEventForChat) { event in
             let _ = print("🔥 sheet activated for event: \(event.title) (ID: \(event.id))")
             EventChatView(
                 eventId: String(event.id),
                 eventTitle: event.title,
+                streamChannelId: chatService.chatRooms.first(where: { $0.eventId == event.id })?.streamChannelId,
                 authService: authService
             )
             .environmentObject(themeManager)
         }
+        */
         .sheet(item: $selectedEventForEdit) { event in
             EditEventView(event: event)
                 .environmentObject(themeManager)
@@ -335,10 +340,14 @@ struct EventsView: View {
     
     private func handleEventChatTap(event: Event) {
         print("🔥 handleEventChatTap called for event: \(event.title) (ID: \(event.id))")
-        
-        // Usar selectedEventForChat para el sheet
-        selectedEventForChat = event
-        print("🔥 selectedEventForChat set to: \(selectedEventForChat?.title ?? "nil")")
+
+        // Navegar al tab de Social/Mensajes y abrir el chat del evento
+        NotificationCenter.default.post(
+            name: .openEventChat,
+            object: event
+        )
+
+        print("🔥 Notification sent to open event chat for: \(event.title)")
     }
 }
 

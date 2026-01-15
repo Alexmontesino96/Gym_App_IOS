@@ -447,7 +447,7 @@ struct LiveChallengePreviewView: View {
                 detailCard(icon: "speedometer", label: "Dificultad", value: plan.difficultyLevel.displayName)
 
                 if let calories = plan.targetCalories {
-                    detailCard(icon: "bolt.fill", label: "Calorias", value: "\(calories) kcal")
+                    detailCard(icon: "bolt.fill", label: "Calorias", value: "\(Int(calories)) kcal")
                 }
 
                 detailCard(icon: "dollarsign.circle", label: "Presupuesto", value: plan.budgetLevel.displayName)

@@ -275,7 +275,7 @@ struct PlanDetailView: View {
             if let calories = plan.targetCalories {
                 statItem(
                     icon: "flame.fill",
-                    value: "\(calories)",
+                    value: "\(Int(calories))",
                     label: "kcal/dia"
                 )
 

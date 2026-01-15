@@ -3,9 +3,9 @@ import Foundation
 // MARK: - NutritionDashboard Model
 
 struct NutritionDashboard: Codable {
-    let templatePlans: [NutritionPlan]
-    let livePlans: [NutritionPlan]
-    let availablePlans: [NutritionPlan]
+    let templatePlans: [NutritionPlan]?
+    let livePlans: [NutritionPlan]?
+    let availablePlans: [NutritionPlan]?
     let todayPlan: TodayMealPlan?
     let stats: UserNutritionStats?
 
@@ -97,17 +97,17 @@ struct UserNutritionStats: Codable {
 extension NutritionDashboard {
     /// Indica si hay un plan LIVE activo actualmente
     var hasActiveLiveChallenge: Bool {
-        return livePlans.contains { $0.status == .running }
+        return livePlans?.contains { $0.status == .running } ?? false
     }
 
     /// Obtiene el plan LIVE activo actual
     var activeLiveChallenge: NutritionPlan? {
-        return livePlans.first { $0.status == .running }
+        return livePlans?.first { $0.status == .running }
     }
 
     /// Planes LIVE proximos a empezar
     var upcomingLiveChallenges: [NutritionPlan] {
-        return livePlans.filter { $0.status == .notStarted }
+        return livePlans?.filter { $0.status == .notStarted } ?? []
     }
 
     /// Indica si el usuario tiene un plan activo hoy
@@ -117,7 +117,7 @@ extension NutritionDashboard {
 
     /// Total de planes disponibles para explorar
     var totalAvailablePlans: Int {
-        return availablePlans.count
+        return availablePlans?.count ?? 0
     }
 }
 

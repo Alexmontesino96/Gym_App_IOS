@@ -15,6 +15,7 @@ struct HomeView: View {
     @StateObject private var postService = PostService()  // Post service for social feed
     @StateObject private var userStatsServiceLocal = UserStatsService.shared  // For HeroProgressWidget
     @ObservedObject private var nutritionService = NutritionService.shared  // Nutrition service for meal plans
+    @StateObject private var scheduledActivityService = ScheduledActivityService.shared  // For checking class reservations
     @State private var currentDate = Date()
     @State private var showComebackView = false
     @State private var showStreakDetail = false  // Show streak detail view
@@ -121,6 +122,31 @@ struct HomeView: View {
         return ""
     }
 
+    // Computed property para verificar si el usuario tiene clases reservadas activas
+    private var hasUpcomingReservations: Bool {
+        // Verificar en classService si el usuario tiene clases reservadas
+        for gymClass in classService.classes {
+            // Verificar si el usuario está registrado para esta clase
+            let isRegistered = classService.userRegistrationStatus[gymClass.id] ?? false
+
+            // Si está registrado y la clase es futura (no ha empezado aún)
+            if isRegistered && gymClass.startTime >= Date() {
+                debugLog("🎯 [Banner Primera Clase] Usuario tiene clase reservada: \(gymClass.name) a las \(gymClass.startTime)")
+                return true
+            }
+        }
+
+        // También verificar en scheduledActivityService si está cargado
+        for session in scheduledActivityService.mySessions {
+            if session.startTime >= Date() && session.activityStatus != .cancelled {
+                debugLog("🎯 [Banner Primera Clase] Usuario tiene sesión reservada: \(session.title) a las \(session.startTime)")
+                return true
+            }
+        }
+
+        return false
+    }
+
     // Obtener próxima clase registrada del usuario
     private var nextUserClass: GymClass? {
         let now = Date()
@@ -130,6 +156,9 @@ struct HomeView: View {
         }
         return userRegisteredClasses.sorted { $0.startTime < $1.startTime }.first
     }
+
+    // Logo view removido - el branding no se veía bien en HomeView
+    // Se puede usar en otras pantallas donde sea más apropiado
 
     var body: some View {
         let _ = debugLog("🏠 HomeView.body evaluado")
@@ -171,8 +200,27 @@ struct HomeView: View {
                                 .environmentObject(themeManager)
                                 .environmentObject(profileService)
 
-                            // 2.3 CTA Principal - Reservar Primera Clase (Solo usuarios nuevos)
-                            if userStatsService.userStats.currentStreak == 0 {
+                            // 2.3 CTA Principal - Reservar Primera Clase
+                            // Solo mostrar si:
+                            // 1. El usuario nunca ha asistido a una clase (hasAttendedFirstClass = false)
+                            // 2. El usuario no tiene clases reservadas actualmente
+                            let showFirstClassBanner = !userStatsService.hasAttendedFirstClass && !hasUpcomingReservations
+
+                            // DEBUG: Logs para verificar por qué se muestra el banner
+                            let _ = debugLog("🎯 [Banner Primera Clase] hasAttendedFirstClass: \(userStatsService.hasAttendedFirstClass)")
+                            let _ = debugLog("🎯 [Banner Primera Clase] hasUpcomingReservations: \(hasUpcomingReservations)")
+                            let _ = debugLog("🎯 [Banner Primera Clase] mySessions count: \(scheduledActivityService.mySessions.count)")
+                            let _ = debugLog("🎯 [Banner Primera Clase] dashboardSummary existe: \(userStatsService.dashboardSummary != nil)")
+                            let _ = debugLog("🎯 [Banner Primera Clase] showFirstClassBanner: \(showFirstClassBanner)")
+                            let _ = debugLog("🎯 [Banner Primera Clase] currentStreak: \(userStatsService.userStats.currentStreak)")
+                            let _ = debugLog("🎯 [Banner Primera Clase] weeklyClasses: \(userStatsService.userStats.weeklyClasses)")
+                            if let dashboard = userStatsService.dashboardSummary {
+                                let _ = debugLog("🎯 [Banner Primera Clase] Dashboard - hasAttendedFirstClass: \(dashboard.hasAttendedFirstClass)")
+                                let _ = debugLog("🎯 [Banner Primera Clase] Dashboard - weeklyWorkouts: \(dashboard.weeklyWorkouts)")
+                                let _ = debugLog("🎯 [Banner Primera Clase] Dashboard - currentStreak: \(dashboard.currentStreak)")
+                            }
+
+                            if showFirstClassBanner {
                                 PrimaryCTAButton(
                                     action: {
                                         HapticManager.shared.play(.medium)
@@ -184,7 +232,7 @@ struct HomeView: View {
                                     }
                                 )
                                 .transition(.opacity.combined(with: .scale))
-                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: userStatsService.userStats.currentStreak)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showFirstClassBanner)
                             }
 
                             // 2.5. Live Pulse Banner (personas entrenando ahora)
@@ -289,6 +337,7 @@ struct HomeView: View {
                 await eventService.fetchEvents()
                 await eventService.fetchUserParticipations()
                 await userStatsService.fetchComprehensiveStats()
+                await userStatsService.fetchDashboardSummary()  // 🆕 Obtener hasAttendedFirstClass
                 await surveyService.getAvailableSurveys()
                 await classService.forceRefreshSessions(date: Date())
                 await activityService.fetchAllData()
@@ -382,11 +431,15 @@ struct HomeView: View {
                         debugLog("🏠 [Parallel] getMyGyms completado")
                     }
 
-                    // Grupo 4: User stats
+                    // Grupo 4: User stats & Dashboard
                     group.addTask {
                         debugLog("🏠 [Parallel] Iniciando fetchComprehensiveStats...")
                         await userStatsService.fetchComprehensiveStats()
                         debugLog("🏠 [Parallel] fetchComprehensiveStats completado")
+
+                        debugLog("🏠 [Parallel] Iniciando fetchDashboardSummary...")
+                        await userStatsService.fetchDashboardSummary()
+                        debugLog("🏠 [Parallel] fetchDashboardSummary completado")
                     }
 
                     // Grupo 5: Workout history
@@ -396,7 +449,19 @@ struct HomeView: View {
                         debugLog("🏠 [Parallel] fetchWorkoutHistory completado")
                     }
 
-                    // Grupo 6: Surveys
+                    // Grupo 6: Clases del Usuario (IMPORTANTE para verificar banner de primera clase)
+                    group.addTask {
+                        debugLog("🏠 [Parallel] Iniciando fetchMyClasses...")
+                        await classService.fetchMyClasses()
+                        debugLog("🏠 [Parallel] fetchMyClasses completado")
+
+                        // También cargar todas las sesiones para ver el estado de registro
+                        debugLog("🏠 [Parallel] Iniciando fetchSessions...")
+                        await classService.fetchSessions()
+                        debugLog("🏠 [Parallel] fetchSessions completado")
+                    }
+
+                    // Grupo 7: Surveys
                     group.addTask {
                         debugLog("🏠 [Parallel] Iniciando getAvailableSurveys...")
                         await surveyService.getAvailableSurveys()
@@ -469,6 +534,10 @@ extension HomeView {
         debugLog("🏠 Configurando authService en storyService...")
         storyService.authService = authService
 
+        // Setup scheduled activity service - IMPORTANTE para verificar sesiones reservadas
+        debugLog("🏠 Configurando scheduledActivityService...")
+        // scheduledActivityService ya está configurado como singleton con sus dependencias
+
         // Setup location service
         debugLog("🏠 Configurando LocationService...")
         LocationService.shared.requestLocationPermission()
@@ -485,6 +554,7 @@ extension HomeView {
         await eventService.fetchEvents()
         await eventService.fetchUserParticipations()
         await userStatsService.fetchComprehensiveStats()
+        await userStatsService.fetchDashboardSummary()  // 🆕 Obtener hasAttendedFirstClass
         await surveyService.getAvailableSurveys()
         await classService.loadTrainers()
         await classService.forceRefreshSessions(date: Date())

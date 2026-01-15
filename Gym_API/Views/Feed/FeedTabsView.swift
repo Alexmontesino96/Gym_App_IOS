@@ -36,6 +36,7 @@ struct FeedTabsView: View {
     @EnvironmentObject var postService: PostService
     @EnvironmentObject var authService: AuthServiceDirect
     @StateObject private var storyService = StoryService()  // Story service for feed
+    @StateObject private var storyUIState = StoryUIState()
     @StateObject private var profileService = UserProfileService.shared
 
     @State private var showCreatePost = false
@@ -137,15 +138,16 @@ struct FeedTabsView: View {
             let _ = print("🎭 DEBUG: Stories count: \(userGroup.stories.count)")
             let _ = print("🎭 DEBUG: All stories owners count: \(storyService.feedStories.count)")
 
-            StoryViewerView(
-                initialUser: userGroup,
-                storiesOwners: storyService.feedStories,
-                onDismiss: {
-                    print("🎭 DEBUG: StoryViewer dismissed")
-                    selectedStoryGroup = nil
-                }
+            let initialIndex = storyService.feedStories.firstIndex { $0.userId == userGroup.userId } ?? 0
+
+            StoryViewerContainer(
+                userStories: storyService.feedStories,
+                initialUserIndex: initialIndex
             )
+            .environmentObject(storyService)
             .environmentObject(themeManager)
+            .environmentObject(authService)
+            .environmentObject(storyUIState)
         }
         .fullScreenCover(isPresented: $showStoryCreator) {
             StoryCreatorView()

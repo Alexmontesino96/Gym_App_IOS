@@ -82,7 +82,7 @@ enum PaymentStatus: String, Codable, CaseIterable {
 }
 
 // MARK: - Event Model
-struct Event: Codable, Identifiable {
+struct Event: Codable, Identifiable, Equatable {
     let id: Int
     let title: String
     let description: String

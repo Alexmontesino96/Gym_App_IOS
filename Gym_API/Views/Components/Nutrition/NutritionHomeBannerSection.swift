@@ -77,8 +77,9 @@ struct NutritionHomeBannerSection: View {
                 showNutritionDashboard = true
             }
             .environmentObject(themeManager)
-        } else if !nutritionService.availablePlans.isEmpty || !hasLoadedData {
-            // Mostrar banner de descubrimiento si hay planes o si aun no se ha cargado
+        } else {
+            // Siempre mostrar banner de descubrimiento cuando no hay plan activo
+            // Esto permite al usuario explorar nutrición aunque no haya planes disponibles
             NutritionDiscoverBanner {
                 showNutritionDashboard = true
             }

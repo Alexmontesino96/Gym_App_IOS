@@ -5,12 +5,16 @@ import Auth0
 /// Vista de página social del gym con tabs Feed/Mensajes
 struct SocialFeedView: View {
 
+    // MARK: - Binding Parameters
+    @Binding var pendingEventChat: Event?
+
     // MARK: - Environment Objects
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
 
     // MARK: - State Objects
     @StateObject private var chatProviderManager = ChatProviderManager.shared
+    @StateObject private var chatService = ChatService.shared
     @StateObject private var eventService = ServiceContainer.shared.eventService
     @StateObject private var activityService = ServiceContainer.shared.activityService
     @StateObject private var postService = ServiceContainer.shared.postService
@@ -33,6 +37,8 @@ struct SocialFeedView: View {
     @State private var messageUpdateObserver: NSObjectProtocol?
     @State private var searchButtonPressed = false
     @State private var newMessageButtonPressed = false
+    @State private var showingEventChat = false
+    @State private var currentEventChat: Event?
 
     // MARK: - Computed Properties
     private var filteredConversations: [ChatConversation] {
@@ -60,6 +66,17 @@ struct SocialFeedView: View {
             .onAppear {
                 initializeIfNeeded()
                 setupMessageUpdateListener()
+
+                // Check for pending event chat
+                if let event = pendingEventChat {
+                    print("🎯 [SocialFeedView] Recibió evento pendiente: \(event.title)")
+                    currentEventChat = event
+                    showingEventChat = true
+                    // Clear the pending event after handling
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        pendingEventChat = nil
+                    }
+                }
             }
             .onDisappear {
                 if let observer = messageUpdateObserver {
@@ -84,6 +101,29 @@ struct SocialFeedView: View {
             }
             .navigationDestination(isPresented: $showingChat) {
                 chatDestination
+            }
+            .navigationDestination(isPresented: $showingEventChat) {
+                if let event = currentEventChat {
+                    EventChatView(
+                        eventId: String(event.id),
+                        eventTitle: event.title,
+                        streamChannelId: getStreamChannelIdForEvent(event.id),
+                        authService: authService
+                    )
+                    .environmentObject(themeManager)
+                    .onAppear {
+                        // Log para depuración
+                        let eventChatRoom = chatService.chatRooms.first(where: { $0.eventId == event.id })
+                        print("🔍 [EventChat] Buscando ChatRoom para evento ID: \(event.id)")
+                        print("🔍 [EventChat] ChatRooms disponibles: \(chatService.chatRooms.count)")
+                        if let room = eventChatRoom {
+                            print("✅ [EventChat] ChatRoom encontrado - streamChannelId: \(room.streamChannelId)")
+                        } else {
+                            print("⚠️ [EventChat] No se encontró ChatRoom para el evento")
+                            print("📋 [EventChat] IDs de eventos en chatRooms: \(chatService.chatRooms.compactMap { $0.eventId })")
+                        }
+                    }
+                }
             }
             .onChange(of: showingChat) { isShowing in
                 print("🔄 showingChat cambió a: \(isShowing)")
@@ -885,6 +925,12 @@ struct SocialFeedView: View {
         guard let userIdInt = Int(normalizedId) else { return 0 }
         let unseen = ServiceContainer.shared.storyService.unseenCount(for: userIdInt)
         return unseen > 0 ? 1 : 0
+    }
+
+    // MARK: - Helper Functions
+    private func getStreamChannelIdForEvent(_ eventId: Int) -> String? {
+        // Buscar el streamChannelId del evento en chatRooms
+        return chatService.chatRooms.first(where: { $0.eventId == eventId })?.streamChannelId
     }
 }
 

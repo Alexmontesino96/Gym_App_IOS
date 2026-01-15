@@ -260,41 +260,48 @@ struct SingleUserStoryView: View {
                 handleDoubleTapReaction()
             }
 
-            // Profile header overlay
+            // Profile header overlay with Instagram-style safe areas
             // Flutter equivalent: ProfileWidget (lines 196-206)
             if let story = currentStory {
-                VStack(spacing: 0) {
-                    StoryProfileHeader(
-                        userGroup: userGroup,
-                        story: story,
-                        heroTag: heroTag
-                    )
-                    .opacity(opacityLevel)
-                    .animation(.easeInOut(duration: 0.25), value: opacityLevel)
+                GeometryReader { geometry in
+                    let storyFrame = StoryDimensions.calculateStoryFrame(for: geometry.size)
+                    let safeArea = StoryDimensions.contentSafeArea(for: storyFrame.size)
 
-                    Spacer()
-
-                    // MARK: - New Story Interaction Bar
-                    // Only show for other users' stories (not own stories)
-                    if story.isOwnStory != true {
-                        StoryInteractionBar(
+                    VStack(spacing: 0) {
+                        StoryProfileHeader(
+                            userGroup: userGroup,
                             story: story,
-                            userAvatar: nil, // Current user's avatar could be passed here
-                            onSendMessage: { message in
-                                handleSendMessage(message, for: story)
-                            },
-                            onSendReaction: { emoji in
-                                handleSendReaction(emoji, for: story)
-                            },
-                            isPaused: $isPausedForInteraction
+                            heroTag: heroTag
                         )
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 34)
                         .opacity(opacityLevel)
                         .animation(.easeInOut(duration: 0.25), value: opacityLevel)
+
+                        Spacer()
+
+                        // MARK: - New Story Interaction Bar
+                        // Only show for other users' stories (not own stories)
+                        if story.isOwnStory != true {
+                            StoryInteractionBar(
+                                story: story,
+                                userAvatar: nil, // Current user's avatar could be passed here
+                                onSendMessage: { message in
+                                    handleSendMessage(message, for: story)
+                                },
+                                onSendReaction: { emoji in
+                                    handleSendReaction(emoji, for: story)
+                                },
+                                isPaused: $isPausedForInteraction
+                            )
+                            .padding(.horizontal, StoryDimensions.horizontalPadding)
+                            .padding(.bottom, StoryDimensions.bottomSafeZone - 66) // Adjusted for interaction bar height
+                            .opacity(opacityLevel)
+                            .animation(.easeInOut(duration: 0.25), value: opacityLevel)
+                        }
                     }
+                    .padding(.top, 60) // Safe area + space for progress bars (adjusted for Dynamic Island/notch)
+                    .frame(width: storyFrame.width)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                 }
-                .padding(.top, 50) // Space for progress bars
             }
 
             // MARK: - Reaction Animation Overlay

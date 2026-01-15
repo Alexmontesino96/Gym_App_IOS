@@ -20,6 +20,64 @@ struct UserStats: Codable {
     }
 }
 
+// MARK: - Dashboard Summary (New endpoint with first class tracking)
+struct DashboardSummary: Codable {
+    let userId: Int
+    let currentStreak: Int
+    let weeklyWorkouts: Int
+    let monthlyGoalProgress: Double
+    let nextClass: String?
+    let recentAchievement: Achievement?
+    let membershipStatus: String
+    let lastAttendanceDate: Date?
+    let hasAttendedFirstClass: Bool  // 🆕 NEW - Track if user has ever attended a class
+    let quickStats: [String: Any]?
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case currentStreak = "current_streak"
+        case weeklyWorkouts = "weekly_workouts"
+        case monthlyGoalProgress = "monthly_goal_progress"
+        case nextClass = "next_class"
+        case recentAchievement = "recent_achievement"
+        case membershipStatus = "membership_status"
+        case lastAttendanceDate = "last_attendance_date"
+        case hasAttendedFirstClass = "has_attended_first_class"
+        case quickStats = "quick_stats"
+    }
+
+    // Custom decoding to handle quickStats as generic dictionary
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try container.decode(Int.self, forKey: .userId)
+        currentStreak = try container.decode(Int.self, forKey: .currentStreak)
+        weeklyWorkouts = try container.decode(Int.self, forKey: .weeklyWorkouts)
+        monthlyGoalProgress = try container.decode(Double.self, forKey: .monthlyGoalProgress)
+        nextClass = try container.decodeIfPresent(String.self, forKey: .nextClass)
+        recentAchievement = try container.decodeIfPresent(Achievement.self, forKey: .recentAchievement)
+        membershipStatus = try container.decode(String.self, forKey: .membershipStatus)
+        lastAttendanceDate = try container.decodeIfPresent(Date.self, forKey: .lastAttendanceDate)
+        hasAttendedFirstClass = try container.decode(Bool.self, forKey: .hasAttendedFirstClass)
+        // quickStats handled as generic dictionary - decoded but not used for now
+        quickStats = nil  // Skip decoding for now as it's not critical
+    }
+
+    // Custom encoding to handle quickStats
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(userId, forKey: .userId)
+        try container.encode(currentStreak, forKey: .currentStreak)
+        try container.encode(weeklyWorkouts, forKey: .weeklyWorkouts)
+        try container.encode(monthlyGoalProgress, forKey: .monthlyGoalProgress)
+        try container.encodeIfPresent(nextClass, forKey: .nextClass)
+        try container.encodeIfPresent(recentAchievement, forKey: .recentAchievement)
+        try container.encode(membershipStatus, forKey: .membershipStatus)
+        try container.encodeIfPresent(lastAttendanceDate, forKey: .lastAttendanceDate)
+        try container.encode(hasAttendedFirstClass, forKey: .hasAttendedFirstClass)
+        // Skip encoding quickStats as it's not critical
+    }
+}
+
 // MARK: - Comprehensive User Stats Models (New API Structure)
 
 struct ComprehensiveStats: Codable {

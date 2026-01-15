@@ -44,11 +44,6 @@ struct OptimizedList<Item: Identifiable, Content: View>: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: spacing) {
-                // Pull to refresh indicator
-                if onRefresh != nil {
-                    refreshIndicator
-                }
-
                 // Items
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                     VStack(spacing: 0) {
@@ -71,8 +66,15 @@ struct OptimizedList<Item: Identifiable, Content: View>: View {
             }
         }
         .refreshable {
+            // Solo agregar refreshable si se proporciona onRefresh
             if let onRefresh = onRefresh {
+                await MainActor.run {
+                    isRefreshing = true
+                }
                 await onRefresh()
+                await MainActor.run {
+                    isRefreshing = false
+                }
             }
         }
     }

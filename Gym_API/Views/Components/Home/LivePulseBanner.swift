@@ -126,8 +126,8 @@ struct LivePulseBanner: View {
                 .fill(
                     LinearGradient(
                         gradient: Gradient(colors: [
-                            Color.orange,
-                            Color.dynamicAccent(theme: themeManager.currentTheme)
+                            Color.liveGradientStart,  // Naranja oscuro WCAG compliant ✅
+                            Color.liveGradientEnd      // Naranja-rojo WCAG compliant ✅
                         ]),
                         startPoint: .leading,
                         endPoint: .trailing

@@ -298,7 +298,7 @@ struct StoryInteractionBar: View {
 
     // MARK: - Main Bar View
     private var mainBar: some View {
-        HStack(spacing: StoryInteractionTokens.Spacing.md) {
+        HStack(spacing: 12) {
             // Avatar (only in quick mode)
             if state.mode == .quick {
                 StoryAvatarView(url: userAvatar, size: StoryInteractionTokens.Sizes.avatarSmall)
@@ -329,13 +329,32 @@ struct StoryInteractionBar: View {
                 sendButton
             }
         }
-        .padding(.horizontal, StoryInteractionTokens.Spacing.lg)
-        .padding(.vertical, StoryInteractionTokens.Spacing.sm)
-        .frame(height: StoryInteractionTokens.Sizes.barHeight)
+        .padding(.horizontal, 14)      // Menos padding
+        .padding(.vertical, 6)         // Menos padding vertical
+        .frame(height: 48)             // Altura reducida (era 56)
         .background(
-            RoundedRectangle(cornerRadius: StoryInteractionTokens.Radius.bar)
+            RoundedRectangle(cornerRadius: 22)  // Menos redondeado (era 28)
                 .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: -4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(
+                    color: .black.opacity(0.12),  // Más sutil (era 0.25)
+                    radius: 8,                     // Menos difuso (era 16)
+                    x: 0,
+                    y: -2                          // Menos offset (era -4)
+                )
         )
     }
 

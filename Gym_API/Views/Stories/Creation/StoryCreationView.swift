@@ -484,43 +484,56 @@ struct StoryPreviewContent: View {
     let draft: StoryDraft
 
     var body: some View {
-        ZStack {
-            if let image = draft.backgroundImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                LinearGradient(
-                    colors: [draft.backgroundColor, draft.backgroundColor.opacity(0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+        GeometryReader { geometry in
+            let storyFrame = StoryDimensions.calculateStoryFrame(for: geometry.size)
 
-            ForEach(draft.textElements) { textElement in
-                Text(textElement.text)
-                    .font(textElement.font.systemFont)
-                    .foregroundColor(textElement.textColor)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, textElement.backgroundColor != nil ? 16 : 0)
-                    .padding(.vertical, textElement.backgroundColor != nil ? 8 : 0)
-                    .background(
-                        Group {
-                            if let bgColor = textElement.backgroundColor {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(bgColor)
-                            }
-                        }
-                    )
-                    .position(
-                        x: textElement.position.x * UIScreen.main.bounds.width,
-                        y: textElement.position.y * UIScreen.main.bounds.height
-                    )
-                    .scaleEffect(textElement.scale)
-                    .rotationEffect(textElement.rotation)
+            ZStack {
+                // Background for letterboxing
+                Color.black
+
+                // Story content in 9:16 container
+                ZStack {
+                    if let image = draft.backgroundImage {
+                        InstagramStoryImageView(
+                            imageURL: nil,
+                            localImage: image
+                        )
+                    } else {
+                        LinearGradient(
+                            colors: [draft.backgroundColor, draft.backgroundColor.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    }
+
+                    ForEach(draft.textElements) { textElement in
+                        Text(textElement.text)
+                            .font(textElement.font.systemFont)
+                            .foregroundColor(textElement.textColor)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, textElement.backgroundColor != nil ? 16 : 0)
+                            .padding(.vertical, textElement.backgroundColor != nil ? 8 : 0)
+                            .background(
+                                Group {
+                                    if let bgColor = textElement.backgroundColor {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(bgColor)
+                                    }
+                                }
+                            )
+                            .position(
+                                x: textElement.position.x * storyFrame.width,
+                                y: textElement.position.y * storyFrame.height
+                            )
+                            .scaleEffect(textElement.scale)
+                            .rotationEffect(textElement.rotation)
+                    }
+                }
+                .frame(width: storyFrame.width, height: storyFrame.height)
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                .clipped()
             }
         }
-        .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
     }
 }
 

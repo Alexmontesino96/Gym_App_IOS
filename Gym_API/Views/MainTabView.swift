@@ -6,6 +6,7 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var showThemeChangeConfirmation = false
     @State private var pendingTheme: ThemeManager.AppTheme?
+    @State private var pendingEventChat: Event?
     @State private var showWelcomeAnimation = false
     @StateObject private var userStatsService = UserStatsService.shared
     @StateObject private var unreadCountService = UnreadCountService.shared
@@ -45,7 +46,7 @@ struct MainTabView: View {
 
             // Social Tab (Messages + Feed)
             AnimatedTabContent(isSelected: selectedTab == 3) {
-                SocialFeedView()
+                SocialFeedView(pendingEventChat: $pendingEventChat)
             }
             .tabItem {
                 Image(systemName: selectedTab == 3 ? "message.fill" : "message")
@@ -99,6 +100,15 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openClassesTab)) { _ in
             selectedTab = 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSocialTab)) { _ in
+            selectedTab = 3  // Social tab
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openEventChat)) { notification in
+            if let event = notification.object as? Event {
+                pendingEventChat = event
+                selectedTab = 3  // Navigate to Social tab
+            }
         }
         .onAppear {
             configureTabBarAppearance()
