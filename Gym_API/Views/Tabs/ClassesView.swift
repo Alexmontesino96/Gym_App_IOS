@@ -114,18 +114,24 @@ struct ClassesView: View {
                                 await refreshClasses()
                             }
                         } else {
-                            // Using OptimizedList for better performance
-                            OptimizedList(
-                                items: filteredClasses,
-                                spacing: 16,
-                                showDividers: false,
-                                preloadThreshold: 5,
-                                onRefresh: refreshClasses
-                            ) { gymClass in
-                                ClassCardView(gymClass: gymClass)
-                                    .padding(.horizontal, 20)
+                            // Using minimal design inspired by Mindbody
+                            ScrollView {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(filteredClasses) { gymClass in
+                                        MinimalClassCardView(gymClass: gymClass)
+                                            .environmentObject(themeManager)
+                                            .environmentObject(classService)
+
+                                        if gymClass.id != filteredClasses.last?.id {
+                                            MinimalClassDivider()
+                                                .environmentObject(themeManager)
+                                        }
+                                    }
+                                }
                             }
-                            .padding(.vertical, 20)
+                            .refreshable {
+                                await refreshClasses()
+                            }
                         }
                         
                         // Floating Action Button (solo para crear sesión)

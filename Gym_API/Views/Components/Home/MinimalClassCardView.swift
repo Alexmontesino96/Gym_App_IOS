@@ -56,12 +56,12 @@ struct MinimalInstructorAvatar: View {
                     .clipShape(Circle())
             case .failure(_), .empty:
                 Circle()
-                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    .fill(Color(white: 0.95))
                     .frame(width: size, height: size)
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: size * 0.4))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .font(.system(size: size * 0.45))
+                            .foregroundColor(Color(white: 0.7))
                     )
             @unknown default:
                 ProgressView()
@@ -70,7 +70,7 @@ struct MinimalInstructorAvatar: View {
         }
         .overlay(
             Circle()
-                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.2), lineWidth: 1)
+                .stroke(Color(white: 0.9), lineWidth: 0.5)
         )
     }
 }
@@ -138,16 +138,16 @@ struct MinimalBookButton: View {
                 }
 
                 Text(isLoading ? "Loading..." : state.buttonText)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
             }
             .foregroundColor(foregroundColor)
-            .frame(width: 85, height: 34)
+            .frame(width: 95, height: 38)
             .background(backgroundColor)
             .overlay(
-                RoundedRectangle(cornerRadius: 17)
+                RoundedRectangle(cornerRadius: 19)
                     .stroke(borderColor, lineWidth: borderColor == .clear ? 0 : 1.5)
             )
-            .cornerRadius(17)
+            .cornerRadius(19)
             .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .disabled(!state.isActionable || isLoading)
@@ -258,20 +258,20 @@ struct MinimalClassCardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             // Instructor Avatar (left)
             MinimalInstructorAvatar(
                 imageURL: trainerImageURL,
-                size: 44
+                size: 48
             )
 
             // Class Information (center)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 // Time row with live indicator
                 HStack(spacing: 8) {
                     Text(formattedTime)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
 
                     if currentState == .live {
                         MinimalLiveIndicator()
@@ -280,24 +280,32 @@ struct MinimalClassCardView: View {
 
                 // Class name
                 Text(gymClass.name)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     .lineLimit(1)
 
                 // Instructor and availability
-                HStack {
-                    Text("w/ \(gymClass.instructor)")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                HStack(spacing: 4) {
+                    Text(gymClass.instructor)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.9))
                         .lineLimit(1)
 
-                    Spacer()
+                    Text("•")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.4))
 
                     if currentState != .full {
                         Text(availabilityText)
-                            .font(.system(size: 14))
+                            .font(.system(size: 14, weight: .regular))
                             .foregroundColor(availabilityColor)
+                    } else {
+                        Text("Class Full")
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(Color.gray)
                     }
+
+                    Spacer()
                 }
             }
             .frame(maxWidth: .infinity)
@@ -309,8 +317,8 @@ struct MinimalClassCardView: View {
                 action: handleButtonAction
             )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
         .background(Color.dynamicSurface(theme: themeManager.currentTheme))
         .onAppear {
             updateTrainerImage()
@@ -390,9 +398,9 @@ struct MinimalClassDivider: View {
 
     var body: some View {
         Rectangle()
-            .fill(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15))
-            .frame(height: 1)
-            .padding(.leading, 72) // Align with content (16 + 44 + 12)
+            .fill(Color(white: 0.92))
+            .frame(height: 0.5)
+            .padding(.leading, 82) // Align with content after avatar (20 + 48 + 14)
     }
 }
 
