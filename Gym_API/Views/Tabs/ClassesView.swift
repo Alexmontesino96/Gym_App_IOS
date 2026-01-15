@@ -160,11 +160,9 @@ struct ClassesView: View {
                 // Cargar trainers primero para que estén disponibles para las tarjetas
                 await classService.loadTrainers()
 
-                // Solo cargar sesiones si no hay ninguna cargada
-                // HomeView ya carga las sesiones en paralelo
-                if classService.sessions.isEmpty {
-                    await classService.loadSessionsForDateIfNeeded(date: selectedDate)
-                }
+                // SIEMPRE cargar sesiones para la fecha actual seleccionada
+                // Esto asegura que tengamos las clases correctas al abrir la vista
+                await classService.loadSessionsForDateIfNeeded(date: selectedDate)
 
                 await classService.fetchMyClasses() // Cargar estado de registro del usuario
             }

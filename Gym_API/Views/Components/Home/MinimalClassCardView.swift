@@ -138,16 +138,16 @@ struct MinimalBookButton: View {
                 }
 
                 Text(isLoading ? "Loading..." : state.buttonText)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
             }
             .foregroundColor(foregroundColor)
-            .frame(width: 95, height: 38)
+            .frame(width: 110, height: 42)
             .background(backgroundColor)
             .overlay(
-                RoundedRectangle(cornerRadius: 19)
+                RoundedRectangle(cornerRadius: 21)
                     .stroke(borderColor, lineWidth: borderColor == .clear ? 0 : 1.5)
             )
-            .cornerRadius(19)
+            .cornerRadius(21)
             .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .disabled(!state.isActionable || isLoading)
@@ -258,67 +258,73 @@ struct MinimalClassCardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            // Instructor Avatar (left)
+        HStack(spacing: 16) {
+            // Instructor Avatar (left) - Más grande como en Mindbody
             MinimalInstructorAvatar(
                 imageURL: trainerImageURL,
-                size: 48
+                size: 60
             )
 
             // Class Information (center)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 // Time row with live indicator
                 HStack(spacing: 8) {
                     Text(formattedTime)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
 
                     if currentState == .live {
                         MinimalLiveIndicator()
                     }
                 }
+                .padding(.bottom, 2)
 
-                // Class name
+                // Class name - Más grande y bold como en Mindbody
                 Text(gymClass.name)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     .lineLimit(1)
+                    .padding(.bottom, 4)
 
-                // Instructor and availability
-                HStack(spacing: 4) {
-                    Text(gymClass.instructor)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.9))
-                        .lineLimit(1)
+                // Location and instructor info
+                VStack(alignment: .leading, spacing: 2) {
+                    // Location (FL, Brickell style)
+                    Text("FL, Brickell")
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
 
-                    Text("•")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.4))
+                    // Instructor and availability on same line
+                    HStack(spacing: 0) {
+                        Text("w/ \(gymClass.instructor)")
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
+                            .lineLimit(1)
 
-                    if currentState != .full {
-                        Text(availabilityText)
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(availabilityColor)
-                    } else {
-                        Text("Class Full")
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(Color.gray)
+                        Spacer()
+
+                        if currentState != .full {
+                            Text(availabilityText)
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundColor(availabilityColor)
+                        } else {
+                            Text("Class Full")
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundColor(Color.gray)
+                        }
                     }
-
-                    Spacer()
                 }
             }
             .frame(maxWidth: .infinity)
 
-            // Action Button (right)
+            // Action Button (right) - Más grande como en Mindbody
             MinimalBookButton(
                 state: currentState,
                 isLoading: isLoading || classService.joiningClassIds.contains(gymClass.id),
                 action: handleButtonAction
             )
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
         .background(Color.dynamicSurface(theme: themeManager.currentTheme))
         .onAppear {
             updateTrainerImage()
@@ -400,7 +406,7 @@ struct MinimalClassDivider: View {
         Rectangle()
             .fill(Color(white: 0.92))
             .frame(height: 0.5)
-            .padding(.leading, 82) // Align with content after avatar (20 + 48 + 14)
+            .padding(.leading, 100) // Align with content after avatar (24 + 60 + 16)
     }
 }
 
