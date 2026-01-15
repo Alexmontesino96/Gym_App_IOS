@@ -162,6 +162,7 @@ extension Color {
     // MARK: - Semantic Colors (para Social Feed)
     static let likeRed = Color(red: 1.0, green: 0.23, blue: 0.19) // #FF3B30 - Like color
     static let successGreen = Color(red: 0.20, green: 0.78, blue: 0.35) // #34C759
+    static let mindbodyGreen = Color(red: 0.44, green: 0.81, blue: 0.25) // #6FCF3F - Verde Mindbody para botones
     static let warningYellow = Color(red: 1.0, green: 0.80, blue: 0.0) // #FFCC00
     static let errorRed = Color(red: 1.0, green: 0.23, blue: 0.19) // #FF3B30
 }
@@ -186,14 +187,14 @@ extension ThemeManager {
             "#D94A4A", // Current Red
             "#E74C3C", // Crimson
             "#FF6B6B", // Coral
-            "#FF8A80", // Light Red
+            "#6FCF3F", // Mindbody Green ✅ NUEVO
+            "#4CAF50", // Material Green
+            "#66BB6A", // Medium Green
+            "#9CCC65", // Light Green
             "#FF7043", // Deep Orange
             "#FF8C42", // Orange
             "#FFA726", // Amber
             "#FFD54F", // Yellow
-            "#9CCC65", // Light Green
-            "#66BB6A", // Green
-            "#4CAF50", // Success Green
             "#26A69A", // Teal
             "#00827E", // Deep Teal
             "#29B6F6", // Light Blue
@@ -211,12 +212,14 @@ extension ThemeManager {
             "#D94A4A", // Current Red
             "#FF5252", // Bright Red
             "#FF6B6B", // Coral
+            "#6FCF3F", // Mindbody Green ✅ NUEVO
+            "#66BB6A", // Material Green
+            "#81C784", // Medium Green
+            "#AED581", // Light Green
             "#FF7043", // Deep Orange
             "#FF8C42", // Orange
             "#FFB74D", // Amber
             "#FFF176", // Light Yellow
-            "#AED581", // Light Green
-            "#81C784", // Green
             "#4DB6AC", // Teal
             "#26A69A", // Dark Teal
             "#4FC3F7", // Light Blue

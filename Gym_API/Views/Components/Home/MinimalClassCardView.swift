@@ -90,7 +90,15 @@ struct MinimalBookButton: View {
 
         switch state {
         case .available, .live:
-            return Color(red: 0.44, green: 0.81, blue: 0.25) // Verde Mindbody #6FCF3F
+            // Usar el color de acento actual si es verde, sino usar verde Mindbody
+            let currentAccent = Color.dynamicAccent(theme: themeManager.currentTheme)
+            let accentHex = ThemeManager.accentHexFromDefaults(for: themeManager.currentTheme)
+            // Si el acento actual es verde (#6FCF3F o similar), usarlo
+            if accentHex == "#6FCF3F" || accentHex.contains("6FCF") {
+                return currentAccent
+            }
+            // Sino, usar el verde Mindbody por defecto para botones Book
+            return Color.mindbodyGreen
         case .booked:
             return Color.dynamicSurface(theme: themeManager.currentTheme)
         default:
