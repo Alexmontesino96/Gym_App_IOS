@@ -196,20 +196,21 @@ class ClassService: ObservableObject {
     func loadSessionsForDateIfNeeded(date: Date) async {
         let calendar = Calendar.current
         
-        // Verificar si la fecha está dentro del rango cargado
+        // Verificar si ya tenemos sesiones cargadas Y si la fecha está dentro del rango
+        // También forzar recarga si no hay sesiones (caso inicial)
         if let loadedStart = loadedStartDate,
            let loadedEnd = loadedEndDate,
+           !sessions.isEmpty,  // Importante: verificar que realmente tengamos sesiones
            date >= loadedStart && date <= loadedEnd {
             // Ya tenemos los datos para esta fecha, pero verificar si necesitamos actualizar participaciones
             await loadParticipationStatusIfNeeded(startDate: loadedStart, endDate: loadedEnd)
             return
         }
-        
-        // Calcular el nuevo rango necesario (siempre 10 días: -3 a +7)
-        let today = Date()
 
-        let newStartDate = calendar.date(byAdding: .day, value: -3, to: today) ?? date
-        let newEndDate = calendar.date(byAdding: .day, value: 7, to: today) ?? date
+        // Calcular el rango basado en la fecha solicitada, no solo "today"
+        // Esto permite ver fechas pasadas y futuras correctamente
+        let newStartDate = calendar.date(byAdding: .day, value: -3, to: date) ?? date
+        let newEndDate = calendar.date(byAdding: .day, value: 7, to: date) ?? date
         
         // Fase 1: Cargar sesiones (datos principales)
         await fetchSessionsByDateRange(startDate: newStartDate, endDate: newEndDate)
