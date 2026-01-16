@@ -206,7 +206,23 @@ class UserStatsService: ObservableObject {
                     }
 
                     let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .iso8601
+                    // Usar un formatter personalizado que soporte fracciones de segundo
+                    let formatter = ISO8601DateFormatter()
+                    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    decoder.dateDecodingStrategy = .custom { decoder in
+                        let container = try decoder.singleValueContainer()
+                        let dateStr = try container.decode(String.self)
+                        if let date = formatter.date(from: dateStr) {
+                            return date
+                        }
+                        // Fallback para fechas sin fracciones de segundo
+                        formatter.formatOptions = [.withInternetDateTime]
+                        if let date = formatter.date(from: dateStr) {
+                            return date
+                        }
+                        throw DecodingError.dataCorruptedError(in: container,
+                            debugDescription: "Cannot decode date string \(dateStr)")
+                    }
 
                     let dashboard = try decoder.decode(DashboardSummary.self, from: data)
 
