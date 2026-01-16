@@ -19,21 +19,31 @@ struct ClassesView: View {
     // Filtered classes based on selected date
     private var filteredClasses: [GymClass] {
         let calendar = Calendar.current
+
+        // Normalizar las fechas al inicio del día en el timezone local para comparación correcta
+        let startOfSelectedDay = calendar.startOfDay(for: selectedDate)
+        let endOfSelectedDay = calendar.date(byAdding: .day, value: 1, to: startOfSelectedDay) ?? selectedDate
+
         let filtered = classService.classes.filter { gymClass in
-            calendar.isDate(gymClass.startTime, inSameDayAs: selectedDate)
+            // Verificar si la clase cae dentro del día seleccionado
+            let classStartTime = gymClass.startTime
+            return classStartTime >= startOfSelectedDay && classStartTime < endOfSelectedDay
         }
 
-        // Debug logging
+        // Debug logging mejorado
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = TimeZone.current
         print("🔍 [ClassesView] Filtrado de clases:")
         print("   - Total sesiones: \(classService.sessions.count)")
         print("   - Total clases convertidas: \(classService.classes.count)")
         print("   - Fecha seleccionada: \(formatter.string(from: selectedDate))")
+        print("   - Inicio del día: \(formatter.string(from: startOfSelectedDay))")
+        print("   - Fin del día: \(formatter.string(from: endOfSelectedDay))")
         print("   - Clases filtradas: \(filtered.count)")
-        for gymClass in classService.classes {
-            let matches = calendar.isDate(gymClass.startTime, inSameDayAs: selectedDate)
-            print("   - Clase '\(gymClass.name)' - Start: \(formatter.string(from: gymClass.startTime)) - Matches: \(matches)")
+        for gymClass in classService.classes.prefix(5) {
+            let inRange = gymClass.startTime >= startOfSelectedDay && gymClass.startTime < endOfSelectedDay
+            print("   - Clase '\(gymClass.name)' - Start: \(formatter.string(from: gymClass.startTime)) - InRange: \(inRange)")
         }
 
         return filtered
@@ -165,6 +175,22 @@ struct ClassesView: View {
                 await classService.loadSessionsForDateIfNeeded(date: selectedDate)
 
                 await classService.fetchMyClasses() // Cargar estado de registro del usuario
+
+                // Si no hay clases para la fecha actual, seleccionar automáticamente
+                // la primera fecha que tenga clases disponibles
+                await MainActor.run {
+                    if filteredClasses.isEmpty && !classService.classes.isEmpty {
+                        // Buscar la primera fecha con clases disponibles
+                        let calendar = Calendar.current
+                        let sortedClasses = classService.classes.sorted { $0.startTime < $1.startTime }
+
+                        if let firstClass = sortedClasses.first {
+                            // Seleccionar el día de la primera clase disponible
+                            selectedDate = calendar.startOfDay(for: firstClass.startTime)
+                            print("📅 [ClassesView] Auto-seleccionando fecha con clases: \(selectedDate)")
+                        }
+                    }
+                }
             }
         }
         .onChange(of: selectedDate) { _, newDate in
