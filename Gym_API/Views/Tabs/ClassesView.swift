@@ -126,7 +126,7 @@ struct ClassesView: View {
                         } else {
                             // Using minimal design
                             ScrollView {
-                                LazyVStack(spacing: 16) {
+                                LazyVStack(spacing: 0) {
                                     ForEach(filteredClasses) { gymClass in
                                         MinimalClassCardView(gymClass: gymClass)
                                             .environmentObject(themeManager)
@@ -134,7 +134,7 @@ struct ClassesView: View {
                                             .environmentObject(gymService)
                                     }
                                 }
-                                .padding(.horizontal, 16)
+                                // Removed horizontal padding for edge-to-edge cards
                                 .padding(.vertical, 12)
                             }
                             .refreshable {
