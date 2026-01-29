@@ -196,7 +196,7 @@ struct ModernClassCardView: View {
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                                .frame(width: 100, height: 140) // Rectangular frame
+                                .frame(width: 120, height: 160) // Rectangular frame
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         case .failure(_), .empty:
                             defaultAvatar

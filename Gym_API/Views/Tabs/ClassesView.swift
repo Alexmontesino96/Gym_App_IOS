@@ -124,11 +124,11 @@ struct ClassesView: View {
                                 await refreshClasses()
                             }
                         } else {
-                            // Using modern design with coach photos
+                            // Using minimal design
                             ScrollView {
                                 LazyVStack(spacing: 16) {
                                     ForEach(filteredClasses) { gymClass in
-                                        ModernClassCardView(gymClass: gymClass)
+                                        MinimalClassCardView(gymClass: gymClass)
                                             .environmentObject(themeManager)
                                             .environmentObject(classService)
                                             .environmentObject(gymService)
