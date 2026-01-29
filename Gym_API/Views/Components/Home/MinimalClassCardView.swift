@@ -384,15 +384,6 @@ struct MinimalClassCardView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
         .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-        .overlay(
-            // Dark divider line at the bottom
-            Rectangle()
-                .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.3))
-                .frame(height: 1)
-                .frame(maxWidth: .infinity)
-                .offset(y: 1), // Small offset to position at very bottom
-            alignment: .bottom
-        )
         // Accessibility
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(gymClass.name) class with \(gymClass.instructor). \(difficultyText)")

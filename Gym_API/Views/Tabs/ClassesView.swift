@@ -127,11 +127,19 @@ struct ClassesView: View {
                             // Using minimal design
                             ScrollView {
                                 LazyVStack(spacing: 0) {
-                                    ForEach(filteredClasses) { gymClass in
+                                    ForEach(Array(filteredClasses.enumerated()), id: \.element.id) { index, gymClass in
                                         MinimalClassCardView(gymClass: gymClass)
                                             .environmentObject(themeManager)
                                             .environmentObject(classService)
                                             .environmentObject(gymService)
+
+                                        // Add divider between cards (not after the last one)
+                                        if index < filteredClasses.count - 1 {
+                                            Rectangle()
+                                                .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
+                                                .frame(height: 1)
+                                                .frame(maxWidth: .infinity)
+                                        }
                                     }
                                 }
                                 // Removed horizontal padding for edge-to-edge cards
