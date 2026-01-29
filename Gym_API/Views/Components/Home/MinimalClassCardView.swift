@@ -316,8 +316,8 @@ struct MinimalClassCardView: View {
                 // Time row with live indicator
                 HStack(spacing: 6) {
                     Text(formattedTime)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
                     if currentState == .live {
                         MinimalLiveIndicator()
