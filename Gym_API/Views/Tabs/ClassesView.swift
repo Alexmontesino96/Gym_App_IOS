@@ -76,7 +76,7 @@ struct ClassesView: View {
                     // Weekly Date Selector
                     WeeklyDateSelector(selectedDate: $selectedDate)
                     .padding(.bottom, 16)
-                    .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+                    .background(Color.dynamicCard(theme: themeManager.currentTheme))
                     
                     // Classes Content with FAB overlay
                     ZStack {

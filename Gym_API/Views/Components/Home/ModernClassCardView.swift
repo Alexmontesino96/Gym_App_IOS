@@ -95,7 +95,7 @@ struct ModernClassCardView: View {
         }
         .padding(20)
         .frame(height: 160)
-        .background(Color.dynamicCard(theme: themeManager.currentTheme))
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .onAppear {
             updateTrainerImage()
