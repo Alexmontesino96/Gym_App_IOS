@@ -54,7 +54,7 @@ struct ModernClassCardView: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 0) {
             // Left side content
             VStack(alignment: .leading, spacing: 8) {
                 // Class name
@@ -69,7 +69,7 @@ struct ModernClassCardView: View {
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
 
                 // Instructor
-                Text("\(gymClass.instructor.hasPrefix("Coach") || gymClass.instructor.hasPrefix("Manager") ? "" : "Coach ")\(gymClass.instructor)")
+                Text(gymClass.instructor)
                     .font(.system(size: 16, weight: .regular))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.9))
                     .lineLimit(1)
@@ -87,13 +87,15 @@ struct ModernClassCardView: View {
                 // Action button or status
                 actionView
             }
+            .padding(.leading, 20)
+            .padding(.vertical, 20)
+            .padding(.trailing, 16)
 
             Spacer()
 
-            // Right side - Trainer image (square)
+            // Right side - Trainer image (rectangular, aligned to bottom)
             trainerAvatar
         }
-        .padding(20)
         .frame(height: 160)
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -182,33 +184,39 @@ struct ModernClassCardView: View {
     }
 
     private var trainerAvatar: some View {
-        Group {
-            if let url = URL(string: trainerImageURL), !trainerImageURL.isEmpty {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 100, height: 100) // Square frame
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    case .failure(_), .empty:
-                        defaultAvatar
-                    @unknown default:
-                        defaultAvatar
+        VStack {
+            Spacer()
+                .frame(height: 20) // Top margin
+
+            Group {
+                if let url = URL(string: trainerImageURL), !trainerImageURL.isEmpty {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 100, height: 140) // Rectangular frame
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        case .failure(_), .empty:
+                            defaultAvatar
+                        @unknown default:
+                            defaultAvatar
+                        }
                     }
+                } else {
+                    defaultAvatar
                 }
-            } else {
-                defaultAvatar
             }
         }
+        .padding(.trailing, 20)
     }
 
     private var defaultAvatar: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .frame(width: 100, height: 100) // Square frame
+                .frame(width: 100, height: 140) // Rectangular frame
 
             Image(systemName: "person.fill")
                 .font(.system(size: 40))
