@@ -124,19 +124,18 @@ struct ClassesView: View {
                                 await refreshClasses()
                             }
                         } else {
-                            // Using minimal design inspired by Mindbody
+                            // Using modern design with coach photos
                             ScrollView {
-                                LazyVStack(spacing: 12) {
+                                LazyVStack(spacing: 16) {
                                     ForEach(filteredClasses) { gymClass in
-                                        ClassCardView(gymClass: gymClass)
+                                        ModernClassCardView(gymClass: gymClass)
                                             .environmentObject(themeManager)
                                             .environmentObject(classService)
-
-                                        // Divider removed as ClassCardView has its own visual separation
+                                            .environmentObject(gymService)
                                     }
                                 }
                                 .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 12)
                             }
                             .refreshable {
                                 await refreshClasses()
