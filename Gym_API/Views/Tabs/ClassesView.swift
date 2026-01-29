@@ -126,18 +126,17 @@ struct ClassesView: View {
                         } else {
                             // Using minimal design inspired by Mindbody
                             ScrollView {
-                                LazyVStack(spacing: 0) {
+                                LazyVStack(spacing: 12) {
                                     ForEach(filteredClasses) { gymClass in
-                                        MinimalClassCardView(gymClass: gymClass)
+                                        ClassCardView(gymClass: gymClass)
                                             .environmentObject(themeManager)
                                             .environmentObject(classService)
 
-                                        if gymClass.id != filteredClasses.last?.id {
-                                            MinimalClassDivider()
-                                                .environmentObject(themeManager)
-                                        }
+                                        // Divider removed as ClassCardView has its own visual separation
                                     }
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
                             }
                             .refreshable {
                                 await refreshClasses()

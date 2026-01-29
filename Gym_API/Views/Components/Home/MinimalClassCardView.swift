@@ -13,6 +13,8 @@ enum MinimalClassState {
     case booked
     case full
     case live
+    case cancelled
+    case past
 
     var buttonText: String {
         switch self {
@@ -20,6 +22,8 @@ enum MinimalClassState {
         case .booked: return "Booked"
         case .full: return "Full"
         case .live: return "Join"
+        case .cancelled: return "Cancelled"
+        case .past: return "Past"
         }
     }
 
@@ -27,14 +31,16 @@ enum MinimalClassState {
         switch self {
         case .booked: return "checkmark"
         case .live: return "dot.radiowaves.left.and.right"
-        default: return nil
+        case .cancelled: return "xmark.circle"
+        case .past: return "clock"
+        case .available, .full: return nil
         }
     }
 
     var isActionable: Bool {
         switch self {
         case .available, .live, .booked: return true
-        case .full: return false
+        case .full, .cancelled, .past: return false
         }
     }
 }
@@ -99,9 +105,7 @@ struct MinimalBookButton: View {
             }
             // Sino, usar el verde Mindbody por defecto para botones Book
             return Color.mindbodyGreen
-        case .booked:
-            return Color.dynamicSurface(theme: themeManager.currentTheme)
-        default:
+        case .booked, .full, .cancelled, .past:
             return Color.dynamicSurface(theme: themeManager.currentTheme)
         }
     }
@@ -112,8 +116,10 @@ struct MinimalBookButton: View {
             return .white
         case .booked:
             return Color(red: 0.44, green: 0.81, blue: 0.25) // Verde para estado booked
-        case .full:
+        case .full, .past:
             return Color.dynamicTextSecondary(theme: themeManager.currentTheme)
+        case .cancelled:
+            return Color.red.opacity(0.8)
         }
     }
 
@@ -121,9 +127,9 @@ struct MinimalBookButton: View {
         switch state {
         case .booked:
             return Color(red: 0.44, green: 0.81, blue: 0.25).opacity(0.3)
-        case .full:
+        case .full, .past:
             return Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.2)
-        default:
+        case .available, .live, .cancelled:
             return Color.clear
         }
     }
@@ -142,11 +148,11 @@ struct MinimalBookButton: View {
                         .scaleEffect(0.8)
                 } else if let icon = state.buttonIcon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                 }
 
                 Text(isLoading ? "Loading..." : state.buttonText)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
             }
             .foregroundColor(foregroundColor)
             .frame(width: 110, height: 42)
@@ -211,9 +217,14 @@ struct MinimalClassCardView: View {
     private var currentState: MinimalClassState {
         let now = Date()
 
-        // Check if class is cancelled
+        // Check if class is cancelled - Show explicitly
         if gymClass.status == .cancelled {
-            return .full // Treat cancelled as full/unavailable
+            return .cancelled
+        }
+
+        // Check if class is in the past
+        if now > gymClass.endTime {
+            return .past
         }
 
         // Check if class is live
@@ -246,6 +257,14 @@ struct MinimalClassCardView: View {
         return "\(start) - \(end)"
     }
 
+    private var formattedTimeSimple: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mma"
+        formatter.amSymbol = "am"
+        formatter.pmSymbol = "pm"
+        return formatter.string(from: gymClass.startTime).lowercased()
+    }
+
     private var availabilityText: String {
         let spotsOpen = max(0, gymClass.maxParticipants - gymClass.currentParticipants)
         return "\(spotsOpen) of \(gymClass.maxParticipants) open"
@@ -265,62 +284,93 @@ struct MinimalClassCardView: View {
         }
     }
 
+    private var difficultyColor: Color {
+        switch gymClass.difficulty {
+        case .beginner:
+            return Color.green.opacity(0.8)
+        case .intermediate:
+            return Color.orange.opacity(0.8)
+        case .advanced:
+            return Color.red.opacity(0.8)
+        }
+    }
+
+    private var difficultyText: String {
+        switch gymClass.difficulty {
+        case .beginner: return "Beginner level"
+        case .intermediate: return "Intermediate level"
+        case .advanced: return "Advanced level"
+        }
+    }
+
     var body: some View {
-        HStack(spacing: 16) {
-            // Instructor Avatar (left) - Más grande como en Mindbody
+        HStack(spacing: 14) {
+            // Instructor Avatar
             MinimalInstructorAvatar(
                 imageURL: trainerImageURL,
-                size: 60
+                size: 56
             )
 
-            // Class Information (center)
-            VStack(alignment: .leading, spacing: 4) {
+            // Class Information
+            VStack(alignment: .leading, spacing: 3) {
                 // Time row with live indicator
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text(formattedTime)
                         .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
 
                     if currentState == .live {
                         MinimalLiveIndicator()
                     }
                 }
-                .padding(.bottom, 2)
 
-                // Class name - Más grande y bold como en Mindbody
-                Text(gymClass.name)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    .lineLimit(1)
-                    .padding(.bottom, 4)
+                // Class name with difficulty indicator
+                HStack(spacing: 4) {
+                    Text(gymClass.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                // Location and instructor info
-                VStack(alignment: .leading, spacing: 2) {
-                    // Location (FL, Brickell style)
-                    Text("FL, Brickell")
-                        .font(.system(size: 15, weight: .regular))
+                    // Difficulty indicator
+                    Circle()
+                        .fill(difficultyColor)
+                        .frame(width: 6, height: 6)
+                        .accessibilityLabel(difficultyText)
+                }
+
+                // Location
+                if let location = gymService.currentGym?.address {
+                    Text(location)
+                        .font(.system(size: 14, weight: .regular))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
 
-                    // Instructor and availability on same line
-                    HStack(spacing: 0) {
-                        Text("w/ \(gymClass.instructor)")
-                            .font(.system(size: 15, weight: .regular))
+                // Availability info
+                let spotsRemaining = max(0, gymClass.maxParticipants - gymClass.currentParticipants)
+                if currentState == .full {
+                    Text("Class Full")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.red)
+                } else if currentState != .past && currentState != .cancelled {
+                    HStack(spacing: 4) {
+                        Text("\(spotsRemaining)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(availabilityColor)
+                        Text("spots available")
+                            .font(.system(size: 14, weight: .regular))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
-                            .lineLimit(1)
-
-                        Spacer()
-
-                        if currentState != .full {
-                            Text(availabilityText)
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundColor(availabilityColor)
-                        } else {
-                            Text("Class Full")
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundColor(Color.gray)
-                        }
                     }
                 }
+
+                // Instructor info
+                Text("w/ \(gymClass.instructor)")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             .frame(maxWidth: .infinity)
 
@@ -331,9 +381,14 @@ struct MinimalClassCardView: View {
                 action: handleButtonAction
             )
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        // Accessibility
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(gymClass.name) class with \(gymClass.instructor). \(difficultyText)")
+        .accessibilityHint("\(availabilityText). Status: \(currentState.buttonText). \(currentState.isActionable ? "Tap to take action" : "Not available for booking")")
+        .accessibilityAddTraits(currentState.isActionable ? .isButton : .isStaticText)
         .onAppear {
             updateTrainerImage()
         }
@@ -351,8 +406,8 @@ struct MinimalClassCardView: View {
         case .booked:
             // Show action sheet for cancel option
             showBookedOptions()
-        case .full:
-            // No action
+        case .full, .cancelled, .past:
+            // No action for these states
             break
         }
     }
