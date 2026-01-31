@@ -46,28 +46,7 @@ struct ShimmerView: View {
     }
 }
 
-struct HapticPattern {
-    static func elasticBounce() {
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.prepare()
-
-        // Initial impact
-        generator.impactOccurred(intensity: 0.7)
-
-        // Bounce effects
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            generator.impactOccurred(intensity: 1.0)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            generator.impactOccurred(intensity: 0.5)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            generator.impactOccurred(intensity: 0.3)
-        }
-    }
-}
+// HapticPattern removed - now using centralized HapticManager
 
 // MARK: - Simplified Class States
 enum MinimalClassState: Equatable {
@@ -168,6 +147,7 @@ struct MinimalBookButton: View {
     @State private var isAnimatingSuccess = false
     @State private var particles: [Particle] = []
     @State private var previousState: MinimalClassState? = nil
+    @State private var isLiquidMorphing = false // Estado para Liquid Morph
 
     private var backgroundColor: Color {
         if !state.isActionable {
@@ -284,6 +264,7 @@ struct MinimalBookButton: View {
                 .cornerRadius(22)
                 .scaleEffect(x: stretchX * (isPressed ? 0.94 : 1.0), y: stretchY * (isPressed ? 0.94 : 1.0))
                 .scaleEffect(buttonScale)
+                .liquidMorph(isActive: isLiquidMorphing) // Aplicar Liquid Morph
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: buttonScale)
                 .animation(.interpolatingSpring(stiffness: 400, damping: 10), value: stretchX)
@@ -317,7 +298,10 @@ struct MinimalBookButton: View {
     private func triggerSuccessAnimation() {
         isAnimatingSuccess = true
 
-        // Phase 1: Morphing with elastic compression
+        // Activar Liquid Morph al inicio de la animación
+        isLiquidMorphing = true
+
+        // Phase 1: Morphing with elastic compression (complementa Liquid Morph)
         withAnimation(.interpolatingSpring(stiffness: 400, damping: 10)) {
             stretchY = 0.85
             stretchX = 1.15
@@ -366,12 +350,14 @@ struct MinimalBookButton: View {
         // Create celebration particles
         createParticles()
 
-        // Haptic feedback pattern
-        HapticPattern.elasticBounce()
+        // Optimized haptic feedback for class registration
+        // Synchronized with Liquid Morph animation phases
+        HapticManager.shared.classRegistrationSuccess()
 
         // Clean up animation state
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             isAnimatingSuccess = false
+            isLiquidMorphing = false // Desactivar Liquid Morph al final
         }
     }
 

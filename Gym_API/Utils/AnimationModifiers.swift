@@ -262,3 +262,108 @@ extension View {
         modifier(FloatingModifier(amplitude: amplitude, duration: duration))
     }
 }
+
+// MARK: - Liquid Morph Effect (Peloton-style)
+
+struct LiquidMorphModifier: ViewModifier {
+    let isActive: Bool
+    @State private var morphPhase: CGFloat = 0
+    @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    private let maxDeformation: CGFloat = 0.05 // 5% máxima deformación
+    private let animationDuration: Double = 0.6
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(
+                x: calculateXScale(),
+                y: calculateYScale()
+            )
+            .rotation3DEffect(
+                .degrees(isActive && !reduceMotion ? Foundation.sin(morphPhase * 2) * 2 : 0),
+                axis: (x: 0, y: 1, z: 0),
+                anchor: .center,
+                anchorZ: 0,
+                perspective: 1.0
+            )
+            .animation(
+                .spring(response: 0.6, dampingFraction: 0.7, blendDuration: 0.3),
+                value: isActive
+            )
+            .onChange(of: isActive) { _, newValue in
+                if newValue && !reduceMotion {
+                    startMorphAnimation()
+                } else {
+                    stopMorphAnimation()
+                }
+            }
+    }
+
+    private func calculateXScale() -> CGFloat {
+        guard !reduceMotion else { return 1.0 }
+
+        if isActive && isAnimating {
+            // Deformación orgánica usando funciones trigonométricas
+            let baseScale: CGFloat = 1.0
+            let morphFactor = sin(morphPhase) * maxDeformation
+            let elasticFactor = cos(morphPhase * 1.5) * (maxDeformation * 0.3)
+            return baseScale + morphFactor + elasticFactor
+        }
+        return 1.0
+    }
+
+    private func calculateYScale() -> CGFloat {
+        guard !reduceMotion else { return 1.0 }
+
+        if isActive && isAnimating {
+            // Deformación inversa para mantener el volumen visual
+            let baseScale: CGFloat = 1.0
+            let morphFactor = cos(morphPhase) * maxDeformation
+            let elasticFactor = sin(morphPhase * 1.5) * (maxDeformation * 0.3)
+            return baseScale + morphFactor - elasticFactor
+        }
+        return 1.0
+    }
+
+    private func startMorphAnimation() {
+        isAnimating = true
+        morphPhase = 0
+
+        // Animación principal con interpolación de Bézier simulada
+        withAnimation(.timingCurve(0.25, 0.1, 0.25, 1.0, duration: animationDuration)) {
+            morphPhase = .pi * 2 // Ciclo completo
+        }
+
+        // Animación secundaria para efecto más orgánico
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.5).delay(0.1)) {
+            morphPhase = .pi * 2.5
+        }
+
+        // Reset suave al final
+        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                morphPhase = 0
+                isAnimating = false
+            }
+        }
+    }
+
+    private func stopMorphAnimation() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            morphPhase = 0
+            isAnimating = false
+        }
+    }
+}
+
+// MARK: - Liquid Morph Extension
+
+extension View {
+    /// Aplica el efecto Liquid Morph (estilo Peloton) con deformación orgánica
+    /// - Parameter isActive: Activa o desactiva la animación
+    /// - Returns: Vista con el efecto aplicado
+    func liquidMorph(isActive: Bool) -> some View {
+        modifier(LiquidMorphModifier(isActive: isActive))
+    }
+}
