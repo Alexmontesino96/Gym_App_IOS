@@ -451,7 +451,7 @@ class AttendanceService: ObservableObject {
                         id: sessionWithClass.session.id,
                         classId: sessionWithClass.classInfo.id,
                         className: sessionWithClass.classInfo.name,
-                        instructor: sessionWithClass.classInfo.instructor,
+                        instructor: sessionWithClass.trainerName,  // Usar la propiedad computada trainerName
                         startTime: sessionWithClass.session.startTime,
                         endTime: sessionWithClass.session.endTime,
                         checkinTime: sessionWithClass.session.startTime,  // Usar startTime como checkinTime
