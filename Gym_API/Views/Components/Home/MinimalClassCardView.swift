@@ -10,37 +10,43 @@ import SwiftUI
 // MARK: - Simplified Class States
 enum MinimalClassState {
     case available
-    case booked
+    case registered  // Changed from booked for consistency
     case full
     case live
+    case completed(wasRegistered: Bool)
+    case attended
     case cancelled
-    case past
 
     var buttonText: String {
         switch self {
-        case .available: return "Book"
-        case .booked: return "Booked"
+        case .available: return "Join"
+        case .registered: return "Registered"
         case .full: return "Full"
-        case .live: return "Join"
+        case .live: return "Live"
+        case .completed(let wasRegistered):
+            return wasRegistered ? "Great Job!" : "Missed"
+        case .attended: return "Attended"
         case .cancelled: return "Cancelled"
-        case .past: return "Past"
         }
     }
 
     var buttonIcon: String? {
         switch self {
-        case .booked: return "checkmark"
+        case .available: return "plus.circle.fill"
+        case .registered: return "checkmark.circle.fill"
+        case .full: return "person.2.fill"
         case .live: return "dot.radiowaves.left.and.right"
-        case .cancelled: return "xmark.circle"
-        case .past: return "clock"
-        case .available, .full: return nil
+        case .completed(let wasRegistered):
+            return wasRegistered ? "trophy.fill" : "clock.badge.xmark"
+        case .attended: return "checkmark.seal.fill"
+        case .cancelled: return "xmark.circle.fill"
         }
     }
 
     var isActionable: Bool {
         switch self {
-        case .available, .live, .booked: return true
-        case .full, .cancelled, .past: return false
+        case .available, .live, .registered: return true
+        case .full, .cancelled, .completed, .attended: return false
         }
     }
 }
@@ -91,21 +97,22 @@ struct MinimalBookButton: View {
 
     private var backgroundColor: Color {
         if !state.isActionable {
-            return Color.dynamicSurface(theme: themeManager.currentTheme)
+            switch state {
+            case .attended:
+                return Color.green.opacity(0.1)
+            case .completed(let wasRegistered):
+                return wasRegistered ? Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1) : Color.dynamicSurface(theme: themeManager.currentTheme)
+            default:
+                return Color.dynamicSurface(theme: themeManager.currentTheme)
+            }
         }
 
         switch state {
         case .available, .live:
-            // Usar el color de acento actual si es verde, sino usar verde Mindbody
-            let currentAccent = Color.dynamicAccent(theme: themeManager.currentTheme)
-            let accentHex = ThemeManager.accentHexFromDefaults(for: themeManager.currentTheme)
-            // Si el acento actual es verde (#6FCF3F o similar), usarlo
-            if accentHex == "#6FCF3F" || accentHex.contains("6FCF") {
-                return currentAccent
-            }
-            // Sino, usar el verde Mindbody por defecto para botones Book
-            return Color.mindbodyGreen
-        case .booked, .full, .cancelled, .past:
+            return Color.dynamicAccent(theme: themeManager.currentTheme)
+        case .registered:
+            return Color.dynamicSurface(theme: themeManager.currentTheme)
+        default:
             return Color.dynamicSurface(theme: themeManager.currentTheme)
         }
     }
@@ -114,9 +121,13 @@ struct MinimalBookButton: View {
         switch state {
         case .available, .live:
             return .white
-        case .booked:
-            return Color(red: 0.44, green: 0.81, blue: 0.25) // Verde para estado booked
-        case .full, .past:
+        case .registered:
+            return Color.dynamicAccent(theme: themeManager.currentTheme)
+        case .attended:
+            return Color.green
+        case .completed(let wasRegistered):
+            return wasRegistered ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.dynamicTextSecondary(theme: themeManager.currentTheme)
+        case .full:
             return Color.dynamicTextSecondary(theme: themeManager.currentTheme)
         case .cancelled:
             return Color.red.opacity(0.8)
@@ -125,9 +136,13 @@ struct MinimalBookButton: View {
 
     private var borderColor: Color {
         switch state {
-        case .booked:
-            return Color(red: 0.44, green: 0.81, blue: 0.25).opacity(0.3)
-        case .full, .past:
+        case .registered:
+            return Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3)
+        case .attended:
+            return Color.green.opacity(0.3)
+        case .completed(let wasRegistered):
+            return wasRegistered ? Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2) : Color.clear
+        case .full:
             return Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.2)
         case .available, .live, .cancelled:
             return Color.clear
@@ -137,6 +152,19 @@ struct MinimalBookButton: View {
     var body: some View {
         Button(action: {
             if state.isActionable && !isLoading {
+                // Haptic feedback based on action
+                let impactStyle: UIImpactFeedbackGenerator.FeedbackStyle
+                switch state {
+                case .available, .live:
+                    impactStyle = .medium
+                case .registered:
+                    impactStyle = .light
+                default:
+                    impactStyle = .soft
+                }
+                let impactFeedback = UIImpactFeedbackGenerator(style: impactStyle)
+                impactFeedback.impactOccurred()
+
                 action()
             }
         }) {
@@ -155,14 +183,16 @@ struct MinimalBookButton: View {
                     .font(.system(size: 16, weight: .semibold))
             }
             .foregroundColor(foregroundColor)
-            .frame(width: 110, height: 42)
+            .frame(width: 120, height: 44)
             .background(backgroundColor)
             .overlay(
-                RoundedRectangle(cornerRadius: 21)
+                RoundedRectangle(cornerRadius: 22)
                     .stroke(borderColor, lineWidth: borderColor == .clear ? 0 : 1.5)
             )
-            .cornerRadius(21)
-            .scaleEffect(isPressed ? 0.95 : 1.0)
+            .cornerRadius(22)
+            .scaleEffect(isPressed ? 0.94 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+            .shadow(color: state.isActionable ? Color.black.opacity(0.08) : Color.clear, radius: 3, x: 0, y: 2)
         }
         .disabled(!state.isActionable || isLoading)
         .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
@@ -224,7 +254,13 @@ struct MinimalClassCardView: View {
 
         // Check if class is in the past
         if now > gymClass.endTime {
-            return .past
+            // Check if user attended
+            if classService.attendedClassIds.contains(gymClass.id) {
+                return .attended
+            }
+            // Check if user was registered
+            let wasRegistered = classService.isUserRegistered(classId: gymClass.id)
+            return .completed(wasRegistered: wasRegistered)
         }
 
         // Check if class is live
@@ -234,7 +270,7 @@ struct MinimalClassCardView: View {
 
         // Check if user is registered
         if classService.isUserRegistered(classId: gymClass.id) {
-            return .booked
+            return .registered
         }
 
         // Check if class is full
@@ -350,11 +386,12 @@ struct MinimalClassCardView: View {
 
                 // Availability info
                 let spotsRemaining = max(0, gymClass.maxParticipants - gymClass.currentParticipants)
-                if currentState == .full {
+                switch currentState {
+                case .full:
                     Text("Class Full")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color.red)
-                } else if currentState != .past && currentState != .cancelled {
+                case .available, .live, .registered:
                     HStack(spacing: 4) {
                         Text("\(spotsRemaining)")
                             .font(.system(size: 14, weight: .semibold))
@@ -363,6 +400,20 @@ struct MinimalClassCardView: View {
                             .font(.system(size: 14, weight: .regular))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
                     }
+                case .attended:
+                    Text("You attended this class")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.green)
+                case .completed(let wasRegistered):
+                    if wasRegistered {
+                        Text("Class completed")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    }
+                case .cancelled:
+                    Text("Class was cancelled")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.red.opacity(0.8))
                 }
 
                 // Instructor info
@@ -403,10 +454,10 @@ struct MinimalClassCardView: View {
         switch currentState {
         case .available, .live:
             joinClass()
-        case .booked:
+        case .registered:
             // Show action sheet for cancel option
             showBookedOptions()
-        case .full, .cancelled, .past:
+        case .full, .cancelled, .completed, .attended:
             // No action for these states
             break
         }
@@ -415,14 +466,17 @@ struct MinimalClassCardView: View {
     private func joinClass() {
         isLoading = true
         Task {
-            await classService.joinClass(classId: gymClass.id)
+            let success = await classService.joinClass(classId: gymClass.id)
             await MainActor.run {
                 isLoading = false
 
-                // Haptic feedback
-                if #available(iOS 13.0, *) {
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                    impactFeedback.impactOccurred()
+                // Haptic feedback based on result
+                if success {
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                } else {
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.error)
                 }
             }
         }
@@ -431,12 +485,18 @@ struct MinimalClassCardView: View {
     private func cancelClass() {
         isLoading = true
         Task {
-            await classService.cancelClassRegistration(
+            let success = await classService.cancelClassRegistration(
                 classId: gymClass.id,
                 reason: "User cancelled from app"
             )
             await MainActor.run {
                 isLoading = false
+
+                // Haptic feedback for cancellation
+                if success {
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.warning)
+                }
             }
         }
     }
