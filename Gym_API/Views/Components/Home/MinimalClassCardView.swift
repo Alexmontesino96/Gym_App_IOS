@@ -6,6 +6,68 @@
 //
 
 import SwiftUI
+import UIKit
+
+// MARK: - Animation Support Structures
+struct Particle: Identifiable {
+    let id = UUID()
+    var position: CGPoint
+    var velocity: CGSize
+    var color: Color
+    var scale: CGFloat = 1.0
+    var opacity: Double = 1.0
+    var rotation: Angle = .zero
+}
+
+struct ShimmerView: View {
+    let color: Color
+    @State private var shimmerPosition: CGFloat = -1
+
+    var body: some View {
+        GeometryReader { geometry in
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    color.opacity(0),
+                    color.opacity(0.5),
+                    color.opacity(0),
+                ]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: geometry.size.width * 0.3)
+            .offset(x: geometry.size.width * shimmerPosition)
+            .onAppear {
+                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                    shimmerPosition = 2
+                }
+            }
+        }
+        .mask(RoundedRectangle(cornerRadius: 22))
+    }
+}
+
+struct HapticPattern {
+    static func elasticBounce() {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.prepare()
+
+        // Initial impact
+        generator.impactOccurred(intensity: 0.7)
+
+        // Bounce effects
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            generator.impactOccurred(intensity: 1.0)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            generator.impactOccurred(intensity: 0.5)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            generator.impactOccurred(intensity: 0.3)
+        }
+    }
+}
 
 // MARK: - Simplified Class States
 enum MinimalClassState: Equatable {
@@ -87,13 +149,25 @@ struct MinimalInstructorAvatar: View {
     }
 }
 
-// MARK: - Simplified Book Button
+// MARK: - Simplified Book Button with Modern Animations
 struct MinimalBookButton: View {
     let state: MinimalClassState
     let isLoading: Bool
     let action: () -> Void
     @EnvironmentObject var themeManager: ThemeManager
     @State private var isPressed = false
+
+    // Animation states for morphing success
+    @State private var buttonScale: CGFloat = 1.0
+    @State private var iconScale: CGFloat = 0
+    @State private var stretchX: CGFloat = 1.0
+    @State private var stretchY: CGFloat = 1.0
+    @State private var glowRadius: CGFloat = 0
+    @State private var glowOpacity: Double = 0
+    @State private var shimmerOpacity: Double = 0
+    @State private var isAnimatingSuccess = false
+    @State private var particles: [Particle] = []
+    @State private var previousState: MinimalClassState? = nil
 
     private var backgroundColor: Color {
         if !state.isActionable {
@@ -150,56 +224,201 @@ struct MinimalBookButton: View {
     }
 
     var body: some View {
-        Button(action: {
-            if state.isActionable && !isLoading {
-                // Haptic feedback based on action
-                let impactStyle: UIImpactFeedbackGenerator.FeedbackStyle
-                switch state {
-                case .available, .live:
-                    impactStyle = .medium
-                case .registered:
-                    impactStyle = .light
-                default:
-                    impactStyle = .soft
-                }
-                let impactFeedback = UIImpactFeedbackGenerator(style: impactStyle)
-                impactFeedback.impactOccurred()
-
-                action()
+        ZStack {
+            // Background glow effect
+            if glowOpacity > 0 {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color.dynamicAccent(theme: themeManager.currentTheme).opacity(glowOpacity),
+                                Color.clear
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: glowRadius
+                        )
+                    )
+                    .blur(radius: glowRadius * 0.5)
+                    .frame(width: 120, height: 44)
             }
-        }) {
-            HStack(spacing: 4) {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .tint(foregroundColor)
-                        .scaleEffect(0.8)
-                } else if let icon = state.buttonIcon {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                }
 
-                Text(isLoading ? "Loading..." : state.buttonText)
-                    .font(.system(size: 16, weight: .semibold))
+            Button(action: {
+                if state.isActionable && !isLoading {
+                    action()
+                    if state == .available {
+                        triggerSuccessAnimation()
+                    }
+                }
+            }) {
+                HStack(spacing: 4) {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .tint(foregroundColor)
+                            .scaleEffect(0.8)
+                    } else if let icon = state.buttonIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .scaleEffect(state == .registered && iconScale > 0 ? iconScale : 1.0)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+
+                    Text(isLoading ? "Loading..." : state.buttonText)
+                        .font(.system(size: 16, weight: .semibold))
+                        .animation(.easeInOut(duration: 0.3), value: state.buttonText)
+                }
+                .foregroundColor(foregroundColor)
+                .frame(width: 120, height: 44)
+                .background(
+                    ZStack {
+                        backgroundColor
+
+                        // Shimmer effect for success state
+                        if shimmerOpacity > 0 && state == .registered {
+                            ShimmerView(color: .white.opacity(shimmerOpacity))
+                        }
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(borderColor, lineWidth: borderColor == .clear ? 0 : 1.5)
+                )
+                .cornerRadius(22)
+                .scaleEffect(x: stretchX * (isPressed ? 0.94 : 1.0), y: stretchY * (isPressed ? 0.94 : 1.0))
+                .scaleEffect(buttonScale)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: buttonScale)
+                .animation(.interpolatingSpring(stiffness: 400, damping: 10), value: stretchX)
+                .animation(.interpolatingSpring(stiffness: 400, damping: 10), value: stretchY)
+                .shadow(color: state.isActionable ? Color.black.opacity(0.08 + glowOpacity * 0.1) : Color.clear, radius: 3 + glowRadius * 0.1, x: 0, y: 2)
             }
-            .foregroundColor(foregroundColor)
-            .frame(width: 120, height: 44)
-            .background(backgroundColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 22)
-                    .stroke(borderColor, lineWidth: borderColor == .clear ? 0 : 1.5)
-            )
-            .cornerRadius(22)
-            .scaleEffect(isPressed ? 0.94 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-            .shadow(color: state.isActionable ? Color.black.opacity(0.08) : Color.clear, radius: 3, x: 0, y: 2)
+            .disabled(!state.isActionable || isLoading)
+
+            // Particle effects
+            ForEach(particles) { particle in
+                Circle()
+                    .fill(particle.color)
+                    .frame(width: 4 * particle.scale, height: 4 * particle.scale)
+                    .position(particle.position)
+                    .opacity(particle.opacity)
+                    .rotationEffect(particle.rotation)
+            }
         }
-        .disabled(!state.isActionable || isLoading)
         .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.easeInOut(duration: 0.1)) {
                 isPressed = pressing
             }
         }, perform: {})
+        .onChange(of: state) { oldState, newState in
+            handleStateChange(from: oldState, to: newState)
+        }
+    }
+
+    // MARK: - Animation Functions
+
+    private func triggerSuccessAnimation() {
+        isAnimatingSuccess = true
+
+        // Phase 1: Morphing with elastic compression
+        withAnimation(.interpolatingSpring(stiffness: 400, damping: 10)) {
+            stretchY = 0.85
+            stretchX = 1.15
+        }
+
+        // Phase 2: Expansion with overshoot
+        withAnimation(.interpolatingSpring(stiffness: 200, damping: 12).delay(0.1)) {
+            stretchY = 1.15
+            stretchX = 0.95
+            buttonScale = 1.05
+        }
+
+        // Phase 3: Settle with elastic bounce
+        withAnimation(.interpolatingSpring(stiffness: 300, damping: 15).delay(0.25)) {
+            stretchY = 1.0
+            stretchX = 1.0
+            buttonScale = 1.0
+        }
+
+        // Glow expansion
+        withAnimation(.easeOut(duration: 0.4)) {
+            glowRadius = 20
+            glowOpacity = 0.6
+        }
+        withAnimation(.easeIn(duration: 0.3).delay(0.4)) {
+            glowRadius = 5
+            glowOpacity = 0
+        }
+
+        // Icon scale animation
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.3).delay(0.3)) {
+            iconScale = 1.2
+        }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6).delay(0.6)) {
+            iconScale = 1.0
+        }
+
+        // Shimmer effect
+        withAnimation(.easeInOut(duration: 0.3).delay(0.4)) {
+            shimmerOpacity = 0.6
+        }
+        withAnimation(.easeInOut(duration: 0.3).delay(0.7)) {
+            shimmerOpacity = 0
+        }
+
+        // Create celebration particles
+        createParticles()
+
+        // Haptic feedback pattern
+        HapticPattern.elasticBounce()
+
+        // Clean up animation state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            isAnimatingSuccess = false
+        }
+    }
+
+    private func createParticles() {
+        particles.removeAll()
+
+        for _ in 0..<5 {
+            let particle = Particle(
+                position: CGPoint(x: 60, y: 22),
+                velocity: CGSize(
+                    width: CGFloat.random(in: -50...50),
+                    height: CGFloat.random(in: -80...-30)
+                ),
+                color: [
+                    Color.dynamicAccent(theme: themeManager.currentTheme),
+                    Color.orange,
+                    Color.yellow
+                ].randomElement()!,
+                scale: CGFloat.random(in: 0.8...1.2)
+            )
+            particles.append(particle)
+        }
+
+        // Animate particles
+        withAnimation(.easeOut(duration: 0.8)) {
+            for i in particles.indices {
+                particles[i].position.x += particles[i].velocity.width
+                particles[i].position.y += particles[i].velocity.height
+                particles[i].opacity = 0
+                particles[i].scale *= 0.3
+            }
+        }
+
+        // Clean up particles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            particles.removeAll()
+        }
+    }
+
+    private func handleStateChange(from oldState: MinimalClassState, to newState: MinimalClassState) {
+        // Trigger success animation when transitioning from available to registered
+        if oldState == .available && newState == .registered {
+            triggerSuccessAnimation()
+        }
     }
 }
 
