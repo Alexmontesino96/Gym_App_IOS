@@ -359,7 +359,7 @@ struct SessionTaggingSheet_Previews: PreviewProvider {
             onSelection: { _ in }
         )
         .environmentObject(ServiceContainer.shared.attendanceService)
-        .environmentObject(ThemeManager.shared)
+        .environmentObject(ThemeManager())
     }
 }
 #endif
