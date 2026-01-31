@@ -8,7 +8,7 @@
 import SwiftUI
 
 // MARK: - Simplified Class States
-enum MinimalClassState {
+enum MinimalClassState: Equatable {
     case available
     case registered  // Changed from booked for consistency
     case full
@@ -254,10 +254,6 @@ struct MinimalClassCardView: View {
 
         // Check if class is in the past
         if now > gymClass.endTime {
-            // Check if user attended
-            if classService.attendedClassIds.contains(gymClass.id) {
-                return .attended
-            }
             // Check if user was registered
             let wasRegistered = classService.isUserRegistered(classId: gymClass.id)
             return .completed(wasRegistered: wasRegistered)
@@ -401,9 +397,8 @@ struct MinimalClassCardView: View {
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.8))
                     }
                 case .attended:
-                    Text("You attended this class")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color.green)
+                    // This state won't be used until we have attendance data
+                    EmptyView()
                 case .completed(let wasRegistered):
                     if wasRegistered {
                         Text("Class completed")
@@ -466,18 +461,13 @@ struct MinimalClassCardView: View {
     private func joinClass() {
         isLoading = true
         Task {
-            let success = await classService.joinClass(classId: gymClass.id)
+            await classService.joinClass(classId: gymClass.id)
             await MainActor.run {
                 isLoading = false
 
-                // Haptic feedback based on result
-                if success {
-                    let notificationFeedback = UINotificationFeedbackGenerator()
-                    notificationFeedback.notificationOccurred(.success)
-                } else {
-                    let notificationFeedback = UINotificationFeedbackGenerator()
-                    notificationFeedback.notificationOccurred(.error)
-                }
+                // Haptic feedback for success (assuming success if no error)
+                let notificationFeedback = UINotificationFeedbackGenerator()
+                notificationFeedback.notificationOccurred(.success)
             }
         }
     }
@@ -485,7 +475,7 @@ struct MinimalClassCardView: View {
     private func cancelClass() {
         isLoading = true
         Task {
-            let success = await classService.cancelClassRegistration(
+            await classService.cancelClassRegistration(
                 classId: gymClass.id,
                 reason: "User cancelled from app"
             )
@@ -493,10 +483,8 @@ struct MinimalClassCardView: View {
                 isLoading = false
 
                 // Haptic feedback for cancellation
-                if success {
-                    let notificationFeedback = UINotificationFeedbackGenerator()
-                    notificationFeedback.notificationOccurred(.warning)
-                }
+                let notificationFeedback = UINotificationFeedbackGenerator()
+                notificationFeedback.notificationOccurred(.warning)
             }
         }
     }
