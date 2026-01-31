@@ -386,7 +386,7 @@ struct MinimalBookButton: View {
                 position: CGPoint(x: 60, y: 22),
                 velocity: CGSize(
                     width: CGFloat.random(in: -50...50),
-                    height: CGFloat.random(in: -80...-30)
+                    height: CGFloat.random(in: -80 ... -30)
                 ),
                 color: [
                     Color.dynamicAccent(theme: themeManager.currentTheme),
