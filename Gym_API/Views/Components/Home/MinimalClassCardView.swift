@@ -246,9 +246,6 @@ struct MinimalBookButton: View {
             Button(action: {
                 if state.isActionable && !isLoading {
                     action()
-                    if state == .available {
-                        triggerSuccessAnimation()
-                    }
                 }
             }) {
                 HStack(spacing: 4) {
