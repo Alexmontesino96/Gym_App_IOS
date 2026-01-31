@@ -18,25 +18,34 @@ struct ParticipationHistoryItem: Codable {
 /// Información de participación del usuario
 struct ParticipationRecord: Codable {
     let id: Int
-    let status: ParticipationStatus
+    let statusString: String // Recibimos el string del backend
     let registrationTime: Date?
     let attendanceTime: Date?
 
+    // Propiedad computada para convertir el string a ParticipationStatus
+    var status: ParticipationStatus {
+        switch statusString {
+        case "attended":
+            return .attended
+        case "registered":
+            return .registered
+        case "cancelled", "no_show":
+            return .cancelled  // Tratamos no_show como cancelled
+        default:
+            return .cancelled
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
-        case status
+        case statusString = "status"
         case registrationTime = "registration_time"
         case attendanceTime = "attendance_time"
     }
 }
 
-/// Estados de participación
-enum ParticipationStatus: String, Codable {
-    case attended = "attended"
-    case registered = "registered"
-    case cancelled = "cancelled"
-    case noShow = "no_show"
-}
+// ParticipationStatus ya está definido en ClassService.swift
+// Si necesitamos manejar "no_show", lo trataremos como "cancelled"
 
 /// Información de la sesión
 struct SessionRecord: Codable {
