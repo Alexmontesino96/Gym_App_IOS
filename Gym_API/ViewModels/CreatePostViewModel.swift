@@ -18,6 +18,7 @@ class CreatePostViewModel: ObservableObject {
     @Published var uploadProgress: Double = 0.0
     @Published var errorMessage: String?
     @Published var successMessage: String?
+    @Published var taggedSessionId: Int? = nil  // ID de la sesión etiquetada
 
     // MARK: - Private Properties
 
@@ -63,10 +64,12 @@ class CreatePostViewModel: ObservableObject {
 
             // Crear post
             print("🚀 [CreatePostViewModel] Enviando request a PostService...")
+            print("📌 [CreatePostViewModel] Tagged Session ID: \(taggedSessionId != nil ? "\(taggedSessionId!)" : "nil")")
             let post = try await postService.createPost(
                 caption: caption.isEmpty ? nil : caption,
                 location: location.isEmpty ? nil : location,
-                images: compressedImages
+                images: compressedImages,
+                sessionId: taggedSessionId
             )
 
             uploadProgress = 1.0
@@ -144,6 +147,7 @@ class CreatePostViewModel: ObservableObject {
         uploadProgress = 0.0
         errorMessage = nil
         successMessage = nil
+        taggedSessionId = nil  // Reset tagged session
     }
 
     // MARK: - Validation

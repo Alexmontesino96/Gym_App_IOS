@@ -389,4 +389,106 @@ class AttendanceService: ObservableObject {
         memberProfile = nil
         Logger.shared.info("🧹 AttendanceService state cleared", category: .network)
     }
+
+    // MARK: - Recent Attended Classes (para etiquetado de posts)
+
+    /// Obtiene las clases a las que el usuario asistió en la última semana
+    /// - Returns: Lista de clases asistidas en los últimos 7 días
+    @MainActor
+    func getRecentAttendedClasses() async throws -> [AttendedClass] {
+        guard let token = await authService?.getValidAccessToken() else {
+            throw AttendanceCheckInError.networkError("No se pudo obtener token de autenticación")
+        }
+
+        guard let gymId = GymService.shared.currentGymId else {
+            throw AttendanceCheckInError.networkError("No hay gimnasio seleccionado")
+        }
+
+        guard let userId = authService?.user?.id else {
+            throw AttendanceCheckInError.networkError("No se pudo obtener el ID del usuario")
+        }
+
+        // Fecha de hace 7 días
+        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+
+        // Construir URL con parámetros
+        var components = URLComponents(string: "\(baseURL)/attendance/user/\(userId)")
+        components?.queryItems = [
+            URLQueryItem(name: "gym_id", value: "\(gymId)"),
+            URLQueryItem(name: "start_date", value: ISO8601DateFormatter().string(from: oneWeekAgo)),
+            URLQueryItem(name: "end_date", value: ISO8601DateFormatter().string(from: Date()))
+        ]
+
+        guard let url = components?.url else {
+            throw AttendanceCheckInError.networkError("URL inválida")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw AttendanceCheckInError.networkError("Respuesta inválida del servidor")
+            }
+
+            if httpResponse.statusCode == 200 {
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                decoder.dateDecodingStrategy = .iso8601
+
+                // Decodificar respuesta del backend
+                let attendanceRecords = try decoder.decode([AttendanceRecord].self, from: data)
+
+                // Convertir a AttendedClass
+                let attendedClasses = attendanceRecords.compactMap { record -> AttendedClass? in
+                    guard let classDetails = record.classDetails else { return nil }
+
+                    return AttendedClass(
+                        id: record.id,
+                        classId: classDetails.id,
+                        className: classDetails.title,
+                        instructor: classDetails.instructor,
+                        startTime: classDetails.startTime,
+                        endTime: classDetails.endTime,
+                        checkinTime: record.checkinTime,
+                        checkoutTime: record.checkoutTime
+                    )
+                }
+
+                // Filtrar solo las de la última semana y ordenar por más reciente
+                return attendedClasses
+                    .filter { $0.isWithinLastWeek }
+                    .sorted { $0.checkinTime > $1.checkinTime }
+
+            } else {
+                Logger.shared.error("Error al obtener clases asistidas: \(httpResponse.statusCode)", category: .network)
+                throw AttendanceCheckInError.networkError("Error al obtener historial de clases")
+            }
+
+        } catch {
+            Logger.shared.error("Error fetching recent attended classes: \(error)", category: .network)
+            throw error
+        }
+    }
+
+    /// Obtiene la última clase a la que asistió el usuario (para sugerencias)
+    /// - Returns: La clase más reciente si fue completada hace menos de 2 horas
+    @MainActor
+    func getLastAttendedClass() async -> AttendedClass? {
+        do {
+            let recentClasses = try await getRecentAttendedClasses()
+
+            // Buscar la primera clase que fue completada recientemente
+            return recentClasses.first { $0.isRecentlyCompleted }
+
+        } catch {
+            Logger.shared.error("Error getting last attended class: \(error)", category: .network)
+            return nil
+        }
+    }
 }

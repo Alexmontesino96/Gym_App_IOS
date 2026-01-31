@@ -5,6 +5,7 @@ import CropViewController
 /// Vista para crear un nuevo post con selección de imágenes y crop estilo Instagram
 struct CreatePostView: View {
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var attendanceService: AttendanceService
     @StateObject private var viewModel = CreatePostViewModel()
     @Environment(\.dismiss) private var dismiss
 
@@ -17,6 +18,12 @@ struct CreatePostView: View {
     @State private var photosToProcess: [UIImage] = []
     @State private var showCropView = false
     @State private var currentImageToCrop: UIImage?
+
+    // Session Tagging State
+    @State private var showSessionTaggingSheet = false
+    @State private var selectedSession: AttendedClass?
+    @State private var recentSession: AttendedClass?
+    @State private var showSuggestionBanner = false
 
     var body: some View {
         NavigationView {
@@ -72,6 +79,25 @@ struct CreatePostView: View {
                     Text(error)
                 }
             }
+        }
+        .task {
+            // Check if there's a recently completed class to suggest
+            if let recent = await attendanceService.getLastAttendedClass(),
+               recent.isRecentlyCompleted {
+                recentSession = recent
+                showSuggestionBanner = true
+            }
+        }
+        .sheet(isPresented: $showSessionTaggingSheet) {
+            SessionTaggingSheet(
+                selectedClass: $selectedSession,
+                onSelection: { session in
+                    selectedSession = session
+                    viewModel.taggedSessionId = session.id
+                }
+            )
+            .environmentObject(attendanceService)
+            .environmentObject(themeManager)
         }
         .photosPicker(
             isPresented: $showPhotoPicker,
@@ -154,6 +180,24 @@ struct CreatePostView: View {
     private var postCompositionView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+
+                // Suggestion banner si hay una clase reciente
+                if showSuggestionBanner, let recent = recentSession {
+                    PostClassSuggestionBanner(
+                        attendedClass: recent,
+                        onTap: {
+                            selectedSession = recent
+                            viewModel.taggedSessionId = recent.id
+                            showSuggestionBanner = false
+                        },
+                        onDismiss: {
+                            showSuggestionBanner = false
+                        }
+                    )
+                    .environmentObject(themeManager)
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 // Grid de imágenes seleccionadas
                 LazyVGrid(columns: [
@@ -253,6 +297,90 @@ struct CreatePostView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                     )
+                }
+                .padding(.horizontal)
+
+                Divider()
+
+                // Session Tagging
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Etiquetar Sesión")
+                        .font(.headline)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                    if let session = selectedSession {
+                        // Mostrar la sesión seleccionada como chip
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "figure.run")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.className)
+                                        .font(.caption.bold())
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+
+                                    Text("con \(session.instructor)")
+                                        .font(.caption2)
+                                        .foregroundColor(.white.opacity(0.9))
+                                }
+
+                                Spacer()
+
+                                Button(action: {
+                                    withAnimation {
+                                        selectedSession = nil
+                                        viewModel.taggedSessionId = nil
+                                    }
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.white.opacity(0.9))
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.red,
+                                        Color.red.opacity(0.8)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(24)
+                            .shadow(radius: 2)
+
+                            Spacer()
+                        }
+                    } else {
+                        // Botón para agregar sesión
+                        Button(action: {
+                            showSessionTaggingSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle")
+                                    .font(.system(size: 16))
+                                Text("Agregar clase a la que asististe")
+                                    .font(.subheadline)
+                            }
+                            .foregroundColor(.red)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.red, lineWidth: 1)
+                            )
+                        }
+                    }
+
+                    Text("Comparte tu experiencia y etiqueta la clase a la que asististe")
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
                 .padding(.horizontal)
 
