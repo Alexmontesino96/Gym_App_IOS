@@ -407,12 +407,16 @@ class AttendanceService: ObservableObject {
         // Fecha de hace 7 días
         let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
 
+        // Formatear fechas en YYYY-MM-DD como espera el backend
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.timeZone = TimeZone.current
+
         // Construir URL con parámetros - Usando el endpoint correcto según la documentación
         var components = URLComponents(string: "\(baseURL)/schedule/participation/my-history")
         components?.queryItems = [
-            URLQueryItem(name: "gym_id", value: "\(gymId)"),
-            URLQueryItem(name: "start_date", value: ISO8601DateFormatter().string(from: oneWeekAgo)),
-            URLQueryItem(name: "end_date", value: ISO8601DateFormatter().string(from: Date()))
+            URLQueryItem(name: "start_date", value: dateFormatter.string(from: oneWeekAgo)),
+            URLQueryItem(name: "end_date", value: dateFormatter.string(from: Date()))
         ]
 
         guard let url = components?.url else {
@@ -437,32 +441,21 @@ class AttendanceService: ObservableObject {
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 decoder.dateDecodingStrategy = .iso8601
 
-                // Decodificar respuesta del backend usando SessionWithClass (misma estructura que UserStatsService)
-                let sessionsWithClass = try decoder.decode([SessionWithClass].self, from: data)
+                // Decodificar respuesta del backend usando la estructura real del API
+                let participationHistory = try decoder.decode([ParticipationHistoryItem].self, from: data)
 
-                Logger.shared.info("Obtenidas \(sessionsWithClass.count) sesiones del historial", category: .network)
+                Logger.shared.info("Obtenidas \(participationHistory.count) registros del historial", category: .network)
 
-                // Convertir a AttendedClass
-                let attendedClasses = sessionsWithClass.compactMap { sessionWithClass -> AttendedClass? in
-                    // Filtrar solo clases no canceladas
-                    guard sessionWithClass.session.status != .cancelled else { return nil }
-
-                    return AttendedClass(
-                        id: sessionWithClass.session.id,
-                        classId: sessionWithClass.classInfo.id,
-                        className: sessionWithClass.classInfo.name,
-                        instructor: sessionWithClass.trainerName,  // Usar la propiedad computada trainerName
-                        startTime: sessionWithClass.session.startTime,
-                        endTime: sessionWithClass.session.endTime,
-                        checkinTime: sessionWithClass.session.startTime,  // Usar startTime como checkinTime
-                        checkoutTime: sessionWithClass.session.endTime    // Usar endTime como checkoutTime
-                    )
+                // Convertir a AttendedClass usando el método de conversión
+                let attendedClasses = participationHistory.compactMap { item in
+                    item.toAttendedClass()
                 }
 
-                // Filtrar solo las de la última semana y ordenar por más reciente
-                return attendedClasses
-                    .filter { $0.isWithinLastWeek }
-                    .sorted { $0.checkinTime > $1.checkinTime }
+                Logger.shared.info("Filtradas \(attendedClasses.count) clases asistidas", category: .network)
+
+                // Las clases ya están filtradas (solo attended) y dentro de la última semana
+                // Solo necesitamos ordenar por más reciente
+                return attendedClasses.sorted { $0.checkinTime > $1.checkinTime }
 
             } else {
                 Logger.shared.error("Error al obtener clases asistidas: \(httpResponse.statusCode)", category: .network)
