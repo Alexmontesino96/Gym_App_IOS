@@ -404,15 +404,11 @@ class AttendanceService: ObservableObject {
             throw AttendanceCheckInError.networkError("No hay gimnasio seleccionado")
         }
 
-        guard let userId = authService?.user?.id else {
-            throw AttendanceCheckInError.networkError("No se pudo obtener el ID del usuario")
-        }
-
         // Fecha de hace 7 días
         let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
 
-        // Construir URL con parámetros
-        var components = URLComponents(string: "\(baseURL)/attendance/user/\(userId)")
+        // Construir URL con parámetros - Usando el endpoint correcto según la documentación
+        var components = URLComponents(string: "\(baseURL)/schedule/participation/my-history")
         components?.queryItems = [
             URLQueryItem(name: "gym_id", value: "\(gymId)"),
             URLQueryItem(name: "start_date", value: ISO8601DateFormatter().string(from: oneWeekAgo)),
@@ -441,22 +437,25 @@ class AttendanceService: ObservableObject {
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 decoder.dateDecodingStrategy = .iso8601
 
-                // Decodificar respuesta del backend
-                let attendanceRecords = try decoder.decode([AttendanceRecord].self, from: data)
+                // Decodificar respuesta del backend usando SessionWithClass (misma estructura que UserStatsService)
+                let sessionsWithClass = try decoder.decode([SessionWithClass].self, from: data)
+
+                Logger.shared.info("Obtenidas \(sessionsWithClass.count) sesiones del historial", category: .network)
 
                 // Convertir a AttendedClass
-                let attendedClasses = attendanceRecords.compactMap { record -> AttendedClass? in
-                    guard let classDetails = record.classDetails else { return nil }
+                let attendedClasses = sessionsWithClass.compactMap { sessionWithClass -> AttendedClass? in
+                    // Filtrar solo clases no canceladas
+                    guard sessionWithClass.session.status != .cancelled else { return nil }
 
                     return AttendedClass(
-                        id: record.id,
-                        classId: classDetails.id,
-                        className: classDetails.title,
-                        instructor: classDetails.instructor,
-                        startTime: classDetails.startTime,
-                        endTime: classDetails.endTime,
-                        checkinTime: record.checkinTime,
-                        checkoutTime: record.checkoutTime
+                        id: sessionWithClass.session.id,
+                        classId: sessionWithClass.classInfo.id,
+                        className: sessionWithClass.classInfo.name,
+                        instructor: sessionWithClass.classInfo.instructor,
+                        startTime: sessionWithClass.session.startTime,
+                        endTime: sessionWithClass.session.endTime,
+                        checkinTime: sessionWithClass.session.startTime,  // Usar startTime como checkinTime
+                        checkoutTime: sessionWithClass.session.endTime    // Usar endTime como checkoutTime
                     )
                 }
 
