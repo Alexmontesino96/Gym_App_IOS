@@ -367,3 +367,163 @@ extension View {
         modifier(LiquidMorphModifier(isActive: isActive))
     }
 }
+
+// MARK: - Neon Pulse Effect (for LIVE classes)
+
+struct NeonPulseModifier: ViewModifier {
+    @State private var pulsePhase: CGFloat = 0
+    @State private var trailPosition: CGFloat = 0
+    @State private var glowIntensity: Double = 0.3
+    @State private var borderWidth: CGFloat = 2
+    @State private var isAnimating: Bool = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    let isLive: Bool
+    @State private var gradientColors: [Color] = []
+    @State private var trailOpacity: Double = 0
+
+    // Colores del gradiente neón
+    private let baseColor = Color(red: 217/255, green: 51/255, blue: 51/255) // #D93333
+    private let pinkColor = Color(red: 255/255, green: 105/255, blue: 180/255)
+    private let orangeColor = Color(red: 255/255, green: 140/255, blue: 90/255)
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                GeometryReader { geometry in
+                    if isLive && !reduceMotion && isAnimating {
+                        // Borde neón con gradiente animado
+                        RoundedRectangle(cornerRadius: 22)
+                            .strokeBorder(
+                                AngularGradient(
+                                    gradient: Gradient(colors: gradientColors),
+                                    center: .center,
+                                    startAngle: .degrees(trailPosition),
+                                    endAngle: .degrees(trailPosition + 360)
+                                ),
+                                lineWidth: borderWidth
+                            )
+                            .blur(radius: 6 + glowIntensity * 2)
+                            .opacity(0.9)
+                            .animation(.easeInOut(duration: 0.3), value: borderWidth)
+
+                        // Trail de luz secundario
+                        RoundedRectangle(cornerRadius: 22)
+                            .trim(from: 0, to: 0.3)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        pinkColor.opacity(trailOpacity),
+                                        orangeColor.opacity(trailOpacity * 0.5),
+                                        Color.clear
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: borderWidth + 1
+                            )
+                            .rotationEffect(.degrees(trailPosition))
+                            .blur(radius: 8)
+                    } else if isLive && reduceMotion {
+                        // Fallback estático para accesibilidad
+                        RoundedRectangle(cornerRadius: 22)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [baseColor, pinkColor],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
+                            )
+                            .opacity(0.6)
+                    }
+                }
+            )
+            .shadow(
+                color: isLive && isAnimating ? baseColor.opacity(glowIntensity * 0.4) : Color.clear,
+                radius: isLive ? (10 + glowIntensity * 5) : 0
+            )
+            .onAppear {
+                setupGradientColors()
+                if isLive && !reduceMotion {
+                    startNeonAnimation()
+                }
+            }
+            .onChange(of: isLive) { _, newValue in
+                if newValue && !reduceMotion {
+                    startNeonAnimation()
+                } else {
+                    stopNeonAnimation()
+                }
+            }
+            .onDisappear {
+                stopNeonAnimation()
+            }
+    }
+
+    private func setupGradientColors() {
+        // Configurar gradiente animado con transición suave
+        gradientColors = [
+            baseColor,
+            baseColor.opacity(0.8),
+            pinkColor,
+            pinkColor.opacity(0.9),
+            orangeColor,
+            orangeColor.opacity(0.8),
+            baseColor
+        ]
+    }
+
+    private func startNeonAnimation() {
+        isAnimating = true
+
+        // Fase 1: Expansión del glow (0-0.5s)
+        withAnimation(.easeIn(duration: 0.5)) {
+            glowIntensity = 0.8
+            borderWidth = 3.5
+        }
+
+        // Fase 2: Trail de luz recorre el borde (0.5-1.0s)
+        withAnimation(.linear(duration: 1.0).delay(0.5)) {
+            trailPosition = 360
+            trailOpacity = 0.8
+        }
+
+        // Fase 3: Fade out suave (1.0-1.5s)
+        withAnimation(.easeOut(duration: 0.5).delay(1.0)) {
+            glowIntensity = 0.3
+            borderWidth = 2
+            trailOpacity = 0
+        }
+
+        // Repetir el ciclo
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            if isAnimating && isLive {
+                // Reset valores para el siguiente ciclo
+                trailPosition = 0
+                startNeonAnimation()
+            }
+        }
+    }
+
+    private func stopNeonAnimation() {
+        isAnimating = false
+        withAnimation(.easeOut(duration: 0.3)) {
+            glowIntensity = 0
+            borderWidth = 2
+            trailOpacity = 0
+            trailPosition = 0
+        }
+    }
+}
+
+// MARK: - Neon Pulse Extension
+
+extension View {
+    /// Aplica el efecto Neon Pulse para clases LIVE
+    /// - Parameter isLive: Si la clase está en vivo
+    /// - Returns: Vista con el efecto neón pulsante
+    func neonPulse(isLive: Bool) -> some View {
+        modifier(NeonPulseModifier(isLive: isLive))
+    }
+}

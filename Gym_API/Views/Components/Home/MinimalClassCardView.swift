@@ -148,6 +148,7 @@ struct MinimalBookButton: View {
     @State private var particles: [Particle] = []
     @State private var previousState: MinimalClassState? = nil
     @State private var isLiquidMorphing = false // Estado para Liquid Morph
+    @State private var isNeonPulseActive = true // Control del Neon Pulse
 
     private var backgroundColor: Color {
         if !state.isActionable {
@@ -225,6 +226,16 @@ struct MinimalBookButton: View {
 
             Button(action: {
                 if state.isActionable && !isLoading {
+                    // Pausar Neon Pulse durante la acción
+                    if state == .live {
+                        isNeonPulseActive = false
+                        // Reactivar después de 2 segundos si sigue siendo LIVE
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            if state == .live {
+                                isNeonPulseActive = true
+                            }
+                        }
+                    }
                     action()
                 }
             }) {
@@ -265,6 +276,7 @@ struct MinimalBookButton: View {
                 .scaleEffect(x: stretchX * (isPressed ? 0.94 : 1.0), y: stretchY * (isPressed ? 0.94 : 1.0))
                 .scaleEffect(buttonScale)
                 .liquidMorph(isActive: isLiquidMorphing) // Aplicar Liquid Morph
+                .neonPulse(isLive: state == .live && isNeonPulseActive) // Aplicar Neon Pulse para estado LIVE (pausable)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: buttonScale)
                 .animation(.interpolatingSpring(stiffness: 400, damping: 10), value: stretchX)
