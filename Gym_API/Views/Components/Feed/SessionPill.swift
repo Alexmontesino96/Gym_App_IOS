@@ -8,6 +8,117 @@
 import SwiftUI
 import Foundation
 
+// MARK: - SessionPillContainer
+
+/// Container view que carga y muestra una sesión etiquetada
+struct SessionPillContainer: View {
+    @StateObject private var cacheService = SessionCacheService.shared
+    @EnvironmentObject var themeManager: ThemeManager
+
+    let sessionTag: PostTag
+    @State private var session: AttendedClass?
+    @State private var isLoading = true
+
+    var body: some View {
+        Group {
+            if isLoading {
+                // Placeholder mientras carga
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Cargando sesión...")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.gray.opacity(0.1))
+                )
+                .sessionShimmering()
+            } else if let session = session {
+                // Mostrar el pill con la sesión cargada
+                SessionPill(session: session)
+                    .environmentObject(themeManager)
+                    .transition(.opacity.combined(with: .scale))
+            }
+        }
+        .task {
+            await loadSession()
+        }
+    }
+
+    private func loadSession() async {
+        isLoading = true
+
+        // SIEMPRE mostrar una sesión de prueba para verificar que funciona
+        // Los nombres varían según el ID para simular diferentes clases
+        let classNames = ["HIIT Cardio", "Yoga Flow", "CrossFit", "Spinning", "Boxing", "Pilates"]
+        let instructors = ["Sarah Miller", "John Doe", "Emma Wilson", "Mike Johnson", "Lisa Chen", "Tom Smith"]
+        let index = sessionTag.tagId % classNames.count
+
+        let mockSession = AttendedClass(
+            id: sessionTag.tagId,
+            classId: 100 + sessionTag.tagId,
+            className: classNames[index],
+            instructor: instructors[index],
+            startTime: Date().addingTimeInterval(-3600),
+            endTime: Date().addingTimeInterval(-1800),
+            checkinTime: Date().addingTimeInterval(-3600),
+            checkoutTime: Date().addingTimeInterval(-1800)
+        )
+
+        // Simular delay de red muy corto
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 segundos
+
+        withAnimation(.easeInOut(duration: 0.3)) {
+            self.session = mockSession
+            self.isLoading = false
+        }
+
+        print("🏷️ SessionPillContainer: Loaded session for tag \(sessionTag.tagId) - \(mockSession.className)")
+    }
+}
+
+// MARK: - Shimmer Effect
+
+extension View {
+    func sessionShimmering() -> some View {
+        self.modifier(SessionShimmerModifier())
+    }
+}
+
+struct SessionShimmerModifier: ViewModifier {
+    @State private var phase = 0.0
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        Color.clear,
+                        Color.white.opacity(0.3),
+                        Color.clear
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .rotationEffect(.degrees(30))
+                .offset(x: phase * 200 - 100)
+                .mask(content)
+            )
+            .onAppear {
+                withAnimation(
+                    .linear(duration: 1.5)
+                    .repeatForever(autoreverses: false)
+                ) {
+                    phase = 1
+                }
+            }
+    }
+}
+
 /// Pill compacta que muestra información de sesión con drawer expandible
 struct SessionPill: View {
     let session: AttendedClass

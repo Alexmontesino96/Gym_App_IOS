@@ -29,8 +29,20 @@ class SessionCacheService: ObservableObject {
 
     private var cache = NSCache<NSNumber, AttendedClassWrapper>()
     private var loadingTasks: [Int: Task<AttendedClass?, Error>] = [:]
-    private let attendanceService: AttendanceService
+    private var _attendanceService: AttendanceService?
     private let httpClient = HTTPClient.shared
+
+    // Lazy access to attendance service to avoid initialization issues
+    private var attendanceService: AttendanceService {
+        if _attendanceService == nil {
+            // Create with nil - AttendanceService will use its own initialization
+            _attendanceService = AttendanceService(
+                authService: nil,
+                classService: ClassService.shared
+            )
+        }
+        return _attendanceService!
+    }
 
     // MARK: - Initialization
 
@@ -38,12 +50,6 @@ class SessionCacheService: ObservableObject {
         // Configurar límites del caché
         cache.countLimit = 50  // Máximo 50 sesiones en caché
         cache.totalCostLimit = 10 * 1024 * 1024  // 10MB máximo
-
-        // Inicializar servicio de attendance
-        self.attendanceService = AttendanceService(
-            authService: ServiceContainer.shared.authService,
-            classService: ServiceContainer.shared.classService
-        )
 
         Logger.shared.info("🎯 SessionCacheService initialized", category: .cache)
     }
@@ -211,99 +217,3 @@ class SessionCacheService: ObservableObject {
     }
 }
 
-// MARK: - SessionPillContainer
-
-/// Container view que carga y muestra una sesión etiquetada
-struct SessionPillContainer: View {
-    @StateObject private var cacheService = SessionCacheService.shared
-    @EnvironmentObject var themeManager: ThemeManager
-
-    let sessionTag: PostTag
-    @State private var session: AttendedClass?
-    @State private var isLoading = true
-
-    var body: some View {
-        Group {
-            if isLoading {
-                // Placeholder mientras carga
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Cargando sesión...")
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.gray.opacity(0.1))
-                )
-                .sessionShimmering()
-            } else if let session = session {
-                // Mostrar el pill con la sesión cargada
-                SessionPill(session: session)
-                    .environmentObject(themeManager)
-                    .transition(.opacity.combined(with: .scale))
-            }
-        }
-        .task {
-            await loadSession()
-        }
-    }
-
-    private func loadSession() async {
-        isLoading = true
-
-        // Obtener la sesión del caché o API
-        if let loadedSession = await cacheService.getSession(id: sessionTag.tagId) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                self.session = loadedSession
-                self.isLoading = false
-            }
-        } else {
-            // Si no se puede cargar, ocultar el componente
-            withAnimation {
-                self.isLoading = false
-            }
-        }
-    }
-}
-
-// MARK: - Shimmer Effect
-
-extension View {
-    func sessionShimmering() -> some View {
-        self.modifier(SessionShimmerModifier())
-    }
-}
-
-struct SessionShimmerModifier: ViewModifier {
-    @State private var phase = 0.0
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(
-                LinearGradient(
-                    colors: [
-                        Color.clear,
-                        Color.white.opacity(0.3),
-                        Color.clear
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .rotationEffect(.degrees(30))
-                .offset(x: phase * 200 - 100)
-                .mask(content)
-            )
-            .onAppear {
-                withAnimation(
-                    .linear(duration: 1.5)
-                    .repeatForever(autoreverses: false)
-                ) {
-                    phase = 1
-                }
-            }
-    }
-}

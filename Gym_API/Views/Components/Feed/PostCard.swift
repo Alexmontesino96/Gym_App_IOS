@@ -82,8 +82,25 @@ struct PostCard: View {
                 }
 
                 // Sesión etiquetada
-                if let sessionTag = post.tags.first(where: { $0.tagType == .session }) {
-                    SessionPillContainer(sessionTag: sessionTag)
+                // DEMO: Mostrar SessionPill en todos los posts para propósitos de demostración
+                // TODO: Cambiar a solo mostrar cuando post.tags contenga un tag con tagType == .session
+                Group {
+                    let hasSessionTag = post.tags.first(where: { $0.tagType == .session }) != nil
+
+                    // Por ahora, simular que todos los posts tienen una sesión etiquetada
+                    // usando el ID del post como base para generar variedad
+                    let demoTag = PostTag(
+                        id: post.id * 100,
+                        postId: post.id,
+                        tagType: .session,
+                        tagId: post.id,
+                        taggedUser: nil,
+                        taggedEvent: nil,
+                        taggedSession: nil
+                    )
+
+                    SessionPillContainer(sessionTag: hasSessionTag ?
+                        post.tags.first(where: { $0.tagType == .session })! : demoTag)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .environmentObject(themeManager)
