@@ -8,6 +8,44 @@
 import Foundation
 import Combine
 
+// MARK: - JSONDecoder Extension para manejo de fechas flexibles
+extension JSONDecoder.DateDecodingStrategy {
+    /// Estrategia personalizada para decodificar fechas con múltiples formatos
+    /// Soporta fechas con microsegundos, milisegundos, sin fracciones, sin timezone y solo fecha
+    static var flexible: JSONDecoder.DateDecodingStrategy {
+        return .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.calendar = Calendar(identifier: .iso8601)
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+            dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+
+            // Intentar varios formatos
+            let formats = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZ",  // Con microsegundos
+                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",     // Con milisegundos
+                "yyyy-MM-dd'T'HH:mm:ssZ",         // Sin fracciones
+                "yyyy-MM-dd'T'HH:mm:ss",          // Sin timezone
+                "yyyy-MM-dd"                       // Solo fecha
+            ]
+
+            for format in formats {
+                dateFormatter.dateFormat = format
+                if let date = dateFormatter.date(from: dateString) {
+                    return date
+                }
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date string \(dateString)"
+            )
+        }
+    }
+}
+
 /// Servicio para gestionar check-in de asistencia con código QR
 @MainActor
 class AttendanceService: ObservableObject {
@@ -203,7 +241,7 @@ class AttendanceService: ObservableObject {
             if httpResponse.statusCode == 200 {
                 let decoder = JSONDecoder()
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
-                decoder.dateDecodingStrategy = .iso8601
+                decoder.dateDecodingStrategy = .flexible  // Usar la estrategia flexible para fechas
 
                 let checkInResponse = try decoder.decode(AttendanceCheckInResponse.self, from: data)
                 lastCheckInResponse = checkInResponse
@@ -444,7 +482,7 @@ class AttendanceService: ObservableObject {
 
                 let decoder = JSONDecoder()
                 // No usar convertFromSnakeCase porque AttendanceHistoryItem tiene CodingKeys personalizados
-                decoder.dateDecodingStrategy = .iso8601
+                decoder.dateDecodingStrategy = .flexible  // Usar la estrategia flexible para fechas
 
                 // Decodificar usando la estructura real del API (AttendanceHistoryItem)
                 let attendanceHistory = try decoder.decode([AttendanceHistoryItem].self, from: data)
