@@ -35,11 +35,21 @@ class SessionCacheService: ObservableObject {
     // Lazy access to attendance service to avoid initialization issues
     private var attendanceService: AttendanceService {
         if _attendanceService == nil {
-            // Create with nil - AttendanceService will use its own initialization
-            _attendanceService = AttendanceService(
-                authService: nil,
-                classService: ClassService.shared
-            )
+            // Create with minimal initialization
+            // ClassService.shared is optional, so we need to handle it
+            if let classService = ClassService.shared {
+                _attendanceService = AttendanceService(
+                    authService: nil,
+                    classService: classService
+                )
+            } else {
+                // Create a new ClassService instance if shared is not available
+                let classService = ClassService(authService: nil, gymService: GymService.shared)
+                _attendanceService = AttendanceService(
+                    authService: nil,
+                    classService: classService
+                )
+            }
         }
         return _attendanceService!
     }
