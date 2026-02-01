@@ -446,49 +446,22 @@ class AttendanceService: ObservableObject {
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 decoder.dateDecodingStrategy = .iso8601
 
-                // Intentar decodificar primero como SessionWithClass (estructura original)
-                do {
-                    let sessionsWithClass = try decoder.decode([SessionWithClass].self, from: data)
+                // Decodificar usando la estructura real del API (AttendanceHistoryItem)
+                let attendanceHistory = try decoder.decode([AttendanceHistoryItem].self, from: data)
 
-                    Logger.shared.info("Decodificado como SessionWithClass: \(sessionsWithClass.count) sesiones", category: .network)
+                Logger.shared.info("Obtenidos \(attendanceHistory.count) registros del historial", category: .network)
 
-                    // Convertir a AttendedClass
-                    let attendedClasses = sessionsWithClass.compactMap { sessionWithClass -> AttendedClass? in
-                        guard sessionWithClass.session.status != .cancelled else { return nil }
-
-                        return AttendedClass(
-                            id: sessionWithClass.session.id,
-                            classId: sessionWithClass.classInfo.id,
-                            className: sessionWithClass.classInfo.name,
-                            instructor: sessionWithClass.trainerName,
-                            startTime: sessionWithClass.session.startTime,
-                            endTime: sessionWithClass.session.endTime,
-                            checkinTime: sessionWithClass.session.startTime,
-                            checkoutTime: sessionWithClass.session.endTime
-                        )
-                    }
-
-                    return attendedClasses.sorted { $0.checkinTime > $1.checkinTime }
-
-                } catch {
-                    Logger.shared.error("No se pudo decodificar como SessionWithClass, intentando ParticipationHistoryItem: \(error)", category: .network)
-
-                    // Si falla, intentar con ParticipationHistoryItem
-                    let participationHistory = try decoder.decode([ParticipationHistoryItem].self, from: data)
-
-                    Logger.shared.info("Obtenidas \(participationHistory.count) registros del historial", category: .network)
-
-                    // Convertir a AttendedClass usando el método de conversión
-                    let attendedClasses = participationHistory.compactMap { item in
-                        item.toAttendedClass()
-                    }
-
-                    Logger.shared.info("Filtradas \(attendedClasses.count) clases asistidas", category: .network)
-
-                    // Las clases ya están filtradas (solo attended) y dentro de la última semana
-                    // Solo necesitamos ordenar por más reciente
-                    return attendedClasses.sorted { $0.checkinTime > $1.checkinTime }
+                // Convertir a AttendedClass
+                let attendedClasses = attendanceHistory.compactMap { item in
+                    item.toAttendedClass()
                 }
+
+                Logger.shared.info("Filtradas \(attendedClasses.count) clases asistidas", category: .network)
+
+                // Filtrar solo las de la última semana y ordenar por más reciente
+                return attendedClasses
+                    .filter { $0.isWithinLastWeek }
+                    .sorted { $0.checkinTime > $1.checkinTime }
 
             } else {
                 Logger.shared.error("Error al obtener clases asistidas: \(httpResponse.statusCode)", category: .network)
