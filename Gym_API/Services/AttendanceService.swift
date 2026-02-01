@@ -443,7 +443,7 @@ class AttendanceService: ObservableObject {
                 }
 
                 let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                // No usar convertFromSnakeCase porque AttendanceHistoryItem tiene CodingKeys personalizados
                 decoder.dateDecodingStrategy = .iso8601
 
                 // Decodificar usando la estructura real del API (AttendanceHistoryItem)
