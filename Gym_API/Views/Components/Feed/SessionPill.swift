@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 
 /// Pill compacta que muestra información de sesión con drawer expandible
 struct SessionPill: View {
@@ -60,42 +61,42 @@ struct SessionPill: View {
                 // Icono con animación de rotación
                 Image(systemName: iconForClass(session.className))
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(hex: "#D93333"))
+                    .foregroundColor(Color(hex: "#D93333") ?? .red)
                     .rotationEffect(.degrees(isExpanded ? 15 : 0))
                     .animation(.spring(response: 0.3), value: isExpanded)
 
                 // Texto principal
                 Text("\(session.className)")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color(hex: "#D93333"))
+                    .foregroundColor(Color(hex: "#D93333") ?? .red)
 
                 // Separador
                 Text("•")
                     .font(.system(size: 10))
-                    .foregroundColor(Color(hex: "#D93333").opacity(0.6))
+                    .foregroundColor((Color(hex: "#D93333") ?? .red).opacity(0.6))
 
                 // Tiempo
                 Text(session.timeAgoText)
                     .font(.system(size: 11))
-                    .foregroundColor(Color(hex: "#D93333").opacity(0.8))
+                    .foregroundColor((Color(hex: "#D93333") ?? .red).opacity(0.8))
 
                 // Indicador de expansión
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Color(hex: "#D93333").opacity(0.6))
+                    .foregroundColor((Color(hex: "#D93333") ?? .red).opacity(0.6))
                     .animation(.spring(response: 0.3), value: isExpanded)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(hex: "#D93333").opacity(0.1))
+                    .fill((Color(hex: "#D93333") ?? .red).opacity(0.1))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(
                                 session.isRecentlyCompleted ?
-                                Color(hex: "#D93333").opacity(0.4) :
-                                Color(hex: "#D93333").opacity(0.2),
+                                (Color(hex: "#D93333") ?? .red).opacity(0.4) :
+                                (Color(hex: "#D93333") ?? .red).opacity(0.2),
                                 lineWidth: 1
                             )
                     )
@@ -142,11 +143,11 @@ struct SessionDetailsDrawer: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color(hex: "#D93333"),
-                                    Color(hex: "#FF6B6B")
+                                    Color(hex: "#D93333") ?? .red,
+                                    Color(hex: "#FF6B6B") ?? Color.red.opacity(0.8)
                                 ],
                                 startPoint: .topLeading,
-                                endPoint: .bottomRight
+                                endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 40, height: 40)
@@ -228,7 +229,7 @@ struct SessionDetailsDrawer: View {
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(hex: "#D93333"))
+                            .fill(Color(hex: "#D93333") ?? .red)
                     )
                 }
 
@@ -239,12 +240,12 @@ struct SessionDetailsDrawer: View {
                         Text("Compartir")
                             .font(.system(size: 13, weight: .medium))
                     }
-                    .foregroundColor(Color(hex: "#D93333"))
+                    .foregroundColor(Color(hex: "#D93333") ?? .red)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(hex: "#D93333"), lineWidth: 1)
+                            .stroke(Color(hex: "#D93333") ?? .red, lineWidth: 1)
                     )
                 }
             }
@@ -336,11 +337,11 @@ struct SessionFullDetailsSheet: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(hex: "#D93333"),
-                                        Color(hex: "#FF6B6B")
+                                        Color(hex: "#D93333") ?? .red,
+                                        Color(hex: "#FF6B6B") ?? Color.red.opacity(0.8)
                                     ],
                                     startPoint: .topLeading,
-                                    endPoint: .bottomRight
+                                    endPoint: .bottomTrailing
                                 )
                             )
                             .frame(width: 100, height: 100)
@@ -423,7 +424,7 @@ struct SessionFullDetailsSheet: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.gray)
 
-                        ProgressBar(
+                        SessionProgressBar(
                             progress: calculateProgress(),
                             color: progressColor()
                         )
@@ -452,7 +453,7 @@ struct SessionFullDetailsSheet: View {
                     Button("Cerrar") {
                         dismiss()
                     }
-                    .foregroundColor(Color(hex: "#D93333"))
+                    .foregroundColor(Color(hex: "#D93333") ?? .red)
                 }
             }
         }
@@ -510,7 +511,7 @@ struct DetailCard: View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(Color(hex: "#D93333"))
+                .foregroundColor(Color(hex: "#D93333") ?? .red)
 
             Text(title)
                 .font(.system(size: 11))
@@ -531,7 +532,7 @@ struct DetailCard: View {
 }
 
 /// Barra de progreso visual
-struct ProgressBar: View {
+struct SessionProgressBar: View {
     let progress: Double
     let color: Color
 

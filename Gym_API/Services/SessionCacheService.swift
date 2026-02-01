@@ -7,6 +7,18 @@
 
 import Foundation
 import Combine
+import SwiftUI
+
+// MARK: - Cache Wrapper
+
+/// Wrapper class para poder usar AttendedClass con NSCache
+private class AttendedClassWrapper {
+    let attendedClass: AttendedClass
+
+    init(_ attendedClass: AttendedClass) {
+        self.attendedClass = attendedClass
+    }
+}
 
 /// Servicio para gestionar el caché de sesiones etiquetadas
 @MainActor
@@ -15,7 +27,7 @@ class SessionCacheService: ObservableObject {
 
     // MARK: - Properties
 
-    private var cache = NSCache<NSNumber, AttendedClass>()
+    private var cache = NSCache<NSNumber, AttendedClassWrapper>()
     private var loadingTasks: [Int: Task<AttendedClass?, Error>] = [:]
     private let attendanceService: AttendanceService
     private let httpClient = HTTPClient.shared
@@ -51,7 +63,7 @@ class SessionCacheService: ObservableObject {
         // 1. Verificar caché
         if let cached = cache.object(forKey: NSNumber(value: sessionId)) {
             Logger.shared.debug("✅ Session \(sessionId) loaded from cache", category: .cache)
-            return cached
+            return cached.attendedClass
         }
 
         // 2. Verificar si ya hay una tarea de carga en progreso para evitar duplicados
@@ -75,7 +87,7 @@ class SessionCacheService: ObservableObject {
 
                 if let session = recentClasses.first(where: { $0.id == sessionId }) {
                     // Guardar en caché
-                    self.cache.setObject(session, forKey: NSNumber(value: sessionId))
+                    self.cache.setObject(AttendedClassWrapper(session), forKey: NSNumber(value: sessionId))
 
                     Logger.shared.info("✅ Session \(sessionId) fetched and cached", category: .cache)
 
@@ -94,7 +106,7 @@ class SessionCacheService: ObservableObject {
                 let mockSession = createMockSession(id: sessionId)
 
                 // Guardar en caché incluso el mock para evitar múltiples intentos
-                self.cache.setObject(mockSession, forKey: NSNumber(value: sessionId))
+                self.cache.setObject(AttendedClassWrapper(mockSession), forKey: NSNumber(value: sessionId))
 
                 // Limpiar tarea de carga
                 self.loadingTasks.removeValue(forKey: sessionId)
@@ -154,7 +166,7 @@ class SessionCacheService: ObservableObject {
     /// - Parameter posts: Array de posts que pueden contener sesiones etiquetadas
     func preloadSessionsFromPosts(_ posts: [Post]) async {
         let sessionIds = posts.compactMap { post in
-            post.tags?.first(where: { $0.tagType == .session })?.tagId
+            post.tags.first(where: { $0.tagType == .session })?.tagId
         }
 
         if !sessionIds.isEmpty {
@@ -227,7 +239,7 @@ struct SessionPillContainer: View {
                     RoundedRectangle(cornerRadius: 14)
                         .fill(Color.gray.opacity(0.1))
                 )
-                .shimmering()
+                .sessionShimmering()
             } else if let session = session {
                 // Mostrar el pill con la sesión cargada
                 SessionPill(session: session)
@@ -261,12 +273,12 @@ struct SessionPillContainer: View {
 // MARK: - Shimmer Effect
 
 extension View {
-    func shimmering() -> some View {
-        self.modifier(ShimmerModifier())
+    func sessionShimmering() -> some View {
+        self.modifier(SessionShimmerModifier())
     }
 }
 
-struct ShimmerModifier: ViewModifier {
+struct SessionShimmerModifier: ViewModifier {
     @State private var phase = 0.0
 
     func body(content: Content) -> some View {
