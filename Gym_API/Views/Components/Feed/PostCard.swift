@@ -81,6 +81,14 @@ struct PostCard: View {
                         .padding(.top, 4)
                 }
 
+                // Sesión etiquetada
+                if let sessionTag = post.tags.first(where: { $0.tagType == .session }) {
+                    SessionPillContainer(sessionTag: sessionTag)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .environmentObject(themeManager)
+                }
+
                 // Tiempo transcurrido
                 timeView
                     .padding(.horizontal, 16)
