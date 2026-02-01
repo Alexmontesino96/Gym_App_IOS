@@ -44,7 +44,7 @@ class SessionCacheService: ObservableObject {
                 )
             } else {
                 // Create a new ClassService instance if shared is not available
-                let classService = ClassService(authService: nil, gymService: GymService.shared)
+                let classService = ClassService(authService: nil)
                 _attendanceService = AttendanceService(
                     authService: nil,
                     classService: classService
