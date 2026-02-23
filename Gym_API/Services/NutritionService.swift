@@ -156,12 +156,25 @@ class NutritionService: ObservableObject {
                     self.currentStreak = dashboard.currentStreak ?? 0
                     self.longestStreak = dashboard.longestStreak ?? 0
 
-                    print("NutritionService: Dashboard cargado exitosamente")
+                    print("🎯 NutritionService: Dashboard cargado exitosamente")
                     print("   - Active plans: \(dashboard.activePlans?.count ?? 0)")
+                    if let activePlans = dashboard.activePlans, !activePlans.isEmpty {
+                        for (idx, plan) in activePlans.enumerated() {
+                            print("     [\(idx)] \(plan.planName) - Day \(plan.currentDay) - Adherencia: \(String(format: "%.0f%%", plan.adherencePercentage * 100))")
+                        }
+                    }
                     print("   - Live plans: \(dashboard.livePlans?.count ?? 0)")
                     print("   - Template plans: \(dashboard.templatePlans?.count ?? 0)")
                     print("   - Available plans: \(dashboard.availablePlans?.count ?? 0)")
-                    print("   - Today plan: \(dashboard.todayPlan != nil ? "Si" : "No")")
+                    print("   - Today plan exists: \(dashboard.todayPlan != nil)")
+                    if let todayPlan = dashboard.todayPlan {
+                        print("     • Plan: \(todayPlan.plan?.title ?? "nil")")
+                        print("     • Progress: \(todayPlan.progress != nil ? "exists" : "nil")")
+                        if let progress = todayPlan.progress {
+                            print("       - Meals completed: \(progress.mealsCompleted)/\(progress.totalMeals)")
+                            print("       - Percentage: \(String(format: "%.0f%%", progress.percentage))")
+                        }
+                    }
                     print("   - Current streak: \(dashboard.currentStreak ?? 0)")
                 } else if httpResponse.statusCode == 401 {
                     print("NutritionService: Token expirado, reintentando...")

@@ -78,21 +78,33 @@ struct NutritionHomeBannerSection: View {
 
     @ViewBuilder
     private var bannerContent: some View {
+        let _ = print("🔍 NUTRITION BANNER DEBUG:")
+        let _ = print("   - activePlans.count: \(nutritionService.activePlans.count)")
+        let _ = print("   - activePlans.first: \(nutritionService.activePlans.first?.planName ?? "nil")")
+        let _ = print("   - todayPlan exists: \(nutritionService.todayPlan != nil)")
+        let _ = print("   - todayPlan.plan exists: \(nutritionService.todayPlan?.plan != nil)")
+        let _ = print("   - todayPlan.progress exists: \(nutritionService.todayPlan?.progress != nil)")
+        let _ = print("   - currentStreak: \(nutritionService.currentStreak)")
+
         Group {
             // Widget 1: Plan activo del usuario (adherencia general)
             if let activePlan = nutritionService.activePlans.first {
+                let _ = print("✅ Mostrando ActivePlanHomeCard para: \(activePlan.planName)")
                 ActivePlanHomeCard(
                     plan: activePlan,
                     currentStreak: nutritionService.currentStreak,
                     onTap: { showNutritionDashboard = true }
                 )
                 .environmentObject(themeManager)
+            } else {
+                let _ = print("❌ NO se muestra ActivePlanHomeCard - activePlans está vacío")
             }
 
             // Widget 2: Banner LIVE (progreso del día actual)
             if let todayPlan = nutritionService.todayPlan,
                let plan = todayPlan.plan,
                let progress = todayPlan.progress {
+                let _ = print("✅ Mostrando NutritionLiveChallengeBanner para: \(plan.title)")
                 NutritionLiveChallengeBanner(
                     plan: plan,
                     progress: progress
@@ -100,6 +112,15 @@ struct NutritionHomeBannerSection: View {
                     showTodayMealPlan = true
                 }
                 .environmentObject(themeManager)
+            } else {
+                let _ = print("❌ NO se muestra NutritionLiveChallengeBanner")
+                if nutritionService.todayPlan == nil {
+                    let _ = print("   Razón: todayPlan es nil")
+                } else if nutritionService.todayPlan?.plan == nil {
+                    let _ = print("   Razón: todayPlan.plan es nil")
+                } else if nutritionService.todayPlan?.progress == nil {
+                    let _ = print("   Razón: todayPlan.progress es nil")
+                }
             }
 
             // Fallback: Solo si NO hay ninguno de los dos anteriores
