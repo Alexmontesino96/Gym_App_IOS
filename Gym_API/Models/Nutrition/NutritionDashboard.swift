@@ -3,11 +3,23 @@ import Foundation
 // MARK: - NutritionDashboard Model
 
 struct NutritionDashboard: Codable {
+    // Existing fields
     let templatePlans: [NutritionPlan]?
     let livePlans: [NutritionPlan]?
     let availablePlans: [NutritionPlan]?
     let todayPlan: TodayMealPlan?
     let stats: UserNutritionStats?
+
+    // New API fields
+    let userId: Int?
+    let activePlans: [ActivePlan]?
+    let weeklySummary: NutritionSummary?
+    let monthlySummary: NutritionSummary?
+    let currentStreak: Int?
+    let longestStreak: Int?
+    let totalMealsCompleted: Int?
+    let favoriteMeals: [FavoriteMeal]?
+    let nutritionalGoalsProgress: NutritionalGoalsProgress?
 
     enum CodingKeys: String, CodingKey {
         case templatePlans = "template_plans"
@@ -15,6 +27,128 @@ struct NutritionDashboard: Codable {
         case availablePlans = "available_plans"
         case todayPlan = "today_plan"
         case stats
+        case userId = "user_id"
+        case activePlans = "active_plans"
+        case weeklySummary = "weekly_summary"
+        case monthlySummary = "monthly_summary"
+        case currentStreak = "current_streak"
+        case longestStreak = "longest_streak"
+        case totalMealsCompleted = "total_meals_completed"
+        case favoriteMeals = "favorite_meals"
+        case nutritionalGoalsProgress = "nutritional_goals_progress"
+    }
+}
+
+// MARK: - ActivePlan Model
+
+/// Plan activo que el usuario esta siguiendo
+struct ActivePlan: Codable, Identifiable {
+    let planId: Int
+    let planName: String
+    let startDate: Date
+    let currentDay: Int
+    let adherencePercentage: Double
+
+    var id: Int { planId }
+
+    enum CodingKeys: String, CodingKey {
+        case planId = "plan_id"
+        case planName = "plan_name"
+        case startDate = "start_date"
+        case currentDay = "current_day"
+        case adherencePercentage = "adherence_percentage"
+    }
+}
+
+// MARK: - NutritionSummary Model
+
+struct NutritionSummary: Codable {
+    let averageAdherence: Double?
+    let mealsCompleted: Int?
+    let totalMeals: Int?
+    let caloriesAverage: Int?
+    let proteinAverage: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case averageAdherence = "average_adherence"
+        case mealsCompleted = "meals_completed"
+        case totalMeals = "total_meals"
+        case caloriesAverage = "calories_average"
+        case proteinAverage = "protein_average"
+    }
+}
+
+// MARK: - FavoriteMeal Model
+
+struct FavoriteMeal: Codable, Identifiable {
+    let mealId: Int
+    let mealName: String
+    let timesCompleted: Int?
+
+    var id: Int { mealId }
+
+    enum CodingKeys: String, CodingKey {
+        case mealId = "meal_id"
+        case mealName = "meal_name"
+        case timesCompleted = "times_completed"
+    }
+}
+
+// MARK: - NutritionalGoalsProgress Model
+
+struct NutritionalGoalsProgress: Codable {
+    let caloriesProgress: Double?
+    let proteinProgress: Double?
+    let carbsProgress: Double?
+    let fatProgress: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case caloriesProgress = "calories_progress"
+        case proteinProgress = "protein_progress"
+        case carbsProgress = "carbs_progress"
+        case fatProgress = "fat_progress"
+    }
+}
+
+// MARK: - MealTypeCompletion Model
+
+/// Estadísticas de completitud por tipo de comida en un plan LIVE
+struct MealTypeCompletion: Codable {
+    let mealType: String
+    let totalUsersWithMeal: Int
+    let usersCompleted: Int
+    let completionRate: Double
+
+    enum CodingKeys: String, CodingKey {
+        case mealType = "meal_type"
+        case totalUsersWithMeal = "total_users_with_meal"
+        case usersCompleted = "users_completed"
+        case completionRate = "completion_rate"
+    }
+}
+
+// MARK: - GroupCompletionStats Model
+
+/// Estadísticas de grupo para planes LIVE - muestra como le va al gym completo
+struct GroupCompletionStats: Codable {
+    let totalParticipants: Int
+    let activeToday: Int
+    let completedDayFully: Int
+    let avgCompletionPercentage: Double
+    let mealCompletions: [MealTypeCompletion]
+    let currentDay: Int
+    let planId: Int
+    let date: String
+
+    enum CodingKeys: String, CodingKey {
+        case totalParticipants = "total_participants"
+        case activeToday = "active_today"
+        case completedDayFully = "completed_day_fully"
+        case avgCompletionPercentage = "avg_completion_percentage"
+        case mealCompletions = "meal_completions"
+        case currentDay = "current_day"
+        case planId = "plan_id"
+        case date
     }
 }
 
@@ -28,6 +162,7 @@ struct TodayMealPlan: Codable {
     let daysUntilStart: Int?
     let meals: [Meal]
     let progress: DayProgress?
+    let groupStats: GroupCompletionStats?
 
     enum CodingKeys: String, CodingKey {
         case date
@@ -37,6 +172,7 @@ struct TodayMealPlan: Codable {
         case daysUntilStart = "days_until_start"
         case meals
         case progress
+        case groupStats = "group_stats"
     }
 }
 
@@ -119,6 +255,48 @@ extension NutritionDashboard {
     var totalAvailablePlans: Int {
         return availablePlans?.count ?? 0
     }
+
+    /// Indica si el usuario tiene planes activos
+    var hasActivePlans: Bool {
+        return (activePlans?.isEmpty == false)
+    }
+
+    /// Número de planes activos
+    var activePlansCount: Int {
+        return activePlans?.count ?? 0
+    }
+
+    /// Porcentaje de adherencia promedio
+    var averageAdherence: Double {
+        guard let plans = activePlans, !plans.isEmpty else { return 0 }
+        return plans.map { $0.adherencePercentage }.reduce(0, +) / Double(plans.count)
+    }
+}
+
+extension ActivePlan {
+    /// Días desde que inició el plan
+    var daysSinceStart: Int {
+        return Calendar.current.dateComponents([.day], from: startDate, to: Date()).day ?? 0
+    }
+
+    /// Texto de adherencia formateado
+    var formattedAdherence: String {
+        return String(format: "%.0f%%", adherencePercentage * 100)
+    }
+
+    /// Indica si la adherencia es buena (>= 70%)
+    var hasGoodAdherence: Bool {
+        return adherencePercentage >= 0.7
+    }
+
+    /// Color basado en adherencia
+    var adherenceColorName: String {
+        switch adherencePercentage {
+        case 0.8...: return "green"
+        case 0.5..<0.8: return "orange"
+        default: return "red"
+        }
+    }
 }
 
 extension TodayMealPlan {
@@ -164,6 +342,11 @@ extension TodayMealPlan {
             return "Plan completado"
         }
     }
+
+    /// Indica si es un plan LIVE con estadisticas de grupo
+    var isLivePlanWithGroupStats: Bool {
+        return plan?.planType == .live && groupStats != nil
+    }
 }
 
 extension DayProgress {
@@ -197,6 +380,135 @@ extension DayProgress {
     /// Formatea el progreso para UI
     var formattedProgress: String {
         return "\(mealsCompleted)/\(totalMeals) comidas"
+    }
+}
+
+// MARK: - GroupCompletionStats Extensions
+
+extension GroupCompletionStats {
+    /// Porcentaje de usuarios activos hoy
+    var activeUsersPercentage: Double {
+        guard totalParticipants > 0 else { return 0 }
+        return (Double(activeToday) / Double(totalParticipants)) * 100
+    }
+
+    /// Porcentaje de usuarios que completaron el día
+    var completedDayPercentage: Double {
+        guard totalParticipants > 0 else { return 0 }
+        return (Double(completedDayFully) / Double(totalParticipants)) * 100
+    }
+
+    /// Porcentaje formateado de adherencia promedio
+    var formattedAvgCompletion: String {
+        return String(format: "%.1f%%", avgCompletionPercentage)
+    }
+
+    /// Mensaje motivacional basado en las estadísticas del grupo
+    var motivationalMessage: String {
+        if avgCompletionPercentage >= 80 {
+            return "¡El gym está en fuego! 🔥"
+        } else if avgCompletionPercentage >= 60 {
+            return "Buen ritmo de grupo 💪"
+        } else if avgCompletionPercentage >= 40 {
+            return "Vamos juntos 🤝"
+        } else {
+            return "Empieza el desafío 🚀"
+        }
+    }
+
+    /// Nivel de energía del grupo basado en adherencia
+    var groupEnergyLevel: GroupEnergyLevel {
+        switch avgCompletionPercentage {
+        case 80...: return .high
+        case 50..<80: return .medium
+        default: return .low
+        }
+    }
+
+    /// Obtiene la comida con mejor adherencia
+    var bestPerformingMealType: MealTypeCompletion? {
+        return mealCompletions.max(by: { $0.completionRate < $1.completionRate })
+    }
+
+    /// Obtiene la comida con peor adherencia
+    var lowestPerformingMealType: MealTypeCompletion? {
+        return mealCompletions.min(by: { $0.completionRate < $1.completionRate })
+    }
+}
+
+// MARK: - MealTypeCompletion Extensions
+
+extension MealTypeCompletion {
+    /// Porcentaje formateado de completitud
+    var formattedCompletionRate: String {
+        return String(format: "%.1f%%", completionRate)
+    }
+
+    /// Nombre legible del tipo de comida
+    var displayName: String {
+        switch mealType.lowercased() {
+        case "breakfast": return "Desayuno"
+        case "lunch": return "Almuerzo"
+        case "dinner": return "Cena"
+        case "snack": return "Snack"
+        case "pre_workout": return "Pre-Entreno"
+        case "post_workout": return "Post-Entreno"
+        default: return mealType.capitalized
+        }
+    }
+
+    /// Emoji para el tipo de comida
+    var emoji: String {
+        switch mealType.lowercased() {
+        case "breakfast": return "🌅"
+        case "lunch": return "🍽️"
+        case "dinner": return "🌙"
+        case "snack": return "🍎"
+        case "pre_workout": return "⚡"
+        case "post_workout": return "💪"
+        default: return "🍴"
+        }
+    }
+
+    /// Color para mostrar en UI basado en adherencia
+    var statusColor: String {
+        switch completionRate {
+        case 80...: return "green"
+        case 50..<80: return "orange"
+        default: return "red"
+        }
+    }
+}
+
+// MARK: - Supporting Types for Group Stats
+
+enum GroupEnergyLevel {
+    case high
+    case medium
+    case low
+
+    var displayName: String {
+        switch self {
+        case .high: return "Alta"
+        case .medium: return "Media"
+        case .low: return "Baja"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .high: return "🔥"
+        case .medium: return "💪"
+        case .low: return "🌱"
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .high: return "green"
+        case .medium: return "orange"
+        case .low: return "gray"
+        }
     }
 }
 

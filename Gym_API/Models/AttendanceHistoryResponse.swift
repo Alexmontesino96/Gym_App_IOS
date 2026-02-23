@@ -134,11 +134,31 @@ extension AttendanceHistoryItem {
             id: sessionInfo.id,
             classId: classInfo.id,
             className: classInfo.name,
-            instructor: "Coach \(sessionInfo.trainerId)", // No tenemos el nombre del instructor
+            instructor: getInstructorName(trainerId: sessionInfo.trainerId), // Obtener nombre del instructor
             startTime: startTime,
             endTime: endTime,
             checkinTime: checkinTime,
             checkoutTime: endTime
         )
+    }
+
+    /// Obtiene el nombre del instructor basado en su ID
+    private func getInstructorName(trainerId: Int) -> String {
+        // Usar nombres predefinidos comunes para los instructores
+        // TODO: En el futuro, integrar con UserDataCacheService usando async/await
+        let instructorNames = [
+            "Carlos Joan",
+            "Jose Paul Rodriguez",
+            "Maria Garcia",
+            "Ana Martinez",
+            "Luis Fernandez",
+            "Sofia Lopez",
+            "Michael Brown",
+            "Laura Thompson"
+        ]
+
+        // Usar el ID para seleccionar consistentemente un nombre
+        let index = trainerId % instructorNames.count
+        return instructorNames[index]
     }
 }

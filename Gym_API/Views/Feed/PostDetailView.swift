@@ -77,31 +77,21 @@ struct PostDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 12) {
-                // Avatar
-                if let profilePictureURL = post.user.profilePictureURL {
-                    AsyncImage(url: profilePictureURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.gray.opacity(0.3))
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .foregroundColor(.gray)
-                            )
-                    }
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
-                } else {
+                // Avatar con caché
+                CachedAsyncImage(url: post.user.profilePictureUrl) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
                     Circle()
                         .fill(Color.gray.opacity(0.3))
-                        .frame(width: 32, height: 32)
                         .overlay(
                             Image(systemName: "person.fill")
                                 .foregroundColor(.gray)
                         )
                 }
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(post.user.fullName)
@@ -121,22 +111,17 @@ struct PostDetailView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            // Media gallery
+            // Media gallery optimizada con caché
             if !post.media.isEmpty {
                 TabView {
                     ForEach(post.media.sorted(by: { $0.displayOrder < $1.displayOrder })) { media in
-                        if let mediaURL = media.mediaURL {
-                            AsyncImage(url: mediaURL) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.2))
-                                    .overlay(ProgressView())
-                            }
-                            .clipped()
-                        }
+                        FeedOptimizedImage(
+                            thumbnailUrl: media.thumbnailUrl,
+                            fullUrl: media.mediaUrl,
+                            displaySize: CGSize(width: UIScreen.main.bounds.width, height: 375),
+                            contentMode: .fill,
+                            cornerRadius: 0
+                        )
                     }
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: post.media.count > 1 ? .always : .never))

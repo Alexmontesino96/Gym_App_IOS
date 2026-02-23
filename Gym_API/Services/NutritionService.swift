@@ -22,6 +22,11 @@ class NutritionService: ObservableObject {
     @Published var currentPlan: NutritionPlan?
     @Published var currentDailyPlan: DailyNutritionPlan?
 
+    // Active Plans (planes que el usuario está siguiendo)
+    @Published var activePlans: [ActivePlan] = []
+    @Published var currentStreak: Int = 0
+    @Published var longestStreak: Int = 0
+
     // User Stats
     @Published var userStats: UserNutritionStats?
 
@@ -146,11 +151,18 @@ class NutritionService: ObservableObject {
                     self.availablePlans = dashboard.availablePlans ?? []
                     self.userStats = dashboard.stats
 
+                    // Parse active plans (planes que el usuario está siguiendo)
+                    self.activePlans = dashboard.activePlans ?? []
+                    self.currentStreak = dashboard.currentStreak ?? 0
+                    self.longestStreak = dashboard.longestStreak ?? 0
+
                     print("NutritionService: Dashboard cargado exitosamente")
+                    print("   - Active plans: \(dashboard.activePlans?.count ?? 0)")
                     print("   - Live plans: \(dashboard.livePlans?.count ?? 0)")
                     print("   - Template plans: \(dashboard.templatePlans?.count ?? 0)")
                     print("   - Available plans: \(dashboard.availablePlans?.count ?? 0)")
                     print("   - Today plan: \(dashboard.todayPlan != nil ? "Si" : "No")")
+                    print("   - Current streak: \(dashboard.currentStreak ?? 0)")
                 } else if httpResponse.statusCode == 401 {
                     print("NutritionService: Token expirado, reintentando...")
                     await getDashboard()

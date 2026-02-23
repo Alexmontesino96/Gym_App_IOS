@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/auth0/Auth0.swift",
       "state" : {
-        "revision" : "3190066c4f9b682dee1def3b1f26e63d46ea3781",
-        "version" : "2.13.0"
+        "revision" : "09e555dcf50a856e58b0198bb034549aba9d42d4",
+        "version" : "2.17.1"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/OneSignal/OneSignal-iOS-SDK",
       "state" : {
-        "revision" : "2c3b878c32b0adc8349dc1bf2509ca7decd3b27c",
-        "version" : "5.2.14"
+        "revision" : "cdb9edfa545d1280248f8aab641a95844c76ae64",
+        "version" : "5.4.1"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/GetStream/stream-chat-swift",
       "state" : {
-        "revision" : "487d3d263c4caa5ae482083036091a93bc1978e1",
-        "version" : "4.84.0"
+        "revision" : "cab86bc2ea6565718ae1cbe460138bf371a644fe",
+        "version" : "4.97.1"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/stripe/stripe-ios",
       "state" : {
-        "revision" : "13c2a048315dd17fc77e53ee3ad70abdd9fa0da8",
-        "version" : "24.24.4"
+        "revision" : "dfc152145ced35e248e6fda5a8d6eb620bfcd74f",
+        "version" : "24.25.0"
       }
     },
     {

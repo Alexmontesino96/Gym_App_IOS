@@ -19,6 +19,7 @@ class CreatePostViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var successMessage: String?
     @Published var taggedSessionId: Int? = nil  // ID de la sesión etiquetada
+    @Published var taggedEventId: Int? = nil    // ID del evento etiquetado
 
     // MARK: - Private Properties
 
@@ -65,11 +66,13 @@ class CreatePostViewModel: ObservableObject {
             // Crear post
             print("🚀 [CreatePostViewModel] Enviando request a PostService...")
             print("📌 [CreatePostViewModel] Tagged Session ID: \(taggedSessionId != nil ? "\(taggedSessionId!)" : "nil")")
+            print("📌 [CreatePostViewModel] Tagged Event ID: \(taggedEventId != nil ? "\(taggedEventId!)" : "nil")")
             let post = try await postService.createPost(
                 caption: caption.isEmpty ? nil : caption,
                 location: location.isEmpty ? nil : location,
                 images: compressedImages,
-                sessionId: taggedSessionId
+                sessionId: taggedSessionId,
+                eventId: taggedEventId
             )
 
             uploadProgress = 1.0
@@ -81,6 +84,13 @@ class CreatePostViewModel: ObservableObject {
             print("📝 [CreatePostViewModel] - Media count: \(post.media.count)")
             print("📝 [CreatePostViewModel] - Caption: '\(post.caption ?? "vacío")'")
             print("📝 [CreatePostViewModel] - Created at: \(post.createdAt)")
+            print("🏷️ [CreatePostViewModel] - Tags count: \(post.tags.count)")
+            for (index, tag) in post.tags.enumerated() {
+                print("   Tag \(index + 1): tipo=\(tag.tagType), id=\(tag.tagId), session=\(tag.taggedSession?.title ?? "N/A")")
+            }
+            if taggedSessionId != nil && post.tags.isEmpty {
+                print("⚠️ [CreatePostViewModel] Se envió session_id=\(taggedSessionId!) pero el post no tiene tags!")
+            }
 
             // Limpiar formulario
             reset()
@@ -148,6 +158,7 @@ class CreatePostViewModel: ObservableObject {
         errorMessage = nil
         successMessage = nil
         taggedSessionId = nil  // Reset tagged session
+        taggedEventId = nil    // Reset tagged event
     }
 
     // MARK: - Validation

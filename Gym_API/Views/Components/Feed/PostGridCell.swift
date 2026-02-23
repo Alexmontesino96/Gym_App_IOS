@@ -1,28 +1,22 @@
 import SwiftUI
 
 /// Celda de grid para mostrar un post en formato thumbnail (estilo Instagram)
+/// Optimizado: Usa thumbnails del backend y caché integrado
 struct PostGridCell: View {
     let post: Post
 
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .topTrailing) {
-                // Thumbnail del post
-                if let firstMedia = post.media.sorted(by: { $0.displayOrder < $1.displayOrder }).first,
-                   let mediaURL = firstMedia.mediaURL {
-                    AsyncImage(url: mediaURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .clipped()
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(
-                                ProgressView()
-                            )
-                    }
+                // Thumbnail del post - Usa FeedOptimizedImage para máxima performance
+                if let firstMedia = post.media.sorted(by: { $0.displayOrder < $1.displayOrder }).first {
+                    FeedOptimizedImage(
+                        thumbnailUrl: firstMedia.thumbnailUrl,  // Prioriza thumbnail del backend
+                        fullUrl: firstMedia.mediaUrl,
+                        displaySize: CGSize(width: geometry.size.width, height: geometry.size.height),
+                        contentMode: .fill,
+                        cornerRadius: 0
+                    )
                 } else {
                     // Placeholder si no hay media
                     Rectangle()

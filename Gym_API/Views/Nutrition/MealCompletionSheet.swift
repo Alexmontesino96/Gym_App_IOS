@@ -11,6 +11,7 @@ struct MealCompletionSheet: View {
     let onComplete: (Int, String?, String?) async -> Bool
 
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var nutritionService: NutritionService
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedRating: Int = 0
@@ -21,6 +22,7 @@ struct MealCompletionSheet: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var portionSize: Double = 1.0
+    @State private var showDayCelebration = false
 
     // MARK: - Body
 
@@ -63,6 +65,20 @@ struct MealCompletionSheet: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage)
+            }
+        }
+        .fullScreenCover(isPresented: $showDayCelebration) {
+            if let todayPlan = nutritionService.todayPlan,
+               let plan = todayPlan.plan {
+                DayCompleteCelebrationView(
+                    currentStreak: nutritionService.currentStreak,
+                    currentDay: todayPlan.currentDay ?? 1,
+                    totalDays: plan.durationDays,
+                    onContinue: {
+                        showDayCelebration = false
+                    }
+                )
+                .environmentObject(themeManager)
             }
         }
     }
@@ -402,7 +418,19 @@ struct MealCompletionSheet: View {
             if success {
                 let notification = UINotificationFeedbackGenerator()
                 notification.notificationOccurred(.success)
+
+                // Dismiss the completion sheet first
                 dismiss()
+
+                // Check if day is complete and show celebration
+                if let todayPlan = nutritionService.todayPlan,
+                   let progress = todayPlan.progress,
+                   progress.percentage >= 100 {
+                    // Small delay to allow sheet to dismiss
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        showDayCelebration = true
+                    }
+                }
             } else {
                 errorMessage = "No se pudo completar la comida. Intenta de nuevo."
                 showError = true

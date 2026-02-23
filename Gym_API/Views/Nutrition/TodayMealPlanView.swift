@@ -76,6 +76,14 @@ struct TodayMealPlanView: View {
                 .opacity(appearAnimation ? 1 : 0)
                 .offset(y: appearAnimation ? 0 : 20)
 
+            // Group Stats Widget for LIVE plans
+            if todayPlan.isLivePlanWithGroupStats, let groupStats = todayPlan.groupStats {
+                GroupProgressWidget(groupStats: groupStats)
+                    .environmentObject(themeManager)
+                    .opacity(appearAnimation ? 1 : 0)
+                    .offset(y: appearAnimation ? 0 : 20)
+            }
+
             // Status message for pending plans
             if todayPlan.status == .notStarted {
                 pendingStatusCard(daysUntilStart: todayPlan.daysUntilStart)

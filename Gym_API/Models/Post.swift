@@ -161,16 +161,57 @@ struct PostMedia: Codable, Identifiable {
 /// Etiqueta de un post (mención de usuario, evento o sesión)
 struct PostTag: Codable, Identifiable {
     let id: Int
-    let postId: Int
+    let postId: Int?  // Opcional porque no siempre viene del backend
     let tagType: TagType
-    let tagId: Int
+    let tagId: Int  // Se decodificará desde tag_value
 
     // Información del tag según tipo (opcional, viene en algunos endpoints)
     let taggedUser: UserPreview?
     let taggedEvent: TaggedEvent?
     let taggedSession: TaggedSession?
 
-    // No necesitamos CodingKeys porque .convertFromSnakeCase hace el trabajo automáticamente
+    enum CodingKeys: String, CodingKey {
+        case id
+        case postId  // convertFromSnakeCase lo convierte automáticamente
+        case tagType  // convertFromSnakeCase convierte tag_type → tagType
+        case tagValue  // convertFromSnakeCase convierte tag_value → tagValue
+        case taggedUser
+        case taggedEvent
+        case taggedSession
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(Int.self, forKey: .id)
+        postId = try container.decodeIfPresent(Int.self, forKey: .postId)
+        tagType = try container.decode(TagType.self, forKey: .tagType)
+
+        // Decodificar tag_value como String y convertir a Int
+        if let tagValueString = try container.decodeIfPresent(String.self, forKey: .tagValue) {
+            tagId = Int(tagValueString) ?? 0
+            print("   📌 [PostTag] Decodificado tag_value: '\(tagValueString)' → tagId: \(tagId)")
+        } else {
+            tagId = 0
+            print("   ⚠️ [PostTag] No hay tag_value, usando tagId: 0")
+        }
+
+        taggedUser = try container.decodeIfPresent(UserPreview.self, forKey: .taggedUser)
+        taggedEvent = try container.decodeIfPresent(TaggedEvent.self, forKey: .taggedEvent)
+        taggedSession = try container.decodeIfPresent(TaggedSession.self, forKey: .taggedSession)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(postId, forKey: .postId)
+        try container.encode(tagType, forKey: .tagType)
+        try container.encode(String(tagId), forKey: .tagValue)  // Encode as String
+        try container.encodeIfPresent(taggedUser, forKey: .taggedUser)
+        try container.encodeIfPresent(taggedEvent, forKey: .taggedEvent)
+        try container.encodeIfPresent(taggedSession, forKey: .taggedSession)
+    }
 }
 
 /// Información básica de evento etiquetado

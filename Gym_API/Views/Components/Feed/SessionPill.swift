@@ -12,7 +12,6 @@ import Foundation
 
 /// Container view que carga y muestra una sesión etiquetada
 struct SessionPillContainer: View {
-    @StateObject private var cacheService = SessionCacheService.shared
     @EnvironmentObject var themeManager: ThemeManager
 
     let sessionTag: PostTag
@@ -20,64 +19,156 @@ struct SessionPillContainer: View {
     @State private var isLoading = true
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 0) {
             if isLoading {
-                // Placeholder mientras carga
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Cargando sesión...")
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
+                // Skeleton loader que replica la forma del card
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 40, height: 40)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 140, height: 12)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.15))
+                            .frame(width: 100, height: 10)
+                    }
+                    Spacer()
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.gray.opacity(0.1))
-                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.85))
                 .sessionShimmering()
             } else if let session = session {
-                // Mostrar el pill con la sesión cargada
-                SessionPill(session: session)
+                SessionPillCompact(session: session)
                     .environmentObject(themeManager)
-                    .transition(.opacity.combined(with: .scale))
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
             }
         }
-        .task {
-            await loadSession()
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isLoading)
+        .onAppear {
+            loadSessionAsync()
         }
     }
 
-    private func loadSession() async {
-        isLoading = true
+    private func loadSessionAsync() {
+        Task { @MainActor in
+            let cacheService = SessionCacheService.shared
 
-        // SIEMPRE mostrar una sesión de prueba para verificar que funciona
-        // Los nombres varían según el ID para simular diferentes clases
-        let classNames = ["HIIT Cardio", "Yoga Flow", "CrossFit", "Spinning", "Boxing", "Pilates"]
-        let instructors = ["Sarah Miller", "John Doe", "Emma Wilson", "Mike Johnson", "Lisa Chen", "Tom Smith"]
-        let index = sessionTag.tagId % classNames.count
+            if let realSession = await cacheService.getSession(id: sessionTag.tagId) {
+                self.session = realSession
+            } else {
+                let className = sessionTag.taggedSession?.title ?? "Training Session"
+                self.session = AttendedClass(
+                    id: sessionTag.tagId,
+                    classId: 100 + sessionTag.tagId,
+                    className: className,
+                    instructor: "",
+                    startTime: Date().addingTimeInterval(-3600),
+                    endTime: Date().addingTimeInterval(-1800),
+                    checkinTime: Date().addingTimeInterval(-3600),
+                    checkoutTime: Date().addingTimeInterval(-1800)
+                )
+            }
 
-        let mockSession = AttendedClass(
-            id: sessionTag.tagId,
-            classId: 100 + sessionTag.tagId,
-            className: classNames[index],
-            instructor: instructors[index],
-            startTime: Date().addingTimeInterval(-3600),
-            endTime: Date().addingTimeInterval(-1800),
-            checkinTime: Date().addingTimeInterval(-3600),
-            checkoutTime: Date().addingTimeInterval(-1800)
-        )
-
-        // Simular delay de red muy corto
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 segundos
-
-        withAnimation(.easeInOut(duration: 0.3)) {
-            self.session = mockSession
             self.isLoading = false
         }
+    }
+}
 
-        print("🏷️ SessionPillContainer: Loaded session for tag \(sessionTag.tagId) - \(mockSession.className)")
+/// Session Activity Card - diseño con más peso visual y contexto
+struct SessionPillCompact: View {
+    let session: AttendedClass
+    @EnvironmentObject var themeManager: ThemeManager
+
+    private var gradientColors: [Color] {
+        Color.classGradient(for: session.className)
+    }
+
+    private var primaryAccent: Color {
+        gradientColors.first ?? Color(hex: "#D93333") ?? .red
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Icono circular con gradiente por tipo
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: gradientColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                    .shadow(color: primaryAccent.opacity(0.3), radius: 4, x: 0, y: 2)
+
+                Image(systemName: iconForClass(session.className))
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+
+            // Textos: nombre + subtítulo
+            VStack(alignment: .leading, spacing: 3) {
+                Text(session.className)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.dynamicText(theme: themeManager.currentTheme))
+                    .lineLimit(1)
+
+                HStack(spacing: 4) {
+                    if !session.instructor.isEmpty {
+                        Text(session.instructor)
+                            .lineLimit(1)
+
+                        Circle()
+                            .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.5))
+                            .frame(width: 3, height: 3)
+                    }
+
+                    Text(session.timeAgoText)
+                }
+                .font(.system(size: 13))
+                .foregroundColor(.dynamicTextSecondary(theme: themeManager.currentTheme))
+                .lineLimit(1)
+            }
+
+            Spacer()
+
+            // Badge de duración
+            Text(session.attendanceDuration)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(primaryAccent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(primaryAccent.opacity(0.12))
+                )
+
+            // Chevron
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.dynamicTextTertiary(theme: themeManager.currentTheme).opacity(0.6))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme).opacity(0.85))
+    }
+
+    private func iconForClass(_ className: String) -> String {
+        let lowercased = className.lowercased()
+        if lowercased.contains("yoga") { return "figure.yoga" }
+        if lowercased.contains("pilates") { return "figure.pilates" }
+        if lowercased.contains("run") || lowercased.contains("cardio") { return "figure.run" }
+        if lowercased.contains("cross") || lowercased.contains("hiit") { return "figure.strengthtraining.functional" }
+        if lowercased.contains("box") || lowercased.contains("striking") || lowercased.contains("fight") { return "figure.boxing" }
+        if lowercased.contains("cycle") || lowercased.contains("spin") { return "figure.outdoor.cycle" }
+        if lowercased.contains("dance") || lowercased.contains("zumba") { return "figure.dance" }
+        if lowercased.contains("swim") { return "figure.pool.swim" }
+        return "figure.highintensity.intervaltraining"
     }
 }
 

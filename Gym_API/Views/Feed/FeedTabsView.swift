@@ -1183,12 +1183,17 @@ struct MinimalFeedContent: View {
                     }
 
                 ForEach(viewModel.posts) { post in
-                    PostCard(post: post)
-                        .onAppear {
-                            if post.id == viewModel.posts.last?.id {
-                                loadMoreIfNeeded()
-                            }
+                    PostCard(post: post) { deletedPostId in
+                        // Eliminar el post del feed con animación
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            viewModel.removePost(deletedPostId)
                         }
+                    }
+                    .onAppear {
+                        if post.id == viewModel.posts.last?.id {
+                            loadMoreIfNeeded()
+                        }
+                    }
                 }
 
                 // Loading More Indicator

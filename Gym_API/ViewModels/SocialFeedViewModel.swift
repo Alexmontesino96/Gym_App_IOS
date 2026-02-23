@@ -160,12 +160,29 @@ class SocialFeedViewModel: ObservableObject {
             if let newPosts = response.posts {
                 print("✅ [SocialFeedViewModel] Procesando \(newPosts.count) posts nuevos")
 
+                // DEBUG: Verificar tags en los posts
+                for (index, post) in newPosts.enumerated() {
+                    print("📝 Post \(index + 1) - ID: \(post.id)")
+                    print("   Tags count: \(post.tags.count)")
+                    if !post.tags.isEmpty {
+                        for tag in post.tags {
+                            print("   🏷️ Tag: \(tag.tagType) - ID: \(tag.tagId)")
+                        }
+                    }
+                }
+
                 if currentOffset == 0 {
                     print("   - Reemplazando posts existentes")
                     posts = newPosts
                 } else {
                     print("   - Agregando a posts existentes (\(posts.count))")
                     posts.append(contentsOf: newPosts)
+                }
+
+                // Precargar sesiones y eventos etiquetados para mejorar UX
+                Task {
+                    await SessionCacheService.shared.preloadSessionsFromPosts(newPosts)
+                    await EventCacheService.shared.preloadEventsFromPosts(newPosts)
                 }
 
                 hasMore = response.hasMore ?? false

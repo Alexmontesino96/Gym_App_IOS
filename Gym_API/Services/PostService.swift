@@ -11,7 +11,7 @@ protocol PostServicing {
     func getByLocation(_ location: String, limit: Int, offset: Int) async throws -> PagedResponse<Post>
 
     // MARK: - CRUD de Posts
-    func createPost(caption: String?, location: String?, images: [UIImage], sessionId: Int?) async throws -> Post
+    func createPost(caption: String?, location: String?, images: [UIImage], sessionId: Int?, eventId: Int?) async throws -> Post
     func getPost(id: Int) async throws -> Post
     func getUserPosts(userId: Int, limit: Int, offset: Int) async throws -> PagedResponse<Post>
     func updatePost(id: Int, caption: String?, location: String?) async throws -> Post
@@ -340,12 +340,13 @@ class PostService: ObservableObject, PostServicing {
         return try decoder.decode(Post.self, from: data)
     }
 
-    func createPost(caption: String? = nil, location: String? = nil, images: [UIImage], sessionId: Int? = nil) async throws -> Post {
+    func createPost(caption: String? = nil, location: String? = nil, images: [UIImage], sessionId: Int? = nil, eventId: Int? = nil) async throws -> Post {
         print("🌐 [PostService] createPost() llamado")
         print("📊 [PostService] - Caption: '\(caption ?? "nil")'")
         print("📊 [PostService] - Location: '\(location ?? "nil")'")
         print("📊 [PostService] - Images count: \(images.count)")
         print("📊 [PostService] - Session ID: \(sessionId != nil ? "\(sessionId!)" : "nil")")
+        print("📊 [PostService] - Event ID: \(eventId != nil ? "\(eventId!)" : "nil")")
 
         guard !images.isEmpty else {
             print("❌ [PostService] No hay imágenes")
@@ -398,6 +399,20 @@ class PostService: ObservableObject, PostServicing {
             body.append("Content-Disposition: form-data; name=\"session_id\"\r\n\r\n".data(using: .utf8)!)
             body.append("\(sessionId)\r\n".data(using: .utf8)!)
             print("📌 [PostService] Etiquetando sesión ID: \(sessionId)")
+            print("✅ [PostService] session_id agregado al body del request")
+        } else {
+            print("⚠️ [PostService] No hay sesión para etiquetar (sessionId = nil)")
+        }
+
+        // Add eventId for event tagging
+        if let eventId = eventId {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"event_id\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(eventId)\r\n".data(using: .utf8)!)
+            print("📌 [PostService] Etiquetando evento ID: \(eventId)")
+            print("✅ [PostService] event_id agregado al body del request")
+        } else {
+            print("⚠️ [PostService] No hay evento para etiquetar (eventId = nil)")
         }
 
         // Add images
@@ -442,6 +457,13 @@ class PostService: ObservableObject, PostServicing {
         print("🔄 [PostService] Decodificando CreatePostResponse...")
         let responseObj = try decoder.decode(CreatePostResponse.self, from: data)
         print("✅ [PostService] Post decodificado exitosamente - ID: \(responseObj.post.id)")
+        print("🏷️ [PostService] Tags en respuesta: \(responseObj.post.tags.count) tags")
+        for tag in responseObj.post.tags {
+            print("  - Tag tipo: \(tag.tagType), ID: \(tag.tagId)")
+        }
+        if responseObj.post.tags.isEmpty {
+            print("⚠️ [PostService] El servidor no devolvió tags aunque se envió session_id")
+        }
         return responseObj.post
     }
 

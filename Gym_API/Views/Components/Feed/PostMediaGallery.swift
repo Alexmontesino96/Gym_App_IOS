@@ -8,28 +8,34 @@
 
 import SwiftUI
 
+/// Galería de medios optimizada para posts del feed
+/// Usa FeedOptimizedImage para thumbnails, caché y downscaling automático
 struct PostMediaGallery: View {
     let mediaItems: [PostMedia]
     let theme: ThemeManager.AppTheme
 
     @State private var currentIndex = 0
 
+    private var screenWidth: CGFloat {
+        UIScreen.main.bounds.width
+    }
+
+    private var galleryHeight: CGFloat {
+        calculateHeight(for: screenWidth)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $currentIndex) {
                 ForEach(Array(mediaItems.enumerated()), id: \.offset) { index, media in
-                    AsyncImage(url: URL(string: media.mediaUrl)) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.dynamicSurface(theme: theme))
-                            .overlay(
-                                ProgressView()
-                                    .tint(Color.dynamicAccent(theme: theme))
-                            )
-                    }
+                    // Usa FeedOptimizedImage para carga optimizada con caché
+                    FeedOptimizedImage(
+                        thumbnailUrl: media.thumbnailUrl,  // Thumbnail del backend
+                        fullUrl: media.mediaUrl,
+                        displaySize: CGSize(width: screenWidth, height: galleryHeight),
+                        contentMode: .fit,
+                        cornerRadius: 0
+                    )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .tag(index)
                 }
@@ -48,7 +54,7 @@ struct PostMediaGallery: View {
                 .padding(.bottom, 12)
             }
         }
-        .frame(height: calculateHeight(for: UIScreen.main.bounds.width))
+        .frame(height: galleryHeight)
         .clipped()
     }
 }

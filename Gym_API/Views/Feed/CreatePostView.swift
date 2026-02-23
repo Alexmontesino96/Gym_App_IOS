@@ -6,6 +6,7 @@ import CropViewController
 struct CreatePostView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var attendanceService: AttendanceService
+    @EnvironmentObject var eventService: EventService
     @StateObject private var viewModel = CreatePostViewModel()
     @Environment(\.dismiss) private var dismiss
 
@@ -24,6 +25,10 @@ struct CreatePostView: View {
     @State private var selectedSession: AttendedClass?
     @State private var recentSession: AttendedClass?
     @State private var showSuggestionBanner = false
+
+    // Event Tagging State
+    @State private var showEventTaggingSheet = false
+    @State private var selectedEvent: Event?
 
     var body: some View {
         NavigationView {
@@ -97,6 +102,17 @@ struct CreatePostView: View {
                 }
             )
             .environmentObject(attendanceService)
+            .environmentObject(themeManager)
+        }
+        .sheet(isPresented: $showEventTaggingSheet) {
+            EventTaggingSheet(
+                selectedEvent: $selectedEvent,
+                onSelection: { event in
+                    selectedEvent = event
+                    viewModel.taggedEventId = event.id
+                }
+            )
+            .environmentObject(eventService)
             .environmentObject(themeManager)
         }
         .photosPicker(
@@ -379,6 +395,90 @@ struct CreatePostView: View {
                     }
 
                     Text("Comparte tu experiencia y etiqueta la clase a la que asististe")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal)
+
+                Divider()
+
+                // Event Tagging
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Etiquetar Evento")
+                        .font(.headline)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                    if let event = selectedEvent {
+                        // Mostrar el evento seleccionado como chip
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "calendar.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(event.title)
+                                        .font(.caption.bold())
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+
+                                    Text(event.dayTimeString)
+                                        .font(.caption2)
+                                        .foregroundColor(.white.opacity(0.9))
+                                }
+
+                                Spacer()
+
+                                Button(action: {
+                                    withAnimation {
+                                        selectedEvent = nil
+                                        viewModel.taggedEventId = nil
+                                    }
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.white.opacity(0.9))
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.red,
+                                        Color.red.opacity(0.8)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(24)
+                            .shadow(radius: 2)
+
+                            Spacer()
+                        }
+                    } else {
+                        // Botón para agregar evento
+                        Button(action: {
+                            showEventTaggingSheet = true
+                        }) {
+                            HStack {
+                                Image(systemName: "plus.circle")
+                                    .font(.system(size: 16))
+                                Text("Agregar evento relacionado")
+                                    .font(.subheadline)
+                            }
+                            .foregroundColor(.red)
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.red, lineWidth: 1)
+                            )
+                        }
+                    }
+
+                    Text("Etiqueta un evento del gimnasio para que aparezca en su galería")
                         .font(.caption)
                         .foregroundColor(.gray)
                 }

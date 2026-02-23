@@ -10,9 +10,17 @@ struct PostCard: View {
     @State private var showLikesSheet = false
     @State private var showDoubleTapHeart = false  // For double-tap animation
     @State private var heartScale: CGFloat = 0.5   // Heart animation scale
+    @State private var showOptionsMenu = false     // Options menu
+    @State private var showDeleteConfirmation = false  // Delete confirmation
+    @State private var showReportSheet = false     // Report sheet
+    @State private var isDeleting = false          // Delete loading state
 
-    init(post: Post) {
+    /// Callback para notificar cuando un post ha sido eliminado
+    var onPostDeleted: ((Int) -> Void)?
+
+    init(post: Post, onPostDeleted: ((Int) -> Void)? = nil) {
         self._post = State(initialValue: post)
+        self.onPostDeleted = onPostDeleted
     }
 
     var body: some View {
@@ -48,16 +56,29 @@ struct PostCard: View {
                         )
                 }
 
+                // Activity Cards (sesión/evento etiquetado) - contexto del contenido, edge-to-edge
+                if let sessionTag = post.tags.first(where: { $0.tagType == .session }) {
+                    SessionPillContainer(sessionTag: sessionTag)
+                        .environmentObject(themeManager)
+                        .padding(.top, 10)
+                }
+
+                if let eventTag = post.tags.first(where: { $0.tagType == .event }) {
+                    EventPillContainer(eventTag: eventTag)
+                        .environmentObject(themeManager)
+                        .padding(.top, hasTags(session: true) ? 0 : 10)
+                }
+
                 // Botones de acción (like, comment, share)
                 actionButtonsView
                     .padding(.horizontal, 16)
-                    .padding(.top, 14)
+                    .padding(.top, hasAnyTag ? 10 : 14)
 
                 // Contador de likes
                 if post.likeCount > 0 {
                     likesCountView
                         .padding(.horizontal, 16)
-                        .padding(.top, 4)
+                        .padding(.top, 8)
                 }
 
                 // Caption
@@ -81,31 +102,6 @@ struct PostCard: View {
                         .padding(.top, 4)
                 }
 
-                // Sesión etiquetada
-                // DEMO: Mostrar SessionPill en todos los posts para propósitos de demostración
-                // TODO: Cambiar a solo mostrar cuando post.tags contenga un tag con tagType == .session
-                Group {
-                    let hasSessionTag = post.tags.first(where: { $0.tagType == .session }) != nil
-
-                    // Por ahora, simular que todos los posts tienen una sesión etiquetada
-                    // usando el ID del post como base para generar variedad
-                    let demoTag = PostTag(
-                        id: post.id * 100,
-                        postId: post.id,
-                        tagType: .session,
-                        tagId: post.id,
-                        taggedUser: nil,
-                        taggedEvent: nil,
-                        taggedSession: nil
-                    )
-
-                    SessionPillContainer(sessionTag: hasSessionTag ?
-                        post.tags.first(where: { $0.tagType == .session })! : demoTag)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .environmentObject(themeManager)
-                }
-
                 // Tiempo transcurrido
                 timeView
                     .padding(.horizontal, 16)
@@ -126,37 +122,53 @@ struct PostCard: View {
                 .environmentObject(themeManager)
                 .environmentObject(postService)
         }
+        .sheet(isPresented: $showReportSheet) {
+            ReportPostSheet(postId: post.id)
+                .environmentObject(themeManager)
+                .environmentObject(postService)
+        }
+        .alert("Eliminar post", isPresented: $showDeleteConfirmation) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Eliminar", role: .destructive) {
+                Task {
+                    await deletePost()
+                }
+            }
+        } message: {
+            Text("¿Estás seguro de que quieres eliminar este post? Esta acción no se puede deshacer.")
+        }
+        .overlay {
+            if isDeleting {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .overlay(
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.5)
+                    )
+            }
+        }
     }
 
     // MARK: - Header View
 
     private var headerView: some View {
         HStack(spacing: 12) {
-            // Avatar del usuario
-            if let profilePictureURL = post.user.profilePictureURL {
-                AsyncImage(url: profilePictureURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Circle()
-                        .fill(Color.gray.opacity(0.3))
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .foregroundColor(.gray)
-                        )
-                }
-                .frame(width: 32, height: 32)
-                .clipShape(Circle())
-            } else {
+            // Avatar del usuario con caché
+            CachedAsyncImage(url: post.user.profilePictureUrl) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
                 Circle()
                     .fill(Color.gray.opacity(0.3))
-                    .frame(width: 32, height: 32)
                     .overlay(
                         Image(systemName: "person.fill")
                             .foregroundColor(.gray)
                     )
             }
+            .frame(width: 32, height: 32)
+            .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(post.user.fullName)
@@ -175,12 +187,24 @@ struct PostCard: View {
 
             // Botón de opciones
             Button(action: {
-                // TODO: Mostrar menú de opciones (editar, eliminar, reportar)
+                showOptionsMenu = true
             }) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 20))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     .frame(width: 24, height: 24)
+            }
+            .confirmationDialog("Opciones", isPresented: $showOptionsMenu, titleVisibility: .hidden) {
+                if post.isOwnPost {
+                    Button("Eliminar post", role: .destructive) {
+                        showDeleteConfirmation = true
+                    }
+                } else {
+                    Button("Reportar", role: .destructive) {
+                        showReportSheet = true
+                    }
+                }
+                Button("Cancelar", role: .cancel) {}
             }
         }
     }
@@ -348,6 +372,16 @@ struct PostCard: View {
             .foregroundColor(.gray)
     }
 
+    // MARK: - Tag Helpers
+
+    private var hasAnyTag: Bool {
+        post.tags.contains(where: { $0.tagType == .session || $0.tagType == .event })
+    }
+
+    private func hasTags(session: Bool) -> Bool {
+        post.tags.contains(where: { $0.tagType == .session })
+    }
+
     // MARK: - Actions
 
     /// Toggle like con UI optimista
@@ -438,6 +472,254 @@ struct PostCard: View {
                 heartScale = 0.5
             }
         }
+    }
+
+    /// Eliminar post
+    private func deletePost() async {
+        guard !isDeleting else { return }
+
+        isDeleting = true
+
+        do {
+            try await postService.deletePost(id: post.id)
+
+            // Haptic feedback de éxito
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
+            // Notificar al parent que el post fue eliminado
+            onPostDeleted?(post.id)
+
+            print("✅ [PostCard] Post \(post.id) eliminado exitosamente")
+
+        } catch PostServiceError.forbidden {
+            postService.errorMessage = "No tienes permiso para eliminar este post"
+            print("❌ [PostCard] Sin permiso para eliminar post \(post.id)")
+        } catch PostServiceError.postNotFound {
+            // El post ya no existe, tratarlo como éxito
+            onPostDeleted?(post.id)
+            print("⚠️ [PostCard] Post \(post.id) no encontrado (ya eliminado)")
+        } catch {
+            postService.errorMessage = "Error al eliminar el post: \(error.localizedDescription)"
+            print("❌ [PostCard] Error eliminando post \(post.id): \(error)")
+        }
+
+        isDeleting = false
+    }
+}
+
+// MARK: - Report Post Sheet
+
+/// Vista modal para reportar un post
+struct ReportPostSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var postService: PostService
+
+    let postId: Int
+
+    @State private var selectedReason: ReportReason?
+    @State private var additionalDetails = ""
+    @State private var isSubmitting = false
+    @State private var showSuccess = false
+
+    enum ReportReason: String, CaseIterable {
+        case spam = "spam"
+        case harassment = "harassment"
+        case hateSpeech = "hate_speech"
+        case violence = "violence"
+        case nudity = "nudity"
+        case falseInfo = "false_information"
+        case other = "other"
+
+        var displayName: String {
+            switch self {
+            case .spam: return "Es spam"
+            case .harassment: return "Acoso o bullying"
+            case .hateSpeech: return "Discurso de odio"
+            case .violence: return "Violencia"
+            case .nudity: return "Desnudez o actividad sexual"
+            case .falseInfo: return "Información falsa"
+            case .other: return "Otro"
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.dynamicBackground(theme: themeManager.currentTheme)
+                    .ignoresSafeArea()
+
+                if showSuccess {
+                    successView
+                } else {
+                    reportFormView
+                }
+            }
+            .navigationTitle("Reportar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancelar") {
+                        dismiss()
+                    }
+                    .foregroundColor(.dynamicText(theme: themeManager.currentTheme))
+                }
+            }
+        }
+    }
+
+    private var reportFormView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("¿Por qué reportas este post?")
+                .font(.headline)
+                .foregroundColor(.dynamicText(theme: themeManager.currentTheme))
+
+            // Opciones de reporte
+            VStack(spacing: 0) {
+                ForEach(ReportReason.allCases, id: \.self) { reason in
+                    Button(action: {
+                        selectedReason = reason
+                    }) {
+                        HStack {
+                            Text(reason.displayName)
+                                .foregroundColor(.dynamicText(theme: themeManager.currentTheme))
+
+                            Spacer()
+
+                            if selectedReason == reason {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.dynamicAccent(theme: themeManager.currentTheme))
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.vertical, 14)
+                    }
+
+                    if reason != ReportReason.allCases.last {
+                        Divider()
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.dynamicCard(theme: themeManager.currentTheme))
+            )
+
+            // Detalles adicionales
+            if selectedReason == .other {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Describe el problema")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    TextField("Detalles adicionales...", text: $additionalDetails, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.dynamicCard(theme: themeManager.currentTheme))
+                        )
+                        .lineLimit(3...6)
+                }
+            }
+
+            Spacer()
+
+            // Botón de enviar
+            Button(action: {
+                Task {
+                    await submitReport()
+                }
+            }) {
+                HStack {
+                    if isSubmitting {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("Enviar reporte")
+                    }
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(selectedReason != nil ? Color.dynamicAccent(theme: themeManager.currentTheme) : Color.gray)
+                )
+            }
+            .disabled(selectedReason == nil || isSubmitting)
+        }
+        .padding()
+    }
+
+    private var successView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 72))
+                .foregroundColor(.green)
+
+            VStack(spacing: 8) {
+                Text("Reporte enviado")
+                    .font(.title2.bold())
+                    .foregroundColor(.dynamicText(theme: themeManager.currentTheme))
+
+                Text("Gracias por ayudarnos a mantener la comunidad segura.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Cerrar") {
+                dismiss()
+            }
+            .font(.headline)
+            .foregroundColor(.white)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+            )
+        }
+        .padding()
+    }
+
+    private func submitReport() async {
+        guard let reason = selectedReason else { return }
+
+        isSubmitting = true
+
+        do {
+            try await postService.reportPost(
+                postId: postId,
+                reason: reason.rawValue,
+                description: additionalDetails.isEmpty ? nil : additionalDetails
+            )
+
+            // Haptic feedback de éxito
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+
+            withAnimation {
+                showSuccess = true
+            }
+
+            // Auto-cerrar después de 2 segundos
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                dismiss()
+            }
+
+        } catch {
+            postService.errorMessage = "Error al enviar el reporte: \(error.localizedDescription)"
+        }
+
+        isSubmitting = false
     }
 }
 
