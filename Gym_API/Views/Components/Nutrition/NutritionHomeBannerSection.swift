@@ -78,16 +78,18 @@ struct NutritionHomeBannerSection: View {
 
     @ViewBuilder
     private var bannerContent: some View {
-        // Prioridad 1: Plan activo del usuario (solo uno permitido)
-        if let activePlan = nutritionService.activePlans.first {
-            ActivePlanHomeCard(
-                plan: activePlan,
-                currentStreak: nutritionService.currentStreak,
-                onTap: { showNutritionDashboard = true }
-            )
-            .environmentObject(themeManager)
+        Group {
+            // Widget 1: Plan activo del usuario (adherencia general)
+            if let activePlan = nutritionService.activePlans.first {
+                ActivePlanHomeCard(
+                    plan: activePlan,
+                    currentStreak: nutritionService.currentStreak,
+                    onTap: { showNutritionDashboard = true }
+                )
+                .environmentObject(themeManager)
+            }
 
-            // Si TAMBIÉN tiene progreso del día, mostrar banner LIVE debajo
+            // Widget 2: Banner LIVE (progreso del día actual)
             if let todayPlan = nutritionService.todayPlan,
                let plan = todayPlan.plan,
                let progress = todayPlan.progress {
@@ -99,44 +101,36 @@ struct NutritionHomeBannerSection: View {
                 }
                 .environmentObject(themeManager)
             }
-        }
-        // Prioridad 2: Plan activo hoy con progreso
-        else if let todayPlan = nutritionService.todayPlan,
-           let plan = todayPlan.plan,
-           let progress = todayPlan.progress {
-            NutritionLiveChallengeBanner(
-                plan: plan,
-                progress: progress
-            ) {
-                showTodayMealPlan = true
-            }
-            .environmentObject(themeManager)
-        }
-        // Prioridad 3: Plan LIVE próximo - Mostrar QuickJoin si puede unirse
-        else if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
-            NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
-                // Si el plan es un LIVE y puede unirse, mostrar quick join
-                if upcomingPlan.canJoin {
-                    selectedPlanForQuickJoin = upcomingPlan
-                    showQuickJoin = true
-                } else {
-                    showNutritionDashboard = true
+
+            // Fallback: Solo si NO hay ninguno de los dos anteriores
+            if nutritionService.activePlans.isEmpty && nutritionService.todayPlan == nil {
+                // Plan LIVE próximo - Mostrar QuickJoin si puede unirse
+                if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
+                    NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
+                        // Si el plan es un LIVE y puede unirse, mostrar quick join
+                        if upcomingPlan.canJoin {
+                            selectedPlanForQuickJoin = upcomingPlan
+                            showQuickJoin = true
+                        } else {
+                            showNutritionDashboard = true
+                        }
+                    }
+                    .environmentObject(themeManager)
+                }
+                // Discover banner (si no hay nada)
+                else {
+                    NutritionDiscoverBanner {
+                        // Si hay algún plan LIVE disponible, mostrar quick join del primero
+                        if let firstLivePlan = nutritionService.livePlans.first(where: { $0.canJoin }) {
+                            selectedPlanForQuickJoin = firstLivePlan
+                            showQuickJoin = true
+                        } else {
+                            showNutritionDashboard = true
+                        }
+                    }
+                    .environmentObject(themeManager)
                 }
             }
-            .environmentObject(themeManager)
-        }
-        // Prioridad 4: Discover banner
-        else {
-            NutritionDiscoverBanner {
-                // Si hay algún plan LIVE disponible, mostrar quick join del primero
-                if let firstLivePlan = nutritionService.livePlans.first(where: { $0.canJoin }) {
-                    selectedPlanForQuickJoin = firstLivePlan
-                    showQuickJoin = true
-                } else {
-                    showNutritionDashboard = true
-                }
-            }
-            .environmentObject(themeManager)
         }
     }
 }
