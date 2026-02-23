@@ -64,10 +64,13 @@ struct NutritionHomeBannerSection: View {
             }
         }
         .task {
-            if !hasLoadedData {
+            guard !hasLoadedData else { return }
+            hasLoadedData = true
+
+            // Cargar datos con timeout implícito usando Task
+            await Task {
                 await nutritionService.getDashboard()
-                hasLoadedData = true
-            }
+            }.value
         }
     }
 
@@ -75,38 +78,29 @@ struct NutritionHomeBannerSection: View {
 
     @ViewBuilder
     private var bannerContent: some View {
-        // Mostrar AMBOS widgets si hay un plan LIVE activo
-        if let todayPlan = nutritionService.todayPlan,
-           let plan = todayPlan.plan,
-           let progress = todayPlan.progress,
-           let activePlan = nutritionService.activePlans.first {
-            // Banner LIVE (con progreso del día)
-            NutritionLiveChallengeBanner(
-                plan: plan,
-                progress: progress
-            ) {
-                showTodayMealPlan = true
-            }
+        // Prioridad 1: Plan activo del usuario (solo uno permitido)
+        if let activePlan = nutritionService.activePlans.first {
+            ActivePlanHomeCard(
+                plan: activePlan,
+                currentStreak: nutritionService.currentStreak,
+                onTap: { showNutritionDashboard = true }
+            )
             .environmentObject(themeManager)
 
-            // Card del plan activo (con adherencia general)
-            ActivePlanHomeCard(
-                plan: activePlan,
-                currentStreak: nutritionService.currentStreak,
-                onTap: { showNutritionDashboard = true }
-            )
-            .environmentObject(themeManager)
+            // Si TAMBIÉN tiene progreso del día, mostrar banner LIVE debajo
+            if let todayPlan = nutritionService.todayPlan,
+               let plan = todayPlan.plan,
+               let progress = todayPlan.progress {
+                NutritionLiveChallengeBanner(
+                    plan: plan,
+                    progress: progress
+                ) {
+                    showTodayMealPlan = true
+                }
+                .environmentObject(themeManager)
+            }
         }
-        // Solo plan activo (sin progreso del día)
-        else if let activePlan = nutritionService.activePlans.first {
-            ActivePlanHomeCard(
-                plan: activePlan,
-                currentStreak: nutritionService.currentStreak,
-                onTap: { showNutritionDashboard = true }
-            )
-            .environmentObject(themeManager)
-        }
-        // Solo plan LIVE activo hoy (sin plan seguido formalmente)
+        // Prioridad 2: Plan activo hoy con progreso
         else if let todayPlan = nutritionService.todayPlan,
            let plan = todayPlan.plan,
            let progress = todayPlan.progress {
@@ -118,7 +112,7 @@ struct NutritionHomeBannerSection: View {
             }
             .environmentObject(themeManager)
         }
-        // Plan LIVE próximo - Mostrar QuickJoin si puede unirse
+        // Prioridad 3: Plan LIVE próximo - Mostrar QuickJoin si puede unirse
         else if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
             NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
                 // Si el plan es un LIVE y puede unirse, mostrar quick join
@@ -131,7 +125,7 @@ struct NutritionHomeBannerSection: View {
             }
             .environmentObject(themeManager)
         }
-        // Discover banner
+        // Prioridad 4: Discover banner
         else {
             NutritionDiscoverBanner {
                 // Si hay algún plan LIVE disponible, mostrar quick join del primero

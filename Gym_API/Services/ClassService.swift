@@ -82,6 +82,7 @@ struct UserPublicProfile: Codable, Identifiable, Equatable {
 }
 
 // MARK: - Class Service
+@MainActor
 class ClassService: ObservableObject {
     // MARK: - Singleton
     static var shared: ClassService?
