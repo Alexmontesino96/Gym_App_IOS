@@ -2,12 +2,15 @@ import SwiftUI
 
 // MARK: - NutritionHomeBannerSection
 
-/// Seccion de HomeView que muestra el banner de nutricion apropiado
-/// basado en el estado del usuario:
-/// - Si tiene un plan activo: ActivePlanCard (full-width, moderno)
-/// - Si tiene un plan LIVE activo: NutritionLiveChallengeBanner
-/// - Si hay un plan LIVE proximo: NutritionUpcomingChallengeBanner
-/// - Si no tiene plan: NutritionDiscoverBanner
+/// Seccion de HomeView que muestra widgets de nutricion
+/// SIEMPRE muestra al menos un widget como punto de acceso a nutricion:
+///
+/// Widget Principal (SIEMPRE visible):
+/// - Si tiene un plan activo: ActivePlanCard (adherencia general)
+/// - Si NO tiene plan activo: NutritionUpcomingChallengeBanner o NutritionDiscoverBanner
+///
+/// Widget Secundario (OPCIONAL):
+/// - Si tiene un plan LIVE con progreso del dia: NutritionLiveChallengeBanner
 struct NutritionHomeBannerSection: View {
     @EnvironmentObject var nutritionService: NutritionService
     @EnvironmentObject var themeManager: ThemeManager
@@ -87,7 +90,7 @@ struct NutritionHomeBannerSection: View {
         let _ = print("   - currentStreak: \(nutritionService.currentStreak)")
 
         Group {
-            // Widget 1: Plan activo del usuario (adherencia general)
+            // Widget 1: Plan activo O Discover (SIEMPRE visible como punto de acceso)
             if let activePlan = nutritionService.activePlans.first {
                 let _ = print("✅ Mostrando ActivePlanHomeCard para: \(activePlan.planName)")
                 ActivePlanHomeCard(
@@ -97,10 +100,35 @@ struct NutritionHomeBannerSection: View {
                 )
                 .environmentObject(themeManager)
             } else {
-                let _ = print("❌ NO se muestra ActivePlanHomeCard - activePlans está vacío")
+                // Si NO hay plan activo, SIEMPRE mostrar acceso a nutrición
+                let _ = print("✅ Mostrando NutritionDiscoverBanner como punto de acceso")
+
+                // Si hay plan LIVE próximo, mostrar ese en lugar del discover genérico
+                if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
+                    NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
+                        if upcomingPlan.canJoin {
+                            selectedPlanForQuickJoin = upcomingPlan
+                            showQuickJoin = true
+                        } else {
+                            showNutritionDashboard = true
+                        }
+                    }
+                    .environmentObject(themeManager)
+                } else {
+                    // Discover banner genérico
+                    NutritionDiscoverBanner {
+                        if let firstLivePlan = nutritionService.livePlans.first(where: { $0.canJoin }) {
+                            selectedPlanForQuickJoin = firstLivePlan
+                            showQuickJoin = true
+                        } else {
+                            showNutritionDashboard = true
+                        }
+                    }
+                    .environmentObject(themeManager)
+                }
             }
 
-            // Widget 2: Banner LIVE (progreso del día actual)
+            // Widget 2: Banner LIVE (progreso del día actual) - OPCIONAL
             if let todayPlan = nutritionService.todayPlan,
                let plan = todayPlan.plan,
                let progress = todayPlan.progress {
@@ -113,44 +141,7 @@ struct NutritionHomeBannerSection: View {
                 }
                 .environmentObject(themeManager)
             } else {
-                let _ = print("❌ NO se muestra NutritionLiveChallengeBanner")
-                if nutritionService.todayPlan == nil {
-                    let _ = print("   Razón: todayPlan es nil")
-                } else if nutritionService.todayPlan?.plan == nil {
-                    let _ = print("   Razón: todayPlan.plan es nil")
-                } else if nutritionService.todayPlan?.progress == nil {
-                    let _ = print("   Razón: todayPlan.progress es nil")
-                }
-            }
-
-            // Fallback: Solo si NO hay ninguno de los dos anteriores
-            if nutritionService.activePlans.isEmpty && nutritionService.todayPlan == nil {
-                // Plan LIVE próximo - Mostrar QuickJoin si puede unirse
-                if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
-                    NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
-                        // Si el plan es un LIVE y puede unirse, mostrar quick join
-                        if upcomingPlan.canJoin {
-                            selectedPlanForQuickJoin = upcomingPlan
-                            showQuickJoin = true
-                        } else {
-                            showNutritionDashboard = true
-                        }
-                    }
-                    .environmentObject(themeManager)
-                }
-                // Discover banner (si no hay nada)
-                else {
-                    NutritionDiscoverBanner {
-                        // Si hay algún plan LIVE disponible, mostrar quick join del primero
-                        if let firstLivePlan = nutritionService.livePlans.first(where: { $0.canJoin }) {
-                            selectedPlanForQuickJoin = firstLivePlan
-                            showQuickJoin = true
-                        } else {
-                            showNutritionDashboard = true
-                        }
-                    }
-                    .environmentObject(themeManager)
-                }
+                let _ = print("ℹ️ NO se muestra NutritionLiveChallengeBanner (opcional)")
             }
         }
     }
