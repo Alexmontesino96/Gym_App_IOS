@@ -23,15 +23,19 @@ struct NutritionHomeBannerSection: View {
     @State private var selectedPlanForQuickJoin: NutritionPlan?
 
     var body: some View {
-        VStack(spacing: 12) {
+        let _ = print("🎨 [NutritionHomeBannerSection] body evaluado - hasAppeared: \(hasAppeared)")
+
+        return VStack(spacing: 12) {
             bannerContent
                 .scaleEffect(hasAppeared ? 1.0 : 0.95)
                 .opacity(hasAppeared ? 1.0 : 0.0)
                 .offset(y: hasAppeared ? 0 : 10)
         }
         .onAppear {
+            print("🎨 [NutritionHomeBannerSection] onAppear called - activating animation")
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2)) {
                 hasAppeared = true
+                print("🎨 [NutritionHomeBannerSection] hasAppeared set to true")
             }
         }
         .sheet(isPresented: $showTodayMealPlan) {
@@ -93,12 +97,20 @@ struct NutritionHomeBannerSection: View {
             // Widget 1: Plan activo O Discover (SIEMPRE visible como punto de acceso)
             if let activePlan = nutritionService.activePlans.first {
                 let _ = print("✅ Mostrando ActivePlanHomeCard para: \(activePlan.planName)")
+                let _ = print("   - Plan ID: \(activePlan.planId)")
+                let _ = print("   - Current Day: \(activePlan.currentDay)")
+                let _ = print("   - Adherencia: \(activePlan.adherencePercentage)")
+
                 ActivePlanHomeCard(
                     plan: activePlan,
                     currentStreak: nutritionService.currentStreak,
                     onTap: { showNutritionDashboard = true }
                 )
                 .environmentObject(themeManager)
+                .background(Color.red.opacity(0.3))  // DEBUG: fondo rojo temporal para verificar que se renderiza
+                .onAppear {
+                    print("🎨 [ActivePlanHomeCard] onAppear llamado - card debería ser visible")
+                }
             } else {
                 // Si NO hay plan activo, SIEMPRE mostrar acceso a nutrición
                 let _ = print("✅ Mostrando NutritionDiscoverBanner como punto de acceso")
