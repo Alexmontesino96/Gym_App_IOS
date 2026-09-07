@@ -20,13 +20,15 @@ struct AppLoadingView: View {
     @State private var haloOpacity: Double = 0
     @State private var phraseTimer: Timer?
 
-    private let accentColor = Color(hex: "#D4FF3F")!
+    // Del tema, no cableado: este es el primer color que ve cualquiera al abrir la app, y
+    // seguia lima aunque el usuario hubiera elegido otro acento.
+    private var accentColor: Color { Color.dynamicAccent(theme: themeManager.currentTheme) }
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 { return "Buenos días," }
-        if hour < 19 { return "Buenas tardes," }
-        return "Buenas noches,"
+        if hour < 12 { return "Good morning," }
+        if hour < 19 { return "Good afternoon," }
+        return "Good evening,"
     }
 
     private var userName: String {
@@ -49,11 +51,11 @@ struct AppLoadingView: View {
     }
 
     private let phrases = [
-        "Preparando tu experiencia",
-        "Cargando tu perfil",
-        "Sincronizando datos",
-        "Configurando tu gimnasio",
-        "Casi listo...",
+        "Setting things up",
+        "Loading your profile",
+        "Syncing your data",
+        "Getting your space ready",
+        "Almost there…",
     ]
 
     var body: some View {
@@ -90,17 +92,13 @@ struct AppLoadingView: View {
                     } else {
                         Circle()
                             .fill(
-                                LinearGradient(
-                                    colors: [Color(hex: "#FF5A1F")!, Color(hex: "#A78BFA")!],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                                accentColor
                             )
                             .frame(width: 80, height: 80)
                             .overlay(
                                 Text(userInitial)
                                     .font(.system(size: 30, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: themeManager.currentTheme))
                             )
                     }
                 }
@@ -159,7 +157,7 @@ struct AppLoadingView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 100))
                     }
 
-                    Text("Preparando tu día")
+                    Text("Getting your day ready")
                         .font(.system(size: 11, weight: .medium))
                         .tracking(0.3)
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.3))

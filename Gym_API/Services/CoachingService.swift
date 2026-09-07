@@ -47,6 +47,18 @@ final class CoachingService: ObservableObject {
     @Published var coachNote: CoachNote?
     @Published var coachNoteState: LoadState = .idle
 
+    // MARK: Lo que ve el ENTRENADOR en su panel
+
+    /// Las sesiones de hoy con quién viene a cada una.
+    @Published var todayRoster: [SessionRosterEntry] = []
+    @Published var rosterState: LoadState = .idle
+
+    /// El check-in de esta semana de cada cliente que lo haya hecho, el más reciente primero.
+    /// Es la primera vez que iOS consume las rutas de salud para el equipo, que existían desde
+    /// la fase 2 y hasta ahora solo leía el panel web.
+    @Published var recentCheckIns: [ClientCheckIn] = []
+    @Published var checkInsState: LoadState = .idle
+
     // MARK: - Dependencias
     weak var authService: AuthServiceDirect?
     weak var gymService: GymService?
@@ -271,6 +283,98 @@ final class CoachingService: ObservableObject {
         }
     }
 
+    // MARK: - Panel del entrenador
+
+    /// Quién viene hoy. Recibe las sesiones ya cargadas por `ClassService` y resuelve, para cada
+    /// una del día de hoy EN LA ZONA DEL ESPACIO, quién está inscrito.
+    ///
+    /// Requiere `clients` cargados: la foto y el nombre salen de ahí. Si no lo están, los pide.
+    func loadTodayRoster(from sessions: [SessionWithClass]) async {
+        if clients.isEmpty { await loadClients() }
+
+        let hoy: [SessionWithClass] = sessions.filter { item in
+            let tz = TimeZone(identifier: item.session.timeInfo.gymTimezone) ?? .current
+            var cal = Calendar.current
+            cal.timeZone = tz
+            return cal.isDateInToday(item.session.startTime)
+                && item.session.status != .cancelled
+        }
+        .sorted { $0.session.startTime < $1.session.startTime }
+
+        guard !hoy.isEmpty else {
+            todayRoster = []
+            rosterState = .loaded
+            return
+        }
+
+        rosterState = .loading
+        let porId = Dictionary(uniqueKeysWithValues: clients.map { ($0.id, $0) })
+
+        // Una peticion por sesion, en paralelo. Son una, dos, tres al dia.
+        let entradas: [SessionRosterEntry] = await withTaskGroup(of: (Int, SessionRosterEntry).self) { group in
+            for (i, item) in hoy.enumerated() {
+                group.addTask { [self] in
+                    let filas = await self.participants(sessionId: item.session.id)
+                    let activo = filas.first { $0.isActive }
+                    let cliente = activo.flatMap { porId[$0.memberId] }
+                    return (i, SessionRosterEntry(session: item.session,
+                                                  className: item.classInfo.name,
+                                                  client: cliente))
+                }
+            }
+            var acc: [(Int, SessionRosterEntry)] = []
+            for await r in group { acc.append(r) }
+            return acc.sorted { $0.0 < $1.0 }.map { $0.1 }
+        }
+
+        todayRoster = entradas
+        rosterState = .loaded
+    }
+
+    /// Los check-ins de esta semana de toda la cartera. Uno por cliente, el mas reciente.
+    ///
+    /// `GET /health/clients/{id}/check-ins?weeks=1` esta limitado a 60 peticiones por minuto, asi
+    /// que se corta la cartera a 50. Con mas clientes, lo honesto es un endpoint agregado, no
+    /// pedir de uno en uno; se anota y no se disimula.
+    func loadRecentCheckIns() async {
+        if clients.isEmpty { await loadClients() }
+        guard !clients.isEmpty else {
+            recentCheckIns = []
+            checkInsState = clientsState == .failed ? .failed : .loaded
+            return
+        }
+
+        checkInsState = .loading
+        let objetivo = Array(clients.prefix(50))
+        if clients.count > objetivo.count {
+            Logger.shared.info("CoachingService: cartera de \(clients.count), check-ins solo de los 50 primeros",
+                               category: .network)
+        }
+
+        let resultados: [ClientCheckIn] = await withTaskGroup(of: ClientCheckIn?.self) { group in
+            for cliente in objetivo {
+                group.addTask { [self] in
+                    guard let data = await self.get("/health/clients/\(cliente.id)/check-ins?weeks=1"),
+                          let lista = try? BackendJSON.decoder().decode([WeeklyCheckIn].self, from: data),
+                          let ultimo = lista.first else { return nil }
+                    let entrada = ClientCheckIn(client: cliente, checkIn: ultimo)
+                    return entrada.hasSomethingToSay ? entrada : nil
+                }
+            }
+            var acc: [ClientCheckIn] = []
+            for await r in group { if let r { acc.append(r) } }
+            return acc
+        }
+
+        recentCheckIns = resultados.sorted { $0.checkIn.createdAt > $1.checkIn.createdAt }
+        checkInsState = .loaded
+    }
+
+    private func participants(sessionId: Int) async -> [SessionParticipantRow] {
+        guard let data = await get("/schedule/participation/participants/\(sessionId)") else { return [] }
+        return (try? decoder.decode([SessionParticipantRow].self, from: data)) ?? []
+    }
+
     private func get(_ path: String) async -> Data? {
         guard let url = URL(string: baseURL + path),
               let request = await HTTPClient.shared.makeRequest(url: url, method: "GET") else {
@@ -293,6 +397,10 @@ final class CoachingService: ObservableObject {
     // MARK: - Ciclo de vida
 
     func clearData() {
+        todayRoster = []
+        rosterState = .idle
+        recentCheckIns = []
+        checkInsState = .idle
         coachNote = nil
         coachNoteState = .idle
         coachChannelId = nil

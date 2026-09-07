@@ -2,7 +2,18 @@
 //  TrainerDashboardView.swift
 //  Gym_API
 //
-//  Created by Claude Code on 2025-01-25
+//  El panel del ENTRENADOR. Principio de esta pantalla: caras, no cifras.
+//
+//  El negocio de un entrenador son sus clientes. Abrir la app tiene que sentirse como entrar
+//  en el estudio y ver quién viene hoy; los números son contexto, no el protagonista. Antes
+//  esto era un panel de administración: un icono genérico donde iba la foto, tres tarjetas de
+//  cifras con colores del sistema, dos acciones rápidas que duplicaban la barra de pestañas,
+//  un «Today's Schedule» que ESCONDÍA las sesiones de hoy tras un aviso, y un «Recent Activity»
+//  que era un TODO.
+//
+//  Todo lo que se pinta existe: sesiones de `ClassService`, inscritos de
+//  `/schedule/participation/participants/{id}`, y check-ins de `/health/clients/{id}/check-ins`,
+//  las rutas de la fase 2 que iOS nunca había consumido.
 //
 
 import SwiftUI
@@ -11,382 +22,520 @@ struct TrainerDashboardView: View {
     @EnvironmentObject var workspaceContext: WorkspaceContextService
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var classService: ClassService
+    @EnvironmentObject var coachingService: CoachingService
+    @StateObject private var profileService = UserProfileService.shared
 
     /// Navegación de pestañas, que la posee TrainerMainTabView.
     var onGoToClients: () -> Void = {}
     var onGoToMessages: () -> Void = {}
 
-    @State private var isRefreshing = false
+    @State private var now = Date()
+    private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
+    private var accent: Color { Color.dynamicAccent(theme: theme) }
+    private var ink: Color { ThemeManager.accentInkForCurrentAccent(theme: theme) }
+
+    // MARK: - Datos derivados
+
+    private var firstName: String {
+        if let name = profileService.userProfile?.firstName, !name.isEmpty { return name }
+        if let full = authService.user?.name, !full.isEmpty, !full.contains("@") {
+            return full.components(separatedBy: " ").first ?? full
+        }
+        return "Coach"
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: now)
+        if hour < 12 { return "Good morning," }
+        if hour < 18 { return "Good afternoon," }
+        return "Good evening,"
+    }
+
+    private var trainerMetrics: TrainerMetrics? {
+        if let stats = workspaceContext.stats, case .trainer(let m) = stats.metrics { return m }
+        return nil
+    }
+
+    /// La siguiente sesión del calendario, hoy o después, para el estado «sin sesiones hoy».
+    private var nextUpcoming: SessionWithClass? {
+        classService.sessions
+            .filter { $0.session.startTime > now && $0.session.status != .cancelled }
+            .sorted { $0.session.startTime < $1.session.startTime }
+            .first
+    }
+
+    // MARK: - Body
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Welcome Header
-                    welcomeHeader
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 26) {
+                    header
+                    todaySection
+                    weekStrip
+                    checkInsSection
+                    Spacer(minLength: 16)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+            }
+            .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
+            .navigationBarHidden(true)
+            .task { await load() }
+            .refreshable { await load(force: true) }
+            .onReceive(clock) { now = $0 }
+        }
+    }
 
-                    // Stats Cards
-                    if let stats = workspaceContext.stats,
-                       case .trainer(let trainerMetrics) = stats.metrics {
-                        statsGrid(metrics: trainerMetrics)
-                    } else {
-                        loadingStatsView
+    // MARK: - Cabecera
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greeting)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                Text(firstName)
+                    .font(.system(size: 30, weight: .bold))
+                    .tracking(-1.0)
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            Spacer(minLength: 0)
+
+            avatar(url: profileService.userProfile?.picture, initials: String(firstName.prefix(1)), size: 48)
+        }
+        .padding(.top, 4)
+    }
+
+    // MARK: - Hoy
+
+    private var todaySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                eyebrow("TODAY")
+                Spacer()
+                Text(DateFormatter.localized(template: "EEEdMMM").string(from: now))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            }
+
+            switch coachingService.rosterState {
+            case .loading, .idle where coachingService.todayRoster.isEmpty && classService.sessions.isEmpty:
+                skeletonCard(height: 132)
+            default:
+                if coachingService.todayRoster.isEmpty {
+                    noSessionsTodayCard
+                } else {
+                    ForEach(coachingService.todayRoster) { entry in
+                        sessionCard(entry, isNext: entry.id == nextTodayId)
                     }
-
-                    // Quick Actions
-                    quickActionsSection
-
-                    // Today's Schedule
-                    todayScheduleSection
-
-                    // Recent Activity
-                    recentActivitySection
                 }
-                .padding()
-            }
-            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-            .navigationTitle("Dashboard")
-            .navigationBarTitleDisplayMode(.large)
-            .refreshable {
-                await refreshData()
-            }
-            .task {
-                await loadInitialData()
             }
         }
     }
 
-    // MARK: - Welcome Header
+    /// La primera sesión de hoy que todavía no ha terminado. Es la que va en el acento.
+    private var nextTodayId: Int? {
+        coachingService.todayRoster.first { $0.session.endTime > now }?.id
+    }
 
-    private var welcomeHeader: some View {
-        HStack {
+    private func sessionCard(_ entry: SessionRosterEntry, isNext: Bool) -> some View {
+        let hora = DateFormatter.localized(template: "jmm")
+        hora.timeZone = entry.gymTimeZone
+        let rango = "\(hora.string(from: entry.session.startTime))–\(hora.string(from: entry.session.endTime))"
+        let terminada = entry.session.endTime <= now
+        let enCurso = entry.session.startTime <= now && !terminada
+        let fg: Color = isNext ? ink : Color.dynamicText(theme: theme)
+        let fg2: Color = isNext ? ink.opacity(0.72) : Color.dynamicTextSecondary(theme: theme)
+
+        return HStack(spacing: 14) {
+            avatar(url: entry.client?.pictureURL,
+                   initials: entry.client?.initials ?? "?",
+                   size: isNext ? 60 : 48,
+                   ring: isNext ? ink.opacity(0.35) : nil)
+
             VStack(alignment: .leading, spacing: 4) {
-                Text("Welcome back,")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                Text(entry.client?.displayName ?? "Open slot")
+                    .font(.system(size: isNext ? 20 : 16, weight: .bold))
+                    .tracking(isNext ? -0.5 : -0.2)
+                    .foregroundColor(fg)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
 
-                Text(authService.user?.name ?? "Trainer")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-            }
-
-            Spacer()
-
-            // Profile Image or Icon
-            Circle()
-                .fill(LinearGradient(
-                    colors: [
-                        themeManager.currentTheme == .dark ?
-                            Color(red: 0.85, green: 0.2, blue: 0.2) :
-                            Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0),
-                        themeManager.currentTheme == .dark ?
-                            Color(red: 0.7, green: 0.15, blue: 0.15) :
-                            Color(red: 41.0/255.0, green: 170.0/255.0, blue: 188.0/255.0)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Image(systemName: "person.fill")
-                        .foregroundColor(.white)
-                )
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-        )
-    }
-
-    // MARK: - Stats Grid
-
-    private func statsGrid(metrics: TrainerMetrics) -> some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 16) {
-            // Active Clients
-            // Sin plan contratado no hay tope, así que no se pinta ni «of N max» ni barra de
-            // progreso: una barra sobre un límite inexistente es un dato inventado.
-            StatCard(
-                title: workspaceContext.getCapitalizedTerm("clients"),
-                value: "\(metrics.activeClients)",
-                subtitle: metrics.maxClients.map { "of \($0) max" } ?? "active",
-                icon: "person.2.fill",
-                color: metrics.maxClients != nil && metrics.capacityPercentage >= 90
-                    ? Color.orange
-                    : Color.blue,
-                progress: metrics.maxClients != nil ? metrics.capacityPercentage / 100 : nil,
-                theme: themeManager.currentTheme
-            )
-
-            // Sessions This Week
-            StatCard(
-                title: "Sessions",
-                value: "\(metrics.sessionsThisWeek)",
-                subtitle: "this week",
-                icon: "figure.walk",
-                color: Color.green,
-                theme: themeManager.currentTheme
-            )
-
-            // Retención e ingresos: RETIRADOS a propósito.
-            // El backend los devolvía escritos a fuego (95 % y 45.000) con un TODO, y aquí se
-            // pintaban como si fueran del entrenador. Volverán cuando se calculen de verdad.
-            // Mientras tanto se muestra la ocupación, que sí sale de datos reales, y SOLO cuando
-            // hay un tope contra el que medirla.
-            if metrics.maxClients != nil {
-                StatCard(
-                    title: "Capacity",
-                    value: "\(Int(metrics.capacityPercentage.rounded()))%",
-                    subtitle: "of your client slots",
-                    icon: "gauge.medium",
-                    color: metrics.capacityPercentage >= 90 ? Color.warningYellow : Color.successGreen,
-                    progress: min(metrics.capacityPercentage / 100, 1),
-                    theme: themeManager.currentTheme
-                )
-            }
-        }
-    }
-
-    // MARK: - Loading Stats View
-
-    private var loadingStatsView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.5)
-
-            Text("Loading your stats...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(40)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-        )
-    }
-
-    // MARK: - Quick Actions Section
-
-    private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Actions")
-                .font(.headline)
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 4)
-
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                // Antes había cuatro botones y tres no llevaban a ninguna parte: dos con el
-                // cuerpo vacío y un TODO, y el de agenda a una pantalla sin backend. Un botón
-                // inerte en la pantalla de aterrizaje del producto es peor que no tenerlo.
-                // Se conservan solo los que navegan de verdad.
-                QuickActionButton(
-                    title: "View \(workspaceContext.getCapitalizedTerm("clients"))",
-                    icon: "person.2.fill",
-                    color: Color.green,
-                    theme: themeManager.currentTheme
-                ) {
-                    onGoToClients()
+                HStack(spacing: 6) {
+                    Text(rango)
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(fg2)
+                    if let room = entry.session.room, !room.isEmpty {
+                        Text("·").foregroundColor(fg2)
+                        Text(room)
+                            .font(.system(size: 13))
+                            .foregroundColor(fg2)
+                            .lineLimit(1)
+                    }
                 }
 
-                QuickActionButton(
-                    title: "Messages",
-                    icon: "message.fill",
-                    color: Color.purple,
-                    theme: themeManager.currentTheme
-                ) {
-                    onGoToMessages()
+                if isNext, let notes = entry.session.notes, !notes.isEmpty {
+                    Text(notes)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(fg2)
+                        .lineLimit(2)
+                        .padding(.top, 2)
                 }
             }
-        }
-    }
 
-    // MARK: - Today Schedule Section
+            Spacer(minLength: 0)
 
-    private var todayScheduleSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Today's Schedule")
-                    .font(.headline)
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-                Spacer()
-                // "Ver todo" llevaba a AppointmentsView, que también está sobre datos de
-                // ejemplo. Se oculta hasta que exista el módulo de sesiones.
-            }
-            .padding(.horizontal, 4)
-
-            // Sin datos de ejemplo: el módulo de sesiones 1:1 no existe todavía, así que aquí
-            // se declara el estado real en vez de enseñar tres clientes inventados, que es lo
-            // que había antes y llegaría al entrenador tal cual en el producto publicado.
-            HStack(spacing: 10) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
-                Text("You cannot schedule sessions from the app yet.")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-            }
-            .padding(14)
-            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15),
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 4])
-                    )
-            )
-        }
-    }
-
-    // MARK: - Recent Activity Section
-
-    private var recentActivitySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Activity")
-                .font(.headline)
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 4)
-
-            // TODO: Connect to actual activity data from API
-            VStack(spacing: 8) {
-                HStack {
-                    Image(systemName: "clock.fill")
-                        .foregroundColor(.secondary)
-                    Text("Your clients' activity will show up here.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                )
+            if terminada {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(accent)
+            } else if enCurso {
+                statusPill("NOW", filled: isNext)
+            } else {
+                statusPill(countdown(to: entry.session.startTime), filled: isNext)
             }
         }
-    }
-
-    // MARK: - Data Loading
-
-    private func loadInitialData() async {
-        if workspaceContext.stats == nil {
-            await workspaceContext.fetchStats()
-        }
-    }
-
-    private func refreshData() async {
-        isRefreshing = true
-        await workspaceContext.fetchStats(forceRefresh: true)
-        isRefreshing = false
-    }
-
-}
-
-// MARK: - Stat Card Component
-
-struct StatCard: View {
-    let title: String
-    let value: String
-    let subtitle: String
-    let icon: String
-    let color: Color
-    var progress: Double?
-    let theme: ThemeManager.AppTheme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                    .font(.title3)
-
-                Spacer()
-            }
-
-            Text(value)
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(Color.dynamicText(theme: theme))
-
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            Text(subtitle)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-
-            if let progress = progress {
-                ProgressView(value: progress)
-                    .tint(color)
-                    .padding(.top, 4)
-            }
-        }
-        .padding()
+        .padding(isNext ? 18 : 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.dynamicSurface(theme: theme))
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+            Group {
+                if isNext {
+                    LinearGradient(colors: [accent, accent.opacity(0.72)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    Color.dynamicSurface(theme: theme)
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(isNext ? 0 : 0.15), lineWidth: 1)
+        )
+        .opacity(terminada ? 0.6 : 1)
+    }
+
+    private func statusPill(_ text: String, filled: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .tracking(0.6)
+            .foregroundColor(filled ? accent : Color.dynamicTextSecondary(theme: theme))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(filled ? Color.black.opacity(0.85) : Color.dynamicSurface2(theme: theme)))
+    }
+
+    /// «IN 2H 10M», «IN 45M», «IN 3 DAYS». Lo que un entrenador mira de reojo entre sesiones.
+    private func countdown(to date: Date) -> String {
+        let secs = Int(date.timeIntervalSince(now))
+        guard secs > 0 else { return "NOW" }
+        let m = secs / 60
+        if m < 60 { return "IN \(max(m, 1))M" }
+        let h = m / 60
+        if h < 24 { return m % 60 >= 5 ? "IN \(h)H \(m % 60)M" : "IN \(h)H" }
+        let d = h / 24
+        return "IN \(d) DAY\(d == 1 ? "" : "S")"
+    }
+
+    private var noSessionsTodayCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "sun.max")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(accent)
+                Text("No sessions today")
+                    .font(.system(size: 17, weight: .bold))
+                    .tracking(-0.3)
+                    .foregroundColor(Color.dynamicText(theme: theme))
+            }
+
+            if let next = nextUpcoming {
+                Text("Next up: \(nextLabel(next))")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+            } else {
+                Text("Nothing on the calendar this week. Sessions you schedule for your clients show up here.")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.dynamicSurface(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
         )
     }
-}
 
-// MARK: - Quick Action Button Component
+    private func nextLabel(_ item: SessionWithClass) -> String {
+        let f = DateFormatter.localized(template: "EEEdMMM jmm")
+        f.timeZone = TimeZone(identifier: item.session.timeInfo.gymTimezone) ?? .current
+        return f.string(from: item.session.startTime)
+    }
 
-struct QuickActionButton: View {
-    let title: String
-    let icon: String
-    let color: Color
-    let theme: ThemeManager.AppTheme
-    let action: () -> Void
+    // MARK: - La semana, en una tira
 
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
-
-                Text(title)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.dynamicText(theme: theme))
-                    .multilineTextAlignment(.center)
+    private var weekStrip: some View {
+        HStack(spacing: 0) {
+            metric(value: trainerMetrics.map { "\($0.activeClients)" }, label: "CLIENTS")
+            divider
+            metric(value: trainerMetrics.map { "\($0.sessionsThisWeek)" }, label: "SESSIONS THIS WEEK")
+            if let m = trainerMetrics, m.maxClients != nil {
+                divider
+                metric(value: "\(Int(m.capacityPercentage.rounded()))%", label: "CAPACITY")
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.dynamicSurface(theme: theme))
-                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-            )
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity)
+        .background(Color.dynamicSurface(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { onGoToClients() }
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.dynamicBorder(theme: theme).opacity(0.2))
+            .frame(width: 1, height: 34)
+            .padding(.horizontal, 14)
+    }
+
+    private func metric(value: String?, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            // «—» cuando no se ha podido cargar: un cero afirmaría que no tienes clientes.
+            Text(value ?? NumberFormat.placeholder)
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .tracking(-1.0)
+                .foregroundColor(value == nil ? Color.dynamicTextTertiary(theme: theme) : accent)
+            Text(label)
+                .font(.system(size: 9, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Lo que tus clientes te contaron
+
+    private var checkInsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                eyebrow("THIS WEEK'S CHECK-INS")
+                Spacer()
+                if !coachingService.recentCheckIns.isEmpty {
+                    Text("\(coachingService.recentCheckIns.count)")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                }
+            }
+
+            switch coachingService.checkInsState {
+            case .loading, .idle where coachingService.recentCheckIns.isEmpty:
+                skeletonCard(height: 96)
+                skeletonCard(height: 96)
+            case .failed where coachingService.recentCheckIns.isEmpty:
+                infoCard(icon: "exclamationmark.triangle",
+                         text: "Couldn't load your clients' check-ins. Pull to try again.")
+            default:
+                if coachingService.recentCheckIns.isEmpty {
+                    infoCard(icon: "bubble.left",
+                             text: "No check-ins yet this week. Your clients log them from the app, and they land here.")
+                } else {
+                    ForEach(coachingService.recentCheckIns) { item in
+                        checkInCard(item)
+                    }
+                }
+            }
+        }
+    }
+
+    private func checkInCard(_ item: ClientCheckIn) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                avatar(url: item.client.pictureURL, initials: item.client.initials, size: 36)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.client.displayName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: theme))
+                        .lineLimit(1)
+                    Text("Week of \(DateFormatter.localized(template: "dMMM").string(from: item.checkIn.weekStart))")
+                        .font(.system(size: 11))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                }
+                Spacer(minLength: 0)
+                if let kg = item.checkIn.weight {
+                    let unit = WeightUnit.preferred
+                    Text("\(NumberFormat.decimal(unit.fromKilograms(kg), digits: 1)) \(unit.symbol)")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                }
+            }
+
+            if let nota = item.checkIn.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !nota.isEmpty {
+                Text("“\(nota)”")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 6) {
+                scalePill("Energy", item.checkIn.energy, lowIsBad: true)
+                scalePill("Sleep", item.checkIn.sleep, lowIsBad: true)
+                scalePill("Soreness", item.checkIn.soreness, lowIsBad: false)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.dynamicSurface(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+        )
+    }
+
+    /// Escala de 1 a 5 como píldora. Lo que merece un vistazo se tiñe: sueño bajo o agujetas
+    /// altas es justo lo que el entrenador quiere saber antes de la sesión.
+    @ViewBuilder
+    private func scalePill(_ label: String, _ value: Int?, lowIsBad: Bool) -> some View {
+        if let value {
+            let alerta = lowIsBad ? value <= 2 : value >= 4
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                Text("\(value)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(alerta ? Color.warningYellow : Color.dynamicTextSecondary(theme: theme))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(alerta ? Color.warningYellow.opacity(0.14) : Color.dynamicSurface2(theme: theme)))
+        }
+    }
+
+    // MARK: - Piezas comunes
+
+    private func eyebrow(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .bold))
+            .tracking(0.9)
+            .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            .padding(.leading, 2)
+    }
+
+    private func avatar(url: String?, initials: String, size: CGFloat, ring: Color? = nil) -> some View {
+        Group {
+            if let url, !url.isEmpty {
+                OptimizedAsyncImage(
+                    url: url,
+                    displaySize: CGSize(width: size, height: size),
+                    placeholder: { AnyView(initialsCircle(initials, size: size)) },
+                    errorView: { AnyView(initialsCircle(initials, size: size)) }
+                )
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+            } else {
+                initialsCircle(initials, size: size)
+            }
+        }
+        .overlay(
+            Circle().stroke(ring ?? .clear, lineWidth: ring == nil ? 0 : 2)
+        )
+    }
+
+    private func initialsCircle(_ initials: String, size: CGFloat) -> some View {
+        ZStack {
+            Circle().fill(Color.dynamicSurface2(theme: theme))
+            Text(initials)
+                .font(.system(size: size * 0.36, weight: .bold))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+        }
+        .frame(width: size, height: size)
+    }
+
+    private func infoCard(icon: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .padding(.top, 1)
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Color.dynamicSurface(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(0.15),
+                        style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        )
+    }
+
+    private func skeletonCard(height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 22)
+            .fill(Color.dynamicSurface(theme: theme))
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay(alignment: .topLeading) {
+                HStack(spacing: 12) {
+                    SkeletonView(width: 48, height: 48, cornerRadius: 24)
+                    VStack(alignment: .leading, spacing: 8) {
+                        SkeletonView(width: 140, height: 14, cornerRadius: 4)
+                        SkeletonView(width: 90, height: 11, cornerRadius: 4)
+                    }
+                }
+                .padding(14)
+            }
+    }
+
+    // MARK: - Carga
+
+    private func load(force: Bool = false) async {
+        async let stats: Void = loadStats(force: force)
+        async let sessions: Void = classService.loadSessionsForDateIfNeeded(date: Date())
+        _ = await (stats, sessions)
+
+        // El roster necesita las sesiones ya cargadas; los check-ins, la lista de clientes.
+        async let roster: Void = coachingService.loadTodayRoster(from: classService.sessions)
+        async let checkIns: Void = coachingService.loadRecentCheckIns()
+        _ = await (roster, checkIns)
+        now = Date()
+    }
+
+    private func loadStats(force: Bool) async {
+        if force || workspaceContext.stats == nil {
+            await workspaceContext.fetchStats(forceRefresh: force)
+        }
     }
 }
-
-
-// MARK: - Note: ActivityRow component already exists in RecentActivitySection.swift
-// Using placeholder for Recent Activity section until connected to actual data
-
-// MARK: - Preview
 
 #Preview {
     TrainerDashboardView()
         .environmentObject(WorkspaceContextService.shared)
         .environmentObject(AuthServiceDirect())
         .environmentObject(ThemeManager())
+        .environmentObject(ServiceContainer.shared.classService)
+        .environmentObject(ServiceContainer.shared.coachingService)
 }

@@ -272,6 +272,23 @@ extension ThemeManager {
         return contrasteConOscuro >= contrasteConBlanco ? Color.accentInk : .white
     }
 
+    /// Nombre legible de cada acento. Hasta ahora los nombres vivian solo como comentarios al
+    /// lado de cada hex, o sea que en tiempo de ejecucion no existian: la fila «Appearance» decia
+    /// «Lime» con un literal y el selector no podia etiquetar nada para VoiceOver.
+    static func accentName(for hex: String) -> String {
+        let nombres: [String: String] = [
+            "#D4FF3F": "Lime", "#C43421": "Deep red", "#D94A4A": "Red", "#E74C3C": "Crimson",
+            "#FF5252": "Bright red", "#FF6B6B": "Coral", "#6FCF3F": "Green", "#4CAF50": "Forest",
+            "#66BB6A": "Meadow", "#81C784": "Sage", "#9CCC65": "Pistachio", "#AED581": "Light green",
+            "#FF7043": "Tangerine", "#FF8C42": "Orange", "#FFB74D": "Amber", "#FFD54F": "Gold",
+            "#FFF176": "Yellow", "#00827E": "Deep teal", "#4DB6AC": "Teal", "#26A69A": "Dark teal",
+            "#4FC3F7": "Light blue", "#29B6F6": "Blue", "#42A5F5": "Sky", "#64B5F6": "Sky blue",
+            "#5C6AC4": "Indigo", "#7986CB": "Periwinkle", "#9575CD": "Purple", "#BA68C8": "Lavender",
+            "#F06292": "Pink",
+        ]
+        return nombres[hex.uppercased()] ?? hex
+    }
+
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard
         if theme == .light {

@@ -233,7 +233,7 @@ struct ModernProfileView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color(hex: "#D4FF3F")!.opacity(0.25), .clear],
+                            colors: [Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.25), .clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: 80

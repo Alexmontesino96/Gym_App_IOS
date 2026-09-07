@@ -199,7 +199,7 @@ struct ClientsListView: View {
             } label: {
                 Text("Try again")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Color.accentInk)
+                    .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
@@ -232,7 +232,7 @@ struct ClientsListView: View {
                 Button { showingInvite = true } label: {
                     Text("Invite a client")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color.accentInk)
+                        .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(Color.dynamicAccent(theme: theme)))

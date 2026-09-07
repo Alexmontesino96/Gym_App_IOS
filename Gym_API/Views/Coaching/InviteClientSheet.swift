@@ -106,7 +106,7 @@ struct InviteClientSheet: View {
             } label: {
                 Text("Create code")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.accentInk)
+                    .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: themeManager.currentTheme))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
                     .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
@@ -169,7 +169,7 @@ struct InviteClientSheet: View {
                         Text("Share")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundColor(Color.accentInk)
+                    .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: themeManager.currentTheme))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(Capsule().fill(Color.dynamicAccent(theme: theme)))

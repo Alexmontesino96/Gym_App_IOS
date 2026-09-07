@@ -64,7 +64,7 @@ struct ChatFilterChips: View {
                     Circle()
                         .fill(isActive
                             ? Color.dynamicBackground(theme: themeManager.currentTheme)
-                            : Color(hex: "#D4FF3F")!
+                            : Color.dynamicAccent(theme: themeManager.currentTheme)
                         )
                         .frame(width: 6, height: 6)
                 } else {
@@ -81,7 +81,7 @@ struct ChatFilterChips: View {
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(isActive
                             ? Color.dynamicBackground(theme: themeManager.currentTheme)
-                            : Color(hex: "#D4FF3F")!
+                            : Color.dynamicAccent(theme: themeManager.currentTheme)
                         )
                 }
             }

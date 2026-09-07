@@ -21,7 +21,9 @@ struct SplashView: View {
     @State private var haloScale: CGFloat = 0.8
     @State private var haloOpacity: Double = 0
 
-    private let accentColor = Color(hex: "#D4FF3F")!
+    // Computado y del tema: un `let` se evalua antes de que exista el entorno, y ademas
+    // seguia lima aunque el usuario hubiera elegido otro acento.
+    private var accentColor: Color { Color.dynamicAccent(theme: themeManager.currentTheme) }
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
