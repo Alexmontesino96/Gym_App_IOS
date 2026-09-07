@@ -1,3 +1,7 @@
 
 # Build artifacts
 build/
+
+# Swift Package Manager (paquetes locales en Packages/)
+Packages/*/.build/
+.swiftpm/

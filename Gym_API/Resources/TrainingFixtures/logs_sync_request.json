@@ -1,0 +1,57 @@
+{
+  "client_uuid": "6F1C0A2E-6C8B-4C6E-9C1E-1E2D3F4A5B6C",
+  "day_id": 88,
+  "program_id": 7,
+  "scheduled_date": "2026-09-24",
+  "title": "Upper B",
+  "status": "completed",
+  "started_at": "2026-09-24T17:02:10-04:00",
+  "completed_at": "2026-09-24T17:54:20-04:00",
+  "session_rpe": 8,
+  "feeling": 4,
+  "notes": "Shoulder felt tight on set 3.",
+  "sets": [
+    {
+      "client_uuid": "A91B7D14-2F3C-4D5E-8A9B-0C1D2E3F4A5B",
+      "exercise_key": "barbell_bench_press",
+      "exercise_name": "Bench press",
+      "day_exercise_id": 510,
+      "exercise_id": 41,
+      "order_index": 0,
+      "set_number": 1,
+      "reps": 5,
+      "weight_kg": 83.9,
+      "rpe": 8,
+      "is_warmup": false,
+      "completed_at": "2026-09-24T17:10:41-04:00"
+    },
+    {
+      "client_uuid": "B02C8E25-3A4D-4E6F-9B0C-1D2E3F4A5B6C",
+      "exercise_key": "barbell_bench_press",
+      "exercise_name": "Bench press",
+      "day_exercise_id": 510,
+      "exercise_id": 41,
+      "order_index": 0,
+      "set_number": 2,
+      "reps": 5,
+      "weight_kg": 83.9,
+      "rpe": 8,
+      "is_warmup": false,
+      "completed_at": "2026-09-24T17:14:02-04:00"
+    },
+    {
+      "client_uuid": "C13D9F36-4B5E-4F70-AC1D-2E3F4A5B6C7D",
+      "exercise_key": "cable_row",
+      "exercise_name": "Cable row",
+      "day_exercise_id": 511,
+      "exercise_id": 58,
+      "order_index": 1,
+      "set_number": 1,
+      "reps": 10,
+      "weight_kg": 61.2,
+      "rpe": null,
+      "is_warmup": false,
+      "completed_at": "2026-09-24T17:24:55-04:00"
+    }
+  ]
+}
