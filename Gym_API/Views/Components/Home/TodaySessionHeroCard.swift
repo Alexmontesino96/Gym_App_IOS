@@ -30,6 +30,11 @@ struct TodaySessionHeroCard: View {
     /// la misma pantalla: siglas en el heroe y foto en la tarjeta de justo debajo.
     var personPictureURL: String? = nil
 
+    /// Accion secundaria del heroe. La usa el modulo de entrenamiento para «View plan» (UX §2);
+    /// por defecto no existe, asi que la home del gimnasio sigue pintando exactamente lo mismo.
+    var secondaryActionTitle: String? = nil
+    var onSecondaryAction: (() -> Void)? = nil
+
     private var displayedPersonName: String { personName ?? gymClass.instructor }
 
     @EnvironmentObject var themeManager: ThemeManager
@@ -211,6 +216,25 @@ struct TodaySessionHeroCard: View {
                         }
 
                         Spacer()
+
+                        // Accion secundaria («View plan» del modulo de entrenamiento)
+                        if let secondaryActionTitle, let onSecondaryAction {
+                            Button(action: onSecondaryAction) {
+                                HStack(spacing: 4) {
+                                    Text(secondaryActionTitle)
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .foregroundColor(accentColor)
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: 44)
+                                .background(Color.black.opacity(0.85))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(secondaryActionTitle)
+                        }
 
                         // Check-in pill
                         // Solo el dia de la sesion, y solo si hay algo detras. Antes salia
