@@ -82,11 +82,11 @@ struct DayCompleteCelebrationView: View {
 
             // Congratulations text
             VStack(spacing: 8) {
-                Text("¡Día Completado!")
+                Text("Day complete!")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-                Text("Has terminado todas tus comidas del día")
+                Text("You logged every meal today")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .multilineTextAlignment(.center)
@@ -156,7 +156,7 @@ struct DayCompleteCelebrationView: View {
 
                 Spacer()
 
-                Text("Día \(currentDay) de \(totalDays)")
+                Text("Day \(currentDay) of \(totalDays)")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
             }

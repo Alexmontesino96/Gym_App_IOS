@@ -17,7 +17,10 @@ struct TrainerMainTabView: View {
         TabView(selection: $selectedTab) {
             // Dashboard
             AnimatedTabContent(isSelected: selectedTab == 0) {
-                TrainerDashboardView()
+                TrainerDashboardView(
+                    onGoToClients: { selectedTab = 1 },
+                    onGoToMessages: { selectedTab = 3 }
+                )
             }
             .tabItem {
                 Image(systemName: selectedTab == 0 ? "house.fill" : "house")
@@ -35,21 +38,15 @@ struct TrainerMainTabView: View {
             }
             .tag(1)
 
-            // Appointments (if enabled)
-            if workspaceContext.isFeatureEnabled(\.showAppointments) {
-                AnimatedTabContent(isSelected: selectedTab == 2) {
-                    AppointmentsView()
-                }
-                .tabItem {
-                    Image(systemName: selectedTab == 2 ? "calendar.circle.fill" : "calendar.circle")
-                    Text(workspaceContext.getCapitalizedTerm("schedule"))
-                }
-                .tag(2)
-            }
+            // La pestaña de agenda se retiró: eran 569 líneas de interfaz sin backend detrás,
+            // con un formulario cuyo botón «Save» descartaba lo que el usuario acababa de
+            // escribir. Vuelve en el tramo 6 del módulo de entrenamiento, cuando exista la
+            // entidad de cita. El hueco del tag 2 se deja a propósito para no renumerar el
+            // resto de pestañas ni la preferencia guardada de nadie.
 
             // Social (Messages + Feed)
             AnimatedTabContent(isSelected: selectedTab == 3) {
-                SocialFeedView(pendingEventChat: .constant(nil))
+                SocialFeedView(pendingEventChat: .constant(nil), showsFeed: false, initialTab: .chats)
             }
             .tabItem {
                 Image(systemName: selectedTab == 3 ? "message.fill" : "message")
@@ -67,9 +64,9 @@ struct TrainerMainTabView: View {
             }
             .tag(4)
         }
-        .accentColor(themeManager.currentTheme == .dark ?
-                    Color(red: 0.85, green: 0.2, blue: 0.2) :
-                    Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
+        // Antes fijaba rojo o cian e ignoraba el acento que el entrenador elige en el tema,
+        // que es justo lo que hace suya la app en un producto de marca personal.
+        .accentColor(Color.dynamicAccent(theme: themeManager.currentTheme))
         .onChange(of: selectedTab) { oldValue, newValue in
             handleTabChange(from: oldValue, to: newValue)
         }

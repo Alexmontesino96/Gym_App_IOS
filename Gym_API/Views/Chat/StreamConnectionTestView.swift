@@ -17,7 +17,7 @@ struct StreamConnectionTestView: View {
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text("Prueba la conexión con GetStream usando el token de la API")
+                    Text("Test the GetStream connection using the API token")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -32,7 +32,7 @@ struct StreamConnectionTestView: View {
                         HStack {
                             ProgressView()
                                 .scaleEffect(0.8)
-                            Text("Probando conexión...")
+                            Text("Testing connection…")
                                 .font(.body)
                         }
                     } else if let result = chatService.connectionTestResult {
@@ -50,7 +50,7 @@ struct StreamConnectionTestView: View {
                                 .fill(result.contains("✅") ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
                         )
                     } else {
-                        Text("Presiona el botón para probar la conexión")
+                        Text("Tap the button to test the connection")
                             .font(.body)
                             .foregroundColor(.secondary)
                     }

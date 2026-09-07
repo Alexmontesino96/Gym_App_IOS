@@ -20,14 +20,14 @@ struct AuthenticatedView: View {
     @State private var initializationError: String?
     @State private var showOnboarding = false
     @State private var contextLoaded = false
+    @State private var appReady = false
+    @State private var hasCheckedAuth = false
+    @State private var needsManualGymSelection = false
     
     var body: some View {
-        let _ = print("🔍 AuthenticatedView.body evaluado")
-        let _ = print("🔍 isAuthenticated: \(authService.isAuthenticated)")
-        
         return Group {
             if let error = initializationError {
-                // Mostrar error de conexión
+                // Error de conexión
                 VStack(spacing: 20) {
                     Image(systemName: "wifi.slash")
                         .font(.system(size: 60))
@@ -44,10 +44,11 @@ struct AuthenticatedView: View {
                         .padding(.horizontal, 40)
 
                     Button(action: {
-                        // Reintentar carga de perfil
                         initializationError = nil
+                        appReady = false
+                        hasCheckedAuth = false
                         profileCheckCompleted = false
-                        checkUserProfile()
+                        startFullInitialization()
                     }) {
                         Text("Reintentar")
                             .font(.headline)
@@ -59,135 +60,81 @@ struct AuthenticatedView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemBackground))
-                .transition(.opacity)
-            } else if authService.isAuthenticated {
-                let _ = print("🔍 Usuario autenticado, verificando profile completion...")
-                
-                if profileCheckCompleted {
-                    if showingProfileCompletion {
-                        let _ = print("✅ Mostrando ProfileCompletionView")
-                        ProfileCompletionView {
-                            showingProfileCompletion = false
-                            // Después de completar el perfil, continuar con gym selection
-                        }
+            } else if !appReady {
+                // Show loading screen until EVERYTHING is ready
+                // (auth check, profile, gym selection, workspace context)
+                if hasCheckedAuth && !authService.isAuthenticated {
+                    // Not authenticated → landing page
+                    OnboardingScreenView()
                         .environmentObject(authService)
                         .environmentObject(themeManager)
-                    } else {
-                        let _ = print("🔍 Profile completo, verificando gym selection...")
-                        let _ = print("🔍 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
-                        let _ = print("🔍 hasSelectedGym: \(gymService.hasSelectedGym)")
-                        let _ = print("🔍 currentGym: \(gymService.currentGym?.name ?? "ninguno")")
-
-                        if gymService.hasCompletedGymSelection {
-                            if !contextLoaded {
-                                // Mostrar loading mientras carga el contexto
-                                let _ = print("⏳ Cargando workspace context...")
-                                VStack(spacing: 16) {
-                                    ProgressView()
-                                        .scaleEffect(1.2)
-                                        .tint(.blue)
-
-                                    Text("Loading workspace...")
-                                        .font(.system(size: 16, weight: .medium))
-                                        .foregroundColor(.secondary)
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(Color(.systemBackground))
-                            } else {
-                                // Routing based on workspace type
-                                let _ = print("✅ Context loaded - Workspace type: \(workspaceContext.workspaceType)")
-                                let _ = print("✅ Is Personal Trainer: \(workspaceContext.isPersonalTrainer)")
-
-                                if workspaceContext.isPersonalTrainer {
-                                    let _ = print("✅ Mostrando TrainerMainTabView para Personal Trainer")
-                                    TrainerMainTabView()
-                                        .environmentObject(themeManager)
-                                } else {
-                                    let _ = print("✅ Mostrando MainTabView para Gym tradicional")
-                                    MainTabView()
-                                        .environmentObject(themeManager)
-                                }
-                            }
-                        } else {
-                            let _ = print("✅ Mostrando GymSelectionView porque hasCompletedGymSelection = false")
-                            GymSelectionView { selectedGym in
-                                gymService.selectGym(selectedGym)
-                            }
-                            .environmentObject(themeManager)
-                            .environmentObject(authService)
-                        }
+                } else if showingProfileCompletion {
+                    // Profile incomplete → completion flow
+                    ProfileCompletionView {
+                        showingProfileCompletion = false
+                        startFullInitialization()
                     }
-                } else {
-                    // Mostrar loading mientras verificamos el perfil
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.2)
-                            .tint(.blue)
-                        
-                        Text("Checking your profile...")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(.systemBackground))
-                }
-            } else {
-                let _ = print("🔍 Usuario NO autenticado - Mostrando LoginViewDirect")
-                // Mostrar pantalla de login directamente
-                LoginViewDirect()
                     .environmentObject(authService)
                     .environmentObject(themeManager)
+                } else if needsManualGymSelection {
+                    // Multiple gyms → user must choose
+                    GymSelectionView { selectedGym in
+                        gymService.selectGym(selectedGym)
+                        startFullInitialization()
+                    }
+                    .environmentObject(themeManager)
+                    .environmentObject(authService)
+                } else {
+                    // Loading screen for everything else
+                    AppLoadingView()
+                        .environmentObject(themeManager)
+                }
+            } else {
+                // Everything ready → show app
+                rootForCurrentUser
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: hasCheckedAuth)
         .animation(.easeInOut(duration: 0.3), value: authService.isAuthenticated)
-        .animation(.easeInOut(duration: 0.3), value: gymService.hasCompletedGymSelection)
+        .animation(.easeInOut(duration: 0.3), value: appReady)
         .animation(.easeInOut(duration: 0.3), value: showingProfileCompletion)
-        .animation(.easeInOut(duration: 0.3), value: contextLoaded)
         .onAppear {
             setupServices()
-            checkUserProfile()
-            // Solo mostrar onboarding completo en primer lanzamiento (isFirstLaunch)
-            // En logout, se muestra LoginViewDirect directamente
             if !authService.isAuthenticated && onboardingManager.isFirstLaunch {
                 onboardingManager.checkOnboardingStatus()
                 showOnboarding = onboardingManager.showOnboarding
             }
+            startFullInitialization()
         }
         .onChange(of: authService.isAuthenticated) { newValue in
             if newValue {
-                // Usuario recién autenticado
-                // IMPORTANTE: NO cerrar onboarding si está en progreso (nuevo flujo Auth-First)
-                // Solo cerrar si NO es primer lanzamiento (i.e., login normal)
                 if !onboardingManager.isFirstLaunch || !onboardingManager.showOnboarding {
-                    // Login normal (no onboarding), cerrar cualquier onboarding
                     showOnboarding = false
                     onboardingManager.showOnboarding = false
                 }
-                // Si está en onboarding de primer lanzamiento, dejar que continúe
-
-                // Verificar perfil y recargar gyms con auto-selección
-                checkUserProfile()
-                Task {
-                    await gymService.getMyGyms(forceRefresh: true, autoSelectIfSingle: true)
-                }
+                // Re-run full initialization
+                startFullInitialization()
             } else {
-                // Reset states when user logs out
+                // Reset on logout
                 profileCheckCompleted = false
                 showingProfileCompletion = false
                 contextLoaded = false
-
-                // NO mostrar onboarding en logout - solo en primer lanzamiento
-                // El LoginViewDirect se muestra directamente en el body
+                appReady = false
+                hasCheckedAuth = false
+                needsManualGymSelection = false
                 showOnboarding = false
                 onboardingManager.showOnboarding = false
+                // Show loading briefly then reveal login
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    hasCheckedAuth = true
+                }
             }
         }
         .onChange(of: gymService.hasCompletedGymSelection) { newValue in
-            if newValue {
-                // When gym selection is completed, load workspace context
-                Task {
-                    await loadWorkspaceContext()
-                }
+            // If gym was just selected (from GymSelectionView), restart init
+            if newValue && !appReady {
+                needsManualGymSelection = false
+                startFullInitialization()
             }
         }
         .onChange(of: onboardingManager.showOnboarding) { newValue in
@@ -206,104 +153,169 @@ struct AuthenticatedView: View {
         }
     }
     
-    private func setupServices() {
-        print("🔧 AuthenticatedView.setupServices() iniciado")
-        print("🔧 isAuthenticated: \(authService.isAuthenticated)")
-        print("🔧 hasSelectedGym: \(gymService.hasSelectedGym)")
-        print("🔧 hasCompletedGymSelection: \(gymService.hasCompletedGymSelection)")
-        print("🔧 currentGym: \(gymService.currentGym?.name ?? "ninguno")")
-        
-        gymService.authService = authService
-        profileService.authService = authService
-        
-        // Si el usuario está autenticado, validar estado del gym
-        if authService.isAuthenticated {
-            // Si no se ha completado la selección de gym, cargar con auto-selección
-            if !gymService.hasCompletedGymSelection {
-                print("🔧 Selección de gym no completada, cargando gyms con auto-selección...")
-                Task {
-                    await gymService.getMyGyms(forceRefresh: true, autoSelectIfSingle: true)
-                }
-            } else if gymService.hasSelectedGym {
-                print("🔧 Gym ya seleccionado y completado, validando membresía...")
-                // Si hay gym seleccionado y completado, validar en background
-                Task {
-                    // Primero validar el gym actual
-                    let isValid = await gymService.validateCurrentGymMembership()
-                    if !isValid {
-                        print("🔧 Gym no válido, limpiando selección...")
-                        // El gym ya no es válido, limpiar selección
-                        await MainActor.run {
-                            gymService.clearGymSelection()
-                        }
-                    } else {
-                        print("🔧 Gym válido y selección completada")
-                        // Load workspace context if not already loaded
-                        if !contextLoaded {
-                            await loadWorkspaceContext()
-                        }
-                    }
-                }
-            }
-        }
-        
-        print("🔧 setupServices() terminado")
-    }
-    
-    private func checkUserProfile() {
-        guard authService.isAuthenticated else {
-            print("🔧 Usuario no autenticado, saltando verificación de perfil")
-            return
-        }
+    // MARK: - Root Routing
 
-        print("🔧 Verificando completitud del perfil...")
+    /// Raíz de la app, decidida por DOS ejes: tipo de workspace y rol del usuario en él.
+    ///
+    /// El entrenador personal y sus clientes comparten el mismo gym, así que el tipo de workspace
+    /// por sí solo no los distingue: antes de esto, un cliente aterrizaba en la vista del entrenador.
+    ///
+    /// El rol se lee de `GymInfo.userRoleInGym` (viene de `GET /gyms/my`, y `GymService` lo decodifica
+    /// con un JSONDecoder plano). NO se usa `user_context.role` de `/context/workspace`: ese campo
+    /// devuelve siempre "MEMBER" porque el middleware de tenant nunca llega a poblarlo.
+    ///
+    /// Ante la duda (gym sin cargar o rol vacío) se cae al camino menos privilegiado, el de cliente.
+    @ViewBuilder
+    private var rootForCurrentUser: some View {
+        // Ojo con el respaldo: el backend NO serializa `is_personal_trainer` en /gyms/my
+        // (en app/schemas/gym.py es una @property de Python sin @computed_field), así que
+        // `GymInfo.isPersonalTrainer` llega siempre nil. `type` sí viaja, y es el que vale.
+        let gymType = gymService.currentGym?.type?.lowercased()
+        let isPersonalTrainerWorkspace = workspaceContext.isPersonalTrainer
+            || (gymService.currentGym?.isPersonalTrainer ?? false)
+            || gymType == "personal_trainer"
+        let roleInGym = gymService.currentGym?.userRoleInGym
+
+        if isPersonalTrainerWorkspace {
+            if RolePermissions.isWorkspaceStaff(roleInGym) {
+                // Entrenador, asistente o dueño del espacio de trabajo
+                TrainerMainTabView()
+                    .environmentObject(themeManager)
+            } else {
+                // Cliente del entrenador personal
+                ClientMainTabView()
+                    .environmentObject(themeManager)
+            }
+        } else {
+            // Gimnasio tradicional: sin cambios
+            MainTabView()
+                .environmentObject(themeManager)
+        }
+    }
+
+    // MARK: - Full Initialization (single pipeline)
+
+    private func startFullInitialization() {
         Task {
-            // Cargar el perfil del usuario (evitar recargas innecesarias)
-            await profileService.fetchUserProfileIfStale()
+            // Step 1: Check if user has a valid token
+            let isAuthenticated = authService.isAuthenticated
 
             await MainActor.run {
-                // Verificar si hubo error de red al cargar
-                if profileService.lastLoadAttemptFailed {
-                    print("⚠️ [AuthenticatedView] Error al cargar perfil - mostrando error de conexión")
+                hasCheckedAuth = true
+            }
 
-                    // No forzar ProfileCompletion, mostrar error de conexión
+            guard isAuthenticated else { return }
+
+            // Step 2+3: Load profile AND gyms IN PARALLEL (they don't depend on each other)
+            // Use cache when available (don't force refresh on every launch)
+            async let profileTask: () = profileService.fetchUserProfileIfStale()
+            async let gymsTask: () = gymService.getMyGyms(forceRefresh: false, autoSelectIfSingle: true)
+            let (_, _) = await (profileTask, gymsTask)
+
+            // Check profile result
+            await MainActor.run {
+                if profileService.lastLoadAttemptFailed {
                     initializationError = "No se pudo cargar tu perfil. Verifica tu conexión a internet e intenta de nuevo."
-                    showingProfileCompletion = false
                     profileCheckCompleted = true
                     return
                 }
 
-                // Si se cargó correctamente, verificar si está completo
-                if let profile = profileService.userProfile {
-                    print("🔧 [AuthenticatedView] Perfil cargado desde servidor:")
-                    print("🔧 [AuthenticatedView] - ID: \(profile.id)")
-                    print("🔧 [AuthenticatedView] - Email: \(profile.email ?? "Sin email")")
-                    print("🔧 [AuthenticatedView] - FirstName: '\(profile.firstName)'")
-                    print("🔧 [AuthenticatedView] - LastName: '\(profile.lastName)'")
-                    print("🔧 [AuthenticatedView] - Height: \(profile.height?.description ?? "nil")")
-                    print("🔧 [AuthenticatedView] - Weight: \(profile.weight?.description ?? "nil")")
-                    print("🔧 [AuthenticatedView] - BirthDate: \(profile.birthDate?.description ?? "nil")")
-                    print("🔧 [AuthenticatedView] - Bio: \(profile.bio?.description ?? "nil")")
-                    print("🔧 [AuthenticatedView] - Auth0ID: \(profile.auth0Id ?? "nil")")
-                    print("🔧 [AuthenticatedView] - CreatedAt: \(profile.createdAt?.description ?? "nil")")
-                    print("🔧 [AuthenticatedView] - UpdatedAt: \(profile.updatedAt?.description ?? "nil")")
-
+                if let _ = profileService.userProfile {
                     let isComplete = profileService.isProfileComplete()
-                    print("🔧 Profile complete: \(isComplete)")
-
                     showingProfileCompletion = !isComplete
                     profileCheckCompleted = true
                 } else {
-                    // userProfile es nil y NO fue error de red = perfil realmente incompleto
-                    print("🔧 [AuthenticatedView] ❌ userProfile es nil - perfil incompleto")
                     showingProfileCompletion = true
                     profileCheckCompleted = true
                 }
+            }
 
-                print("🔧 showingProfileCompletion: \(showingProfileCompletion)")
-                print("🔧 profileCheckCompleted: \(profileCheckCompleted)")
+            guard !showingProfileCompletion else { return }
+
+            // If auto-select didn't work (multiple gyms), show manual selection
+            guard gymService.hasCompletedGymSelection else {
+                await MainActor.run {
+                    needsManualGymSelection = true
+                }
+                return
+            }
+
+            // Step 4+5: Load workspace context AND home data IN PARALLEL
+            async let wsTask: () = loadWorkspaceContext()
+            async let homeTask: () = preloadHomeData()
+            let (_, _) = await (wsTask, homeTask)
+
+            // Step 6: Mark app as ready — this will dismiss loading and show Home
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    appReady = true
+                }
             }
         }
+    }
+
+    private func setupServices() {
+        // Only configure auth references — NO network calls here
+        // All network calls happen in startFullInitialization()
+        gymService.authService = authService
+        profileService.authService = authService
+    }
+    
+    // checkUserProfile removed — handled by startFullInitialization step 2
+
+    private func preloadHomeData() async {
+        let isPersonalTrainerWorkspace = workspaceContext.isPersonalTrainer
+            || gymService.currentGym?.type?.lowercased() == "personal_trainer"
+        let eventService = ServiceContainer.shared.eventService
+        let classService = ServiceContainer.shared.classService
+        let userStatsService = UserStatsService.shared
+        let storyService = ServiceContainer.shared.storyService
+        let activityService = ServiceContainer.shared.activityService
+        let nutritionService = NutritionService.shared
+
+        // Configure services once
+        eventService.authService = authService
+        classService.authService = authService
+        userStatsService.authService = authService
+        userStatsService.gymService = gymService
+        storyService.authService = authService
+        nutritionService.configure(authService: authService, gymService: gymService)
+
+        // CRITICAL: Load only what's visible on Home first screen
+        await withTaskGroup(of: Void.self) { group in
+            // Visible immediately on Home
+            group.addTask { await eventService.fetchEvents() }
+            group.addTask { await classService.loadSessionsForDateIfNeeded(date: Date()) }
+            // Historias y actividad viven en módulos que nacen desactivados en los espacios
+            // de entrenador personal, así que allí estas dos llamadas son dos 403 garantizados
+            // en cada arranque. Ninguna pantalla del cliente las consume ya.
+            if !isPersonalTrainerWorkspace {
+                group.addTask { await storyService.fetchStoriesFeed() }
+                group.addTask { await activityService.fetchAllData() }
+            }
+            group.addTask { await userStatsService.fetchDashboardSummary() }
+            group.addTask { await nutritionService.getDashboard() }
+        }
+
+        // DEFERRED: Load after app is shown (not visible on first screen)
+        Task.detached(priority: .utility) { [authService, gymService] in
+            let eventService = await ServiceContainer.shared.eventService
+            let classService = await ServiceContainer.shared.classService
+            let userStatsService = await UserStatsService.shared
+
+            await eventService.fetchUserParticipations()
+            await classService.fetchMyClasses()
+            await classService.loadTrainers()
+            await userStatsService.fetchComprehensiveStats()
+            await userStatsService.fetchWorkoutHistory()
+        }
+
+        // Mark that home data is preloaded so HomeView skips re-loading
+        await MainActor.run {
+            UserDefaults.standard.set(true, forKey: "home_data_preloaded")
+        }
+
+        print("✅ [AuthenticatedView] Home data preloaded")
     }
 
     private func loadWorkspaceContext() async {

@@ -4,350 +4,335 @@ struct EventsView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var eventService: EventService
     @EnvironmentObject var themeManager: ThemeManager
-    @State private var searchText = ""
-    @State private var selectedFilter: EventFilter = .available
-    @State private var showingFilterSheet = false
-    @State private var searchTask: Task<Void, Never>?
-    @State private var showingCreateEvent = false
-    @State private var selectedEventForEdit: Event?
-    @State private var showingDeleteConfirmation = false
-    @State private var selectedEventForDelete: Event?
-    @State private var showDeleteSuccessMessage = false
-    @State private var deleteSuccessMessage = ""
+    @EnvironmentObject var paymentService: EventPaymentService
     @StateObject private var gymService = GymService.shared
-    @StateObject private var chatService = ChatService.shared
 
-    // Estados para navegación de chat desde tarjetas
-    @State private var selectedEventForChat: Event?
-    
-    // Estado para registro masivo
-    @State private var selectedEventForBulkRegistration: Event?
+    @State private var searchText = ""
+    @State private var selectedCategory: EventCategory?
+    @State private var showingCreateEvent = false
+    @State private var selectedEvent: Event?
 
-    // Estados para pagos
-    @State private var showEventPayment = false
+    // Payment states
     @State private var currentPaymentIntent: PaymentIntent?
     @State private var currentParticipationId: Int?
     @State private var currentPaymentEvent: Event?
-    @EnvironmentObject var paymentService: EventPaymentService
 
-    var filteredEvents: [Event] {
-        let searchFilteredEvents = searchText.isEmpty ? eventService.events : eventService.events.filter { event in
-            event.title.localizedCaseInsensitiveContains(searchText) ||
-            event.description.localizedCaseInsensitiveContains(searchText) ||
-            event.location.localizedCaseInsensitiveContains(searchText)
-        }
-        
-        switch selectedFilter {
-        case .available:
-            // Mostrar eventos próximos u ONGOING: status SCHEDULED o ACTIVE y que no hayan terminado
-            let now = Date()
-            return searchFilteredEvents.filter { ([$0.status].contains(.scheduled) || [$0.status].contains(.active)) && $0.endTime > now }
-        case .past:
-            // Solo eventos finalizados: por tiempo o estado COMPLETED
-            let now = Date()
-            return searchFilteredEvents.filter { $0.endTime <= now || $0.status == .completed }
-        case .joined:
-            // Usar la fuente de verdad: userRegistrationStatus
-            return searchFilteredEvents.filter { event in
-                eventService.userRegistrationStatus[event.id] == true
+    // MARK: - Computed
+
+    private var upcomingEvents: [Event] {
+        let now = Date()
+        var events = eventService.events
+            .filter { $0.endTime > now && ($0.status == .scheduled || $0.status == .active) }
+
+        // Filter by search
+        if !searchText.isEmpty {
+            events = events.filter {
+                $0.title.localizedCaseInsensitiveContains(searchText) ||
+                $0.description.localizedCaseInsensitiveContains(searchText) ||
+                $0.location.localizedCaseInsensitiveContains(searchText)
             }
         }
+
+        // Filter by category
+        if let cat = selectedCategory {
+            events = events.filter { EventCategoryHelper.category(for: $0) == cat }
+        }
+
+        return events.sorted { $0.startTime < $1.startTime }
     }
-    
+
+    private var pastEvents: [Event] {
+        let now = Date()
+        return eventService.events
+            .filter { $0.endTime <= now || $0.status == .completed }
+            .sorted { $0.startTime > $1.startTime }
+            .prefix(10)
+            .map { $0 }
+    }
+
+    private var featuredEvent: Event? {
+        upcomingEvents.first
+    }
+
+    private var listEvents: [Event] {
+        Array(upcomingEvents.dropFirst())
+    }
+
+    // MARK: - Body
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // Fixed Header
-                    VStack(alignment: .leading, spacing: 16) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Eventos")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            
-                            Text("Connect with your community. Train together.")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Search Bar with Filter Button
-                        HStack(spacing: 12) {
-                            // Search Bar
-                            HStack {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    .font(.system(size: 16))
-                                
-                                TextField("Buscar eventos...", text: $searchText)
-                                    .textFieldStyle(PlainTextFieldStyle())
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    .autocorrectionDisabled()
-                                    .onChange(of: searchText) { _, newValue in
-                                        searchTask?.cancel()
-                                        searchTask = Task {
-                                            try? await Task.sleep(nanoseconds: 300_000_000)
-                                            // TODO: Implement search functionality
-                                        }
-                                    }
-                                
-                                if !searchText.isEmpty {
-                                    Button(action: {
-                                        searchText = ""
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                            .font(.system(size: 16))
-                                    }
-                                }
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Header
+                        headerSection
+
+                        // Featured card
+                        if let featured = featuredEvent {
+                            EventFeaturedCard(event: featured) {
+                                HapticManager.shared.buttonTap()
+                                selectedEvent = featured
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                            )
-                            
-                            // Filter Button
-                            Button(action: {
-                                showingFilterSheet = true
-                            }) {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            }
-                            .padding(.vertical, 12)
+                            .environmentObject(themeManager)
+                            .padding(.horizontal, 20)
                         }
-                        .padding(.horizontal, 20)
+
+                        // Category filter
+                        EventCategoryFilter(selectedCategory: $selectedCategory)
+                            .environmentObject(themeManager)
+
+                        // Upcoming events
+                        if !listEvents.isEmpty {
+                            upcomingSection
+                        }
+
+                        // Past events / Memories
+                        if !pastEvents.isEmpty {
+                            memoriesSection
+                        }
+
+                        Spacer(minLength: 100)
                     }
-                    .padding(.bottom, 16)
-                    .background(Color.dynamicBackground(theme: themeManager.currentTheme))
-                    
-                    // Events List with FAB
-                    ZStack {
-                        // Scrollable Events List using OptimizedList
-                        if filteredEvents.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: searchText.isEmpty ? "calendar.badge.exclamationmark" : "magnifyingglass")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                }
+                .refreshable {
+                    await eventService.fetchEvents()
+                    await eventService.fetchUserParticipations()
+                }
 
-                                Text(searchText.isEmpty ? "No hay eventos disponibles" : "No se encontraron eventos")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                    .multilineTextAlignment(.center)
-
-                                Text(searchText.isEmpty ? "Stay tuned for new events" : "Try different search terms")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-                                    .multilineTextAlignment(.center)
+                // FAB
+                if RolePermissions.canCreateEvents(gymService.currentGym?.userRoleInGym) {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: { showingCreateEvent = true }) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundColor(Color.accentInk)
+                                    .frame(width: 56, height: 56)
+                                    .background(Color(hex: "#D4FF3F")!)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color(hex: "#D4FF3F")!.opacity(0.3), radius: 8, y: 4)
                             }
-                            .padding(.top, 40)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
-                            ScrollView {
-                                LazyVStack(spacing: 16) {
-                                    ForEach(filteredEvents) { event in
-                                        EventCard(
-                                            event: event,
-                                            onChatTap: {
-                                                print("🎯 EventCard onChatTap ejecutado para evento: \(event.title)")
-                                                handleEventChatTap(event: event)
-                                            },
-                                            onEditTap: {
-                                                print("✏️ Edit event tapped: \(event.title)")
-                                                selectedEventForEdit = event
-                                            },
-                                            onDeleteTap: {
-                                                print("🗑️ Delete event tapped: \(event.title)")
-                                                selectedEventForDelete = event
-                                                showingDeleteConfirmation = true
-                                            },
-                                            onBulkRegistrationTap: {
-                                                print("👥 Bulk registration tapped: \(event.title)")
-                                                selectedEventForBulkRegistration = event
-                                            },
-                                            onPaymentRequired: { paymentIntent, participationId, event in
-                                                print("💳 Payment required for event: \(event.title)")
-                                                print("💳 PaymentIntent: amount=\(paymentIntent.amount), participationId=\(participationId)")
-
-                                                // Set state variables and open sheet
-                                                // Using capture list in sheet closure to ensure state is captured correctly
-                                                print("💳 Setting payment state variables...")
-                                                currentPaymentIntent = paymentIntent
-                                                currentParticipationId = participationId
-                                                currentPaymentEvent = event
-                                                print("💳 State variables set: \(currentPaymentIntent != nil), \(currentParticipationId != nil), \(currentPaymentEvent != nil)")
-                                                print("💳 Opening sheet now...")
-                                                showEventPayment = true
-                                            }
-                                        )
-                                        .padding(.horizontal, 20)
-                                    }
-                                }
-                                .padding(.top, 8)
-                                .padding(.bottom, 80)
-                            }
-                            .refreshable {
-                                await eventService.fetchEvents()
-                                await eventService.fetchUserParticipations()
-                            }
-                        }
-                        
-                        // Floating Action Button (only for trainers and above)
-                        if RolePermissions.canCreateEvents(gymService.currentGym?.userRoleInGym) {
-                            FABContainer(position: .bottomTrailing) {
-                                FloatingActionButton(
-                                    icon: "plus",
-                                    themeManager: themeManager
-                                ) {
-                                    showingCreateEvent = true
-                                }
-                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 20)
                         }
                     }
                 }
-                .safeAreaPadding(.top, 16)
             }
-            .sheet(isPresented: $showingFilterSheet) {
-                EventFilterSheet(selectedFilter: $selectedFilter)
-                    .presentationDetents([.fraction(0.6)])
-                    .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingCreateEvent) {
-                CreateEventView()
+            .navigationTitle("")
+            .navigationBarHidden(true)
+            .navigationDestination(item: $selectedEvent) { event in
+                EventDetailView(eventId: event.id)
                     .environmentObject(themeManager)
-                    .environmentObject(authService)
                     .environmentObject(eventService)
+                    .environmentObject(authService)
+                    .environmentObject(paymentService)
             }
         }
         .onAppear {
             Task {
-                if eventService.events.isEmpty {
-                    await eventService.fetchEvents()
-                }
+                await eventService.fetchEvents()
                 await eventService.fetchUserParticipations()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .gymChanged)) { _ in
-            Task {
-                await eventService.forceRefresh()
-                await eventService.fetchUserParticipations()
-            }
-        }
-        // Sheet removido - ahora navegamos al tab de mensajes con notificación
-        /*
-        .sheet(item: $selectedEventForChat) { event in
-            let _ = print("🔥 sheet activated for event: \(event.title) (ID: \(event.id))")
-            EventChatView(
-                eventId: String(event.id),
-                eventTitle: event.title,
-                streamChannelId: chatService.chatRooms.first(where: { $0.eventId == event.id })?.streamChannelId,
-                authService: authService
-            )
-            .environmentObject(themeManager)
-        }
-        */
-        .sheet(item: $selectedEventForEdit) { event in
-            EditEventView(event: event)
+        .sheet(isPresented: $showingCreateEvent) {
+            CreateEventView()
                 .environmentObject(themeManager)
                 .environmentObject(authService)
                 .environmentObject(eventService)
-        }
-        .sheet(item: $selectedEventForBulkRegistration) { event in
-            BulkRegistrationView(event: event)
-                .environmentObject(themeManager)
-                .environmentObject(authService)
-                .environmentObject(eventService)
-                .environmentObject(gymService)
         }
         .sheet(item: Binding(
             get: { currentPaymentIntent },
             set: { currentPaymentIntent = $0 }
         )) { paymentIntent in
-            let _ = print("🔥 [EventsView] Sheet presenting")
-            let _ = print("🔥 [EventsView] currentPaymentIntent exists: \(currentPaymentIntent != nil)")
-            let _ = print("🔥 [EventsView] currentParticipationId: \(currentParticipationId ?? -1)")
-            let _ = print("🔥 [EventsView] currentPaymentEvent: \(currentPaymentEvent?.title ?? "nil")")
-
-            if let participationId = currentParticipationId,
-               let event = currentPaymentEvent {
-                let _ = print("🔥 [EventsView] About to create EventPaymentView")
-                let _ = print("🔥 [EventsView] themeManager exists: \(String(describing: themeManager))")
-                let _ = print("🔥 [EventsView] paymentService exists: \(String(describing: paymentService))")
-
-                EventPaymentView(
-                    paymentIntent: paymentIntent,
-                    participationId: participationId,
-                    event: event,
-                    onPaymentComplete: { success in
-                        currentPaymentIntent = nil
-                        currentParticipationId = nil
-                        currentPaymentEvent = nil
-
-                        if success {
-                            Task {
-                                await eventService.fetchEvents()
-                                await eventService.fetchUserParticipations()
-                            }
-                        }
-                    }
-                )
-                .environmentObject(themeManager)
-                .environmentObject(paymentService)
-                .environmentObject(eventService)
-            } else {
-                let _ = print("❌ [EventsView] Sheet opened but missing participation or event data")
-                let _ = print("   - participationId: \(currentParticipationId != nil)")
-                let _ = print("   - event: \(currentPaymentEvent != nil)")
-
-                Text("Error: Missing payment data")
-                    .foregroundColor(.red)
-                    .font(.system(size: 20, weight: .bold))
-            }
-        }
-        .alert("Delete Event", isPresented: $showingDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                if let event = selectedEventForDelete {
-                    Task {
-                        let success = await eventService.deleteEvent(eventId: event.id)
-                        if success {
-                            showDeleteSuccessMessage = true
-                            deleteSuccessMessage = "Event '\(event.title)' deleted successfully"
-                            print("✅ Event deleted successfully")
-                        } else {
-                            print("❌ Failed to delete event")
-                        }
-                    }
+            EventPaymentView(
+                paymentIntent: paymentIntent,
+                participationId: currentParticipationId,
+                event: currentPaymentEvent,
+                onPaymentComplete: { _ in
+                    currentPaymentIntent = nil
+                    currentParticipationId = nil
+                    currentPaymentEvent = nil
                 }
-            }
-        } message: {
-            if let event = selectedEventForDelete {
-                Text("Are you sure you want to delete the event '\(event.title)'? This action cannot be undone.")
-            }
-        }
-        .alert("Success", isPresented: $showDeleteSuccessMessage) {
-            Button("OK") { 
-                showDeleteSuccessMessage = false
-            }
-        } message: {
-            Text(deleteSuccessMessage)
+            )
+            .environmentObject(themeManager)
+            .environmentObject(paymentService)
+            .environmentObject(eventService)
         }
     }
-    
-    private func handleEventChatTap(event: Event) {
-        print("🔥 handleEventChatTap called for event: \(event.title) (ID: \(event.id))")
 
-        // Navegar al tab de Social/Mensajes y abrir el chat del evento
-        NotificationCenter.default.post(
-            name: .openEventChat,
-            object: event
+    // MARK: - Header
+
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Eventos")
+                    .font(.system(size: 28, weight: .bold))
+                    .tracking(-0.8)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                Text("Vive el gimnasio fuera del gimnasio")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+            }
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                Button(action: {}) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 18))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .frame(width: 40, height: 40)
+                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+                }
+
+                Button(action: {}) {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 18))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .frame(width: 40, height: 40)
+                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+    }
+
+    // MARK: - Upcoming Section
+
+    private var upcomingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("PRÓXIMOS EVENTOS")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.0)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+
+                Text("\(listEvents.count)")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.35))
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+
+            LazyVStack(spacing: 12) {
+                ForEach(listEvents, id: \.id) { event in
+                    let isRegistered = eventService.userRegistrationStatus[event.id] ?? false
+                    EventEditorialCard(event: event, isRegistered: isRegistered) {
+                        HapticManager.shared.buttonTap()
+                        selectedEvent = event
+                    }
+                    .environmentObject(themeManager)
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    // MARK: - Memories Section
+
+    private var memoriesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("RECUERDOS")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.0)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+
+                Spacer()
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.35))
+            }
+            .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(pastEvents, id: \.id) { event in
+                        pastEventCard(event)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+
+    // Random gradient pairs matching prototype past events
+    private let pastGradients: [(Color, Color)] = [
+        (Color(hex: "#FF5A1F")!, Color(hex: "#FFB347")!),
+        (Color(hex: "#A78BFA")!, Color(hex: "#D4FF3F")!),
+        (Color(hex: "#4ADE80")!, Color(hex: "#3B82F6")!),
+        (Color(hex: "#F472B6")!, Color(hex: "#FFB347")!),
+        (Color(hex: "#3B82F6")!, Color(hex: "#A78BFA")!),
+        (Color(hex: "#D4FF3F")!, Color(hex: "#4ADE80")!),
+        (Color(hex: "#FF5A1F")!, Color(hex: "#F472B6")!),
+    ]
+
+    private func pastEventCard(_ event: Event) -> some View {
+        let gradientPair = pastGradients[abs(event.id) % pastGradients.count]
+        return VStack(spacing: 0) {
+            // Image area
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(
+                    colors: [gradientPair.0, gradientPair.1],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                // Date badge
+                Text(pastDateLabel(event))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.65))
+                    .clipShape(Capsule())
+                    .padding(8)
+            }
+            .frame(height: 100)
+
+            // Title
+            Text(event.title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                .lineLimit(2)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(width: 130)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
+    }
 
-        print("🔥 Notification sent to open event chat for: \(event.title)")
+    private func pastDateLabel(_ event: Event) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.dateFormat = "dd MMM"
+        return f.string(from: event.startTime).uppercased()
+    }
+}
+
+// MARK: - Event Equatable for navigationDestination
+
+extension Event: @retroactive Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
 
@@ -356,4 +341,5 @@ struct EventsView: View {
         .environmentObject(AuthServiceDirect())
         .environmentObject(EventService())
         .environmentObject(ThemeManager())
+        .environmentObject(EventPaymentService.shared)
 }

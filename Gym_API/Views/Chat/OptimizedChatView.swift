@@ -22,6 +22,11 @@ struct OptimizedChatView: View {
     @State private var realChannelId: String?
     @State private var isCreatingChannel = false
 
+    // MARK: - Moderación (guía 1.2 de App Store)
+    @State private var otherUserId: String?
+    @State private var blockedUserIds: Set<String> = []
+    @State private var moderationNotice: String?
+
     // ✅ LAZY CREATION: Computed property para ID efectivo del canal
     private var effectiveChannelId: String {
         return realChannelId ?? conversationId
@@ -45,8 +50,14 @@ struct OptimizedChatView: View {
 
     // Computed property para mensajes ordenados (ahora usa window en vez de array completo)
     private var sortedMessages: [ChatMessage] {
-        // Obtener mensajes del window en vez de array completo
-        return visibleMessages.sorted { $0.timestamp < $1.timestamp }
+        // Obtener mensajes del window en vez de array completo.
+        //
+        // El filtrado por gente bloqueada se hace AQUÍ a propósito: Stream persiste la lista de
+        // bloqueados en el usuario actual pero no filtra por ella en las consultas del canal, así
+        // que sin esto bloquear a alguien seguiría enseñando todo lo que escribe.
+        return visibleMessages
+            .filter { !blockedUserIds.contains($0.authorId) }
+            .sorted { $0.timestamp < $1.timestamp }
     }
     
     init(conversationId: String, conversationName: String) {
@@ -67,6 +78,12 @@ struct OptimizedChatView: View {
         }
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
         .navigationBarHidden(true)
+        .task { await loadModerationContext() }
+        .alert("Thanks for letting us know", isPresented: .constant(moderationNotice != nil)) {
+            Button("OK") { moderationNotice = nil }
+        } message: {
+            Text(moderationNotice ?? "")
+        }
         .onAppear {
             print("💬 ========================================")
             print("💬 ABRIENDO CHAT")
@@ -174,27 +191,44 @@ struct OptimizedChatView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 8, height: 8)
-                    Text("En línea")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
+                // Aquí había un punto verde y la palabra «Online», pintados siempre y para
+                // cualquier conversación, sin consultar presencia a nadie. Era información falsa
+                // sobre otra persona. Vuelve cuando se lea la presencia de verdad.
+                EmptyView()
             }
             
             Spacer()
             
-            // Options button
-            Button(action: {
-                // Show options menu
-            }) {
+            // Denunciar y bloquear. La App Store lo exige en cualquier app con contenido de
+            // otras personas, y el chat es la única superficie de contenido ajeno que le queda al
+            // cliente de un entrenador personal.
+            Menu {
+                Button(role: .destructive) {
+                    Task { await report() }
+                } label: {
+                    Label("Report conversation", systemImage: "flag")
+                }
+
+                if let otherUserId, blockedUserIds.contains(otherUserId) {
+                    Button {
+                        Task { await setBlocked(false) }
+                    } label: {
+                        Label("Unblock", systemImage: "person.crop.circle.badge.checkmark")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        Task { await setBlocked(true) }
+                    } label: {
+                        Label("Block", systemImage: "hand.raised")
+                    }
+                }
+            } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     .rotationEffect(.degrees(90))
             }
+            .disabled(otherUserId == nil)
         }
         .padding()
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
@@ -215,6 +249,15 @@ struct OptimizedChatView: View {
                             MessageBubble(message: message, themeManager: themeManager)
                                 .padding(.horizontal)
                                 .id(message.id)
+                                .contextMenu {
+                                    if !message.isFromCurrentUser {
+                                        Button(role: .destructive) {
+                                            Task { await reportMessage(message) }
+                                        } label: {
+                                            Label("Report message", systemImage: "flag")
+                                        }
+                                    }
+                                }
                         }
                         
                         // Show loading skeleton at the bottom if updating
@@ -304,6 +347,74 @@ struct OptimizedChatView: View {
     /// ✅ OPTIMIZADO: Background JSON decoding para no bloquear UI
     /// ✅ OPTIMIZADO: MessageWindow para lazy loading y reducción de memoria
     /// ✅ LAZY CREATION: Usa effectiveChannelId para soportar canales creados dinámicamente
+    // MARK: - Moderación
+
+    /// Resuelve con quién se habla y qué gente hay bloqueada.
+    ///
+    /// Sin el identificador de la otra persona no se puede ni denunciar ni bloquear, así que el
+    /// menú se queda deshabilitado hasta que esto termina.
+    private func loadModerationContext() async {
+        guard let provider = chatProviderManager.currentProvider else { return }
+        blockedUserIds = provider.blockedUserIds
+        guard otherUserId == nil else { return }
+        do {
+            let participants = try await provider.getUsers(in: effectiveChannelId)
+            otherUserId = participants
+                .map(\.id)
+                .first(where: { $0 != currentStreamUserId })
+        } catch {
+            Logger.shared.error("Chat: no se pudo resolver el otro participante: \(error.localizedDescription)", category: .network)
+        }
+    }
+
+    /// Identificador propio en Stream, para saber quién es «el otro».
+    private var currentStreamUserId: String? {
+        (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId
+    }
+
+    private func reportMessage(_ message: ChatMessage) async {
+        guard let provider = chatProviderManager.currentProvider else { return }
+        do {
+            try await provider.flagMessage(message.id, in: effectiveChannelId)
+            moderationNotice = "The message has been reported. We review reports and take action on what breaks our rules."
+            HapticManager.shared.play(.warning)
+        } catch {
+            moderationNotice = "We could not send the report. Please try again."
+        }
+    }
+
+    private func report() async {
+        guard let provider = chatProviderManager.currentProvider, let otherUserId else { return }
+        do {
+            try await provider.flagUser(otherUserId)
+            moderationNotice = "This conversation has been reported. We review reports and take action on what breaks our rules."
+            HapticManager.shared.play(.warning)
+        } catch {
+            moderationNotice = "We could not send the report. Please try again."
+        }
+    }
+
+    private func setBlocked(_ blocked: Bool) async {
+        guard let provider = chatProviderManager.currentProvider, let otherUserId else { return }
+        do {
+            if blocked {
+                try await provider.blockUser(otherUserId)
+                // Se actualiza en local además de en el servidor: el filtrado de la lista de
+                // mensajes lee de aquí, y esperar al siguiente refresco dejaría el bloqueo sin
+                // efecto visible.
+                blockedUserIds.insert(otherUserId)
+                moderationNotice = "Blocked. You will not see their messages any more."
+            } else {
+                try await provider.unblockUser(otherUserId)
+                blockedUserIds.remove(otherUserId)
+                moderationNotice = "Unblocked."
+            }
+            HapticManager.shared.play(.warning)
+        } catch {
+            moderationNotice = "We could not complete that. Please try again."
+        }
+    }
+
     private func loadMessages() {
         // ✅ LAZY CREATION: Si es canal temporal y aún no se ha creado, no cargar mensajes
         if isTemporaryChannel && realChannelId == nil {
@@ -731,7 +842,7 @@ struct MessageBubble: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.red)
                         
-                        Button("Reintentar") {
+                        Button("Try again") {
                             // TODO: Implement retry functionality
                         }
                         .font(.system(size: 11, weight: .semibold))

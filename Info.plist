@@ -45,52 +45,38 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     
-    <!-- Permisos de Privacidad para Multimedia -->
+    <!-- Privacy usage strings. Deben estar en el idioma de la ficha: App Review lee estas
+         modales antes que nada, y una app publicada en ingles que las pide en castellano es
+         una incoherencia de metadatos citable bajo la guia 5.1.1. -->
     
-    <!-- Permiso para Cámara -->
+    <!-- Camera -->
     <key>NSCameraUsageDescription</key>
-    <string>Gym App necesita acceso a tu cámara para tomar fotos y compartirlas en el chat con tu entrenador y otros miembros del gimnasio.</string>
+    <string>Take photos to share with your trainer in chat, such as progress pictures or your form on a lift.</string>
     
-    <!-- Permiso para Galería de Fotos -->
+    <!-- Photo library -->
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Gym App necesita acceso a tu galería para seleccionar fotos y videos de tu progreso y compartirlos en el chat.</string>
+    <string>Choose photos and videos from your library to share with your trainer in chat.</string>
     
-    <!-- Permiso para Añadir a Galería -->
+    <!-- Save to photo library -->
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Gym App guardará las fotos que tomes en tu galería para que puedas conservar tu progreso.</string>
+    <string>Save photos you take in the app to your library so you keep your own copy.</string>
     
-    <!-- Permiso para Micrófono -->
+    <!-- Microphone -->
     <key>NSMicrophoneUsageDescription</key>
-    <string>Gym App necesita acceso a tu micrófono para grabar mensajes de voz y enviarlos a tu entrenador o compañeros de gym.</string>
+    <string>Record voice messages to send to your trainer.</string>
     
-    <!-- Permiso para Ubicación (para futuras funciones) -->
+    <!-- Location -->
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Gym App necesita acceso a tu ubicación para compartir el punto de encuentro para clases al aire libre o eventos del gimnasio.</string>
+    <string>Show how far you are from the meeting point for outdoor sessions and events.</string>
     
-    <!-- Configuración de Seguridad de Red -->
+    <!-- App Transport Security.
+         Sin excepciones: los dos hosts que las tenían (la API y el CDN de Stream) hablan HTTPS,
+         así que la excepción solo permitía texto plano que nadie usa. Un permiso de carga
+         insegura que no hace falta es algo que App Review puede pedir justificar. -->
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>
         <false/>
-        <key>NSExceptionDomains</key>
-        <dict>
-            <!-- Stream.io CDN -->
-            <key>stream-io-cdn.com</key>
-            <dict>
-                <key>NSIncludesSubdomains</key>
-                <true/>
-                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
-                <true/>
-            </dict>
-            <!-- Tu Backend API -->
-            <key>gymapi-eh6m.onrender.com</key>
-            <dict>
-                <key>NSIncludesSubdomains</key>
-                <true/>
-                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
-                <true/>
-            </dict>
-        </dict>
     </dict>
     
     <!-- Configuración para Auth0 -->
@@ -111,9 +97,9 @@
         <string>remote-notification</string>
     </array>
     
-    <!-- Permiso para Calendario (necesario para crear eventos con recordatorio) -->
+    <!-- Calendar -->
     <key>NSCalendarsUsageDescription</key>
-    <string>Gym App necesita acceso a tu calendario para añadir recordatorios de tus clases y eventos.</string>
+    <string>Add reminders for your sessions and events to your calendar.</string>
 
     <!-- OneSignal Configuration -->
     <key>ONESIGNAL_APP_ID</key>

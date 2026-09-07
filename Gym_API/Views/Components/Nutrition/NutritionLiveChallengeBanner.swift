@@ -50,7 +50,7 @@ struct NutritionLiveChallengeBanner: View {
                         HStack(spacing: 6) {
                             Text("🎉")
                                 .font(.system(size: 13))
-                            Text("¡Día completo! Sigue así")
+                            Text("Day complete. Keep it up")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.green)
                         }
@@ -158,7 +158,7 @@ struct NutritionLiveChallengeBanner: View {
 
             // CTA MEJORADO: Más prominente con gradiente
             HStack(spacing: 6) {
-                Text("VER MI DÍA")
+                Text("SEE MY DAY")
                     .font(.system(size: 15, weight: .bold))
                 Image(systemName: "arrow.right.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
@@ -362,12 +362,12 @@ struct NutritionDiscoverBanner: View {
                     )
 
                     // Title
-                    Text("Planes de Nutrición")
+                    Text("Nutrition plans")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.white)
 
                     // Description - adjusted for better fit
-                    Text("Alcanza tus objetivos con planes personalizados")
+                    Text("Reach your goals with a plan built for you")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
                         .lineLimit(2)

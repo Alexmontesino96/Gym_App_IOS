@@ -92,8 +92,16 @@ class UserProfileService: ObservableObject {
                             self.error = nil
                             self.lastFetchedAt = Date()
                             self.lastLoadAttemptFailed = false  // Carga exitosa
+
+                            // Cache profile data for instant splash screen
+                            UserDefaults.standard.set(profile.fullName, forKey: "cached_profile_name")
+                            UserDefaults.standard.set(profile.firstName, forKey: "cached_profile_first_name")
+                            if let picture = profile.picture, !picture.isEmpty {
+                                UserDefaults.standard.set(picture, forKey: "cached_profile_picture_url")
+                                AppLoadingView.saveAvatarFromURL(picture)
+                            }
                         }
-                        
+
                         debugLog("✅ [UserProfileService] Profile loaded successfully")
                         
                     } catch {

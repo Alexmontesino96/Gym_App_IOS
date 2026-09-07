@@ -36,6 +36,13 @@ struct Auth0Config {
     }
 
     /// API audience. Kept as a non-secret constant or can be moved to Info.plist.
+    /// Conexión de base de datos de Auth0, la de email y contraseña.
+    ///
+    /// Se fija al abrir la pantalla de Auth0 para no ofrecer inicio de sesión de terceros. Si se
+    /// vuelve a querer login social hay que quitarla de AuthServiceDirect Y cumplir la guía 4.8
+    /// de la App Store, que obliga a ofrecer Sign in with Apple junto a cualquier otro proveedor.
+    static let databaseConnection = "Username-Password-Authentication"
+
     static var audience: String {
         // Primero intentar desde Info.plist
         if let audienceFromInfo = Bundle.main.object(forInfoDictionaryKey: "AUTH0_AUDIENCE") as? String,

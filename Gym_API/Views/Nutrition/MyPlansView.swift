@@ -100,7 +100,7 @@ struct MyPlansView: View {
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                     }
 
-                    Text("Plan Activo")
+                    Text("Active plan")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 }
@@ -263,7 +263,7 @@ struct MyPlansView: View {
                 .scaleEffect(1.2)
                 .tint(Color.dynamicAccent(theme: themeManager.currentTheme))
 
-            Text("Cargando tus planes...")
+            Text("Loading your plans…")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }
@@ -290,12 +290,12 @@ struct MyPlansView: View {
             }
 
             // Title
-            Text("Aun no tienes planes")
+            Text("No plans yet")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
             // Description
-            Text("Explora planes de nutricion y unete a tu primer challenge para comenzar tu transformacion")
+            Text("Browse the plans your coach has published and join your first one")
                 .font(.system(size: 15))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 .multilineTextAlignment(.center)
@@ -560,7 +560,7 @@ struct StreakCard: View {
 
             // Streak Info
             VStack(alignment: .leading, spacing: 4) {
-                Text("Racha Actual")
+                Text("Current streak")
                     .font(.system(size: 12))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
 
@@ -569,7 +569,7 @@ struct StreakCard: View {
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-                    Text("dias")
+                    Text("days")
                         .font(.system(size: 14))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         .padding(.bottom, 4)
@@ -648,7 +648,7 @@ struct HistoryPlanCard: View {
                         .lineLimit(1)
 
                     HStack(spacing: 12) {
-                        Label("\(plan.durationDays) dias", systemImage: "calendar")
+                        Label("\(plan.durationDays) days", systemImage: "calendar")
 
                         if let satisfaction = plan.avgSatisfaction, satisfaction > 0 {
                             HStack(spacing: 2) {

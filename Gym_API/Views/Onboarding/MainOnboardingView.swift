@@ -36,7 +36,7 @@ struct MainOnboardingView: View {
                         ))
 
                 case .authGate:
-                    AuthGateView()
+                    OnboardingScreenView()
                         .environmentObject(authService)
                         .environmentObject(themeManager)
                         .environmentObject(onboardingManager)

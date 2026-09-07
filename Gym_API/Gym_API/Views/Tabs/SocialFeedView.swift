@@ -8,6 +8,22 @@ struct SocialFeedView: View {
     // MARK: - Binding Parameters
     @Binding var pendingEventChat: Event?
 
+    /// Muestra el muro social, las historias y el selector de pestañas.
+    ///
+    /// Se pasa `false` en los espacios de entrenador personal. Allí los módulos `posts` y
+    /// `stories` nacen desactivados en el servidor (app/services/trainer_setup.py:296-315) y sus
+    /// rutas devuelven 403, así que estos controles no llevaban a ninguna parte: enseñaban
+    /// historias que no cargan y un botón «Feed» que falla. Con esto la pantalla es lo que dice
+    /// ser, la lista de conversaciones.
+    var showsFeed: Bool = true
+
+    /// Pestaña con la que arranca la vista.
+    ///
+    /// En un espacio de entrenador personal los módulos de publicaciones e historias nacen
+    /// desactivados, así que el feed responde 403 y abrirlo por defecto deja al usuario mirando
+    /// un error. Esas dos raíces arrancan en conversaciones.
+    var initialTab: SocialTab = .feed
+
     // MARK: - Environment Objects
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
@@ -21,11 +37,12 @@ struct SocialFeedView: View {
     @StateObject private var unreadCountService = UnreadCountService.shared
 
     // MARK: - State Variables
+    @State private var activeTab: SocialTab = .feed
+    @State private var chatFilter: ChatFilter = .all
     @State private var conversations: [ChatConversation] = []
     @State private var selectedConversation: ChatConversation?
     @State private var showingChat = false
     @State private var showingUserSelector = false
-    @State private var showingMessagesSheet = false
     @State private var showingSearch = false
     @State private var isRefreshing = false
     @State private var isLoadingConversations = false
@@ -42,14 +59,27 @@ struct SocialFeedView: View {
 
     // MARK: - Computed Properties
     private var filteredConversations: [ChatConversation] {
-        if searchText.isEmpty {
-            return conversations
-        } else {
-            return conversations.filter { conversation in
+        // Los chips de filtro se pintaban y no filtraban nada: `chatFilter` se declaraba, se
+        // pasaba a la barra, y aquí solo se miraba el texto de búsqueda. Pulsar «Unread» no
+        // cambiaba la lista.
+        var result = conversations.filter { conversation in
+            switch chatFilter {
+            case .all: return true
+            case .unread: return conversation.unreadCount > 0
+            case .groups: return conversation.type == .group || conversation.type == .channel
+            case .direct: return conversation.type == .direct
+            case .teams: return conversation.type == .general
+            }
+        }
+
+        if !searchText.isEmpty {
+            result = result.filter { conversation in
                 conversation.name?.localizedCaseInsensitiveContains(searchText) == true ||
                 conversation.lastMessage?.text.localizedCaseInsensitiveContains(searchText) == true
             }
         }
+
+        return result
     }
 
     // MARK: - Body
@@ -59,20 +89,48 @@ struct SocialFeedView: View {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Social Feed Content con nuevo diseño minimalista
-                    socialFeedContent
+                    // New prototype-matching header
+                    socialHeaderNew
+
+                    if showsFeed {
+                        // Stories bar
+                        InstagramStoriesBar()
+                            .environmentObject(ServiceContainer.shared.storyService)
+                            .environmentObject(authService)
+                            .environmentObject(themeManager)
+                            .environmentObject(ServiceContainer.shared.profileService)
+                            .padding(.bottom, 8)
+
+                        // Segmented tabs (Feed | Chats)
+                        SocialSegmentedControl(
+                            activeTab: $activeTab,
+                            unreadCount: unreadCountService.totalUnreadCount,
+                            hasNewStories: false
+                        )
+                        .environmentObject(themeManager)
+                        .padding(.bottom, 16)
+                    } else {
+                        Spacer().frame(height: 8)
+                    }
+
+                    // Tab content
+                    if showsFeed, activeTab == .feed {
+                        feedTabContent
+                    } else {
+                        chatsTabContent
+                    }
                 }
             }
+            .navigationTitle("")
+            .navigationBarHidden(true)
             .onAppear {
                 initializeIfNeeded()
                 setupMessageUpdateListener()
 
                 // Check for pending event chat
                 if let event = pendingEventChat {
-                    print("🎯 [SocialFeedView] Recibió evento pendiente: \(event.title)")
                     currentEventChat = event
                     showingEventChat = true
-                    // Clear the pending event after handling
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         pendingEventChat = nil
                     }
@@ -83,21 +141,17 @@ struct SocialFeedView: View {
                     NotificationCenter.default.removeObserver(observer)
                     messageUpdateObserver = nil
                 }
-
-                // Limpiar conversaciones en exceso para liberar memoria
                 if conversations.count > 30 {
                     conversations = Array(conversations.prefix(30))
-                    print("🧹 Conversaciones recortadas a 30 para liberar memoria")
                 }
             }
             .refreshable {
-                await refreshConversations()
+                if activeTab == .chats {
+                    await refreshConversations()
+                }
             }
             .sheet(isPresented: $showingUserSelector) {
                 userSelectorSheet
-            }
-            .sheet(isPresented: $showingMessagesSheet) {
-                messagesSheetView
             }
             .navigationDestination(isPresented: $showingChat) {
                 chatDestination
@@ -111,183 +165,127 @@ struct SocialFeedView: View {
                         authService: authService
                     )
                     .environmentObject(themeManager)
-                    .onAppear {
-                        // Log para depuración
-                        let eventChatRoom = chatService.chatRooms.first(where: { $0.eventId == event.id })
-                        print("🔍 [EventChat] Buscando ChatRoom para evento ID: \(event.id)")
-                        print("🔍 [EventChat] ChatRooms disponibles: \(chatService.chatRooms.count)")
-                        if let room = eventChatRoom {
-                            print("✅ [EventChat] ChatRoom encontrado - streamChannelId: \(room.streamChannelId)")
-                        } else {
-                            print("⚠️ [EventChat] No se encontró ChatRoom para el evento")
-                            print("📋 [EventChat] IDs de eventos en chatRooms: \(chatService.chatRooms.compactMap { $0.eventId })")
-                        }
-                    }
                 }
             }
             .onChange(of: showingChat) { isShowing in
-                print("🔄 showingChat cambió a: \(isShowing)")
                 if isShowing {
-                    print("📱 Intentando navegar a chat con conversación: \(selectedConversation?.id ?? "nil")")
+                    print("📱 Navegando a chat: \(selectedConversation?.id ?? "nil")")
                 }
             }
         }
-        .animation(.easeInOut, value: showingMessagesSheet)
     }
 
-    // MARK: - Instagram-Style Social Header
-    private var socialHeader: some View {
-        VStack(spacing: 8) {
-            // Instagram-style minimal header
-            HStack {
-                Text("Social")
-                    .font(.system(size: 20, weight: .semibold))
+    // MARK: - New Header (Prototype-matching)
+    private var socialHeaderNew: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(showsFeed ? "COMMUNITY" : "YOUR COACH")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.0)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+
+                Text(showsFeed ? "Social" : "Messages")
+                    .font(.system(size: 28, weight: .bold))
+                    .tracking(-0.8)
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            }
 
-                Spacer()
+            Spacer()
 
-                // Instagram-style chat icon (paperplane) with unread badge
+            HStack(spacing: 8) {
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        showingMessagesSheet = true
-                    }
-                    let impact = UIImpactFeedbackGenerator(style: .light)
-                    impact.impactOccurred()
+                    withAnimation { showingSearch.toggle() }
                 }) {
-                    Image(systemName: "paperplane")
-                        .font(.system(size: 24, weight: .regular))
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 18))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .notificationBadge(
-                            count: unreadCountService.totalUnreadCount,
-                            size: .small,
-                            alignment: .topTrailing,
-                            offset: CGSize(width: 6, height: -6)
-                        )
-                }
-            }
-            .frame(height: 44)
-            .padding(.horizontal, 16)
-
-            // Stories bar directly below title
-            InstagramStoriesBar()
-                .environmentObject(ServiceContainer.shared.storyService)
-                .environmentObject(authService)
-                .environmentObject(themeManager)
-                .environmentObject(ServiceContainer.shared.profileService)
-        }
-        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
-        .overlay(
-            Rectangle().fill(Color.gray.opacity(0.15)).frame(height: 0.5)
-            ,alignment: .bottom
-        )
-    }
-
-    // MARK: - Messages Sheet View
-    private var messagesSheetView: some View {
-        NavigationStack {
-            ZStack {
-                Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    // Search bar in messages sheet
-                    if showingSearch {
-                        searchBarView
-                    }
-
-                    // Messages content
-                    messagesContent
-                }
-            }
-            .navigationTitle("Mensajes")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cerrar") {
-                        showingMessagesSheet = false
-                    }
+                        .frame(width: 40, height: 40)
+                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                showingSearch.toggle()
-                            }
-                        }) {
-                            Image(systemName: showingSearch ? "xmark" : "magnifyingglass")
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        }
-
-                        Button(action: {
-                            showingUserSelector = true
-                        }) {
-                            Image(systemName: "square.and.pencil")
-                                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        }
-                    }
+                // El «+» solo existe en conversaciones. En el muro no hacía nada al pulsarlo.
+                if activeTab == .chats {
+                Button(action: {
+                    showingUserSelector = true
+                }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .frame(width: 40, height: 40)
+                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+                }
                 }
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
     }
 
-    // MARK: - Search Bar View
-    private var searchBarView: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-
-            TextField("Buscar", text: $searchText)
-                .textFieldStyle(.plain)
-
-            if !searchText.isEmpty {
-                Button(action: { searchText = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .frame(height: 36)
-        .padding(.horizontal, 12)
-        .background(
-            Capsule()
-                .fill(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.12))
-        )
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .transition(.move(edge: .top).combined(with: .opacity))
-    }
-
-    // MARK: - Social Feed Content
-    private var socialFeedContent: some View {
-        // Usar el nuevo FeedTabsView rediseñado (minimalista estilo Instagram)
+    // MARK: - Feed Tab Content
+    private var feedTabContent: some View {
         FeedTabsView()
             .environmentObject(themeManager)
             .environmentObject(postService)
             .environmentObject(authService)
     }
 
-    // MARK: - Placeholder Sections
-    private var placeholderSections: some View {
-        VStack(spacing: 20) {
-            Divider()
-                .padding(.horizontal, 16)
-
-            Text("Próximamente")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "person.2.badge.gearshape")
-                    Text("Nuevos miembros")
-                }
+    // MARK: - Chats Tab Content
+    private var chatsTabContent: some View {
+        VStack(spacing: 0) {
+            // Search bar
+            if showingSearch {
+                chatSearchBar
+                    .padding(.bottom, 8)
             }
-            .font(.system(size: 14))
-            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-            .padding()
+
+            // Filter chips
+            ChatFilterChips(activeFilter: $chatFilter, unreadCount: unreadCountService.totalUnreadCount)
+                .environmentObject(themeManager)
+                .padding(.bottom, 8)
+
+            // Chat list
+            messagesContent
         }
     }
+
+    // MARK: - Chat Search Bar (inline)
+    private var chatSearchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.45))
+
+            TextField("Search chats…", text: $searchText)
+                .font(.system(size: 13))
+                .textFieldStyle(.plain)
+
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal, 20)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    // (searchBarView and socialFeedContent removed - replaced by inline chatSearchBar and feedTabContent)
 
     // MARK: - Messages Content
     private var messagesContent: some View {
@@ -319,7 +317,7 @@ struct SocialFeedView: View {
             preloadThreshold: 5,
             onRefresh: refreshConversations
         ) { conversation in
-            SwipeableConversationRow.withStandardActions(
+            SwipeableConversationRow.withDeleteOnly(
                 conversation: conversation,
                 themeManager: themeManager,
                 currentUserId: (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id,
@@ -347,12 +345,6 @@ struct SocialFeedView: View {
                     }
                     print("📱 Navegando a chat con conversación: \(selectedConversation?.id ?? "nil")")
                     print("🔄 showingChat = \(showingChat)")
-                },
-                onMute: {
-                    muteConversation(conversation)
-                },
-                onArchive: {
-                    archiveConversation(conversation)
                 },
                 onDelete: {
                     deleteConversation(conversation)
@@ -563,6 +555,7 @@ struct SocialFeedView: View {
     private func initializeIfNeeded() {
         guard !hasInitialized else { return }
         hasInitialized = true
+        activeTab = initialTab
 
         // 1. Mostrar skeleton si no hay datos en caché
         if conversations.isEmpty {
@@ -1043,7 +1036,7 @@ struct ConversationRow: View {
                         }
                     }
                 } else {
-                    Text("Sin mensajes")
+                    Text("No messages")
                         .font(.system(size: 14))
                         .italic()
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
@@ -1091,9 +1084,9 @@ struct ConversationRow: View {
     private var conversationTypeText: String {
         switch conversation.type {
         case .group:
-            return "Grupo"
+            return "Group"
         case .channel:
-            return "Canal"
+            return "Channel"
         default:
             return ""
         }
@@ -1108,7 +1101,7 @@ struct ConversationRow: View {
             formatter.timeStyle = .short
             return formatter.string(from: date)
         } else if calendar.isDateInYesterday(date) {
-            return "Ayer"
+            return "Yesterday"
         } else if calendar.dateInterval(of: .weekOfYear, for: Date())?.contains(date) == true {
             formatter.setLocalizedDateFormatFromTemplate("E")
             return formatter.string(from: date)
@@ -1196,43 +1189,7 @@ extension SocialFeedView {
     }
 
     // MARK: - Swipe Actions
-    private func muteConversation(_ conversation: ChatConversation) {
-        print("🔇 Silenciando conversación: \(conversation.name ?? conversation.id)")
 
-        // TODO: Implement actual mute functionality
-        // For now, just show a success message
-
-        // Update UI to show muted state
-        // This would typically involve updating the conversation's metadata
-        // and potentially storing the muted state locally or on the server
-
-        // Show temporary feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
-
-        // You could show a toast or banner here
-        print("✅ Conversation muted successfully")
-    }
-
-    private func archiveConversation(_ conversation: ChatConversation) {
-        print("📦 Archivando conversación: \(conversation.name ?? conversation.id)")
-
-        // Remove from current list with animation
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            conversations.removeAll { $0.id == conversation.id }
-        }
-
-        // TODO: Implement actual archive functionality
-        // This would typically involve:
-        // 1. Marking the conversation as archived on the server
-        // 2. Moving it to an archived conversations list
-        // 3. Updating local storage
-
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
-
-        print("✅ Conversation archived successfully")
-    }
 
     private func deleteConversation(_ conversation: ChatConversation) {
         print("🗑️ Eliminando conversación: \(conversation.name ?? conversation.id)")

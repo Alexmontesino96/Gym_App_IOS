@@ -86,6 +86,25 @@ struct Meal: Codable, Identifiable {
     let satisfactionRating: Int?
     let completionPhotoUrl: String?
 
+    // Nested user_completion object from /nutrition/today endpoint
+    private struct UserCompletion: Codable {
+        let satisfactionRating: Int?
+        let photoUrl: String?
+        let notes: String?
+        let portionSizeModifier: Double?
+        let completedAt: Date?
+        let id: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case satisfactionRating = "satisfaction_rating"
+            case photoUrl = "photo_url"
+            case notes
+            case portionSizeModifier = "portion_size_modifier"
+            case completedAt = "completed_at"
+            case id
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case dailyPlanId = "daily_plan_id"
@@ -107,6 +126,78 @@ struct Meal: Codable, Identifiable {
         case completedAt = "completed_at"
         case satisfactionRating = "satisfaction_rating"
         case completionPhotoUrl = "completion_photo_url"
+        case userCompletion = "user_completion"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        dailyPlanId = try container.decode(Int.self, forKey: .dailyPlanId)
+        mealType = try container.decode(MealType.self, forKey: .mealType)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        calories = try container.decode(Int.self, forKey: .calories)
+        proteinG = try container.decodeIfPresent(Int.self, forKey: .proteinG)
+        carbsG = try container.decodeIfPresent(Int.self, forKey: .carbsG)
+        fatG = try container.decodeIfPresent(Int.self, forKey: .fatG)
+        fiberG = try container.decodeIfPresent(Int.self, forKey: .fiberG)
+        preparationTimeMinutes = try container.decodeIfPresent(Int.self, forKey: .preparationTimeMinutes)
+        cookingInstructions = try container.decodeIfPresent(String.self, forKey: .cookingInstructions)
+        orderInDay = try container.decode(Int.self, forKey: .orderInDay)
+        imageUrl = try container.decodeIfPresent(String.self, forKey: .imageUrl)
+        ingredients = try container.decodeIfPresent([MealIngredient].self, forKey: .ingredients) ?? []
+
+        // Parse completion status from multiple sources:
+        // 1. Direct "is_completed" field (some endpoints)
+        // 2. "user_completion" nested object (from /nutrition/today)
+        // 3. "completion_id" presence
+        let userCompletion = try container.decodeIfPresent(UserCompletion.self, forKey: .userCompletion)
+        let directIsCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted)
+        let directCompletionId = try container.decodeIfPresent(Int.self, forKey: .completionId)
+
+        // A meal is completed if:
+        // - is_completed == true, OR
+        // - user_completion has a satisfaction_rating (not null), OR
+        // - user_completion has an id, OR
+        // - completion_id exists
+        if let direct = directIsCompleted {
+            isCompleted = direct
+        } else if let uc = userCompletion, (uc.satisfactionRating != nil || uc.id != nil || uc.completedAt != nil) {
+            isCompleted = true
+        } else if directCompletionId != nil {
+            isCompleted = true
+        } else {
+            isCompleted = false
+        }
+
+        completionId = directCompletionId ?? userCompletion?.id
+        completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt) ?? userCompletion?.completedAt
+        satisfactionRating = try container.decodeIfPresent(Int.self, forKey: .satisfactionRating) ?? userCompletion?.satisfactionRating
+        completionPhotoUrl = try container.decodeIfPresent(String.self, forKey: .completionPhotoUrl) ?? userCompletion?.photoUrl
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(dailyPlanId, forKey: .dailyPlanId)
+        try container.encode(mealType, forKey: .mealType)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encode(calories, forKey: .calories)
+        try container.encodeIfPresent(proteinG, forKey: .proteinG)
+        try container.encodeIfPresent(carbsG, forKey: .carbsG)
+        try container.encodeIfPresent(fatG, forKey: .fatG)
+        try container.encodeIfPresent(fiberG, forKey: .fiberG)
+        try container.encodeIfPresent(preparationTimeMinutes, forKey: .preparationTimeMinutes)
+        try container.encodeIfPresent(cookingInstructions, forKey: .cookingInstructions)
+        try container.encode(orderInDay, forKey: .orderInDay)
+        try container.encodeIfPresent(imageUrl, forKey: .imageUrl)
+        try container.encode(ingredients, forKey: .ingredients)
+        try container.encode(isCompleted, forKey: .isCompleted)
+        try container.encodeIfPresent(completionId, forKey: .completionId)
+        try container.encodeIfPresent(completedAt, forKey: .completedAt)
+        try container.encodeIfPresent(satisfactionRating, forKey: .satisfactionRating)
+        try container.encodeIfPresent(completionPhotoUrl, forKey: .completionPhotoUrl)
     }
 }
 

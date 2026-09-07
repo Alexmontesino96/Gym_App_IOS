@@ -40,7 +40,7 @@ struct CompletedPlanBadgeExtended: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
 
-                    Text("\(plan.durationDays) dias completados")
+                    Text("\(plan.durationDays) days done")
                         .font(.system(size: 11))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
 
@@ -256,7 +256,7 @@ struct NutritionErrorView: View {
             Button(action: retryAction) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.clockwise")
-                    Text("Reintentar")
+                    Text("Try again")
                 }
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))

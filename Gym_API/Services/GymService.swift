@@ -430,10 +430,16 @@ class GymService: ObservableObject {
         
         print("🚀 Auto-seleccionando el único gym disponible: \(singleGym.name)")
         
-        // Si ya hay un gym seleccionado y es el mismo, solo marcar como completado
+        // Si ya hay un gym seleccionado y es el mismo, refrescar sus datos y marcar como completado.
+        // Importante: hay que REASIGNAR el objeto recién traído de /gyms/my. El que está en memoria
+        // viene de UserDefaults y lleva el `user_role_in_gym` de la sesión en que se seleccionó,
+        // así que si el entrenador cambia el rol del usuario en servidor, la app seguiría enrutando
+        // con el rol antiguo hasta reinstalar.
         if let currentGym = currentGym, currentGym.id == singleGym.id {
-            print("✅ El gym ya estaba seleccionado, marcando selección como completada")
+            print("✅ El gym ya estaba seleccionado, refrescando sus datos y marcando la selección como completada")
             await MainActor.run {
+                self.currentGym = singleGym
+                self.saveSelectedGymToStorage()
                 self.hasCompletedGymSelection = true
             }
         } else {

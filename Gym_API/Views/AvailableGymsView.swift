@@ -356,7 +356,7 @@ struct GymDetailView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var gymService: GymService
     @Environment(\.dismiss) private var dismiss
-    @State private var isJoining = false
+    @State private var showingJoin = false
     @State private var gymDetail: GymDetail?
     @State private var isLoadingDetails = true
     
@@ -558,32 +558,34 @@ struct GymDetailView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 if gymDetail != nil {
-                    Button(action: {
-                        // TODO: Implement join gym functionality
-                        print("Joining gym: \(gym.name)")
-                    }) {
-                        HStack {
-                            if isJoining {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .tint(.white)
-                            } else {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 16))
-                            }
-                            
-                            Text(isJoining ? "Joining..." : "Request to Join")
-                                .font(.system(size: 18, weight: .semibold))
+                    // Antes aquí había un botón "Request to Join" que solo imprimía por consola:
+                    // no existía ninguna forma de solicitar el acceso. Ahora se dice la verdad
+                    // (se entra por invitación) y se ofrece el canje del código.
+                    VStack(spacing: 12) {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "envelope.badge")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+                            Text("This space is invitation only. Ask for a code and redeem it here.")
+                                .font(.system(size: 13))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
                         }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                        )
+
+                        Button(action: { showingJoin = true }) {
+                            Text("I have a code")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(Color.accentInk)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                                )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .disabled(isJoining)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                     .background(
@@ -595,6 +597,10 @@ struct GymDetailView: View {
         }
         .onAppear {
             loadGymDetails()
+        }
+        .sheet(isPresented: $showingJoin) {
+            JoinWorkspaceView()
+                .environmentObject(themeManager)
         }
     }
     

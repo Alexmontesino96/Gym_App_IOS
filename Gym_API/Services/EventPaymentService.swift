@@ -71,6 +71,18 @@ class EventPaymentService: ObservableObject {
     // MARK: - Register for Paid Event
     /// Registers user for a paid event and returns payment intent
     func registerForPaidEvent(eventId: Int) async -> EventParticipation? {
+        // Sin clave publicable válida no hay pago posible, y hasta ahora el fallo era mudo:
+        // StripeService.configure() solo imprimía un aviso por consola y el flujo seguía hasta
+        // reventar en el cobro. Se corta aquí, con un mensaje que la persona entiende.
+        guard StripeConfig.isConfigured() else {
+            paymentError = "Payments are not available right now. Please try again later."
+            Logger.shared.error(
+                "Intento de pago con Stripe sin configurar: la clave publicable sigue siendo el marcador de posición",
+                category: .security
+            )
+            return nil
+        }
+
         print("🔵 [EventPaymentService] registerForPaidEvent iniciado para evento \(eventId)")
         isProcessingPayment = true
         paymentError = nil

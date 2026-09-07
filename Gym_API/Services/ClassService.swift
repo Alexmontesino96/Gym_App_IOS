@@ -248,7 +248,7 @@ class ClassService: ObservableObject {
             guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
                 debugLog("⚠️ No se encontró token de autorización válido para sesiones")
                 _ = await MainActor.run {
-                    self.errorMessage = "No se encontró token de autorización válido"
+                    self.errorMessage = "Please sign in again"
                     self.isLoading = false
                 }
                 return
@@ -341,7 +341,7 @@ class ClassService: ObservableObject {
             } else {
                 print("⚠️ No se encontró token de autorización válido para sesiones")
                 _ = await MainActor.run {
-                    self.errorMessage = "No se encontró token de autorización válido"
+                    self.errorMessage = "Please sign in again"
                     self.isLoading = false
                 }
                 return
@@ -416,7 +416,7 @@ class ClassService: ObservableObject {
             } else {
                 print("⚠️ No se encontró token de autorización válido para registro")
                 _ = await MainActor.run {
-                    self.joinClassErrorMessages[sessionId] = "No se encontró token de autorización válido"
+                    self.joinClassErrorMessages[sessionId] = "Please sign in again"
                     self.joiningClassIds.remove(sessionId)
                 }
                 return
@@ -545,7 +545,7 @@ class ClassService: ObservableObject {
             } else {
                 print("⚠️ No se encontró token de autorización válido para cancelación")
                 _ = await MainActor.run {
-                    self.cancelClassErrorMessages[sessionId] = "No se encontró token de autorización válido"
+                    self.cancelClassErrorMessages[sessionId] = "Please sign in again"
                     self.cancellingClassIds.remove(sessionId)
                 }
                 return
@@ -623,7 +623,7 @@ class ClassService: ObservableObject {
             guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
                 debugLog("⚠️ No se encontró token de autorización válido para participation status")
                 _ = await MainActor.run {
-                    self.participationStatusErrorMessage = "No se encontró token de autorización válido"
+                    self.participationStatusErrorMessage = "Please sign in again"
                     self.isLoadingParticipationStatus = false
                 }
                 return
@@ -707,7 +707,7 @@ class ClassService: ObservableObject {
             guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
                 debugLog("⚠️ No se encontró token de autorización válido para mis clases")
                 _ = await MainActor.run {
-                    self.myClassesErrorMessage = "No se encontró token de autorización válido"
+                    self.myClassesErrorMessage = "Please sign in again"
                     self.isLoadingMyClasses = false
                 }
                 return
@@ -1159,7 +1159,9 @@ extension ClassService {
                 currentParticipants: sessionWithClass.session.currentParticipants,
                 difficulty: mapDifficulty(sessionWithClass.classInfo.difficultyLevel),
                 status: mapStatus(sessionWithClass.session.status),
-                gymTimezone: sessionWithClass.session.timeInfo.gymTimezone
+                gymTimezone: sessionWithClass.session.timeInfo.gymTimezone,
+                room: sessionWithClass.session.room,
+                notes: sessionWithClass.session.notes
             )
         }
     }
@@ -1190,7 +1192,8 @@ extension ClassService {
     
     private func mapStatus(_ status: SessionStatus) -> ClassStatus {
         switch status {
-        case .scheduled, .active, .inProgress: return .available
+        case .scheduled, .active: return .available
+        case .inProgress: return .inProgress
         case .completed: return .completed
         case .cancelled: return .cancelled
         }

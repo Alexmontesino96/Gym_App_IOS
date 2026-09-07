@@ -162,8 +162,12 @@ class PostService: ObservableObject, PostServicing {
             print("📄 [PostService] Response: \(responseString.prefix(1000))")
         }
 
-        if httpResponse.statusCode == 404 {
-            print("❌ [PostService] Módulo no disponible (404)")
+        // El backend cierra los routers de publicaciones con `module_enabled("posts")`, que
+        // responde 403, no 404 (app/core/dependencies.py:36-41). Tratando solo el 404 aquí, el
+        // 403 caía en `serverError` y le pintaba al usuario el mensaje en español del servidor:
+        // «El módulo posts no está disponible en este gimnasio».
+        if httpResponse.statusCode == 404 || httpResponse.statusCode == 403 {
+            print("❌ [PostService] Módulo no disponible (\(httpResponse.statusCode))")
             throw PostServiceError.moduleNotAvailable
         }
 

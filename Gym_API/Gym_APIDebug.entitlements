@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Vacío a propósito.
+
+	  Un equipo de desarrollo personal (Apple ID gratuito) NO admite Push Notifications,
+	  Associated Domains ni Apple Pay, y Xcode se niega a crear el perfil si el fichero las pide.
+	  Ese era el error de firma.
+
+	  Para compilar y probar en local no hace falta ninguna de las tres: las notificaciones no
+	  llegan al simulador, el dominio asociado no lo consume ningún código, y Apple Pay tampoco
+	  funcionaba porque la lista de comerciantes estaba vacía.
+
+	  Las de producción viven en Gym_API.entitlements y exigen el Apple Developer Program de pago,
+	  que hace falta igualmente para publicar en la App Store.
+	-->
+</dict>
+</plist>

@@ -1,570 +1,602 @@
 import SwiftUI
 
 // MARK: - MealDetailView
-
-/// Vista de detalle de una comida individual
-/// Muestra imagen, macros, ingredientes, instrucciones y acciones
+/// Detailed meal view with hero image, macros, ingredients, preparation, portion slider
+/// Replicates MealDetailScreen from prototype exactly
 struct MealDetailView: View {
-    // MARK: - Properties
-
     let meal: Meal
 
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var nutritionService: NutritionService
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showCompletionSheet = false
-    @State private var showCompletedPhoto = false
+    @State private var portion: Double = 1.0
+    @State private var isDone: Bool = false
     @State private var isSubmitting = false
-    @State private var showError = false
-    @State private var errorMessage = ""
-    @State private var appearAnimation = false
+    @State private var showCheckmark = false
+    @State private var checkmarkScale: CGFloat = 0.3
+    @State private var buttonScale: CGFloat = 1.0
+    @State private var confettiOffset: CGFloat = 0
+
+    private let accentColor = Color(hex: "#D4FF3F")!
+
+    // MARK: - Computed
+
+    private var adjustedKcal: Int { Int(Double(meal.calories) * portion) }
+    private var adjustedP: Int { Int(Double(meal.proteinG ?? 0) * portion) }
+    private var adjustedC: Int { Int(Double(meal.carbsG ?? 0) * portion) }
+    private var adjustedF: Int { Int(Double(meal.fatG ?? 0) * portion) }
+
+    private var mealColor: Color {
+        switch meal.mealType {
+        case .breakfast: return Color(hex: "#FFB347")!
+        case .midMorning: return Color(hex: "#F472B6")!
+        case .lunch: return Color(hex: "#FF5A1F")!
+        case .afternoon: return Color(hex: "#A78BFA")!
+        case .dinner: return Color(hex: "#3B82F6")!
+        case .postWorkout: return Color(hex: "#D4FF3F")!
+        case .lateSnack: return Color(hex: "#8B5CF6")!
+        }
+    }
+
+    private var prepTimeString: String {
+        guard let minutes = meal.preparationTimeMinutes else { return "" }
+        return "\(minutes) min"
+    }
+
+    private var timeString: String {
+        switch meal.mealType {
+        case .breakfast: return "08:00"
+        case .midMorning: return "11:00"
+        case .lunch: return "14:00"
+        case .afternoon: return "16:00"
+        case .postWorkout: return "18:30"
+        case .dinner: return "20:30"
+        case .lateSnack: return "22:00"
+        }
+    }
 
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ZStack(alignment: .bottom) {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    // Header with image
-                    headerSection
-                        .opacity(appearAnimation ? 1 : 0)
+                    // Hero image area
+                    heroSection
 
-                    VStack(spacing: 20) {
-                        // Meal info section
-                        mealInfoSection
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(y: appearAnimation ? 0 : 20)
+                    // Elevated card (overlapping)
+                    elevatedMacroCard
+                        .padding(.horizontal, 20)
+                        .offset(y: -28)
 
-                        // Macros section
-                        macrosSection
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(y: appearAnimation ? 0 : 20)
+                    // Ingredients
+                    ingredientsSection
+                        .padding(.horizontal, 20)
+                        .padding(.top, -4)
 
-                        // Ingredients section
-                        if !meal.ingredients.isEmpty {
-                            ingredientsSection
-                                .opacity(appearAnimation ? 1 : 0)
-                                .offset(y: appearAnimation ? 0 : 20)
-                        }
+                    // Preparation
+                    preparationSection
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
 
-                        // Cooking instructions section
-                        if meal.hasInstructions {
-                            instructionsSection
-                                .opacity(appearAnimation ? 1 : 0)
-                                .offset(y: appearAnimation ? 0 : 20)
-                        }
+                    // Portion slider
+                    portionSlider
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
 
-                        // Completed status section
-                        if meal.isCompleted {
-                            completedSection
-                                .opacity(appearAnimation ? 1 : 0)
-                                .offset(y: appearAnimation ? 0 : 20)
-                        }
-
-                        // Action buttons
-                        actionButtonsSection
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(y: appearAnimation ? 0 : 20)
-
-                        // Bottom spacing
-                        Spacer()
-                            .frame(height: 40)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                    Spacer(minLength: 100)
                 }
             }
-            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                    }
-                }
 
-                ToolbarItem(placement: .principal) {
-                    Text(meal.mealType.displayName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                }
-            }
-            .sheet(isPresented: $showCompletionSheet) {
-                MealCompletionSheet(meal: meal) { rating, photoUrl, notes in
-                    await completeMeal(rating: rating, photoUrl: photoUrl, notes: notes)
-                }
-                .environmentObject(themeManager)
-            }
-            .fullScreenCover(isPresented: $showCompletedPhoto) {
-                if let photoUrl = meal.completionPhotoUrl {
-                    PhotoViewerSheet(imageUrl: photoUrl)
-                        .environmentObject(themeManager)
-                }
-            }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(errorMessage)
-            }
-            .onAppear {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
-                    appearAnimation = true
-                }
-            }
+            // Bottom CTA
+            ctaButton
         }
-    }
-
-    // MARK: - Header Section
-
-    private var headerSection: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Image or placeholder
-            if let imageUrl = meal.imageUrl, !imageUrl.isEmpty {
-                AsyncImage(url: URL(string: imageUrl)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure, .empty:
-                        headerPlaceholder
-                    @unknown default:
-                        headerPlaceholder
-                    }
-                }
-                .frame(height: 280)
-                .clipped()
+        .background(Color.dynamicBackground(theme: themeManager.currentTheme))
+        .navigationBarHidden(true)
+        .onAppear {
+            // Check fresh state from todayPlan (not the stale meal copy)
+            if let freshMeal = nutritionService.todayPlan?.meals.first(where: { $0.id == meal.id }) {
+                isDone = freshMeal.isCompleted
             } else {
-                headerPlaceholder
-            }
-
-            // Gradient overlay
-            LinearGradient(
-                colors: [
-                    Color.dynamicBackground(theme: themeManager.currentTheme),
-                    Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.8),
-                    .clear
-                ],
-                startPoint: .bottom,
-                endPoint: .top
-            )
-            .frame(height: 120)
-
-            // Status badge
-            if meal.isCompleted {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
-                    Text("Completada")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(Color.green)
-                )
-                .padding(20)
+                isDone = meal.isCompleted
             }
         }
     }
 
-    private var headerPlaceholder: some View {
-        ZStack {
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [mealTypeColor.opacity(0.3), mealTypeColor.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+    // MARK: - Hero Section
+
+    private var heroSection: some View {
+        ZStack(alignment: .top) {
+            // Gradient background
+            ZStack {
+                // Radial meal-colored gradient
+                RadialGradient(
+                    colors: [mealColor.opacity(0.8), mealColor.opacity(0.3), Color(hex: "#0A0A0A")!],
+                    center: UnitPoint(x: 0.4, y: 0.5),
+                    startRadius: 0,
+                    endRadius: 180
+                )
+
+                // Stylized plate
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(hex: "#E8DCB6")!,
+                                Color(hex: "#C4A878")!,
+                                Color(hex: "#8B6F3F")!
+                            ],
+                            center: UnitPoint(x: 0.35, y: 0.35),
+                            startRadius: 0,
+                            endRadius: 100
+                        )
                     )
-                )
+                    .frame(width: 200, height: 200)
+                    .shadow(color: .black.opacity(0.45), radius: 15, y: 15)
+                    .overlay {
+                        // Food elements on plate
+                        ZStack {
+                            Ellipse()
+                                .fill(LinearGradient(colors: [Color(hex: "#D4A574")!, Color(hex: "#A87B4A")!], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 70, height: 50)
+                                .offset(x: -25, y: -20)
 
-            VStack(spacing: 12) {
-                Image(systemName: meal.mealType.icon)
-                    .font(.system(size: 50))
-                    .foregroundColor(mealTypeColor)
+                            Circle()
+                                .fill(LinearGradient(colors: [Color(hex: "#E8DCB6")!, Color(hex: "#C4A878")!], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 60, height: 55)
+                                .offset(x: 30, y: -18)
 
-                Text(meal.mealType.displayName)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(mealTypeColor.opacity(0.8))
+                            Circle()
+                                .fill(LinearGradient(colors: [Color(hex: "#5A8A3E")!, Color(hex: "#3D5F28")!], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 50, height: 40)
+                                .offset(x: -15, y: 30)
+
+                            Circle()
+                                .fill(LinearGradient(colors: [Color(hex: "#C73E2E")!, Color(hex: "#8B2A20")!], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                .frame(width: 35, height: 35)
+                                .offset(x: 25, y: 25)
+                        }
+                    }
+                    .offset(y: -10)
             }
-        }
-        .frame(height: 280)
-    }
-
-    // MARK: - Meal Info Section
-
-    private var mealInfoSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Meal type badge
-            HStack(spacing: 8) {
-                Image(systemName: meal.mealType.icon)
-                    .font(.system(size: 12))
-                Text(meal.mealType.displayName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .textCase(.uppercase)
-            }
-            .foregroundColor(mealTypeColor)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(mealTypeColor.opacity(0.15))
+            .frame(height: 260)
+            .clipShape(
+                UnevenRoundedRectangle(bottomLeadingRadius: 32, bottomTrailingRadius: 32)
             )
 
+            // Top bar buttons
+            HStack {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "arrow.left")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial.opacity(0.6))
+                        .background(Color.black.opacity(0.4))
+                        .clipShape(Circle())
+                }
+
+                Spacer()
+
+                HStack(spacing: 8) {
+                    Button(action: {}) {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                    }
+                    Button(action: {}) {
+                        Image(systemName: "frying.pan")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+
+            // Bottom chips
+            VStack {
+                Spacer()
+                HStack(spacing: 6) {
+                    // Meal type chip
+                    Text(meal.mealType.displayName.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.0)
+                        .foregroundColor(mealColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(0.6))
+                        .clipShape(Capsule())
+
+                    // Time chip
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 11))
+                        Text(timeString)
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.6))
+                    .clipShape(Capsule())
+
+                    // Prep time chip
+                    if meal.preparationTimeMinutes != nil {
+                        HStack(spacing: 4) {
+                            Image(systemName: "timer")
+                                .font(.system(size: 11))
+                            Text(prepTimeString)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.black.opacity(0.6))
+                        .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 56)
+            }
+            .frame(height: 260)
+        }
+    }
+
+    // MARK: - Elevated Macro Card
+
+    private var elevatedMacroCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
             // Meal name
             Text(meal.name)
-                .font(.system(size: 26, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
             // Description
-            if let description = meal.description, !description.isEmpty {
-                Text(description)
-                    .font(.system(size: 15))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            if let desc = meal.description {
+                Text(desc)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
                     .lineSpacing(4)
             }
 
-            // Prep time and typical time
-            HStack(spacing: 16) {
-                if let prepTime = meal.preparationTimeFormatted {
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 13))
-                        Text(prepTime)
-                            .font(.system(size: 13))
-                    }
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                }
-
-                HStack(spacing: 6) {
-                    Image(systemName: "sun.max")
-                        .font(.system(size: 13))
-                    Text(meal.mealType.typicalTime)
-                        .font(.system(size: 13))
-                }
-                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            // Macros row
+            HStack(spacing: 0) {
+                macroColumn(value: adjustedKcal, label: "kcal", color: Color.dynamicText(theme: themeManager.currentTheme))
+                Spacer()
+                macroColumn(value: adjustedP, label: "P", color: accentColor)
+                Spacer()
+                macroColumn(value: adjustedC, label: "C", color: Color(hex: "#FF5A1F")!)
+                Spacer()
+                macroColumn(value: adjustedF, label: "F", color: Color(hex: "#A78BFA")!)
+            }
+            .padding(.top, 14)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
     }
 
-    // MARK: - Macros Section
+    private func macroColumn(value: Int, label: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .tracking(-0.36)
+                .foregroundColor(color)
 
-    private var macrosSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Informacion Nutricional")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            MealMacrosPills(meal: meal)
-                .environmentObject(themeManager)
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.7)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.45))
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-        )
     }
 
     // MARK: - Ingredients Section
 
     private var ingredientsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Ingredientes")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+        VStack(alignment: .leading, spacing: 12) {
+            Text("INGREDIENTES · \(meal.ingredients.count)")
+                .font(.system(size: 9, weight: .bold))
+                .tracking(1.0)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
 
-                Spacer()
+            VStack(spacing: 0) {
+                ForEach(Array(meal.ingredients.sorted().enumerated()), id: \.element.id) { index, ingredient in
+                    VStack(spacing: 0) {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(ingredient.name)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-                Text("\(meal.ingredientCount) items")
-                    .font(.system(size: 13))
-                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-            }
+                                    if ingredient.isOptional {
+                                        Text("OPT")
+                                            .font(.system(size: 8, weight: .bold))
+                                            .tracking(0.5)
+                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.45))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.dynamicSurface2(theme: themeManager.currentTheme))
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    }
+                                }
 
-            IngredientChecklistView(
-                ingredients: meal.ingredients,
-                isInteractive: !meal.isCompleted
-            )
-            .environmentObject(themeManager)
-        }
-    }
+                                if ingredient.hasAlternatives {
+                                    HStack(spacing: 0) {
+                                        Text("Alt: ")
+                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.3))
+                                        Text(ingredient.alternatives ?? "")
+                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                                    }
+                                    .font(.system(size: 11))
+                                    .lineSpacing(2)
+                                }
+                            }
 
-    // MARK: - Instructions Section
+                            Spacer()
 
-    private var instructionsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            CookingInstructionsView(
-                instructions: meal.cookingInstructions,
-                tips: nil, // Would come from API
-                preparationTime: meal.preparationTimeMinutes,
-                isInteractive: !meal.isCompleted
-            )
-            .environmentObject(themeManager)
-        }
-    }
+                            Text(ingredient.formattedQuantity)
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, ingredient.hasAlternatives ? 14 : 12)
 
-    // MARK: - Completed Section
-
-    private var completedSection: some View {
-        VStack(spacing: 16) {
-            // Completed header
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.green)
-
-                Text("Comida Completada")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-                Spacer()
-            }
-
-            // Rating
-            if let rating = meal.satisfactionRating {
-                HStack {
-                    Text("Tu calificacion:")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-
-                    Spacer()
-
-                    HStack(spacing: 4) {
-                        ForEach(1...5, id: \.self) { star in
-                            Image(systemName: star <= rating ? "star.fill" : "star")
-                                .font(.system(size: 16))
-                                .foregroundColor(star <= rating ? .yellow : Color.dynamicBorder(theme: themeManager.currentTheme))
+                        if index < meal.ingredients.count - 1 {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.08))
+                                .frame(height: 1)
                         }
                     }
                 }
             }
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
 
-            // Completion time
-            if let completedAt = meal.completedAt {
-                HStack {
-                    Text("Completada:")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+    // MARK: - Preparation Section
 
-                    Spacer()
+    private var preparationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            let steps = meal.cookingSteps
 
-                    Text(formatDate(completedAt))
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                }
-            }
+            Text("PREP · \(steps.count) steps")
+                .font(.system(size: 9, weight: .bold))
+                .tracking(1.0)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
 
-            // Completion photo
-            if let photoUrl = meal.completionPhotoUrl, !photoUrl.isEmpty {
-                Button(action: {
-                    showCompletedPhoto = true
-                }) {
-                    HStack {
-                        Image(systemName: "photo.fill")
-                            .font(.system(size: 14))
-                        Text("Ver foto")
-                            .font(.system(size: 14, weight: .medium))
+            VStack(spacing: 10) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .top, spacing: 12) {
+                        // Step number
+                        Text("\(index + 1)")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .frame(width: 24, height: 24)
+                            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                            .clipShape(Circle())
+
+                        // Step text
+                        Text(step)
+                            .font(.system(size: 13))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
+                            .lineSpacing(4)
+                            .padding(.top, 2)
                     }
-                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 }
             }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.green.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                )
-        )
     }
 
-    // MARK: - Action Buttons Section
+    // MARK: - Portion Slider
 
-    private var actionButtonsSection: some View {
+    private var portionSlider: some View {
         VStack(spacing: 12) {
-            if !meal.isCompleted {
-                // Complete button
-                Button(action: {
-                    let impact = UIImpactFeedbackGenerator(style: .medium)
-                    impact.impactOccurred()
-                    showCompletionSheet = true
-                }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
-                        Text("Marcar como Completada")
-                            .font(.system(size: 16, weight: .semibold))
+            HStack {
+                Text("YOUR SERVING")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.0)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+
+                Spacer()
+
+                Text(String(format: "%.2fx", portion))
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(accentColor)
+            }
+
+            Slider(value: $portion, in: 0.5...2.0, step: 0.05)
+                .tint(accentColor)
+
+            HStack {
+                Text("0.5x")
+                Spacer()
+                Text("1.0x")
+                Spacer()
+                Text("1.5x")
+                Spacer()
+                Text("2.0x")
+            }
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.45))
+        }
+        .padding(16)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - CTA Button
+
+    private var ctaButton: some View {
+        ZStack {
+            VStack {
+                Button(action: toggleCompletion) {
+                    ZStack {
+                        // Button content
+                        HStack(spacing: 8) {
+                            if isDone {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .transition(.scale.combined(with: .opacity))
+                            } else {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 18, weight: .semibold))
+                            }
+
+                            Text(isDone ? "Completado" : "Marcar completada")
+                                .font(.system(size: 16, weight: .bold))
+                                .contentTransition(.numericText())
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .foregroundColor(isDone ? Color(hex: "#4ADE80")! : Color.accentInk)
+                        .background(
+                            isDone
+                                ? Color(hex: "#4ADE80")!.opacity(0.15)
+                                : accentColor
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(isDone ? Color(hex: "#4ADE80")!.opacity(0.4) : .clear, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                    )
                 }
+                .buttonStyle(.plain)
+                .disabled(isDone)
+                .scaleEffect(buttonScale)
             }
-
-            // Share button (optional)
-            Button(action: {
-                let impact = UIImpactFeedbackGenerator(style: .light)
-                impact.impactOccurred()
-                // Share functionality
-            }) {
-                HStack(spacing: 10) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16))
-                    Text("Compartir Receta")
-                        .font(.system(size: 15, weight: .medium))
-                }
-                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.dynamicAccent(theme: themeManager.currentTheme), lineWidth: 1.5)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 32)
+            .padding(.top, 16)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color.dynamicBackground(theme: themeManager.currentTheme),
+                        Color.dynamicBackground(theme: themeManager.currentTheme),
+                        Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0)
+                    ],
+                    startPoint: .bottom,
+                    endPoint: .top
                 )
+            )
+
+            // Fullscreen checkmark celebration
+            if showCheckmark {
+                ZStack {
+                    // Radial burst
+                    Circle()
+                        .fill(accentColor.opacity(0.08))
+                        .frame(width: 200, height: 200)
+                        .scaleEffect(checkmarkScale * 1.5)
+
+                    // Checkmark
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 72))
+                        .foregroundColor(accentColor)
+                        .scaleEffect(checkmarkScale)
+                        .shadow(color: accentColor.opacity(0.4), radius: 20)
+                }
+                .transition(.opacity)
+                .allowsHitTesting(false)
             }
         }
-    }
-
-    // MARK: - Helpers
-
-    private var mealTypeColor: Color {
-        switch meal.mealType {
-        case .breakfast: return .orange
-        case .midMorning: return .yellow
-        case .lunch: return .green
-        case .afternoon: return .blue
-        case .dinner: return .purple
-        case .postWorkout: return .red
-        case .lateSnack: return .indigo
-        }
-    }
-
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        formatter.locale = Locale(identifier: "es_ES")
-        return formatter.string(from: date)
     }
 
     // MARK: - Actions
 
-    private func completeMeal(rating: Int, photoUrl: String?, notes: String?) async -> Bool {
-        isSubmitting = true
+    private func toggleCompletion() {
+        guard !isDone else { return }
 
-        let result = await nutritionService.completeMeal(
-            mealId: meal.id,
-            rating: rating,
-            photoUrl: photoUrl,
-            notes: notes,
-            portionModifier: 1.0
-        )
+        // 1. Instant haptic
+        let impact = UIImpactFeedbackGenerator(style: .heavy)
+        impact.impactOccurred()
 
-        await MainActor.run {
-            isSubmitting = false
+        // 2. Optimistic UI — mark done immediately with animation
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+            isDone = true
+            buttonScale = 0.92
+        }
 
-            if result != nil {
-                // Success - dismiss will happen from the sheet
-                return
-            } else {
-                errorMessage = nutritionService.errorMessage ?? "Error al completar la comida"
-                showError = true
+        // 3. Button bounce back
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                buttonScale = 1.0
             }
         }
 
-        return result != nil
-    }
-}
-
-// MARK: - PhotoViewerSheet
-
-/// Sheet para ver una foto en pantalla completa
-struct PhotoViewerSheet: View {
-    let imageUrl: String
-
-    @EnvironmentObject var themeManager: ThemeManager
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var scale: CGFloat = 1.0
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            AsyncImage(url: URL(string: imageUrl)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .scaleEffect(scale)
-                        .gesture(
-                            MagnificationGesture()
-                                .onChanged { value in
-                                    scale = value.magnitude
-                                }
-                                .onEnded { _ in
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        scale = 1.0
-                                    }
-                                }
-                        )
-                case .failure:
-                    VStack(spacing: 12) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 40))
-                            .foregroundColor(.gray)
-                        Text("No se pudo cargar la imagen")
-                            .foregroundColor(.gray)
-                    }
-                case .empty:
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.5)
-                @unknown default:
-                    EmptyView()
-                }
+        // 4. Show celebration checkmark
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                showCheckmark = true
+                checkmarkScale = 1.2
             }
+        }
 
-            // Close button
-            VStack {
-                HStack {
-                    Spacer()
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white)
-                            .shadow(radius: 3)
+        // 5. Shrink checkmark
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                checkmarkScale = 1.0
+            }
+        }
+
+        // 6. Success haptic
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let success = UINotificationFeedbackGenerator()
+            success.notificationOccurred(.success)
+        }
+
+        // 7. Hide celebration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                showCheckmark = false
+                checkmarkScale = 0.3
+            }
+        }
+
+        // 8. Fire API in background (don't wait)
+        Task {
+            let result = await nutritionService.completeMeal(mealId: meal.id, rating: 5, portionModifier: portion)
+            if result == nil {
+                // Rollback on failure
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isDone = false
                     }
-                    .padding(20)
+                    HapticManager.shared.play(.error)
                 }
-                Spacer()
             }
         }
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    Color.black
-        .ignoresSafeArea()
-        .sheet(isPresented: .constant(true)) {
-            Text("Preview requires real meal data")
-                .environmentObject(ThemeManager())
-                .environmentObject(NutritionService.shared)
-        }
 }

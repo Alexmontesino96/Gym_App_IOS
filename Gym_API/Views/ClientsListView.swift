@@ -2,7 +2,16 @@
 //  ClientsListView.swift
 //  Gym_API
 //
-//  Created by Claude Code on 2025-01-25
+//  Lista de clientes del entrenador personal.
+//
+//  Con la salida pública dirigida a entrenadores, esta pantalla pasa a ser una de las principales
+//  del producto, así que deja de mostrar los tres nombres de ejemplo que tenía y se alimenta de
+//  GET /gyms/users?role=MEMBER, que es la pertenencia real al espacio de trabajo.
+//
+//  Lo que todavía NO se puede mostrar por cliente, y por eso no se inventa:
+//    - sesiones del mes: no existe el módulo de entrenamiento
+//    - estado activo o inactivo: la pertenencia no lleva ese dato
+//  Ver PLAN_MODO_CLIENTE_PT.md.
 //
 
 import SwiftUI
@@ -10,459 +19,307 @@ import SwiftUI
 struct ClientsListView: View {
     @EnvironmentObject var workspaceContext: WorkspaceContextService
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var coachingService: CoachingService
 
     @State private var searchText = ""
-    @State private var selectedFilter: ClientFilter = .active
-    @State private var showingAddClient = false
-    @State private var isRefreshing = false
+    @State private var showingInvite = false
 
-    // Mock data - TODO: Replace with actual service call
-    @State private var clients: [TrainerClient] = [
-        TrainerClient(id: 1, name: "John Doe", email: "john@example.com", status: .active, sessionsThisMonth: 8, joinDate: Date()),
-        TrainerClient(id: 2, name: "Jane Smith", email: "jane@example.com", status: .active, sessionsThisMonth: 12, joinDate: Date()),
-        TrainerClient(id: 3, name: "Bob Johnson", email: "bob@example.com", status: .inactive, sessionsThisMonth: 0, joinDate: Date())
-    ]
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
-    var filteredClients: [TrainerClient] {
-        clients
-            .filter { client in
-                switch selectedFilter {
-                case .all:
-                    return true
-                case .active:
-                    return client.status == .active
-                case .inactive:
-                    return client.status == .inactive
-                }
-            }
-            .filter { client in
-                searchText.isEmpty || client.name.localizedCaseInsensitiveContains(searchText) || client.email.localizedCaseInsensitiveContains(searchText)
-            }
+    private var filteredClients: [ClientSummary] {
+        guard !searchText.isEmpty else { return coachingService.clients }
+        return coachingService.clients.filter { client in
+            client.displayName.localizedCaseInsensitiveContains(searchText)
+                || (client.email?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Stats Header
-                statsHeader
+                header
 
-                // Filter Picker
-                filterPicker
-
-                // Search Bar
-                searchBar
-
-                // Clients List
-                if filteredClients.isEmpty {
-                    emptyStateView
-                } else {
-                    clientsList
+                if !coachingService.clients.isEmpty {
+                    searchBar
                 }
+
+                content
             }
-            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationTitle(workspaceContext.getCapitalizedTerm("clients"))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingAddClient = true
-                    }) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(themeManager.currentTheme == .dark ?
-                                Color(red: 0.85, green: 0.2, blue: 0.2) :
-                                Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
+                    Button { showingInvite = true } label: {
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Color.dynamicAccent(theme: theme))
                     }
+                    .accessibilityLabel("Invite a client")
                 }
             }
-            .refreshable {
-                await refreshClients()
-            }
-            .sheet(isPresented: $showingAddClient) {
-                AddClientView()
+            .task { await coachingService.loadClients() }
+            .refreshable { await coachingService.loadClients(forceRefresh: true) }
+            .sheet(isPresented: $showingInvite, onDismiss: {
+                // El cliente puede haber canjeado ya; se refresca para que aparezca.
+                Task { await coachingService.loadClients(forceRefresh: true) }
+            }) {
+                InviteClientSheet()
+                    .environmentObject(themeManager)
+                    .environmentObject(GymService.shared)
             }
         }
     }
 
-    // MARK: - Stats Header
+    // MARK: - Cabecera
 
-    private var statsHeader: some View {
-        HStack(spacing: 16) {
-            ClientStatBadge(
-                value: "\(clients.filter { $0.status == .active }.count)",
-                label: "Active",
-                color: .green,
-                theme: themeManager.currentTheme
+    private var header: some View {
+        HStack(spacing: 12) {
+            countBadge(
+                value: "\(coachingService.clients.count)",
+                label: coachingService.clients.count == 1 ? "client" : "clients"
             )
 
-            ClientStatBadge(
-                value: "\(clients.count)",
-                label: "Total",
-                color: .blue,
-                theme: themeManager.currentTheme
-            )
-
-            if let stats = workspaceContext.stats,
-               case .trainer(let metrics) = stats.metrics {
-                ClientStatBadge(
-                    value: "\(Int(metrics.capacityPercentage))%",
-                    label: "Capacity",
-                    color: metrics.capacityPercentage >= 90 ? .orange : .purple,
-                    theme: themeManager.currentTheme
-                )
+            if let maxClients = workspaceContext.context?.workspace.maxClients, maxClients > 0 {
+                countBadge(value: "\(maxClients)", label: "seats")
             }
+
+            Spacer(minLength: 0)
         }
-        .padding()
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 14)
     }
 
-    // MARK: - Filter Picker
-
-    private var filterPicker: some View {
-        Picker("Filter", selection: $selectedFilter) {
-            ForEach(ClientFilter.allCases, id: \.self) { filter in
-                Text(filter.rawValue.capitalized)
-                    .tag(filter)
-            }
+    private func countBadge(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .tracking(-1.0)
+                .foregroundColor(Color.dynamicText(theme: theme))
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
         }
-        .pickerStyle(.segmented)
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
-
-    // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
 
-            TextField("Search \(workspaceContext.getTerm("clients"))...", text: $searchText)
-                .textFieldStyle(.plain)
+            TextField("Search", text: $searchText)
+                .font(.system(size: 15))
+                .foregroundColor(Color.dynamicText(theme: theme))
                 .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
 
             if !searchText.isEmpty {
-                Button(action: {
-                    searchText = ""
-                }) {
+                Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 15))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .background(Color.dynamicSurface(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
         )
-        .padding(.horizontal)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
     }
 
-    // MARK: - Clients List
+    // MARK: - Contenido
+
+    @ViewBuilder
+    private var content: some View {
+        switch coachingService.clientsState {
+        case .loading, .idle where coachingService.clients.isEmpty:
+            loadingList
+        case .failed where coachingService.clients.isEmpty:
+            errorState
+        default:
+            if filteredClients.isEmpty {
+                emptyState
+            } else {
+                clientsList
+            }
+        }
+    }
 
     private var clientsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(spacing: 10) {
                 ForEach(filteredClients) { client in
-                    NavigationLink(destination: ClientDetailView(client: client)) {
-                        ClientRow(client: client, theme: themeManager.currentTheme)
-                    }
-                    .buttonStyle(PlainButtonStyle())
+                    ClientRowView(client: client)
                 }
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.bottom, 100)
         }
     }
 
-    // MARK: - Empty State
+    private var loadingList: some View {
+        VStack(spacing: 10) {
+            ForEach(0..<4, id: \.self) { _ in
+                HStack(spacing: 12) {
+                    SkeletonView(width: 44, height: 44, cornerRadius: 22)
+                    VStack(alignment: .leading, spacing: 6) {
+                        SkeletonView(width: 150, height: 14, cornerRadius: 4)
+                        SkeletonView(width: 100, height: 11, cornerRadius: 4)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(14)
+                .background(Color.dynamicSurface(theme: theme))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+            }
+        }
+        .padding(.horizontal, 16)
+    }
 
-    private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "person.2.slash")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
-
-            Text("No \(workspaceContext.getTerm("clients")) found")
-                .font(.headline)
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            Text(searchText.isEmpty ?
-                "Add your first \(workspaceContext.getTerm("client")) to get started" :
-                "Try adjusting your search or filters")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+    private var errorState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 34, weight: .light))
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            Text("Could not load your client list")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: theme))
                 .multilineTextAlignment(.center)
+            Button {
+                Task { await coachingService.loadClients(forceRefresh: true) }
+            } label: {
+                Text("Try again")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color.accentInk)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: searchText.isEmpty ? "person.2" : "magnifyingglass")
+                .font(.system(size: 36, weight: .light))
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+
+            Text(searchText.isEmpty ? "No clients yet" : "No results")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: theme))
+
+            Text(searchText.isEmpty
+                 ? "Create an invitation code and share it with your first client."
+                 : "Try another name or email.")
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
             if searchText.isEmpty {
-                Button(action: {
-                    showingAddClient = true
-                }) {
-                    Text("Add \(workspaceContext.getCapitalizedTerm("client"))")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(themeManager.currentTheme == .dark ?
-                                    Color(red: 0.85, green: 0.2, blue: 0.2) :
-                                    Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
-                        )
+                Button { showingInvite = true } label: {
+                    Text("Invite a client")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.accentInk)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
                 }
-                .padding(.top, 8)
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
         }
+        .padding(.horizontal, 40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-    }
-
-    // MARK: - Data Methods
-
-    private func refreshClients() async {
-        isRefreshing = true
-        // TODO: Call actual service to fetch clients
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        isRefreshing = false
     }
 }
 
-// MARK: - Client Filter Enum
+// MARK: - Fila de cliente
 
-enum ClientFilter: String, CaseIterable {
-    case all = "all"
-    case active = "active"
-    case inactive = "inactive"
-}
+private struct ClientRowView: View {
+    let client: ClientSummary
 
-// MARK: - Client Stat Badge Component
+    @EnvironmentObject var themeManager: ThemeManager
 
-struct ClientStatBadge: View {
-    let value: String
-    let label: String
-    let color: Color
-    let theme: ThemeManager.AppTheme
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(color)
-
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
+    private var joinedText: String? {
+        guard let joined = client.joinedAt else { return nil }
+        let formatter = DateFormatter.localized(template: "MMMyyyy")
+        return "Since \(formatter.string(from: joined))"
     }
-}
-
-// MARK: - Client Row Component
-
-struct ClientRow: View {
-    let client: TrainerClient
-    let theme: ThemeManager.AppTheme
 
     var body: some View {
         HStack(spacing: 12) {
-            // Avatar
-            Circle()
-                .fill(LinearGradient(
-                    colors: [
-                        client.status == .active ? Color.green : Color.gray,
-                        client.status == .active ? Color.green.opacity(0.7) : Color.gray.opacity(0.7)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Text(client.initials)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                )
+            avatar
 
-            // Client Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(client.name)
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(client.displayName)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: theme))
+                    .lineLimit(1)
 
-                Text(client.email)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "figure.walk")
-                        .font(.caption2)
-
-                    Text("\(client.sessionsThisMonth) sessions this month")
-                        .font(.caption2)
+                if let detail = client.email ?? joinedText {
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                        .lineLimit(1)
                 }
-                .foregroundColor(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Status Badge
-            VStack(alignment: .trailing, spacing: 4) {
-                StatusBadge(status: client.status, theme: theme)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            if let joinedText, client.email != nil {
+                Text(joinedText)
+                    .font(.system(size: 11))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.dynamicSurface(theme: theme))
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .padding(14)
+        .background(Color.dynamicSurface(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
         )
     }
-}
 
-// MARK: - Status Badge Component
-
-struct StatusBadge: View {
-    let status: ClientStatus
-    let theme: ThemeManager.AppTheme
-
-    var body: some View {
-        Text(status.rawValue.capitalized)
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .foregroundColor(status == .active ? .green : .gray)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill((status == .active ? Color.green : Color.gray).opacity(0.1))
-            )
-    }
-}
-
-// MARK: - Trainer Client Model
-
-struct TrainerClient: Identifiable {
-    let id: Int
-    let name: String
-    let email: String
-    let status: ClientStatus
-    let sessionsThisMonth: Int
-    let joinDate: Date
-
-    var initials: String {
-        let components = name.split(separator: " ")
-        if components.count >= 2 {
-            return String(components[0].prefix(1)) + String(components[1].prefix(1))
-        } else if let first = components.first {
-            return String(first.prefix(2))
-        }
-        return "?"
-    }
-}
-
-enum ClientStatus: String {
-    case active
-    case inactive
-}
-
-// MARK: - Add Client View (Placeholder)
-
-struct AddClientView: View {
-    @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var workspaceContext: WorkspaceContextService
-    @EnvironmentObject var themeManager: ThemeManager
-
-    @State private var name = ""
-    @State private var email = ""
-    @State private var phone = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("\(workspaceContext.getCapitalizedTerm("client")) Information")) {
-                    TextField("Full Name", text: $name)
-                    TextField("Email", text: $email)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                    TextField("Phone", text: $phone)
-                        .keyboardType(.phonePad)
-                }
-            }
-            .navigationTitle("Add \(workspaceContext.getCapitalizedTerm("client"))")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        // TODO: Save client
-                        dismiss()
-                    }
-                    .disabled(name.isEmpty || email.isEmpty)
-                }
+    private var avatar: some View {
+        Group {
+            if let picture = client.pictureURL, !picture.isEmpty {
+                OptimizedAsyncImage(
+                    url: picture,
+                    displaySize: CGSize(width: 44, height: 44),
+                    placeholder: { AnyView(initialsCircle) },
+                    errorView: { AnyView(initialsCircle) }
+                )
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
+            } else {
+                initialsCircle
             }
         }
     }
-}
 
-// MARK: - Client Detail View (Placeholder)
-
-struct ClientDetailView: View {
-    let client: TrainerClient
-    @EnvironmentObject var themeManager: ThemeManager
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Client Header
-                VStack(spacing: 12) {
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [Color.blue, Color.blue.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        .frame(width: 80, height: 80)
-                        .overlay(
-                            Text(client.initials)
-                                .font(.largeTitle)
-                                .foregroundColor(.white)
-                        )
-
-                    Text(client.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-                    Text(client.email)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-
-                // TODO: Add client details, sessions history, progress, etc.
-                Text("Client details coming soon")
-                    .foregroundColor(.secondary)
-            }
-            .padding()
+    private var initialsCircle: some View {
+        ZStack {
+            Circle().fill(Color.dynamicSurface2(theme: theme))
+            Text(client.initials)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
         }
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-        .navigationTitle(client.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .frame(width: 44, height: 44)
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    ClientsListView()
-        .environmentObject(WorkspaceContextService.shared)
-        .environmentObject(ThemeManager())
 }

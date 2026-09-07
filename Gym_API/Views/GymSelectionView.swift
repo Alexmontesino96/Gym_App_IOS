@@ -175,7 +175,7 @@ struct GymSelectionView: View {
                                     } else {
                                         Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 20))
-                                        Text("Continuar con \(selectedGym.name)")
+                                        Text("Continue with \(selectedGym.name)")
                                             .font(.system(size: 17, weight: .semibold))
                                             .lineLimit(1)
                                     }
@@ -202,9 +202,9 @@ struct GymSelectionView: View {
                                         .font(.system(size: 22))
 
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Buscar Gimnasio")
+                                        Text("Find a space")
                                             .font(.system(size: 17, weight: .semibold))
-                                        Text("Encuentra tu gym ideal")
+                                        Text("Browse what is available")
                                             .font(.system(size: 13, weight: .regular))
                                             .opacity(0.7)
                                     }

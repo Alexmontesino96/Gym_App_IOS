@@ -239,7 +239,7 @@ struct LiveChallengesView: View {
                 .scaleEffect(1.2)
                 .tint(Color.dynamicAccent(theme: themeManager.currentTheme))
 
-            Text("Cargando challenges...")
+            Text("Loading challenges…")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }
@@ -690,7 +690,7 @@ struct CompletedChallengeBadge: View {
                     .multilineTextAlignment(.center)
 
                 // Duration
-                Text("\(plan.durationDays) dias")
+                Text("\(plan.durationDays) days")
                     .font(.system(size: 11))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
             }

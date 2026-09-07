@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Modern Profile View
+// MARK: - Modern Profile View (Prototype-matched design)
 struct ModernProfileView: View {
     // MARK: - Environment & State
     @EnvironmentObject var authService: AuthServiceDirect
@@ -11,113 +11,58 @@ struct ModernProfileView: View {
     @StateObject private var profileService = UserProfileService.shared
     @StateObject private var userStatsService = UserStatsService.shared
     @StateObject private var imageService = UnifiedImageService.shared
-    
+    @StateObject private var gymService = GymService.shared
+    @StateObject private var postService = PostService.shared
+
     @State private var showingSettings = false
     @State private var showingProfileOptions = false
     @State private var showingColorPicker = false
-    @State private var selectedSection: ProfileSection = .posts
     @State private var showingImagePicker = false
     @State private var selectedImage: UIImage?
     @State private var showingEditProfile = false
     @State private var showingGymSelector = false
-    @StateObject private var gymService = GymService.shared
-    @StateObject private var postService = PostService.shared
     @State private var showProfileCelebration = false
     @State private var showingQRCode = false
+    @State private var showingDeleteAccount = false
 
-    // MARK: - Profile Sections
-    enum ProfileSection: String, CaseIterable {
-        case posts = "Posts"
-        case achievements = "Achievements"
-        case analytics = "Analytics"
-        case social = "Social"
-        case goals = "Goals"
-        case history = "History"
-
-        var iconName: String {
-            switch self {
-            case .posts: return "square.grid.2x2.fill"
-            case .achievements: return "trophy.fill"
-            case .analytics: return "chart.line.uptrend.xyaxis"
-            case .social: return "person.2.fill"
-            case .goals: return "target"
-            case .history: return "clock.arrow.circlepath"
-            }
-        }
-    }
-    
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
-                // Background
                 Color.dynamicBackground(theme: themeManager.currentTheme)
                     .ignoresSafeArea()
-                
+
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        // Compact Header with Settings Icon
-                        profileHeader
-                        
-                        // Section Selector
-                        sectionSelector
-                        
-                        // Dynamic Content Based on Selection
-                        Group {
-                            switch selectedSection {
-                            case .posts:
-                                if let userId = Int(authService.user?.id ?? "") {
-                                    UserPostsGridView(userId: userId)
-                                        .environmentObject(themeManager)
-                                        .environmentObject(postService)
-                                } else {
-                                    Text("Unable to load posts")
-                                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                }
-                            case .achievements:
-                                achievementShowcase
-                            case .analytics:
-                                progressAnalytics
-                            case .social:
-                                socialFitnessJourney
-                            case .goals:
-                                personalGoalsTracking
-                            case .history:
-                                trainingHistory
-                            }
-                        }
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
+                    VStack(spacing: 20) {
+                        // Header: "Profile" + settings
+                        headerSection
+
+                        // Profile card
+                        profileCard
+
+                        // Membership card
+                        membershipCard
+
+                        // Settings list
+                        settingsList
+
+                        // Logout button
+                        logoutButton
+
+                        // Borrado de cuenta. Apple pide que se pueda hacer desde la app y
+                        // que se encuentre sin buscar, así que va aquí y no dentro de ajustes.
+                        deleteAccountButton
+
+                        Spacer(minLength: 100)
                     }
-                    .padding(.bottom, 100)
                 }
-                // Loading & Error Overlays
+
+                // Loading overlay
                 if profileService.isLoading {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text(NSLocalizedString("loading_profile", comment: "Loading profile"))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.6))
-                } else if profileService.error != nil {
-                    VStack(spacing: 12) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                            .font(.system(size: 24))
-                        Text(NSLocalizedString("failed_load_profile", comment: "Failed to load profile"))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        Button(NSLocalizedString("retry", comment: "Retry")) {
-                            Task { await profileService.fetchUserProfile() }
-                        }
-                    }
-                    .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.dynamicSurface(theme: themeManager.currentTheme)))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Color.dynamicBackground(theme: themeManager.currentTheme).opacity(0.6)
+                        .ignoresSafeArea()
+                        .overlay(ProgressView())
                 }
             }
-            .safeAreaPadding(.top, 16)
             .navigationBarHidden(true)
             .sheet(isPresented: $showingSettings) {
                 SettingsView(onThemeChangeRequest: {})
@@ -130,30 +75,12 @@ struct ModernProfileView: View {
                 .environmentObject(themeManager)
                 .interactiveDismissDisabled(true)
             }
-            .sheet(isPresented: $showingProfileOptions) {
-                ProfileOptionsSheet(
-                    isPresented: $showingProfileOptions,
-                    onEditProfile: { showingEditProfile = true },
-                    onSettings: { showingSettings = true },
-                    onGymSelector: { showingGymSelector = true },
-                    onCustomizeColors: {
-                        // Cerrar el sheet de opciones antes de abrir el de colores
-                        showingProfileOptions = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            showingColorPicker = true
-                        }
-                    },
-                    authService: authService,
-                    gymService: gymService,
-                    themeManager: themeManager
-                )
-            }
             .sheet(isPresented: $showingEditProfile) {
                 EditProfileSheet()
                     .environmentObject(themeManager)
             }
             .sheet(isPresented: $showingGymSelector) {
-                NavigationView {
+                NavigationStack {
                     GymSelectionView { selected in
                         gymService.selectGym(selected)
                         showingGymSelector = false
@@ -175,7 +102,6 @@ struct ModernProfileView: View {
             }
         }
         .overlay(
-            // Profile completion celebration overlay
             Group {
                 if showProfileCelebration {
                     ProfileCompletionCelebration(
@@ -190,549 +116,398 @@ struct ModernProfileView: View {
             setupServices()
             loadData()
         }
-        .onDisappear {
-            // Asegurar que no quede un sheet pendiente al cambiar de tab
-            showingColorPicker = false
-            showingProfileOptions = false
-        }
         .onChange(of: selectedImage) { _, newImage in
             if let image = newImage {
                 Task { await uploadProfileImage(image) }
             }
         }
     }
-    
-    // MARK: - Header Section
-    private var profileHeader: some View {
-        VStack(spacing: 24) {
-            // Simple header con opciones
-            HStack {
-                Button(action: { showingProfileOptions = true }) {
-                    HStack(spacing: 8) {
-                        Text(gymDisplayName)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+
+    // MARK: - Header
+
+    private var headerSection: some View {
+        HStack {
+            Text("Profile")
+                .font(.system(size: 28, weight: .bold))
+                .tracking(-0.8)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+            Spacer()
+
+            Button(action: { showingSettings = true }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .frame(width: 40, height: 40)
+                    .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+    }
+
+    // MARK: - Profile Card
+
+    private var profileCard: some View {
+        VStack(spacing: 0) {
+            // Avatar + Name + Member Since + QR
+            HStack(spacing: 14) {
+                // Avatar (tappable to change)
+                Button(action: { showingImagePicker = true }) {
+                    ZStack {
+                        if let picture = profileService.userProfile?.picture,
+                           let url = URL(string: picture) {
+                            AsyncImage(url: url) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                avatarPlaceholder
+                            }
+                            .frame(width: 64, height: 64)
+                            .clipShape(Circle())
+                        } else {
+                            avatarPlaceholder
+                        }
                     }
                 }
                 .buttonStyle(.plain)
+
+                // Name + member since
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(profileService.userProfile?.fullName ?? authService.user?.name ?? "Usuario")
+                        .font(.system(size: 22, weight: .bold))
+                        .tracking(-0.4)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                        .lineLimit(1)
+
+                    Text("Member since \(memberSinceText)")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                }
+
                 Spacer()
 
-                // QR Code Button
+                // QR button
                 Button(action: { showingQRCode = true }) {
                     Image(systemName: "qrcode")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            
-            // Avatar centrado sin borde
-            VStack(spacing: 24) {
-                Button(action: { showingImagePicker = true }) {
-                    // Avatar sin borde gradiente
-                    if let picture = profileService.userProfile?.picture,
-                       let url = URL(string: picture) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 145, height: 145)
-                                .clipShape(Circle())
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.black)
-                                .frame(width: 145, height: 145)
-                                .overlay(
-                                    Text(getUserInitials())
-                                        .font(.system(size: 32, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
-                        }
-                    } else {
-                        Circle()
-                            .fill(Color.black)
-                            .frame(width: 145, height: 145)
-                            .overlay(
-                                Text(getUserInitials())
-                                    .font(.system(size: 32, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Change profile picture"))
-                
-                // User Name, Role and Bio
-                VStack(spacing: 8) {
-                    Text(profileService.userProfile?.fullName ?? "Jose Paul Rodriguez")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 18))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .multilineTextAlignment(.center)
-                    
-                    // User Role below name
-                    Text(profileService.userProfile?.displayRole ?? "Member")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.orange, Color.red]),
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                        )
-                    
-                    // Bio (si existe)
-                    if let bio = profileService.userProfile?.bio, !bio.isEmpty {
-                        Text(bio)
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                            .lineLimit(3)
-                    }
+                        .frame(width: 40, height: 40)
+                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
                 }
-                
-                // Animated metrics container replacing the old static layout
-                EnhancedProfileMetricsContainer(
-                    profileService: profileService,
-                    userStatsService: userStatsService,
-                    theme: themeManager.currentTheme,
-                    showCelebration: $showProfileCelebration
-                )
-                
-                // Badges (centered and properly spaced) - only streak badge now
-                HStack(spacing: 12) {
-                    // Streak Badge
-                    HStack(spacing: 6) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.orange)
-                        Text("\(userStatsService.userStats.currentStreak) day streak")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color.orange.opacity(0.1))
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-                            )
-                    )
-                }
-                .padding(.horizontal, 24)
+            }
+
+            // Stats row
+            HStack(spacing: 16) {
+                statItem(value: "\(userStatsService.userStats.monthlyClasses)", label: "sessions", alignment: .leading)
+                statItem(value: "\(userStatsService.userStats.currentStreak)", label: "streak", alignment: .center)
+                statItem(value: "\(userStatsService.achievements.count)", label: "badges", alignment: .center)
+            }
+            .padding(.top, 20)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 1)
+                    .padding(.top, 16) // Match the padding before content
             }
         }
+        .padding(20)
+        .background(
+            ZStack {
+                Color.dynamicSurface(theme: themeManager.currentTheme)
+
+                // Decorative gradient circle
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(hex: "#D4FF3F")!.opacity(0.25), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 160, height: 160)
+                    .offset(x: 80, y: -40)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal, 20)
     }
-    
-    // MARK: - Section Selector
-    private var sectionSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+
+    private func statItem(value: String, label: String, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment == .leading ? .leading : .center, spacing: 2) {
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .tracking(-0.4)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .center)
+    }
+
+    private var avatarPlaceholder: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [Color(hex: "#FF5A1F")!, Color(hex: "#A78BFA")!],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 64, height: 64)
+            .overlay(
+                Text(getUserInitials())
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white)
+            )
+    }
+
+    // MARK: - Membership Card
+
+    private var membershipCard: some View {
+        Button(action: { /* Navigate to billing */ }) {
             HStack(spacing: 12) {
-                ForEach(ProfileSection.allCases, id: \.self) { section in
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedSection = section
-                        }
-                    }) {
-                        VStack(spacing: 8) {
-                            Image(systemName: section.iconName)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(
-                                    selectedSection == section
-                                        ? Color.dynamicAccent(theme: themeManager.currentTheme)
-                                        : Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6)
-                                )
-                            
-                            Text(section.rawValue)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(
-                                    selectedSection == section
-                                        ? Color.dynamicText(theme: themeManager.currentTheme)
-                                        : Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6)
-                                )
-                            
-                            // Selection Indicator
-                            Rectangle()
-                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                .frame(height: 2)
-                                .opacity(selectedSection == section ? 1 : 0)
-                        }
-                        .frame(width: 80)
-                    }
-                    .accessibilityLabel(Text("Open section \(section.rawValue)"))
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-    
-    // MARK: - Achievement Showcase
-    private var achievementShowcase: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Achievements")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 20)
-            
-            // Loading state: evita parpadeo mostrando datos obsoletos
-            if userStatsService.isLoading && userStatsService.comprehensiveStats == nil {
-                achievementsSkeleton
-            } else {
-            // Call-to-action card for new users
-            if userStatsService.userStats.monthlyClasses == 0 {
-                VStack(spacing: 16) {
-                    HStack(spacing: 16) {
-                        // Trophy icon
-                        Circle()
-                            .fill(Color.yellow.opacity(0.2))
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "trophy.fill")
-                                    .font(.system(size: 24, weight: .semibold))
-                                    .foregroundColor(.yellow)
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Record your first workout")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            
-                            Text("to unlock achievements!")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            
-                            Text("Tip: set a weekly goal to stay on track")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                .padding(.top, 4)
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    )
-                    .padding(.horizontal, 20)
-                }
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(userStatsService.achievements) { achievement in
-                            ProfileAchievementCard(achievement: achievement, theme: themeManager.currentTheme)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-            }
-            
-            // Quick Stats - Fixed sizing and alignment
-            HStack(spacing: 16) {
-                // Total Workouts Card
-                VStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "figure.walk")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.blue)
-                            .frame(width: 24, height: 24)
-                        
-                        Spacer()
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("\(userStatsService.userStats.monthlyClasses)")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            Spacer()
-                        }
-                        
-                        HStack {
-                            Text("Total Workouts")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
-                            Spacer()
-                        }
-                    }
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                )
-                
-                // This Week Card
-                VStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.green)
-                            .frame(width: 24, height: 24)
-                        
-                        Spacer()
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("\(userStatsService.userStats.weeklyClasses)")
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            Spacer()
-                        }
-                        
-                        HStack {
-                            Text("This Week")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
-                            Spacer()
-                        }
-                    }
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                )
-            }
-            .padding(.horizontal, 20)
-            }
-        }
-    }
+                // Crown icon
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(Color(hex: "#D4FF3F")!)
+                    .frame(width: 44, height: 44)
+                    .background(Color(hex: "#D4FF3F")!.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
 
-    // Simple skeleton para evitar flicker mientras carga
-    private var achievementsSkeleton: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                ForEach(0..<3, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .frame(width: 140, height: 160)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme), lineWidth: 0.5)
-                        )
-                        .redacted(reason: .placeholder)
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-    
-    // MARK: - Progress Analytics
-    private var progressAnalytics: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Activity Analytics")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 20)
-            
-            // Weekly Activity Heatmap
-            WeeklyActivityView(
-                weeklyData: userStatsService.activityAnalytics?.weeklyData ?? [],
-                theme: themeManager.currentTheme
-            )
-            .frame(minHeight: 120, maxHeight: 150)
-            .frame(maxWidth: .infinity) // Limitar ancho máximo
-            .padding(.horizontal, 20)
-            
-            // Category Breakdown
-            CategoryBreakdownView(
-                categoryData: userStatsService.activityAnalytics?.categoryBreakdown ?? [],
-                theme: themeManager.currentTheme
-            )
-            .frame(minHeight: 140, maxHeight: 200)
-            .frame(maxWidth: .infinity) // Limitar ancho máximo
-            .padding(.horizontal, 20)
-            
-            // Time Investment
-            if let timeInvestment = userStatsService.activityAnalytics?.timeInvestment {
-                TimeInvestmentCard(
-                    timeInvestment: timeInvestment,
-                    theme: themeManager.currentTheme
-                )
-                .frame(minHeight: 120, maxHeight: 150)
-                .frame(maxWidth: .infinity) // Limitar ancho máximo
-                .padding(.horizontal, 20)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 300) // Ancho limitado y altura mínima reducida
-        .clipped() // Recortar contenido que se desborde
-    }
-    
-    // MARK: - Social Fitness Journey
-    private var socialFitnessJourney: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Fitness Community")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 20)
-            
-            // Leaderboard Position
-            if let position = userStatsService.leaderboardPosition {
-                LeaderboardCard(
-                    entry: position,
-                    theme: themeManager.currentTheme
-                )
-                .frame(height: 80)
-                .padding(.horizontal, 20)
-            }
-            
-            // Workout Buddies
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Workout Partners")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.8))
-                    .padding(.horizontal, 20)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(userStatsService.workoutBuddies) { buddy in
-                            WorkoutBuddyCard(buddy: buddy, theme: themeManager.currentTheme)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-                .frame(height: 120)
-            }
-        }
-    }
-    
-    // MARK: - Personal Goals & Tracking
-    private var personalGoalsTracking: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Active Goals")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 20)
-            
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 12) {
-                    ForEach(userStatsService.personalGoals) { goal in
-                        PersonalGoalCard(goal: goal, theme: themeManager.currentTheme)
-                            .padding(.horizontal, 20)
-                    }
-                }
-                .padding(.bottom, 20)
-            }
-            .frame(maxHeight: 300) // Limitar altura máxima
-        }
-    }
-    
-    // MARK: - Training History
-    private var trainingHistory: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Recent Workouts")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .padding(.horizontal, 20)
-
-            let _ = print("📊 [ModernProfileView] Training History Debug:")
-            let _ = print("   - isLoading: \(userStatsService.isLoading)")
-            let _ = print("   - workoutHistory.count: \(userStatsService.workoutHistory.count)")
-            let _ = print("   - workoutHistory.isEmpty: \(userStatsService.workoutHistory.isEmpty)")
-
-            if userStatsService.isLoading && userStatsService.workoutHistory.isEmpty {
-                // Mostrar skeleton mientras carga
-                let _ = print("   ⏳ Mostrando skeleton")
-                VStack(spacing: 12) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 40, height: 40)
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.gray.opacity(0.3))
-                                    .frame(width: 140, height: 16)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(width: 100, height: 12)
-                            }
-
-                            Spacer()
-
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(width: 50, height: 12)
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        )
-                    }
-                }
-                .padding(.horizontal, 20)
-            } else if userStatsService.workoutHistory.isEmpty {
-                // No hay actividad reciente
-                let _ = print("   ❌ No hay actividad reciente")
-                VStack(spacing: 16) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 48))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
-
-                    Text("No recent activity")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
-
-                    Text("Your workout history will appear here")
-                        .font(.system(size: 14))
+                // Plan info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("MEMBERSHIP")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(0.8)
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
-                        .multilineTextAlignment(.center)
+
+                    Text(gymService.currentGym?.name ?? "Premium")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 40)
-                .padding(.horizontal, 20)
-            } else {
-                // Mostrar historial
-                let _ = print("   ✅ Mostrando historial con \(userStatsService.workoutHistory.count) entradas")
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
-                        ForEach(userStatsService.workoutHistory) { workout in
-                            WorkoutHistoryCard(workout: workout, theme: themeManager.currentTheme)
-                                .padding(.horizontal, 20)
-                        }
-                    }
-                    .padding(.bottom, 20)
-                }
-                .frame(maxHeight: 300) // Limitar altura máxima
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
             }
-
-            // MARK: - Historial de Actividad (movido desde Home)
-            Divider()
-                .padding(.vertical, 16)
-                .padding(.horizontal, 20)
-
-            HomeRecentActivitySection(
-                themeManager: themeManager,
-                classService: classService,
-                eventService: eventService
+            .padding(16)
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
         }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
     }
-    
-    // MARK: - Helper Methods
+
+    // MARK: - Settings List
+
+    private var settingsList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section title
+            Text("SETTINGS")
+                .font(.system(size: 9, weight: .bold))
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+
+            VStack(spacing: 2) {
+                settingsRow(
+                    icon: "bell.fill",
+                    label: "Notifications",
+                    value: nil,
+                    // Era `action: {}`. Los permisos de notificación los gobierna el sistema, así
+                    // que lo honesto es llevar ahí en vez de fingir un ajuste propio.
+                    action: { openSystemSettings() }
+                )
+
+                settingsRow(
+                    icon: themeManager.currentTheme == .dark ? "moon.fill" : "sun.max.fill",
+                    label: "Dark mode",
+                    value: themeManager.currentTheme == .dark ? "On" : "Off",
+                    action: { themeManager.toggleTheme() }
+                )
+
+                settingsRow(
+                    icon: "paintbrush.fill",
+                    label: "Appearance",
+                    value: "Lime",
+                    action: { showingColorPicker = true }
+                )
+
+                settingsRow(
+                    icon: "person.fill",
+                    label: "Edit profile",
+                    value: nil,
+                    action: { showingEditProfile = true }
+                )
+
+                settingsRow(
+                    icon: "building.2.fill",
+                    label: "Switch space",
+                    value: nil,
+                    action: { showingGymSelector = true }
+                )
+
+                settingsRow(
+                    icon: "questionmark.circle.fill",
+                    label: "Help",
+                    value: nil,
+                    // Era `action: {}`. Una fila que no hace nada es peor que no tenerla, y
+                    // además la App Store exige un canal de contacto que funcione.
+                    action: { openSupport() }
+                )
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private func settingsRow(icon: String, label: String, value: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Icon
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .frame(width: 32, height: 32)
+                    .background(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                // Label
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+
+                Spacer()
+
+                // Value + chevron
+                HStack(spacing: 6) {
+                    if let value = value {
+                        Text(value)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.35))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Logout Button
+
+    private var logoutButton: some View {
+        Button(action: {
+            Task {
+                await authService.logout()
+            }
+        }) {
+            Text("Sign out")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color(hex: "#FF5A5A")!)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: - Support
+
+    /// Abre la ficha de la app en Ajustes, que es donde se conceden o retiran los permisos.
+    private func openSystemSettings() {
+        HapticManager.shared.buttonTap()
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private func openSupport() {
+        HapticManager.shared.buttonTap()
+        if let url = SupportConfig.supportURL, UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else if let mail = SupportConfig.mailtoURL() {
+            UIApplication.shared.open(mail)
+        }
+    }
+
+    // MARK: - Delete Account
+
+    private var deleteAccountButton: some View {
+        Button {
+            showingDeleteAccount = true
+        } label: {
+            Text("Delete account")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .sheet(isPresented: $showingDeleteAccount) {
+            DeleteAccountView(ownsWorkspace: ownsWorkspace)
+                .environmentObject(themeManager)
+                .environmentObject(authService)
+        }
+    }
+
+    /// Quien dirige el espacio necesita saber que al borrarse el espacio se archiva.
+    private var ownsWorkspace: Bool {
+        gymService.currentGym?.userRoleInGym.uppercased() == "OWNER"
+    }
+
+    // MARK: - Helpers
+
+    private var memberSinceText: String {
+        if let createdAt = profileService.userProfile?.createdAt {
+            let formatter = DateFormatter.localized(template: "MMMyyyy")
+            return formatter.string(from: createdAt).capitalized
+        }
+        return "2024"
+    }
+
+    private func getUserInitials() -> String {
+        let fullName = profileService.userProfile?.fullName ?? authService.user?.name ?? "U"
+        let parts = fullName.split(separator: " ").map(String.init)
+        if parts.count >= 2 {
+            return "\(parts[0].prefix(1))\(parts.last!.prefix(1))".uppercased()
+        }
+        return String(fullName.prefix(2)).uppercased()
+    }
+
     private func setupServices() {
         userStatsService.authService = authService
         userStatsService.gymService = GymService.shared
@@ -740,51 +515,26 @@ struct ModernProfileView: View {
         imageService.configure(authService: authService)
         colorCustomizationManager.authService = authService
         colorCustomizationManager.profileService = profileService
-        // PostService usa HTTPClient.shared que ya está configurado por ServiceContainer
-
-        // Configurar authService en GymService también
         GymService.shared.authService = authService
     }
-    
+
     private func loadData() {
-        // Limpiar logros previos para evitar parpadeo con datos antiguos
         userStatsService.achievements = []
         Task {
-            // Cargar perfil primero (evitar recargas innecesarias)
             await profileService.fetchUserProfileIfStale()
-            
-            // Asegurar que GymService esté inicializado con los datos del usuario
             await GymService.shared.getMyGyms()
-            
-            // Esperar un momento para asegurar que GymService esté completamente configurado
-            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-            
-            // Verificar que el gym service y gym ID estén disponibles antes de continuar
-            guard GymService.shared.currentGymId != nil else {
-                print("⚠️ [ModernProfileView] Gym service not ready, skipping stats loading")
-                return
-            }
-            
-            print("✅ [ModernProfileView] Gym service ready, loading stats with gym ID: \(GymService.shared.currentGymId!)")
-            
-            // Solo después de confirmar que tenemos gym seleccionado, cargar estadísticas
+            try? await Task.sleep(nanoseconds: 100_000_000)
+
+            guard GymService.shared.currentGymId != nil else { return }
+
             await userStatsService.fetchComprehensiveStats()
-            await userStatsService.fetchWorkoutHistory()
-            await userStatsService.fetchPersonalGoals()
-            await userStatsService.fetchWorkoutBuddies()
-            await userStatsService.fetchLeaderboardPosition()
-            await userStatsService.fetchActivityAnalytics()
-            
-            // Load color from profile
+
             if let profile = profileService.userProfile {
                 colorCustomizationManager.loadColorFromProfile(profile)
             }
         }
     }
-}
 
-// MARK: - Upload Image
-extension ModernProfileView {
     private func uploadProfileImage(_ image: UIImage) async {
         do {
             _ = try await imageService.uploadProfileImage(image)
@@ -793,44 +543,12 @@ extension ModernProfileView {
             print("Error uploading profile image: \(error)")
         }
     }
-    
-    // Returns first word and, if present, the second word (second given name or first surname)
-    private func shortDisplayName(from profile: UserProfile) -> String {
-        let parts = profile.fullName.split(separator: " ").map(String.init)
-        guard let first = parts.first else { return profile.fullName }
-        if parts.count >= 2 {
-            return first + " " + parts[1]
-        }
-        return first
-    }
-    
-    // Extracts user initials for avatar fallback
-    private func getUserInitials() -> String {
-        let fullName = profileService.userProfile?.fullName ?? "Jose Paul Rodriguez"
-        let parts = fullName.split(separator: " ").map(String.init)
-        
-        if parts.count >= 2 {
-            // First name initial + Last name initial
-            let firstInitial = String(parts[0].prefix(1)).uppercased()
-            let lastInitial = String(parts[parts.count - 1].prefix(1)).uppercased()
-            return firstInitial + lastInitial
-        } else if let first = parts.first {
-            // Solo primera inicial si hay un solo nombre
-            return String(first.prefix(1)).uppercased()
-        } else {
-            // Fallback si no hay nombre
-            return "U"
-        }
-    }
-    
-    // Computed property for gym display name in header
-    private var gymDisplayName: String {
-        if let currentGym = gymService.currentGym {
-            return currentGym.name
-        } else if gymService.isLoadingGyms {
-            return "Loading..."
-        } else {
-            return "Select Gym"
-        }
-    }
+}
+
+#Preview {
+    ModernProfileView()
+        .environmentObject(AuthServiceDirect())
+        .environmentObject(ThemeManager())
+        .environmentObject(ClassService())
+        .environmentObject(EventService())
 }

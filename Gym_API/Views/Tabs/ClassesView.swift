@@ -7,202 +7,86 @@ struct ClassesView: View {
     @EnvironmentObject var attendanceService: AttendanceService
     @StateObject private var gymService = GymService.shared
     @StateObject private var profileService = UserProfileService.shared
+
     @State private var selectedDate = Date()
     @State private var isRefreshing = false
     @State private var showingCreateSession = false
     @State private var showingQRScanner = false
     @State private var showingClassSelection = false
     @State private var selectedSessionForScanner: SessionWithClass?
+    @State private var selectedClass: GymClass?
     @State private var showError = false
     @State private var errorMessage = ""
-    
-    // Filtered classes based on selected date
+
+    // MARK: - Computed Properties
+
     private var filteredClasses: [GymClass] {
         let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: selectedDate)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? selectedDate
 
-        // Normalizar las fechas al inicio del día en el timezone local para comparación correcta
-        let startOfSelectedDay = calendar.startOfDay(for: selectedDate)
-        let endOfSelectedDay = calendar.date(byAdding: .day, value: 1, to: startOfSelectedDay) ?? selectedDate
-
-        let filtered = classService.classes.filter { gymClass in
-            // Verificar si la clase cae dentro del día seleccionado
-            let classStartTime = gymClass.startTime
-            return classStartTime >= startOfSelectedDay && classStartTime < endOfSelectedDay
-        }
-
-        // Debug logging mejorado
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        formatter.timeZone = TimeZone.current
-        print("🔍 [ClassesView] Filtrado de clases:")
-        print("   - Total sesiones: \(classService.sessions.count)")
-        print("   - Total clases convertidas: \(classService.classes.count)")
-        print("   - Fecha seleccionada: \(formatter.string(from: selectedDate))")
-        print("   - Inicio del día: \(formatter.string(from: startOfSelectedDay))")
-        print("   - Fin del día: \(formatter.string(from: endOfSelectedDay))")
-        print("   - Clases filtradas: \(filtered.count)")
-        for gymClass in classService.classes.prefix(5) {
-            let inRange = gymClass.startTime >= startOfSelectedDay && gymClass.startTime < endOfSelectedDay
-            print("   - Clase '\(gymClass.name)' - Start: \(formatter.string(from: gymClass.startTime)) - InRange: \(inRange)")
-        }
-
-        return filtered
+        return classService.classes
+            .filter { $0.startTime >= startOfDay && $0.startTime < endOfDay }
+            .sorted { $0.startTime < $1.startTime }
     }
-    
+
+    private var eyebrowDate: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "es_ES")
+        formatter.dateFormat = "EEE dd MMM"
+        return "HOY · " + formatter.string(from: selectedDate).uppercased()
+    }
+
+    // MARK: - Body
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme).ignoresSafeArea()
-                
+
                 VStack(spacing: 0) {
-                    // Consistent header title
-                    HStack {
-                        Text("Classes")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    // Header
+                    headerSection
+
+                    // Day Pills
+                    DayPillsSelector(selectedDate: $selectedDate)
+                        .environmentObject(themeManager)
+                        .padding(.bottom, 20)
+
+                    // Content
+                    if classService.isLoading && !isRefreshing {
                         Spacer()
-
-                        // QR Scanner button (solo para ADMIN/TRAINER/OWNER)
-                        if RolePermissions.canScanQRCheckIn(gymService.currentGym?.userRoleInGym) {
-                            Button(action: handleScannerButtonTap) {
-                                Image(systemName: "qrcode.viewfinder")
-                                    .font(.system(size: 24, weight: .semibold))
-                                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-                    // Weekly Date Selector
-                    WeeklyDateSelector(selectedDate: $selectedDate)
-                    .padding(.bottom, 16)
-                    .background(Color.dynamicCard(theme: themeManager.currentTheme))
-                    
-                    // Classes Content with FAB overlay
-                    ZStack {
-                        if classService.isLoading && !isRefreshing {
-                            VStack {
-                                Spacer()
-                                ProgressView("Loading classes...")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                Spacer()
-                            }
-                        } else if filteredClasses.isEmpty {
-                            VStack {
-                                Spacer()
-                                VStack(spacing: 16) {
-                                    if isRefreshing {
-                                        ProgressView()
-                                            .scaleEffect(1.2)
-                                            .padding(.bottom, 8)
-                                        
-                                        Text("Refreshing classes...")
-                                            .font(.system(size: 16, weight: .medium))
-                                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                    } else {
-                                        Image(systemName: "calendar.badge.exclamationmark")
-                                            .font(.system(size: 48))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                        
-                                        Text("No classes available")
-                                            .font(.system(size: 18, weight: .medium))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                                        
-                                        Text("for \(formatSelectedDate())")
-                                            .font(.system(size: 16, weight: .medium))
-                                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                        
-                                        Text("Try selecting a different date or pull to refresh")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.7))
-                                    }
-                                }
-                                Spacer()
-                            }
-                            .refreshable {
-                                await refreshClasses()
-                            }
-                        } else {
-                            // Using minimal design
-                            ScrollView {
-                                LazyVStack(spacing: 0) {
-                                    ForEach(Array(filteredClasses.enumerated()), id: \.element.id) { index, gymClass in
-                                        MinimalClassCardView(gymClass: gymClass)
-                                            .environmentObject(themeManager)
-                                            .environmentObject(classService)
-                                            .environmentObject(gymService)
-
-                                        // Add divider between cards (not after the last one)
-                                        if index < filteredClasses.count - 1 {
-                                            Rectangle()
-                                                .fill(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.2))
-                                                .frame(height: 1)
-                                                .frame(maxWidth: .infinity)
-                                        }
-                                    }
-                                }
-                                // Removed horizontal padding for edge-to-edge cards
-                                .padding(.vertical, 12)
-                            }
-                            .refreshable {
-                                await refreshClasses()
-                            }
-                        }
-                        
-                        // Floating Action Button (solo para crear sesión)
-                        if RolePermissions.canCreateSessions(gymService.currentGym?.userRoleInGym) {
-                            FABContainer(position: .bottomTrailing) {
-                                FloatingActionButton(
-                                    icon: "plus",
-                                    themeManager: themeManager
-                                ) {
-                                    showingCreateSession = true
-                                }
-                            }
-                        }
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Spacer()
+                    } else if filteredClasses.isEmpty {
+                        emptyState
+                    } else {
+                        timelineList
                     }
                 }
             }
             .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .safeAreaPadding(.top, 16)
+            .navigationBarHidden(true)
+            .navigationDestination(item: $selectedClass) { gymClass in
+                ClassDetailView(gymClass: gymClass)
+                    .environmentObject(themeManager)
+                    .environmentObject(classService)
+                    .environmentObject(gymService)
+            }
         }
         .onAppear {
             Task {
-                // Configurar el authService en el classService para operaciones de sesiones
                 classService.authService = authService
-
-                // Cargar trainers primero para que estén disponibles para las tarjetas
                 await classService.loadTrainers()
-
-                // SIEMPRE cargar sesiones para la fecha actual seleccionada
-                // Esto asegura que tengamos las clases correctas al abrir la vista
                 await classService.loadSessionsForDateIfNeeded(date: selectedDate)
+                await classService.fetchMyClasses()
 
-                await classService.fetchMyClasses() // Cargar estado de registro del usuario
-
-                // Si no hay clases para la fecha actual, seleccionar automáticamente
-                // la primera fecha que tenga clases disponibles
-                await MainActor.run {
-                    if filteredClasses.isEmpty && !classService.classes.isEmpty {
-                        // Buscar la primera fecha con clases disponibles
-                        let calendar = Calendar.current
-                        let sortedClasses = classService.classes.sorted { $0.startTime < $1.startTime }
-
-                        if let firstClass = sortedClasses.first {
-                            // Seleccionar el día de la primera clase disponible
-                            selectedDate = calendar.startOfDay(for: firstClass.startTime)
-                            print("📅 [ClassesView] Auto-seleccionando fecha con clases: \(selectedDate)")
-                        }
-                    }
-                }
+                // Always stay on today — don't jump to another date
             }
         }
         .onChange(of: selectedDate) { _, newDate in
-            Task {
-                await classService.loadSessionsForDateIfNeeded(date: newDate)
-            }
+            Task { await classService.loadSessionsForDateIfNeeded(date: newDate) }
         }
         .sheet(isPresented: $showingCreateSession) {
             CreateSessionView()
@@ -216,9 +100,7 @@ struct ClassesView: View {
                 .environmentObject(classService)
                 .environmentObject(themeManager)
                 .environmentObject(authService)
-                .onDisappear {
-                    selectedSessionForScanner = nil
-                }
+                .onDisappear { selectedSessionForScanner = nil }
         }
         .sheet(isPresented: $showingClassSelection) {
             ClassSelectionSheet(
@@ -228,9 +110,7 @@ struct ClassesView: View {
                     showingClassSelection = false
                     showingQRScanner = true
                 },
-                onCancel: {
-                    showingClassSelection = false
-                }
+                onCancel: { showingClassSelection = false }
             )
             .environmentObject(themeManager)
         }
@@ -241,60 +121,238 @@ struct ClassesView: View {
         }
     }
 
-    // MARK: - Scanner Button Handler
+    // MARK: - Header
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(eyebrowDate)
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(1.0)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+
+                    Text("Clases")
+                        .font(.system(size: 28, weight: .bold))
+                        .tracking(-0.8)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                }
+
+                Spacer()
+
+                HStack(spacing: 8) {
+                    // Filter button
+                    Button(action: {}) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                            .frame(width: 40, height: 40)
+                            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle().stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                    }
+
+                    // QR Scanner (admin/trainer only)
+                    if RolePermissions.canScanQRCheckIn(gymService.currentGym?.userRoleInGym) {
+                        Button(action: handleScannerButtonTap) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.system(size: 18))
+                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                                .frame(width: 40, height: 40)
+                                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle().stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                )
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 48))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.3))
+
+            Text("No hay clases disponibles")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+
+            Text("Prueba seleccionando otro día")
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.35))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .refreshableCompat { await refreshClasses() }
+    }
+
+    // MARK: - Timeline List
+
+    private var timelineList: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            ZStack(alignment: .leading) {
+                // Timeline rail
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(width: 1)
+                    .padding(.leading, 36)
+
+                // Class cards
+                LazyVStack(spacing: 12) {
+                    ForEach(filteredClasses, id: \.id) { gymClass in
+                        let isRegistered = classService.userRegistrationStatus[gymClass.id] ?? false
+
+                        ZStack(alignment: .leading) {
+                            // Timeline dot
+                            timelineDot(isRegistered: isRegistered, gymClass: gymClass)
+                                .offset(x: 31)
+
+                            // Card
+                            TimelineClassCard(
+                                gymClass: gymClass,
+                                isRegistered: isRegistered,
+                                onTap: {
+                                    HapticManager.shared.buttonTap()
+                                    selectedClass = gymClass
+                                },
+                                onAction: {
+                                    HapticManager.shared.buttonTap()
+                                    Task { await classService.joinClass(sessionId: gymClass.id) }
+                                }
+                            )
+                            .environmentObject(themeManager)
+                            .padding(.leading, 56)
+                        }
+                    }
+                }
+                .padding(.vertical, 12)
+            }
+            .padding(.horizontal, 20)
+
+            // FAB spacer
+            if RolePermissions.canCreateSessions(gymService.currentGym?.userRoleInGym) {
+                Spacer(minLength: 80)
+            }
+        }
+        .refreshable { await refreshClasses() }
+        .overlay(alignment: .bottomTrailing) {
+            // FAB
+            if RolePermissions.canCreateSessions(gymService.currentGym?.userRoleInGym) {
+                Button(action: { showingCreateSession = true }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(Color.accentInk)
+                        .frame(width: 56, height: 56)
+                        .background(Color(hex: "#D4FF3F")!)
+                        .clipShape(Circle())
+                        .shadow(color: Color(hex: "#D4FF3F")!.opacity(0.3), radius: 8, y: 4)
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 20)
+            }
+        }
+    }
+
+    // MARK: - Timeline Dot
+
+    private func timelineDot(isRegistered: Bool, gymClass: GymClass) -> some View {
+        let catColor = ClassCategoryHelper.color(for: gymClass)
+        let accentColor = Color(hex: "#D4FF3F")!
+        let state = SessionDisplayState.resolve(gymClass: gymClass, isRegistered: isRegistered)
+
+        let dotColor: Color = {
+            switch state {
+            case .cancelled:
+                return Color.dynamicText(theme: themeManager.currentTheme).opacity(0.25)
+            case .completedAttended:
+                return Color(hex: "#4ADE80")!
+            case .completedNoShow:
+                return Color.dynamicText(theme: themeManager.currentTheme).opacity(0.25)
+            case .inProgress:
+                return accentColor
+            case .scheduled:
+                return isRegistered ? accentColor : catColor
+            }
+        }()
+
+        let hasGlow = state == .inProgress || (state == .scheduled && isRegistered)
+
+        return ZStack {
+            if hasGlow {
+                Circle()
+                    .fill(dotColor.opacity(0.2))
+                    .frame(width: 18, height: 18)
+            }
+
+            Circle()
+                .fill(Color.dynamicBackground(theme: themeManager.currentTheme))
+                .frame(width: 10, height: 10)
+                .overlay(
+                    Circle()
+                        .stroke(dotColor, lineWidth: 2)
+                )
+        }
+    }
+
+    // MARK: - Actions
 
     private func handleScannerButtonTap() {
         Task {
             await attendanceService.getAvailableSessionsForCheckIn()
-
-            let sessionCount = attendanceService.availableSessions.count
-
-            if sessionCount == 0 {
+            let count = attendanceService.availableSessions.count
+            if count == 0 {
                 errorMessage = "No hay clases disponibles para check-in en este momento"
                 showError = true
-            } else if sessionCount >= 3 {
-                // 3+ clases: Mostrar selector PRIMERO
+            } else if count >= 3 {
                 showingClassSelection = true
             } else {
-                // 1-2 clases: Abrir scanner directamente
                 showingQRScanner = true
             }
         }
     }
-    
-    // MARK: - Refresh Function
+
     private func refreshClasses() async {
-        await MainActor.run {
-            isRefreshing = true
-        }
-        
-        // Forzar recarga de clases para la fecha seleccionada
+        await MainActor.run { isRefreshing = true }
         await classService.forceRefreshSessions(date: selectedDate)
-        // Recargar el estado de registro del usuario  
         await classService.forceRefreshMyClasses()
-        // Recargar trainers por si hubo cambios - forzar recarga en refresh
         await classService.forceReloadTrainers()
-        
-        // Pequeño delay para asegurar que las imágenes se actualicen después del refresh
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 segundos
-        
-        await MainActor.run {
-            isRefreshing = false
-        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        await MainActor.run { isRefreshing = false }
     }
-    
-    private func formatSelectedDate() -> String {
-        let formatter = DateFormatter()
-        let calendar = Calendar.current
-        
-        if calendar.isDateInToday(selectedDate) {
-            return "today"
-        } else if calendar.isDateInTomorrow(selectedDate) {
-            return "tomorrow"
-        } else {
-            formatter.dateFormat = "EEEE, MMM d"
-            return formatter.string(from: selectedDate)
+}
+
+// MARK: - Refreshable compat for non-ScrollView
+
+private extension View {
+    func refreshableCompat(action: @escaping () async -> Void) -> some View {
+        ScrollView {
+            self
         }
+        .refreshable { await action() }
+    }
+}
+
+// MARK: - GymClass Hashable conformance for navigationDestination
+
+extension GymClass: @retroactive Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    public static func == (lhs: GymClass, rhs: GymClass) -> Bool {
+        lhs.id == rhs.id
     }
 }
 

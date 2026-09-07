@@ -51,11 +51,11 @@ struct MealCompletionSheet: View {
                 .padding(20)
             }
             .background(Color.dynamicBackground(theme: themeManager.currentTheme))
-            .navigationTitle("Completar Comida")
+            .navigationTitle("Log meal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
+                    Button("Cancel") {
                         dismiss()
                     }
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
@@ -127,7 +127,7 @@ struct MealCompletionSheet: View {
 
     private var ratingSection: some View {
         VStack(spacing: 16) {
-            Text("Como te ha parecido esta comida?")
+            Text("How was this meal?")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
@@ -229,7 +229,7 @@ struct MealCompletionSheet: View {
     private var photoSection: some View {
         VStack(spacing: 12) {
             HStack {
-                Text("Foto de tu comida (opcional)")
+                Text("Photo of your meal (optional)")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
@@ -311,7 +311,7 @@ struct MealCompletionSheet: View {
                     .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
             }
 
-            TextField("Como preparaste la comida, sustituciones...", text: $notes, axis: .vertical)
+            TextField("How you made it, any swaps…", text: $notes, axis: .vertical)
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .lineLimit(3...5)
@@ -461,7 +461,7 @@ struct MealCompletedView: View {
             }
 
             // Title
-            Text("Comida Completada")
+            Text("Meal logged")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 

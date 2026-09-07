@@ -2,15 +2,15 @@ import SwiftUI
 
 // MARK: - NutritionHomeBannerSection
 
-/// Seccion de HomeView que muestra widgets de nutricion
-/// SIEMPRE muestra al menos un widget como punto de acceso a nutricion:
+/// Seccion de HomeView que muestra widgets de nutricion.
 ///
-/// Widget Principal (SIEMPRE visible):
-/// - Si tiene un plan activo: ActivePlanCard (adherencia general)
-/// - Si NO tiene plan activo: NutritionUpcomingChallengeBanner o NutritionDiscoverBanner
+/// Widget 1 (SIEMPRE visible) - Punto de entrada al dashboard de nutricion:
+/// - NutritionUpcomingChallengeBanner si hay un plan LIVE proximo
+/// - NutritionDiscoverBanner en caso contrario
 ///
-/// Widget Secundario (OPCIONAL):
-/// - Si tiene un plan LIVE con progreso del dia: NutritionLiveChallengeBanner
+/// Widget 2 (SOLO si el usuario sigue un plan activo):
+/// - NutritionLiveChallengeBanner si hay progreso del dia (comidas, check-in)
+/// - ActivePlanHomeCard si no hay datos de hoy (adherencia general)
 struct NutritionHomeBannerSection: View {
     @EnvironmentObject var nutritionService: NutritionService
     @EnvironmentObject var themeManager: ThemeManager
@@ -23,19 +23,15 @@ struct NutritionHomeBannerSection: View {
     @State private var selectedPlanForQuickJoin: NutritionPlan?
 
     var body: some View {
-        let _ = print("🎨 [NutritionHomeBannerSection] body evaluado - hasAppeared: \(hasAppeared)")
-
-        return VStack(spacing: 12) {
+        VStack(spacing: 12) {
             bannerContent
                 .scaleEffect(hasAppeared ? 1.0 : 0.95)
                 .opacity(hasAppeared ? 1.0 : 0.0)
                 .offset(y: hasAppeared ? 0 : 10)
         }
         .onAppear {
-            print("🎨 [NutritionHomeBannerSection] onAppear called - activating animation")
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2)) {
                 hasAppeared = true
-                print("🎨 [NutritionHomeBannerSection] hasAppeared set to true")
             }
         }
         .sheet(isPresented: $showTodayMealPlan) {
@@ -55,9 +51,13 @@ struct NutritionHomeBannerSection: View {
                 QuickJoinBottomSheet(
                     plan: plan,
                     onJoin: {
-                        await nutritionService.followPlan(planId: plan.id)
-                        // Refresh dashboard after joining
-                        await nutritionService.getDashboard()
+                        // El resultado se descartaba, así que si el alta fallaba la persona
+                        // pulsaba y no pasaba absolutamente nada visible. El servicio ya deja el
+                        // motivo en errorMessage; aquí basta con no refrescar en falso.
+                        let joined = await nutritionService.followPlan(planId: plan.id)
+                        if joined {
+                            await nutritionService.getDashboard()
+                        }
                     },
                     onViewDetails: {
                         showQuickJoin = false
@@ -85,75 +85,60 @@ struct NutritionHomeBannerSection: View {
 
     @ViewBuilder
     private var bannerContent: some View {
-        let _ = print("🔍 NUTRITION BANNER DEBUG:")
-        let _ = print("   - activePlans.count: \(nutritionService.activePlans.count)")
-        let _ = print("   - activePlans.first: \(nutritionService.activePlans.first?.planName ?? "nil")")
-        let _ = print("   - todayPlan exists: \(nutritionService.todayPlan != nil)")
-        let _ = print("   - todayPlan.plan exists: \(nutritionService.todayPlan?.plan != nil)")
-        let _ = print("   - todayPlan.progress exists: \(nutritionService.todayPlan?.progress != nil)")
-        let _ = print("   - currentStreak: \(nutritionService.currentStreak)")
-
-        Group {
-            // Widget 1: Plan activo O Discover (SIEMPRE visible como punto de acceso)
-            if let activePlan = nutritionService.activePlans.first {
-                let _ = print("✅ Mostrando ActivePlanHomeCard para: \(activePlan.planName)")
-                let _ = print("   - Plan ID: \(activePlan.planId)")
-                let _ = print("   - Current Day: \(activePlan.currentDay)")
-                let _ = print("   - Adherencia: \(activePlan.adherencePercentage)")
-
-                ActivePlanHomeCard(
-                    plan: activePlan,
-                    currentStreak: nutritionService.currentStreak,
-                    onTap: { showNutritionDashboard = true }
-                )
-                .environmentObject(themeManager)
-                .background(Color.red.opacity(0.3))  // DEBUG: fondo rojo temporal para verificar que se renderiza
-                .onAppear {
-                    print("🎨 [ActivePlanHomeCard] onAppear llamado - card debería ser visible")
-                }
-            } else {
-                // Si NO hay plan activo, SIEMPRE mostrar acceso a nutrición
-                let _ = print("✅ Mostrando NutritionDiscoverBanner como punto de acceso")
-
-                // Si hay plan LIVE próximo, mostrar ese en lugar del discover genérico
-                if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
-                    NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
-                        if upcomingPlan.canJoin {
-                            selectedPlanForQuickJoin = upcomingPlan
-                            showQuickJoin = true
-                        } else {
-                            showNutritionDashboard = true
-                        }
-                    }
-                    .environmentObject(themeManager)
+        // Widget 1: SIEMPRE visible - Punto de entrada a Nutrición (dashboard)
+        if let upcomingPlan = nutritionService.livePlans.first(where: { $0.status == .notStarted }) {
+            NutritionUpcomingChallengeBanner(plan: upcomingPlan) {
+                if upcomingPlan.canJoin {
+                    selectedPlanForQuickJoin = upcomingPlan
+                    showQuickJoin = true
                 } else {
-                    // Discover banner genérico
-                    NutritionDiscoverBanner {
-                        if let firstLivePlan = nutritionService.livePlans.first(where: { $0.canJoin }) {
-                            selectedPlanForQuickJoin = firstLivePlan
-                            showQuickJoin = true
-                        } else {
-                            showNutritionDashboard = true
-                        }
-                    }
-                    .environmentObject(themeManager)
+                    showNutritionDashboard = true
                 }
             }
+            .environmentObject(themeManager)
+        } else {
+            NutritionDiscoverBanner {
+                if let firstLivePlan = nutritionService.livePlans.first(where: { $0.canJoin }) {
+                    selectedPlanForQuickJoin = firstLivePlan
+                    showQuickJoin = true
+                } else {
+                    showNutritionDashboard = true
+                }
+            }
+            .environmentObject(themeManager)
+        }
 
-            // Widget 2: Banner LIVE (progreso del día actual) - OPCIONAL
+        // Widget 2: Solo si tiene plan activo - Datos del día o adherencia general
+        if let activePlan = nutritionService.activePlans.first {
             if let todayPlan = nutritionService.todayPlan,
                let plan = todayPlan.plan,
                let progress = todayPlan.progress {
-                let _ = print("✅ Mostrando NutritionLiveChallengeBanner para: \(plan.title)")
+                // Con progreso del día: mostrar comidas y check-in
                 NutritionLiveChallengeBanner(
                     plan: plan,
                     progress: progress
                 ) {
+                    print("[NutritionWidget] Usuario toco widget de plan activo LIVE - planId: \(plan.id), titulo: \(plan.title)")
                     showTodayMealPlan = true
                 }
                 .environmentObject(themeManager)
+                .onAppear {
+                    print("[NutritionWidget] Mostrando widget plan activo LIVE - planId: \(plan.id), titulo: \(plan.title), progreso: \(progress.mealsCompleted)/\(progress.totalMeals)")
+                }
             } else {
-                let _ = print("ℹ️ NO se muestra NutritionLiveChallengeBanner (opcional)")
+                // Sin datos de hoy: mostrar adherencia general
+                ActivePlanHomeCard(
+                    plan: activePlan,
+                    currentStreak: nutritionService.currentStreak,
+                    onTap: {
+                        print("[NutritionWidget] Usuario toco widget plan activo (adherencia) - planId: \(activePlan.planId), nombre: \(activePlan.planName), dia: \(activePlan.currentDay), adherencia: \(String(format: "%.0f%%", activePlan.adherencePercentage * 100))")
+                        showTodayMealPlan = true
+                    }
+                )
+                .environmentObject(themeManager)
+                .onAppear {
+                    print("[NutritionWidget] Mostrando widget plan activo (adherencia) - planId: \(activePlan.planId), nombre: \(activePlan.planName), dia: \(activePlan.currentDay), adherencia: \(String(format: "%.0f%%", activePlan.adherencePercentage * 100)), streak: \(nutritionService.currentStreak)")
+                }
             }
         }
     }
@@ -302,7 +287,7 @@ struct ActivePlanHomeCard: View {
                     .foregroundColor(.dynamicText(theme: themeManager.currentTheme))
                     .lineLimit(1)
 
-                Text("Día \(plan.currentDay)")
+                Text("Day \(plan.currentDay)")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.dynamicTextSecondary(theme: themeManager.currentTheme))
             }
@@ -415,7 +400,7 @@ struct ActivePlanHomeCard: View {
                 .font(.system(size: 16))
                 .foregroundColor(primaryColor)
 
-            Text("Ver plan de comidas")
+            Text("See meal plan")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(primaryColor)
 

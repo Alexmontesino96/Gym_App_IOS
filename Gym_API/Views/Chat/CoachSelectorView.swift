@@ -42,20 +42,20 @@ struct CoachSelectorView: View {
 
     /// Título dinámico según permisos
     private var viewTitle: String {
-        canMessageAnyUser ? "Seleccionar Usuario" : "Seleccionar Coach"
+        canMessageAnyUser ? "Select a person" : "Select a coach"
     }
 
     /// Placeholder de búsqueda dinámico
     private var searchPlaceholder: String {
-        canMessageAnyUser ? "Buscar usuarios..." : "Buscar coaches..."
+        canMessageAnyUser ? "Search people…" : "Search coaches…"
     }
 
     /// Mensaje de empty state dinámico
     private var emptyStateTitle: String {
         if searchText.isEmpty {
-            return canMessageAnyUser ? "No hay usuarios disponibles" : "No hay coaches disponibles"
+            return canMessageAnyUser ? "No hay usuarios disponibles" : "No coaches available"
         } else {
-            return canMessageAnyUser ? "No se encontraron usuarios" : "No se encontraron coaches"
+            return canMessageAnyUser ? "No se encontraron usuarios" : "No coaches found"
         }
     }
 
@@ -63,9 +63,9 @@ struct CoachSelectorView: View {
         if searchText.isEmpty {
             return canMessageAnyUser ?
                 "No hay miembros disponibles en tu gimnasio en este momento." :
-                "No hay coaches disponibles en tu gimnasio en este momento."
+                "There are no coaches in this space right now."
         } else {
-            return "Intenta ajustar tus términos de búsqueda."
+            return "Try a different search."
         }
     }
 
@@ -83,7 +83,7 @@ struct CoachSelectorView: View {
 
     // MARK: - Body
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme)
                     .ignoresSafeArea()
@@ -100,7 +100,7 @@ struct CoachSelectorView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancelar") {
+                    Button("Cancel") {
                         isPresented = false
                     }
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
@@ -201,7 +201,7 @@ struct CoachSelectorView: View {
             }) {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.clockwise")
-                    Text("Reintentar")
+                    Text("Try again")
                 }
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.white)
@@ -241,7 +241,7 @@ struct CoachSelectorView: View {
                 Button(action: { searchText = "" }) {
                     HStack(spacing: 8) {
                         Image(systemName: "xmark.circle")
-                        Text("Limpiar búsqueda")
+                        Text("Clear search")
                     }
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))

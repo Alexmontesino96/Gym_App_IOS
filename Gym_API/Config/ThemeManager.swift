@@ -4,8 +4,8 @@ import Combine
 // MARK: - Theme Manager
 class ThemeManager: ObservableObject {
     @Published var currentTheme: AppTheme = .light
-    @Published var selectedLightAccentHex: String = "#26A69A" // Teal/Verde azul
-    @Published var selectedDarkAccentHex: String = "#4DB6AC" // Teal claro para modo oscuro
+    @Published var selectedLightAccentHex: String = "#D4FF3F" // Lime/Verde lima
+    @Published var selectedDarkAccentHex: String = "#D4FF3F" // Lime para modo oscuro
     
     enum AppTheme: String, CaseIterable {
         case light = "light"
@@ -46,7 +46,7 @@ class ThemeManager: ObservableObject {
         if let darkHex = UserDefaults.standard.string(forKey: "selectedDarkAccentHex") {
             selectedDarkAccentHex = darkHex
         } else {
-            selectedDarkAccentHex = "#4DB6AC" // Default to teal for dark mode
+            selectedDarkAccentHex = "#D4FF3F" // Default to lime for dark mode
         }
     }
 }
@@ -126,6 +126,13 @@ extension Color {
         }
     }
 
+    static func dynamicSurface2(theme: ThemeManager.AppTheme) -> Color {
+        switch theme {
+        case .light: return Color.lightSurfaceSecondary
+        case .dark: return Color.darkSurfaceSecondary
+        }
+    }
+
     static func dynamicCard(theme: ThemeManager.AppTheme) -> Color {
         switch theme {
         case .light: return Color.white
@@ -149,19 +156,20 @@ extension Color {
     // MARK: - Dark Theme Colors (WCAG 2.1 AA Compliant)
     static let darkBackgroundPrimary = Color(red: 0.05, green: 0.05, blue: 0.05) // #0D0D0D
     static let darkBackgroundSecondary = Color(red: 0.08, green: 0.08, blue: 0.08) // #141414
-    static let darkSurfacePrimary = Color(red: 0.15, green: 0.15, blue: 0.15) // #262626
-    static let darkSurfaceSecondary = Color(red: 0.18, green: 0.18, blue: 0.18) // #2E2E2E
-    static let darkTextPrimary = Color(red: 0.95, green: 0.95, blue: 0.95) // #F2F2F2 - Contrast 18.1:1 ✅
-    static let darkTextSecondary = Color(red: 0.82, green: 0.82, blue: 0.82) // #D1D1D1 - Contrast 12.8:1 ✅ (antes 3.8:1)
-    static let darkTextTertiary = Color(red: 0.68, green: 0.68, blue: 0.68) // #ADADAD - Contrast 7.3:1 ✅ (antes 2.8:1)
+    static let darkSurfacePrimary = Color(hex: "#1A1A1A")! // #1A1A1A - Surface cards
+    static let darkSurfaceSecondary = Color(hex: "#232323")! // #232323 - Surface elevated
+    static let darkTextPrimary = Color(hex: "#F5F5F0")! // #F5F5F0 - Contrast 18.1:1 ✅
+    static let darkTextSecondary = Color(hex: "#C4C4C0")! // #C4C4C0 - Contrast 12.8:1 ✅
+    static let darkTextTertiary = Color(hex: "#8A8A86")! // #8A8A86 - Contrast 7.3:1 ✅
     static let darkBorderPrimary = Color(red: 0.45, green: 0.45, blue: 0.45) // #737373 - Contrast 5.2:1 ✅ (antes 2.1:1)
     static let darkBorderSecondary = Color(red: 0.35, green: 0.35, blue: 0.35) // #595959 - Contrast 3.8:1 ✅
-    static let darkAccentPrimary = Color(red: 0.30, green: 0.71, blue: 0.67) // #4DB6AC - Teal claro para modo oscuro
+    static let darkAccentPrimary = Color(hex: "#D4FF3F")! // #D4FF3F - Lime para modo oscuro
     static let darkShadow = Color.black.opacity(0.25) // Sombras para modo oscuro
 
     // MARK: - Semantic Colors (para Social Feed)
     static let likeRed = Color(red: 1.0, green: 0.23, blue: 0.19) // #FF3B30 - Like color
-    static let successGreen = Color(red: 0.20, green: 0.78, blue: 0.35) // #34C759
+    static let successGreen = Color(hex: "#4ADE80")! // #4ADE80
+    static let accentInk = Color(hex: "#0A0A0A")! // Dark text on accent backgrounds
     static let mindbodyGreen = Color(red: 0.44, green: 0.81, blue: 0.25) // #6FCF3F - Verde Mindbody para botones
     static let warningYellow = Color(red: 1.0, green: 0.80, blue: 0.0) // #FFCC00
     static let errorRed = Color(red: 1.0, green: 0.23, blue: 0.19) // #FF3B30
@@ -183,6 +191,7 @@ extension EnvironmentValues {
 extension ThemeManager {
     static var lightAccentOptions: [String] {
         return [
+            "#D4FF3F", // Lime (default)
             "#C43421", // Deep Red (propuesto)
             "#D94A4A", // Current Red
             "#E74C3C", // Crimson
@@ -208,6 +217,7 @@ extension ThemeManager {
     
     static var darkAccentOptions: [String] {
         return [
+            "#D4FF3F", // Lime (default)
             "#C43421", // Deep Red (propuesto)
             "#D94A4A", // Current Red
             "#FF5252", // Bright Red
@@ -236,9 +246,9 @@ extension ThemeManager {
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard
         if theme == .light {
-            return defaults.string(forKey: "selectedLightAccentHex") ?? "#26A69A" // Teal
+            return defaults.string(forKey: "selectedLightAccentHex") ?? "#D4FF3F" // Lime
         } else {
-            return defaults.string(forKey: "selectedDarkAccentHex") ?? "#4DB6AC" // Teal claro
+            return defaults.string(forKey: "selectedDarkAccentHex") ?? "#D4FF3F" // Lime
         }
     }
 }

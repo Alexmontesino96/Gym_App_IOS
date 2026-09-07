@@ -246,6 +246,37 @@ struct RolePermissions {
         return hasRolePermission || hasGymRolePermission
     }
 
+    // MARK: - Workspace Membership
+
+    /// Indica si el rol pertenece al equipo que opera el workspace (entrenador, asistente o dueño),
+    /// frente a un cliente que solo lo consume.
+    ///
+    /// En un workspace de tipo `personal_trainer` el entrenador queda como OWNER y sus clientes como MEMBER,
+    /// así que este es el único eje que los distingue: ambos comparten el mismo gym.
+    ///
+    /// - Important: no usar `user_context.role` de `/context/workspace` como fuente. Ese campo devuelve
+    ///   siempre "MEMBER" porque el middleware de tenant nunca llega a poblarlo. La fuente fiable es
+    ///   `GymInfo.userRoleInGym`, que llega de `GET /gyms/my`.
+    /// - Parameter role: Rol del usuario en el gym (`user_role_in_gym`)
+    /// - Returns: true si es OWNER, ADMIN o TRAINER
+    static func isWorkspaceStaff(_ role: String?) -> Bool {
+        guard let role = role?.uppercased(), !role.isEmpty else { return false }
+        return ["OWNER", "ADMIN", "TRAINER"].contains(role)
+    }
+
+    /// Indica si el usuario es cliente de un entrenador personal, es decir, la persona a la que va
+    /// dirigida la experiencia de `ClientMainTabView`.
+    ///
+    /// Ante la duda (gym sin cargar o rol vacío) devuelve el camino menos privilegiado, que es tratarlo
+    /// como cliente: es preferible que un entrenador vea la app de cliente a que un cliente vea la cartera
+    /// y los ingresos de su entrenador.
+    /// - Parameters:
+    ///   - isPersonalTrainerWorkspace: si el gym actual es de tipo entrenador personal
+    ///   - role: rol del usuario en ese gym
+    static func isPersonalTrainerClient(isPersonalTrainerWorkspace: Bool, role: String?) -> Bool {
+        isPersonalTrainerWorkspace && !isWorkspaceStaff(role)
+    }
+
     /// Obtiene el nombre del rol autorizado para mostrar en la UI del scanner
     /// - Parameter profile: Perfil del usuario
     /// - Returns: Nombre del rol autorizado o nil

@@ -17,7 +17,7 @@ struct MediaPickerView: View {
     @EnvironmentObject var themeManager: ThemeManager
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 0) {
                 // Header
                 HStack {

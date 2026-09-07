@@ -780,6 +780,65 @@ class GetStreamChatProvider: ChatProvider {
     
     // MARK: - Private Helpers
     
+    // MARK: - Moderación
+
+    /// Denuncia un mensaje. Llega al panel de moderación de Stream.
+    func flagMessage(_ messageId: String, in conversationId: String) async throws {
+        guard let chatClient else { throw ChatProviderError.notInitialized }
+        guard !messageId.isEmpty else { throw ChatProviderError.messageNotFound }
+        let cid = ChannelId(type: .messaging, id: conversationId)
+        let controller = chatClient.messageController(cid: cid, messageId: messageId)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            controller.flag { error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume() }
+            }
+        }
+    }
+
+    /// Denuncia a una persona.
+    func flagUser(_ userId: String) async throws {
+        guard let chatClient else { throw ChatProviderError.notInitialized }
+        let controller = chatClient.userController(userId: userId)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            controller.flag { error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume() }
+            }
+        }
+    }
+
+    /// Bloquea a una persona.
+    ///
+    /// OJO: Stream guarda la lista pero NO filtra por ella los mensajes de un canal. Quien llame
+    /// a esto tiene que filtrar en la interfaz con `blockedUserIds`, o el bloqueo será mentira en
+    /// cualquier conversación de grupo.
+    func blockUser(_ userId: String) async throws {
+        guard let chatClient else { throw ChatProviderError.notInitialized }
+        let controller = chatClient.userController(userId: userId)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            controller.block { error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume() }
+            }
+        }
+    }
+
+    func unblockUser(_ userId: String) async throws {
+        guard let chatClient else { throw ChatProviderError.notInitialized }
+        let controller = chatClient.userController(userId: userId)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            controller.unblock { error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume() }
+            }
+        }
+    }
+
+    var blockedUserIds: Set<String> {
+        Set(chatClient?.currentUserController().currentUser?.blockedUserIds ?? [])
+    }
+
     private func getOrCreateChannelController(for conversationId: String) -> ChatChannelController? {
         print("🎮 getOrCreateChannelController para: \(conversationId)")
         

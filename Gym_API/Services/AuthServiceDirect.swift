@@ -194,7 +194,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         
         // Validar configuración antes de intentar login
         guard validateAuth0Configuration() else {
-            errorMessage = "Configuración de Auth0 inválida. Contacta al soporte."
+            errorMessage = "Sign-in is misconfigured. Please contact support."
             isLoading = false
             return
         }
@@ -224,6 +224,11 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 .webAuth()
                 .audience(Auth0Config.audience)
                 .scope("openid profile email offline_access")
+                // Sin esto, la pantalla de Auth0 decide por su cuenta qué proveedores enseña, y
+                // basta con que el tenant tenga una conexión social activa para que un revisor de
+                // App Review vea inicio de sesión de terceros. Fijar la conexión de base de datos
+                // hace que el resultado no dependa de la configuración del tenant.
+                .connection(Auth0Config.databaseConnection)
                 .redirectURL(URL(string: redirectUri)!)
             
             // Añadir screen_hint según el modo
@@ -320,22 +325,22 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             if let urlError = error as? URLError {
                 switch urlError.code {
                 case .notConnectedToInternet:
-                    errorMessage = "Sin conexión a internet. Verifica tu conexión."
+                    errorMessage = "No internet connection. Check your connection."
                 case .networkConnectionLost:
-                    errorMessage = "Conexión perdida. Intentando usar modo offline..."
+                    errorMessage = "Connection lost. Trying offline mode…"
                     await handleOfflineMode()
                     return
                 case .timedOut:
-                    errorMessage = "Timeout de conexión. Intentando nuevamente..."
+                    errorMessage = "Connection timed out. Trying again…"
                     await handleOfflineMode()
                     return
                 default:
                     errorMessage = "Error de red: \(urlError.localizedDescription)"
                 }
             } else if error.localizedDescription.contains("cancelled") {
-                errorMessage = "Autenticación cancelada por el usuario"
+                errorMessage = "Sign-in cancelled"
             } else {
-                errorMessage = "Error de autenticación: \(error.localizedDescription)"
+                errorMessage = "Could not sign you in: \(error.localizedDescription)"
             }
         }
         
@@ -633,6 +638,11 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         UserDefaults.standard.set(user.name, forKey: "saved_user_name")
         UserDefaults.standard.set(user.picture, forKey: "saved_user_picture")
         UserDefaults.standard.set(user.isCoach, forKey: "saved_user_is_coach")
+
+        // Cache avatar image to disk for instant splash screen
+        if let picture = user.picture, !picture.isEmpty {
+            AppLoadingView.saveAvatarFromURL(picture)
+        }
     }
     
     private func clearCredentials() {
@@ -652,6 +662,9 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
         UserDefaults.standard.removeObject(forKey: "saved_user_name")
         UserDefaults.standard.removeObject(forKey: "saved_user_picture")
         UserDefaults.standard.removeObject(forKey: "saved_user_is_coach")
+
+        // Clear cached avatar
+        AppLoadingView.clearCachedAvatar()
     }
     
     // MARK: - Token Management
@@ -859,7 +872,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             print("❌ Falló renovación después de múltiples intentos")
             await MainActor.run {
                 isRefreshingToken = false
-                errorMessage = "Error de conexión. Intenta más tarde."
+                errorMessage = "Connection problem. Try again later."
             }
         } catch NetworkRetryService.RetryError.nonRetryableError(let underlyingError) {
             print("❌ Error no recuperable al renovar token: \(underlyingError)")
@@ -873,16 +886,16 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 switch errorType {
                 case .invalidGrant:
                     print("❌ Refresh token inválido o expirado")
-                    errorMessage = "Tu sesión ha expirado completamente. Por favor, inicia sesión nuevamente."
+                    errorMessage = "Your session has expired. Please sign in again."
                     refreshTokenFailureCount += 1
                     
                 case .consentRequired:
                     print("⚠️ Se requiere consentimiento del usuario")
-                    errorMessage = "Necesitas autorizar nuevamente los permisos de la aplicación."
+                    errorMessage = "You need to grant the app permissions again."
                     
                 case .networkError:
                     print("🌐 Error de red al renovar token")
-                    errorMessage = "Error de conexión. Verifica tu internet e intenta nuevamente."
+                    errorMessage = "Connection problem. Check your internet and try again."
                     
                 case .rateLimited:
                     print("⏳ Rate limit alcanzado")
@@ -890,10 +903,10 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                     
                 case .serverError:
                     print("🔴 Error del servidor Auth0")
-                    errorMessage = "El servicio de autenticación está temporalmente no disponible."
+                    errorMessage = "Sign-in is temporarily unavailable."
                     
                 case .unknown:
-                    errorMessage = "Error de autenticación: \(underlyingError.localizedDescription)"
+                    errorMessage = "Could not sign you in: \(underlyingError.localizedDescription)"
                 }
             }
         } catch {
@@ -957,7 +970,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             isAuthenticated = false
             user = nil
             isRefreshingToken = false
-            errorMessage = "Se detectó un problema con la sesión. Por favor, inicia sesión nuevamente."
+            errorMessage = "There was a problem with your session. Please sign in again."
         }
         
         // Reset loop detection
@@ -1426,6 +1439,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 .webAuth()
                 .audience(Auth0Config.audience)
                 .scope("openid profile email offline_access")
+                .connection(Auth0Config.databaseConnection)
             
             // Añadir screen_hint según el modo
             var parameters: [String: String] = [:]
@@ -1450,7 +1464,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
                 errorMessage = nil // No mostrar error si el usuario canceló
             } else {
                 print("❌ Error inesperado en login: \(error)")
-                errorMessage = "Error de inicio de sesión: \(error.localizedDescription)"
+                errorMessage = "Sign-in failed: \(error.localizedDescription)"
             }
         }
         
@@ -1499,7 +1513,7 @@ class AuthServiceDirect: ObservableObject, AuthServiceProtocol {
             print("🔹 Email: \(user.email)")
             
         } else {
-            errorMessage = "Error: respuesta inválida de Auth0"
+            errorMessage = "Sign-in returned an invalid response"
             return
         }
     }

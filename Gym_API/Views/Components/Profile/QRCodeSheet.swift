@@ -46,7 +46,7 @@ struct QRCodeSheet: View {
                                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         }
 
-                        Text("Escanear para confirmar asistencia")
+                        Text("Scan to check in")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                             .multilineTextAlignment(.center)
@@ -60,7 +60,7 @@ struct QRCodeSheet: View {
                             .font(.system(size: 16))
                             .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
 
-                        Text("Muestra este codigo al staff del gimnasio")
+                        Text("Show this code when you arrive")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     }
@@ -85,7 +85,7 @@ struct QRCodeSheet: View {
                 }
 
                 ToolbarItem(placement: .principal) {
-                    Text("Mi Codigo QR")
+                    Text("My QR Code")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 }
@@ -109,7 +109,7 @@ struct QRCodeSheet: View {
                     .font(.system(size: 60))
                     .foregroundColor(.gray.opacity(0.5))
 
-                Text("QR no disponible")
+                Text("QR code unavailable")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.gray)
             }

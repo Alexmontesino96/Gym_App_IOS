@@ -18,7 +18,11 @@ struct StripeConfig {
     private static let apiBaseURL = "https://gymapi-eh6m.onrender.com/api/v1"
     #else
     // Production keys
-    static let publishableKey = "pk_live_TU_CLAVE_DE_PRODUCCION_AQUI" // Reemplaza con tu clave de producción cuando vayas a producción
+    // ⚠️ SIN CONFIGURAR. Una compilación de Release con este valor manda a Stripe una clave
+    // inválida y todo pago falla. Hay que sustituirlo por la clave publicable real antes de
+    // subir nada. `StripeConfig.isConfigured()`, más abajo en este mismo archivo, ya lo
+    // detecta: conviene llamarlo en arranque y avisar en vez de fallar en el primer cobro.
+    static let publishableKey = "pk_live_TU_CLAVE_DE_PRODUCCION_AQUI"
     static let merchantIdentifier = "merchant.gym" // Apple Pay Merchant ID
     #endif
 
@@ -28,7 +32,9 @@ struct StripeConfig {
     // Payment configuration
     static let merchantDisplayName = "Gym App"
     static let companyName = "Gym Management"
-    static let defaultCurrency = "EUR"
+    // El lanzamiento es en Estados Unidos. Dejar euros aquí enseña precios en una moneda
+    // que no es la del comprador, que además es motivo de rechazo por confusión de precio.
+    static let defaultCurrency = "USD"
 
     // Supported payment methods
     static let supportedPaymentMethods = [

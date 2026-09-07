@@ -48,7 +48,16 @@ class StripeService: ObservableObject {
         clientSecret: String,
         merchantDisplayName: String,
         stripeAccountId: String? = nil,  // Stripe Connect Account ID for multi-tenant
-        applePay: Bool = true
+        // Apple Pay apagado por defecto.
+        //
+        // El entitlement `com.apple.developer.in-app-payments` se retiró: declaraba el
+        // identificador de comerciante `merchant.gym`, que tiene pinta de marcador de posición y
+        // no está dado de alta, y un entitlement sin capacidad registrada rompe la firma. En
+        // Debug la lista de comerciantes estaba además vacía, así que esto nunca funcionó.
+        //
+        // Vuelve a true el día que exista un identificador real dado de alta en el portal de
+        // Apple y en Stripe. Mientras tanto, el pago con tarjeta funciona igual.
+        applePay: Bool = false
     ) async throws {
         paymentStatus = .processing
         paymentError = nil

@@ -27,20 +27,18 @@ struct ExplorePlansView: View {
     // MARK: - Category Enum
 
     enum NutritionCategory: String, CaseIterable {
-        case all = "Todos"
-        case weightLoss = "Perdida peso"
-        case muscleGain = "Musculo"
-        case detox = "Detox"
-        case vegan = "Vegano"
+        // Las categorías de pérdida de peso y detox se quitaron con el filtro de planes
+        // restrictivos: ahora siempre estarían vacías, porque esos planes no se listan.
+        case all = "All"
+        case muscleGain = "Muscle"
+        case vegan = "Vegan"
         case keto = "Keto"
-        case maintenance = "Mantenimiento"
+        case maintenance = "Maintenance"
 
         var icon: String {
             switch self {
             case .all: return "square.grid.2x2"
-            case .weightLoss: return "arrow.down.circle"
             case .muscleGain: return "arrow.up.circle"
-            case .detox: return "leaf"
             case .vegan: return "leaf.circle"
             case .keto: return "flame"
             case .maintenance: return "equal.circle"
@@ -50,9 +48,7 @@ struct ExplorePlansView: View {
         var goalFilter: NutritionGoal? {
             switch self {
             case .all: return nil
-            case .weightLoss: return .weightLoss
             case .muscleGain: return .muscleGain
-            case .detox: return nil // Filter by tag
             case .vegan: return nil // Filter by restriction
             case .keto: return nil // Filter by restriction
             case .maintenance: return .maintenance
@@ -136,7 +132,7 @@ struct ExplorePlansView: View {
                 .font(.system(size: 18))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
 
-            TextField("Buscar planes...", text: $searchText)
+            TextField("Search plans…", text: $searchText)
                 .font(.system(size: 16))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .autocapitalization(.none)
@@ -224,7 +220,7 @@ struct ExplorePlansView: View {
 
                 Spacer()
 
-                Text("\(filteredPlans.count) plan\(filteredPlans.count == 1 ? "" : "es")")
+                Text("\(filteredPlans.count) plan\(filteredPlans.count == 1 ? "" : "s")")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
             }
@@ -252,7 +248,7 @@ struct ExplorePlansView: View {
                 .font(.system(size: 40))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
 
-            Text("No se encontraron planes")
+            Text("No plans found")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
@@ -282,7 +278,7 @@ struct ExplorePlansView: View {
                 .scaleEffect(1.2)
                 .tint(Color.dynamicAccent(theme: themeManager.currentTheme))
 
-            Text("Cargando planes...")
+            Text("Loading plans…")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }
@@ -293,7 +289,11 @@ struct ExplorePlansView: View {
     // MARK: - Computed Properties
 
     private var filteredPlans: [NutritionPlan] {
-        var plans = explorePlans
+        // Los planes restrictivos se ocultan a propósito. El servidor los protege con un
+        // cuestionario médico que todavía no tiene pantalla, así que pulsarlos devolvía 403 y
+        // no había forma de resolverlo desde la app: eran imposibles de seguir. Un plan que
+        // no se puede seguir es peor que un plan que no está. Ver isRestrictive.
+        var plans = explorePlans.filter { !$0.isRestrictive }
 
         // Local filtering by search text
         if !searchText.isEmpty {
@@ -309,6 +309,7 @@ struct ExplorePlansView: View {
     private var recommendedPlan: NutritionPlan? {
         // Get the most popular plan that user hasn't followed
         return explorePlans
+            .filter { !$0.isRestrictive }
             .filter { !$0.isFollowedByUser }
             .sorted { ($0.followersCount ?? 0) > ($1.followersCount ?? 0) }
             .first
@@ -491,7 +492,7 @@ struct RecommendedPlanCard: View {
                                 Text(String(format: "%.1f", avgSatisfaction))
                                     .font(.system(size: 14, weight: .bold))
                             }
-                            Text("\(plan.followersCount ?? 0) usuarios")
+                            Text("\(plan.followersCount ?? 0) following")
                                 .font(.system(size: 10))
                                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                         }
@@ -525,7 +526,7 @@ struct RecommendedPlanCard: View {
                     Spacer()
 
                     HStack(spacing: 8) {
-                        Text("Ver detalles")
+                        Text("See details")
                             .font(.system(size: 15, weight: .semibold))
                         Image(systemName: "arrow.right")
                             .font(.system(size: 14, weight: .semibold))
@@ -635,7 +636,7 @@ struct ExplorePlanCard: View {
 
                     Spacer()
 
-                    Text("\(plan.followersCount ?? 0) usuarios")
+                    Text("\(plan.followersCount ?? 0) following")
                         .font(.system(size: 10))
                 }
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))

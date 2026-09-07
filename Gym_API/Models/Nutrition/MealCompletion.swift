@@ -92,12 +92,14 @@ extension MealCompletion {
 // MARK: - MealCompletionRequest
 
 struct MealCompletionRequest: Codable {
+    let mealId: Int
     let satisfactionRating: Int
     let photoUrl: String?
     let notes: String?
     let portionSizeModifier: Double?
 
     enum CodingKeys: String, CodingKey {
+        case mealId = "meal_id"
         case satisfactionRating = "satisfaction_rating"
         case photoUrl = "photo_url"
         case notes
@@ -105,12 +107,14 @@ struct MealCompletionRequest: Codable {
     }
 
     init(
+        mealId: Int,
         satisfactionRating: Int,
         photoUrl: String? = nil,
         notes: String? = nil,
         portionSizeModifier: Double? = 1.0
     ) {
-        self.satisfactionRating = min(max(satisfactionRating, 1), 5) // Clamp between 1-5
+        self.mealId = mealId
+        self.satisfactionRating = min(max(satisfactionRating, 1), 5)
         self.photoUrl = photoUrl
         self.notes = notes
         self.portionSizeModifier = portionSizeModifier

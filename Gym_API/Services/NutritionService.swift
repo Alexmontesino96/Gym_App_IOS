@@ -112,7 +112,7 @@ class NutritionService: ObservableObject {
     func getDashboard() async {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             print("NutritionService: No se puede obtener dashboard - sin autenticacion")
             return
         }
@@ -184,11 +184,11 @@ class NutritionService: ObservableObject {
                     if let errorString = String(data: data, encoding: .utf8) {
                         print("NutritionService: Error response: \(errorString)")
                     }
-                    errorMessage = "Error al obtener dashboard: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not load your nutrition data (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al obtener dashboard: \(error.localizedDescription)"
+            errorMessage = "Could not load your nutrition data. Check your connection and try again."
             print("NutritionService: Error obteniendo dashboard: \(error)")
 
             // Si es un error de decodificacion, intentar imprimir el JSON
@@ -229,7 +229,7 @@ class NutritionService: ObservableObject {
     ) async -> [NutritionPlan] {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return []
         }
 
@@ -302,11 +302,11 @@ class NutritionService: ObservableObject {
                     isLoading = false
                     return await getPlans(planType: planType, status: status, goal: goal, page: page, perPage: perPage)
                 } else {
-                    errorMessage = "Error al obtener planes: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not load plans (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al obtener planes: \(error.localizedDescription)"
+            errorMessage = "Could not load plans. Check your connection and try again."
             print("NutritionService: Error obteniendo planes: \(error)")
 
             // Si es un error de decodificacion, intentar imprimir el JSON
@@ -340,7 +340,7 @@ class NutritionService: ObservableObject {
     func getPlanDetails(planId: Int) async -> NutritionPlan? {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return nil
         }
 
@@ -367,11 +367,11 @@ class NutritionService: ObservableObject {
                     isLoading = false
                     return await getPlanDetails(planId: planId)
                 } else {
-                    errorMessage = "Error al obtener plan: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not load the plan (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al obtener plan: \(error.localizedDescription)"
+            errorMessage = "Could not load the plan. Check your connection and try again."
             print("NutritionService: Error obteniendo plan: \(error)")
         }
 
@@ -383,7 +383,7 @@ class NutritionService: ObservableObject {
     func getPlanStatus(planId: Int) async -> PlanStatusResponse? {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return nil
         }
 
@@ -414,7 +414,7 @@ class NutritionService: ObservableObject {
     func getTodayPlan() async {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             print("NutritionService: No se puede obtener plan de hoy - sin autenticacion")
             return
         }
@@ -438,10 +438,19 @@ class NutritionService: ObservableObject {
                     let todayPlan = try customDateDecoder.decode(TodayMealPlan.self, from: data)
                     self.todayPlan = todayPlan
 
+                    // Log raw JSON for debugging
+                    if let jsonStr = String(data: data, encoding: .utf8) {
+                        print("NutritionService: Today plan raw JSON:")
+                        print(jsonStr.prefix(2000))
+                    }
+
                     print("NutritionService: Plan de hoy cargado")
                     print("   - Status: \(todayPlan.status)")
                     print("   - Current day: \(todayPlan.currentDay)")
                     print("   - Meals: \(todayPlan.meals.count)")
+                    for meal in todayPlan.meals {
+                        print("   - Meal[\(meal.id)] \(meal.name) | isCompleted: \(meal.isCompleted) | completionId: \(meal.completionId ?? -1)")
+                    }
                     if let progress = todayPlan.progress {
                         print("   - Progress: \(progress.mealsCompleted)/\(progress.totalMeals)")
                     } else {
@@ -458,11 +467,11 @@ class NutritionService: ObservableObject {
                     if let errorString = String(data: data, encoding: .utf8) {
                         print("NutritionService: Error response: \(errorString)")
                     }
-                    errorMessage = "Error al obtener plan de hoy: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not load today's plan (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al obtener plan de hoy: \(error.localizedDescription)"
+            errorMessage = "Could not load today's plan. Check your connection and try again."
             print("NutritionService: Error obteniendo plan de hoy: \(error)")
         }
 
@@ -473,7 +482,7 @@ class NutritionService: ObservableObject {
     func getDailyPlan(planId: Int, dayNumber: Int) async -> DailyNutritionPlan? {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return nil
         }
 
@@ -500,11 +509,11 @@ class NutritionService: ObservableObject {
                     isLoading = false
                     return await getDailyPlan(planId: planId, dayNumber: dayNumber)
                 } else {
-                    errorMessage = "Error al obtener plan diario: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not load the daily plan (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al obtener plan diario: \(error.localizedDescription)"
+            errorMessage = "Could not load the daily plan. Check your connection and try again."
             print("NutritionService: Error obteniendo plan diario: \(error)")
         }
 
@@ -524,7 +533,7 @@ class NutritionService: ObservableObject {
     ) async -> Bool {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return false
         }
 
@@ -558,7 +567,7 @@ class NutritionService: ObservableObject {
 
                 if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
                     let followResponse = try customDateDecoder.decode(FollowPlanResponse.self, from: data)
-                    successMessage = "Te has unido al plan exitosamente"
+                    successMessage = "You joined the plan"
                     isLoading = false
                     print("NutritionService: Plan seguido exitosamente - ID \(followResponse.id)")
 
@@ -569,16 +578,23 @@ class NutritionService: ObservableObject {
                     isLoading = false
                     return await followPlan(planId: planId, notificationsEnabled: notificationsEnabled)
                 } else if httpResponse.statusCode == 409 {
-                    errorMessage = "Ya estas siguiendo este plan"
+                    errorMessage = "You are already following this plan"
+                } else if httpResponse.statusCode == 403, Self.requiresSafetyScreening(data) {
+                    // El servidor protege los planes restrictivos con un cuestionario médico que
+                    // todavía no tiene pantalla. Antes esto caía en el cajón de abajo y al usuario
+                    // le salía «Error al unirse al plan: HTTP 403», que no explica nada ni ofrece
+                    // salida. Estos planes ya se filtran de las listas; esto es la red por si uno
+                    // se cuela por un enlace directo.
+                    errorMessage = "This plan needs a health check before you can start it. Ask your trainer about it."
                 } else {
                     if let errorString = String(data: data, encoding: .utf8) {
                         print("NutritionService: Error response: \(errorString)")
                     }
-                    errorMessage = "Error al unirse al plan: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not join the plan (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al unirse al plan: \(error.localizedDescription)"
+            errorMessage = "Could not join the plan. Check your connection and try again."
             print("NutritionService: Error siguiendo plan: \(error)")
         }
 
@@ -586,11 +602,29 @@ class NutritionService: ObservableObject {
         return false
     }
 
+    /// ¿El 403 es el del cuestionario de seguridad?
+    ///
+    /// El cuerpo trae `detail.action_required == "safety_screening"`. Se mira el campo en vez de
+    /// dar por hecho que todo 403 es esto, porque un 403 también puede ser un módulo desactivado.
+    private static func requiresSafetyScreening(_ data: Data) -> Bool {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return false
+        }
+        if let detail = object["detail"] as? [String: Any],
+           let action = detail["action_required"] as? String {
+            return action == "safety_screening"
+        }
+        if let action = object["action_required"] as? String {
+            return action == "safety_screening"
+        }
+        return false
+    }
+
     /// Deja de seguir un plan de nutricion
     func unfollowPlan(planId: Int) async -> Bool {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return false
         }
 
@@ -609,7 +643,7 @@ class NutritionService: ObservableObject {
 
             if let httpResponse = response as? HTTPURLResponse {
                 if httpResponse.statusCode == 200 || httpResponse.statusCode == 204 {
-                    successMessage = "Has dejado el plan exitosamente"
+                    successMessage = "You left the plan"
                     isLoading = false
                     print("NutritionService: Plan dejado exitosamente")
 
@@ -620,11 +654,11 @@ class NutritionService: ObservableObject {
                     isLoading = false
                     return await unfollowPlan(planId: planId)
                 } else {
-                    errorMessage = "Error al dejar el plan: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not leave the plan (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al dejar el plan: \(error.localizedDescription)"
+            errorMessage = "Could not leave the plan. Check your connection and try again."
             print("NutritionService: Error dejando plan: \(error)")
         }
 
@@ -644,7 +678,7 @@ class NutritionService: ObservableObject {
     ) async -> MealCompletion? {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return nil
         }
 
@@ -655,6 +689,7 @@ class NutritionService: ObservableObject {
 
         do {
             let body = MealCompletionRequest(
+                mealId: mealId,
                 satisfactionRating: rating,
                 photoUrl: photoUrl,
                 notes: notes,
@@ -678,7 +713,7 @@ class NutritionService: ObservableObject {
 
                 if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
                     let completion = try customDateDecoder.decode(MealCompletion.self, from: data)
-                    successMessage = "Comida registrada exitosamente"
+                    successMessage = "Meal logged"
                     isLoading = false
                     print("NutritionService: Comida completada - ID \(completion.id)")
 
@@ -688,17 +723,23 @@ class NutritionService: ObservableObject {
                 } else if httpResponse.statusCode == 401 {
                     isLoading = false
                     return await completeMeal(mealId: mealId, rating: rating, photoUrl: photoUrl, notes: notes, portionModifier: portionModifier)
-                } else if httpResponse.statusCode == 409 {
-                    errorMessage = "Esta comida ya fue completada"
+                } else if httpResponse.statusCode == 400 || httpResponse.statusCode == 409 {
+                    // 400 or 409 = meal already completed or invalid
+                    if let errorString = String(data: data, encoding: .utf8) {
+                        print("NutritionService: Meal already completed or invalid: \(errorString)")
+                    }
+                    errorMessage = "You already logged this meal"
+                    // Refresh to get correct state
+                    await getTodayPlan()
                 } else {
                     if let errorString = String(data: data, encoding: .utf8) {
                         print("NutritionService: Error response: \(errorString)")
                     }
-                    errorMessage = "Error al completar comida: HTTP \(httpResponse.statusCode)"
+                    errorMessage = "Could not log the meal (\(httpResponse.statusCode))"
                 }
             }
         } catch {
-            errorMessage = "Error al completar comida: \(error.localizedDescription)"
+            errorMessage = "Could not log the meal. Check your connection and try again."
             print("NutritionService: Error completando comida: \(error)")
         }
 
@@ -710,9 +751,12 @@ class NutritionService: ObservableObject {
     func getMealDetails(mealId: Int) async -> Meal? {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
+            print("[MealLoad] No se puede cargar comida \(mealId) - sin autenticacion")
             return nil
         }
+
+        print("[MealLoad] Solicitando detalles de comida - mealId: \(mealId)")
 
         do {
             var request = URLRequest(url: URL(string: "\(baseURL)/nutrition/meals/\(mealId)")!)
@@ -722,14 +766,19 @@ class NutritionService: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
+                print("[MealLoad] Response status: \(httpResponse.statusCode) para mealId: \(mealId)")
                 if httpResponse.statusCode == 200 {
-                    return try customDateDecoder.decode(Meal.self, from: data)
+                    let meal = try customDateDecoder.decode(Meal.self, from: data)
+                    print("[MealLoad] Comida cargada exitosamente - id: \(meal.id), nombre: \(meal.name), tipo: \(meal.mealType.rawValue), calorias: \(meal.calories), ingredientes: \(meal.ingredients.count)")
+                    return meal
                 } else if httpResponse.statusCode == 401 {
                     return await getMealDetails(mealId: mealId)
+                } else {
+                    print("[MealLoad] Error HTTP \(httpResponse.statusCode) cargando comida \(mealId)")
                 }
             }
         } catch {
-            print("NutritionService: Error obteniendo detalles de comida: \(error)")
+            print("[MealLoad] Error obteniendo detalles de comida \(mealId): \(error)")
         }
 
         return nil
@@ -741,7 +790,7 @@ class NutritionService: ObservableObject {
     func getUserStats() async -> UserNutritionStats? {
         guard let token = await authService?.getValidAccessToken(),
               let gymId = gymService?.currentGymId else {
-            errorMessage = "Autenticacion requerida"
+            errorMessage = "Please sign in again"
             return nil
         }
 

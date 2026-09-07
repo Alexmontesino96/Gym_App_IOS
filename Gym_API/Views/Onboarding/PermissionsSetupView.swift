@@ -18,7 +18,13 @@ struct PermissionsSetupView: View {
     @State private var permissionStates: [PermissionType: PermissionStatus] = [:]
     @State private var allPermissionsRequested = false
     
-    private let permissions = PermissionType.allCases
+    /// La ubicación NO entra en el flujo. Se pedía y se marcaba como concedida sin llamar
+    /// nunca a CoreLocation (ver `requestLocationPermission`), o sea que la app le decía a la
+    /// persona que había concedido un permiso que jamás se le pidió. Y hoy no se usa para
+    /// nada: LocationService compara contra una coordenada fija y solo lo instancian los
+    /// previews. Cuando la ubicación sirva para algo, se vuelve a añadir aquí y se pide de
+    /// verdad con CLLocationManager.
+    private let permissions: [PermissionType] = [.notifications, .camera]
     
     var body: some View {
         ZStack {
@@ -286,14 +292,10 @@ struct PermissionsSetupView: View {
     }
     
     private func requestLocationPermission() {
-        // Note: For location, you'd typically use CLLocationManager
-        // For this demo, we'll simulate the permission
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            permissionStates[.location] = .granted // Simulate granted
-            if currentPermissionIndex == 2 {
-                allPermissionsRequested = true
-            }
-        }
+        // Deliberadamente vacío. Antes esto esperaba medio segundo y marcaba el permiso como
+        // concedido sin pedirlo, que es información falsa mostrada a la persona. La ubicación
+        // ya no forma parte del flujo; si vuelve, aquí va un CLLocationManager de verdad con
+        // su delegado, y el estado se lee de la respuesta del sistema, no se inventa.
     }
     
     private func checkPermissionStatus(_ permission: PermissionType, completion: @escaping (PermissionStatus) -> Void) {

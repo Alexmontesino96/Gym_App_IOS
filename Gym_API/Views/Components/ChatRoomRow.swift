@@ -71,37 +71,37 @@ struct ChatRoomRow: View {
             contextMenuContent
         }
         // Confirmaciones
-        .alert("Ocultar Chat", isPresented: $showingHideConfirmation) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Ocultar") {
+        .alert("Hide chat", isPresented: $showingHideConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Hide") {
                 Task { await hideChat() }
             }
         } message: {
-            Text("Este chat se ocultará de tu lista. Puedes mostrarlo nuevamente desde la sección de chats ocultos.")
+            Text("This chat disappears from your list. You can bring it back from hidden chats.")
         }
-        .alert("Eliminar Conversación", isPresented: $showingDeleteConfirmation) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Eliminar Para Mí", role: .destructive) {
+        .alert("Delete conversation", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete for me", role: .destructive) {
                 Task { await deleteConversation() }
             }
         } message: {
-            Text("¿Eliminar conversación con \(room.displayName)?\n\nSe eliminarán TODOS los mensajes solo para ti.\n\(room.displayName) mantendrá su historial completo.\n\nEsta acción NO se puede deshacer.")
+            Text("Delete your conversation with \(room.displayName)?\n\nEvery message goes away for you only.\n\(room.displayName) keeps their full history.\n\nThis cannot be undone.")
         }
-        .alert("Salir del Grupo", isPresented: $showingLeaveConfirmation) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Salir", role: .destructive) {
+        .alert("Leave group", isPresented: $showingLeaveConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Leave", role: .destructive) {
                 Task { await leaveGroup() }
             }
         } message: {
-            Text("¿Estás seguro que quieres salir de '\(room.displayName)'?")
+            Text("Leave '\(room.displayName)'?")
         }
-        .alert("Eliminar Grupo", isPresented: $showingDeleteGroupConfirmation) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Eliminar Permanentemente", role: .destructive) {
+        .alert("Delete group", isPresented: $showingDeleteGroupConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete permanently", role: .destructive) {
                 Task { await deleteGroup() }
             }
         } message: {
-            Text("Esta acción eliminará el grupo '\(room.displayName)' permanentemente.\n\nTodos los mensajes se borrarán para todos los miembros.\n\nEsta acción no se puede deshacer.")
+            Text("This deletes the group '\(room.displayName)' for good.\n\nEvery message goes away for every member.\n\nThis cannot be undone.")
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
@@ -119,7 +119,7 @@ struct ChatRoomRow: View {
             Button {
                 showingHideConfirmation = true
             } label: {
-                Label("Ocultar", systemImage: "archivebox")
+                Label("Hide", systemImage: "archivebox")
             }
         }
 
@@ -133,7 +133,7 @@ struct ChatRoomRow: View {
             Button(role: .destructive) {
                 showingDeleteConfirmation = true
             } label: {
-                Label("Eliminar Conversación", systemImage: "trash")
+                Label("Delete chat", systemImage: "trash")
             }
         }
 
@@ -142,7 +142,7 @@ struct ChatRoomRow: View {
             Button(role: .destructive) {
                 showingLeaveConfirmation = true
             } label: {
-                Label("Salir del Grupo", systemImage: "rectangle.portrait.and.arrow.right")
+                Label("Leave group", systemImage: "rectangle.portrait.and.arrow.right")
             }
         }
 
@@ -153,7 +153,7 @@ struct ChatRoomRow: View {
         //     Button(role: .destructive) {
         //         showingDeleteGroupConfirmation = true
         //     } label: {
-        //         Label("Eliminar Grupo", systemImage: "trash.fill")
+        //         Label("Delete group", systemImage: "trash.fill")
         //     }
         // }
     }

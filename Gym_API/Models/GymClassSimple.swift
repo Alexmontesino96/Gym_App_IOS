@@ -14,9 +14,17 @@ struct GymClass: Identifiable {
     let difficulty: ClassDifficulty
     let status: ClassStatus
     let gymTimezone: String? // Agregado para manejar zona horaria
+    let participation: ParticipationState? // User's participation outcome
+    let cancellationReason: String? // Reason if cancelled
+
+    // Sala y notas de la sesión. Viajaban ya en ClassSession y se perdían al simplificar,
+    // así que ninguna pantalla podía decir dónde es la sesión. Para el cliente de un
+    // entrenador personal son las dos únicas piezas de contexto que hoy tienen origen real.
+    let room: String?
+    let notes: String?
 
     // Inicializador completo
-    init(id: Int, name: String, description: String?, instructor: String, trainerId: Int, startTime: Date, endTime: Date, maxParticipants: Int, currentParticipants: Int, difficulty: ClassDifficulty, status: ClassStatus, gymTimezone: String? = nil) {
+    init(id: Int, name: String, description: String?, instructor: String, trainerId: Int, startTime: Date, endTime: Date, maxParticipants: Int, currentParticipants: Int, difficulty: ClassDifficulty, status: ClassStatus, gymTimezone: String? = nil, participation: ParticipationState? = nil, cancellationReason: String? = nil, room: String? = nil, notes: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -29,6 +37,10 @@ struct GymClass: Identifiable {
         self.difficulty = difficulty
         self.status = status
         self.gymTimezone = gymTimezone
+        self.participation = participation
+        self.cancellationReason = cancellationReason
+        self.room = room
+        self.notes = notes
     }
     
     var formattedTime: String {
@@ -72,6 +84,14 @@ enum ClassDifficulty: String, CaseIterable {
 
 enum ClassStatus: String, CaseIterable {
     case available = "available"
+    case inProgress = "in_progress"
     case completed = "completed"
     case cancelled = "cancelled"
+}
+
+// MARK: - Participation State
+
+enum ParticipationState: String, CaseIterable {
+    case attended = "attended"
+    case noShow = "no_show"
 }

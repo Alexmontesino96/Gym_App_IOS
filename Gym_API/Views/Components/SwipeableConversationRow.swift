@@ -263,6 +263,29 @@ extension SwipeableConversationRow {
         )
     }
     
+    /// Fila con la única acción que hoy hace algo de verdad: borrar.
+    ///
+    /// Silenciar y archivar no tienen respaldo: archivar quitaba la fila de la lista y al
+    /// refrescar volvía a aparecer, y silenciar solo escribía en la consola. Un gesto que
+    /// deshace el sistema a tus espaldas es peor que no ofrecerlo.
+    static func withDeleteOnly(
+        conversation: ChatConversation,
+        themeManager: ThemeManager,
+        currentUserId: String? = nil,
+        onTap: @escaping () -> Void,
+        onDelete: @escaping () -> Void
+    ) -> SwipeableConversationRow {
+        SwipeableConversationRow(
+            conversation: conversation,
+            themeManager: themeManager,
+            currentUserId: currentUserId,
+            onTap: onTap,
+            onMute: nil,
+            onArchive: nil,
+            onDelete: onDelete
+        )
+    }
+
     /// Creates a swipeable conversation row with only mute and delete actions
     static func withBasicActions(
         conversation: ChatConversation,

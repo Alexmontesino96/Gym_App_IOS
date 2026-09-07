@@ -74,54 +74,32 @@ struct FeedTabsView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background
-                Color.dynamicBackground(theme: themeManager.currentTheme)
-                    .ignoresSafeArea()
+        // Feed content only — header, stories, tabs, and navigation are handled by SocialFeedView
+        ZStack {
+            Color.dynamicBackground(theme: themeManager.currentTheme)
+                .ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // Custom Navigation Bar
-                    customNavigationBar
+            TimelineFeedContent()
+        }
+        .onAppear {
+            initializeIfNeeded()
+            setupMessageUpdateListener()
 
-                    // Feed Content (solo Timeline, sin tabs)
-                    TimelineFeedContent()
-                }
+            // Setup story service
+            storyService.authService = authService
+
+            // Load stories feed
+            Task {
+                await storyService.fetchStoriesFeed()
             }
-            .navigationBarHidden(true)
-            .onAppear {
-                initializeIfNeeded()
-                setupMessageUpdateListener()
-
-                // Setup story service
-                storyService.authService = authService
-                print("📲 DEBUG: StoryService authService configured")
-
-                // Load stories feed
-                Task {
-                    print("📲 DEBUG: Fetching stories feed...")
-                    await storyService.fetchStoriesFeed()
-                    print("📲 DEBUG: Stories feed loaded - Count: \(storyService.feedStories.count)")
-
-                    if !storyService.feedStories.isEmpty {
-                        print("📲 DEBUG: First story user: \(storyService.feedStories[0].userName)")
-                        print("📲 DEBUG: First story count: \(storyService.feedStories[0].stories.count)")
-                    } else {
-                        print("⚠️ DEBUG: No stories in feed!")
-                    }
-                }
+        }
+        .onDisappear {
+            if let observer = messageUpdateObserver {
+                NotificationCenter.default.removeObserver(observer)
+                messageUpdateObserver = nil
             }
-            .onDisappear {
-                if let observer = messageUpdateObserver {
-                    NotificationCenter.default.removeObserver(observer)
-                    messageUpdateObserver = nil
-                }
-                if conversations.count > 30 {
-                    conversations = Array(conversations.prefix(30))
-                }
-            }
-            .navigationDestination(isPresented: $showMessagesPage) {
-                messagesPageView
+            if conversations.count > 30 {
+                conversations = Array(conversations.prefix(30))
             }
         }
         .fullScreenCover(isPresented: $showCreatePost) {
@@ -134,10 +112,6 @@ struct FeedTabsView: View {
             userSelectorSheet
         }
         .fullScreenCover(item: $selectedStoryGroup) { userGroup in
-            let _ = print("🎭 DEBUG: fullScreenCover triggered for user: \(userGroup.userName)")
-            let _ = print("🎭 DEBUG: Stories count: \(userGroup.stories.count)")
-            let _ = print("🎭 DEBUG: All stories owners count: \(storyService.feedStories.count)")
-
             let initialIndex = storyService.feedStories.firstIndex { $0.userId == userGroup.userId } ?? 0
 
             StoryViewerContainer(
@@ -154,9 +128,6 @@ struct FeedTabsView: View {
                 .environmentObject(storyService)
                 .environmentObject(authService)
                 .environmentObject(themeManager)
-                .onAppear {
-                    print("DEBUG:🎬 StoryCreatorView appeared from FeedTabs")
-                }
         }
     }
 
@@ -1155,40 +1126,14 @@ struct MinimalFeedContent: View {
 
     private var postsScrollView: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 0) {
-                // Stories Bar con fade al hacer scroll
-                InstagramStoriesBar()
-                    .frame(height: 110)
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-                    .environmentObject(storyService)
-                    .environmentObject(authService)
-                    .environmentObject(themeManager)
-                    .environmentObject(profileService)
-                    .opacity(storiesOpacity)
-                    .animation(.easeOut(duration: 0.2), value: storiesOpacity)
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear
-                                .preference(
-                                    key: ScrollOffsetPreferenceKey.self,
-                                    value: geometry.frame(in: .named("scroll")).minY
-                                )
-                        }
-                    )
-                    .onAppear {
-                        print("📊 DEBUG: InstagramStoriesBar apareció en feed")
-                        print("📊 DEBUG: Feed stories count: \(storyService.feedStories.count)")
-                        print("📊 DEBUG: Stories opacity: \(storiesOpacity)")
-                    }
-
+            LazyVStack(spacing: 20) {
                 ForEach(viewModel.posts) { post in
                     PostCard(post: post) { deletedPostId in
-                        // Eliminar el post del feed con animación
                         withAnimation(.easeOut(duration: 0.3)) {
                             viewModel.removePost(deletedPostId)
                         }
                     }
+                    .padding(.horizontal, 16)
                     .onAppear {
                         if post.id == viewModel.posts.last?.id {
                             loadMoreIfNeeded()
@@ -1205,6 +1150,12 @@ struct MinimalFeedContent: View {
                             .padding(.vertical, 20)
                         Spacer()
                     }
+                }
+
+                // End marker
+                if !viewModel.posts.isEmpty && !viewModel.isLoadingMore {
+                    FeedEndMarker()
+                        .environmentObject(themeManager)
                 }
             }
         }

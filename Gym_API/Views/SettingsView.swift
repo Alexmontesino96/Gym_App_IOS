@@ -22,7 +22,7 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 Color.dynamicBackground(theme: themeManager.currentTheme)
                     .ignoresSafeArea()
@@ -184,7 +184,7 @@ struct UserInfoHeader: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-                Text(profile.email ?? "Sin email")
+                Text(profile.email ?? "No email")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 

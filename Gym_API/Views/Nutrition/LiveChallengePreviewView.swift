@@ -107,9 +107,9 @@ struct LiveChallengePreviewView: View {
         } message: {
             Text(errorMessage)
         }
-        .alert("Unirse al Challenge", isPresented: $showConfirmation) {
-            Button("Cancelar", role: .cancel) { }
-            Button("Unirme") {
+        .alert("Join the challenge", isPresented: $showConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Join") {
                 Task { await joinChallenge() }
             }
         } message: {
@@ -339,7 +339,7 @@ struct LiveChallengePreviewView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 24))
                             .foregroundColor(.green)
-                        Text("Inscrito")
+                        Text("Enrolled")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.green)
                     }

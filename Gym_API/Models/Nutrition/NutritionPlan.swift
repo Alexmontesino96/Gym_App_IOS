@@ -24,9 +24,9 @@ enum NutritionGoal: String, Codable {
 
     var displayName: String {
         switch self {
-        case .weightLoss: return "Pérdida de Peso"
-        case .muscleGain: return "Ganancia Muscular"
-        case .maintenance: return "Mantenimiento"
+        case .weightLoss: return "Weight loss"
+        case .muscleGain: return "Muscle gain"
+        case .maintenance: return "Maintenance"
         case .bulk: return "Volumen"
         case .cut: return "Definición"
         case .performance: return "Rendimiento"
@@ -154,6 +154,26 @@ struct NutritionPlan: Codable, Identifiable {
     // Timestamps
     let createdAt: Date
     let updatedAt: Date?
+
+    // MARK: - Seguridad
+
+    /// Plan que el servidor considera restrictivo y no deja seguir sin un cuestionario médico.
+    ///
+    /// Replica exactamente el predicado de `app/api/v1/endpoints/nutrition.py:567-573`. Se duplica
+    /// a propósito: el backend no expone la marca, y sin ella la app ofrecía planes que al
+    /// pulsarlos devolvían 403 con un cuestionario que ningún cliente puede crear todavía. Es
+    /// decir, planes imposibles de seguir presentados como si se pudiera.
+    ///
+    /// Si algún día el servidor devuelve la marca calculada, esto se borra y se lee de ahí.
+    var isRestrictive: Bool {
+        if let calories = targetCalories, calories < 1500 { return true }
+        if goal == .weightLoss { return true }
+        let lowered = title.lowercased()
+        return lowered.contains("pérdida")
+            || lowered.contains("perdida")
+            || lowered.contains("weight loss")
+            || lowered.contains("detox")
+    }
 
     enum CodingKeys: String, CodingKey {
         case id

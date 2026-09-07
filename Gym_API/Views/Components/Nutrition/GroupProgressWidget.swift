@@ -15,11 +15,11 @@ struct GroupProgressWidget: View {
             // Header con título y emoji motivacional
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Tu Gym en el Desafío")
+                    Text("Your gym in the challenge")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-                    Text("Día \(groupStats.currentDay)")
+                    Text("Day \(groupStats.currentDay)")
                         .font(.system(size: 13))
                         .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 }
@@ -120,7 +120,7 @@ struct GroupProgressWidget: View {
                     .background(Color.dynamicTextSecondary(theme: themeManager.currentTheme).opacity(0.3))
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Desglose por Comida")
+                    Text("Breakdown by meal")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
@@ -247,7 +247,7 @@ struct MealCompletionRow: View {
             .frame(height: 6)
 
             // Users count
-            Text("\(mealCompletion.usersCompleted) de \(mealCompletion.totalUsersWithMeal) usuarios")
+            Text("\(mealCompletion.usersCompleted) of \(mealCompletion.totalUsersWithMeal) people")
                 .font(.system(size: 11))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }

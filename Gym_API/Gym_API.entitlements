@@ -2,15 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  Notificaciones push. Es la única capacidad que el producto usa de verdad: el cliente se
+	  entera por aquí de que su entrenador le ha escrito.
+
+	  Exige el Apple Developer Program de pago. Un equipo personal no puede firmar con esto.
+
+	  OJO antes de subir: 'development' apunta al entorno de pruebas de APNs. Xcode lo resuelve a
+	  'production' al archivar con un perfil de distribución, pero conviene comprobarlo en el
+	  archivo generado, porque si llega así las notificaciones no funcionan en producción.
+	-->
 	<key>aps-environment</key>
 	<string>development</string>
-	<key>com.apple.developer.associated-domains</key>
-	<array>
-		<string>applinks:app.gymapi.com</string>
-	</array>
-	<key>com.apple.developer.in-app-payments</key>
-	<array>
-		<string>merchant.gym</string>
-	</array>
+
+	<!--
+	  Retiradas dos capacidades que estaban declaradas y no se usaban:
+
+	  ASSOCIATED DOMAINS (applinks:app.gymapi.com). No hay ni un `onOpenURL` ni un `userActivity`
+	  en todo el proyecto, así que el enlace de invitación nunca abrió la app: caía al navegador.
+	  Vuelve cuando exista quien lo consuma Y el dominio sirva el fichero de asociación.
+
+	  APPLE PAY (com.apple.developer.in-app-payments con 'merchant.gym'). El identificador tiene
+	  pinta de marcador de posición, en Debug la lista de comerciantes estaba vacía, y un
+	  entitlement cuya capacidad no está dada de alta rompe la firma antes de llegar a revisión.
+	  Los pagos con tarjeta por Stripe siguen funcionando sin esto.
+	-->
 </dict>
 </plist>

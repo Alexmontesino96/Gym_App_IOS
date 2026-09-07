@@ -1,219 +1,255 @@
-//
-//  SplashView.swift
-//  Gym_API
-//
-//  Created by Assistant on 8/3/25.
-//
-//  Splash screen mejorado con animaciones fluidas y transición suave al onboarding
-
 import SwiftUI
+
+// MARK: - Splash View (Prototype V1 "Saludo")
+/// Pantalla de carga con saludo personal, frases amigables rotando, y loading bar sutil
 
 struct SplashView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var onboardingManager: OnboardingManager
-    @State private var logoScale: CGFloat = 0.3
-    @State private var logoOpacity: Double = 0.0
-    @State private var titleOffset: CGFloat = 50
-    @State private var titleOpacity: Double = 0.0
-    @State private var progressValue: Double = 0.0
-    @State private var showProgressText: Bool = false
-    @State private var gradientPhase: Double = 0.0
-    
+    @StateObject private var profileService = UserProfileService.shared
+
+    // Animation states
+    @State private var avatarScale: CGFloat = 0.3
+    @State private var avatarOpacity: Double = 0
+    @State private var greetingOpacity: Double = 0
+    @State private var greetingOffset: CGFloat = 20
+    @State private var nameOpacity: Double = 0
+    @State private var nameOffset: CGFloat = 20
+    @State private var phraseIndex = 0
+    @State private var phraseOpacity: Double = 0
+    @State private var loadingOpacity: Double = 0
+    @State private var haloScale: CGFloat = 0.8
+    @State private var haloOpacity: Double = 0
+
+    private let accentColor = Color(hex: "#D4FF3F")!
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 { return "Buenos días," }
+        if hour < 19 { return "Buenas tardes," }
+        return "Buenas noches,"
+    }
+
+    private var userName: String {
+        if let profile = profileService.userProfile {
+            return profile.firstName
+        }
+        return "Alex"
+    }
+
+    private var userInitial: String {
+        String(userName.prefix(1)).uppercased()
+    }
+
+    private let phrases = [
+        "Preparando tu experiencia",
+        "Cargando tus datos",
+        "Tu cuerpo está listo",
+        "Hoy es un buen día para moverte",
+        "Casi listo...",
+    ]
+
     var body: some View {
         ZStack {
-            // Animated gradient background
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.dynamicBackground(theme: themeManager.currentTheme),
-                    Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.2),
-                    Color.dynamicBackground(theme: themeManager.currentTheme)
-                ]),
-                startPoint: UnitPoint(x: 0.5 + 0.3 * cos(gradientPhase), 
-                                    y: 0.5 + 0.3 * sin(gradientPhase)),
-                endPoint: UnitPoint(x: 0.5 - 0.3 * cos(gradientPhase), 
-                                  y: 0.5 - 0.3 * sin(gradientPhase))
-            )
-            .ignoresSafeArea()
-            .onAppear {
-                withAnimation(.linear(duration: 8.0).repeatForever(autoreverses: false)) {
-                    gradientPhase = 2 * .pi
-                }
-            }
-            
-            VStack(spacing: 40) {
+            // Background
+            Color.dynamicBackground(theme: themeManager.currentTheme)
+                .ignoresSafeArea()
+
+            // Halo radial suave
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [accentColor.opacity(0.22), .clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 260
+                    )
+                )
+                .frame(width: 520, height: 520)
+                .scaleEffect(haloScale)
+                .opacity(haloOpacity)
+                .blur(radius: 40)
+                .offset(y: -120)
+
+            // Main content
+            VStack(spacing: 0) {
                 Spacer()
-                
-                // Logo and brand section
-                VStack(spacing: 24) {
-                    // Animated logo
+
+                // Avatar
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "#FF5A1F")!, Color(hex: "#A78BFA")!],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 96, height: 96)
+                    .overlay(
+                        Text(userInitial)
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+                    .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
+                    .scaleEffect(avatarScale)
+                    .opacity(avatarOpacity)
+                    .padding(.bottom, 28)
+
+                // Greeting
+                Text(greeting)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                    .opacity(greetingOpacity)
+                    .offset(y: greetingOffset)
+                    .padding(.bottom, 6)
+
+                // Name
+                Text(userName)
+                    .font(.system(size: 44, weight: .bold))
+                    .tracking(-1.8)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .opacity(nameOpacity)
+                    .offset(y: nameOffset)
+                    .padding(.bottom, 28)
+
+                // Rotating phrase pill
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 6, height: 6)
+
+                    Text(phrases[phraseIndex])
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+                .opacity(phraseOpacity)
+                .id("phrase_\(phraseIndex)")
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .top).combined(with: .opacity)
+                ))
+
+                Spacer()
+
+                // Loading bar at bottom
+                VStack(spacing: 12) {
+                    // Sliding bar
                     ZStack {
-                        // Pulsing background circle
-                        Circle()
-                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.1))
-                            .frame(width: 160, height: 160)
-                            .scaleEffect(logoScale * 1.2)
-                            .opacity(logoOpacity * 0.5)
-                        
-                        // Main logo icon
-                        Image(systemName: "dumbbell.fill")
-                            .font(.system(size: 60, weight: .bold))
-                            .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
-                            .scaleEffect(logoScale)
-                            .opacity(logoOpacity)
-                            .shadow(color: Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.3), 
-                                   radius: 20, x: 0, y: 0)
+                        RoundedRectangle(cornerRadius: 100)
+                            .fill(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.08))
+                            .frame(width: 56, height: 3)
+
+                        SlidingLoadingBar(color: accentColor)
+                            .frame(width: 56, height: 3)
+                            .clipShape(RoundedRectangle(cornerRadius: 100))
                     }
-                    
-                    // App title
-                    VStack(spacing: 8) {
-                        Text("GYM API")
-                            .font(.system(size: 42, weight: .bold, design: .default))
-                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            .offset(y: titleOffset)
-                            .opacity(titleOpacity)
-                        
-                        Text("Your Fitness Journey Starts Here")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            .offset(y: titleOffset)
-                            .opacity(titleOpacity * 0.8)
-                    }
+
+                    Text("Preparando tu día")
+                        .font(.system(size: 11, weight: .medium))
+                        .tracking(0.3)
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.35))
                 }
-                
-                Spacer()
-                
-                // Loading section
-                VStack(spacing: 20) {
-                    // Progress indicator
-                    VStack(spacing: 12) {
-                        // Custom progress bar
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.dynamicSurface(theme: themeManager.currentTheme))
-                                .frame(height: 6)
-                            
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
-                                .frame(width: 200 * progressValue, height: 6)
-                                .animation(.easeInOut(duration: 0.3), value: progressValue)
-                        }
-                        .frame(width: 200)
-                        .opacity(showProgressText ? 1.0 : 0.0)
-                        
-                        // Loading text
-                        Text(getLoadingText())
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
-                            .opacity(showProgressText ? 1.0 : 0.0)
-                            .animation(.easeInOut(duration: 0.5), value: showProgressText)
-                    }
-                }
-                .padding(.bottom, 80)
+                .opacity(loadingOpacity)
+                .padding(.bottom, 56)
             }
         }
         .onAppear {
-            startSplashAnimation()
+            startAnimations()
         }
     }
-    
-    // MARK: - Animation Logic
-    
-    private func startSplashAnimation() {
-        // Versión optimizada sin delays artificiales
 
-        // Phase 1: Logo animation (0-0.5 seconds)
-        withAnimation(.easeOut(duration: 0.5)) {
-            logoScale = 1.0
-            logoOpacity = 1.0
+    // MARK: - Animations
+
+    private func startAnimations() {
+        // Phase 1: Halo glow
+        withAnimation(.easeOut(duration: 1.0)) {
+            haloScale = 1.0
+            haloOpacity = 1.0
         }
 
-        // Phase 2: Title animation (0.2-0.7 seconds)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.easeOut(duration: 0.5)) {
-                titleOffset = 0
-                titleOpacity = 1.0
+        // Phase 2: Avatar pop
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.6).delay(0.05)) {
+            avatarScale = 1.0
+            avatarOpacity = 1.0
+        }
+
+        // Phase 3: Greeting
+        withAnimation(.easeOut(duration: 0.5).delay(0.15)) {
+            greetingOpacity = 1.0
+            greetingOffset = 0
+        }
+
+        // Phase 4: Name
+        withAnimation(.easeOut(duration: 0.5).delay(0.22)) {
+            nameOpacity = 1.0
+            nameOffset = 0
+        }
+
+        // Phase 5: Phrase pill
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                phraseOpacity = 1.0
             }
         }
 
-        // Phase 3: Show loading indicator (0.5 seconds)
+        // Phase 6: Loading bar
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation(.easeInOut(duration: 0.3)) {
-                showProgressText = true
-                progressValue = 0.5
+                loadingOpacity = 1.0
             }
         }
 
-        // Phase 4: Complete rápidamente (1.0 segundo total)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                progressValue = 1.0
+        // Phase 7: Rotate phrases
+        startPhraseRotation()
+
+        // Phase 8: Complete after ~2.5s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            onboardingManager.nextStep()
+        }
+    }
+
+    private func startPhraseRotation() {
+        Timer.scheduledTimer(withTimeInterval: 1.8, repeats: true) { timer in
+            withAnimation(.easeInOut(duration: 0.35)) {
+                phraseIndex = (phraseIndex + 1) % phrases.count
+            }
+
+            // Stop rotating after splash ends
+            if phraseIndex >= phrases.count - 1 {
+                timer.invalidate()
             }
         }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            completeOnboarding()
-        }
-    }
-    
-    private func getLoadingText() -> String {
-        if progressValue < 0.5 {
-            return "Cargando..."
-        } else {
-            return "Casi listo..."
-        }
-    }
-    
-    private func completeOnboarding() {
-        // Mark splash as viewed and continue to next step
-        onboardingManager.nextStep()
     }
 }
 
-// MARK: - Animated Components
+// MARK: - Sliding Loading Bar
 
-struct PulsingCircle: View {
-    @State private var isPulsing = false
+private struct SlidingLoadingBar: View {
     let color: Color
-    let size: CGFloat
-    
-    var body: some View {
-        Circle()
-            .fill(color.opacity(0.1))
-            .frame(width: size, height: size)
-            .scaleEffect(isPulsing ? 1.3 : 1.0)
-            .opacity(isPulsing ? 0.0 : 1.0)
-            .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false), value: isPulsing)
-            .onAppear {
-                isPulsing = true
-            }
-    }
-}
+    @State private var offset: CGFloat = -1.0
 
-struct SplashFloatingParticle: View {
-    @State private var offset: CGSize = .zero
-    @State private var opacity: Double = 0.0
-    let color: Color
-    let delay: Double
-    
     var body: some View {
-        Circle()
-            .fill(color.opacity(0.3))
-            .frame(width: 4, height: 4)
-            .offset(offset)
-            .opacity(opacity)
-            .onAppear {
-                withAnimation(
-                    .easeInOut(duration: 3.0)
-                    .delay(delay)
-                    .repeatForever(autoreverses: true)
-                ) {
-                    offset = CGSize(
-                        width: Double.random(in: -50...50),
-                        height: Double.random(in: -100...100)
-                    )
-                    opacity = 1.0
+        GeometryReader { geo in
+            RoundedRectangle(cornerRadius: 100)
+                .fill(color)
+                .frame(width: geo.size.width * 0.4)
+                .offset(x: geo.size.width * offset)
+                .onAppear {
+                    withAnimation(
+                        .easeInOut(duration: 1.6)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        offset = 1.5
+                    }
                 }
-            }
+        }
     }
 }
 

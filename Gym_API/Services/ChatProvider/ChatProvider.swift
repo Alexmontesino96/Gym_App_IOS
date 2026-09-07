@@ -40,6 +40,42 @@ protocol ChatProvider: AnyObject {
     // MARK: - Push Notifications
     func registerForPushNotifications(token: String) async throws
     func unregisterFromPushNotifications() async throws
+
+    // MARK: - Moderación
+    //
+    // La App Store exige, para una app con contenido de otras personas, poder denunciar contenido
+    // ofensivo y bloquear a quien abusa (guía 1.2). El chat es la única superficie de contenido
+    // ajeno que le queda al cliente de un entrenador personal, así que es aquí donde se cumple.
+    //
+    // Va en el protocolo y no con un cast al proveedor de Stream porque hay una segunda
+    // implementación viva en la fábrica.
+    func flagMessage(_ messageId: String, in conversationId: String) async throws
+    func flagUser(_ userId: String) async throws
+    func blockUser(_ userId: String) async throws
+    func unblockUser(_ userId: String) async throws
+    /// Identificadores que el usuario ha bloqueado. La lista se usa para filtrar mensajes en la
+    /// interfaz: el SDK de Stream la guarda pero NO filtra por ella en los canales de grupo.
+    var blockedUserIds: Set<String> { get }
+}
+
+// MARK: - Moderación: comportamiento por defecto
+//
+// Un proveedor que no sepa moderar falla en voz alta en vez de tragarse la acción en silencio,
+// que es lo que dejaría al usuario creyendo que ha denunciado algo.
+extension ChatProvider {
+    func flagMessage(_ messageId: String, in conversationId: String) async throws {
+        throw ChatProviderError.moderationUnsupported
+    }
+    func flagUser(_ userId: String) async throws {
+        throw ChatProviderError.moderationUnsupported
+    }
+    func blockUser(_ userId: String) async throws {
+        throw ChatProviderError.moderationUnsupported
+    }
+    func unblockUser(_ userId: String) async throws {
+        throw ChatProviderError.moderationUnsupported
+    }
+    var blockedUserIds: Set<String> { [] }
 }
 
 // MARK: - Chat Provider State
@@ -326,6 +362,7 @@ enum ChatProviderError: LocalizedError {
     case messageNotFound
     case conversationNotFound
     case unauthorized
+    case moderationUnsupported
     case networkError(Error)
     case unknown(Error)
     
@@ -333,6 +370,8 @@ enum ChatProviderError: LocalizedError {
         switch self {
         case .notInitialized:
             return "Chat provider not initialized"
+        case .moderationUnsupported:
+            return "This chat provider cannot report or block"
         case .invalidCredentials:
             return "Invalid chat credentials"
         case .connectionFailed:

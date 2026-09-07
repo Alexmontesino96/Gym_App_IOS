@@ -331,7 +331,7 @@ struct PlanCarousel: View {
                 Spacer()
 
                 if plans.count > 2 {
-                    Text("Ver todos")
+                    Text("See all")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
                 }
@@ -364,7 +364,7 @@ struct PlanCarousel: View {
                 .foregroundColor(.white)
 
             // Sample cards would be shown here with real data
-            Text("Las tarjetas de planes se mostraran aqui con datos reales del API")
+            Text("Plan cards render here with real data")
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
                 .padding()

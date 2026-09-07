@@ -14,6 +14,8 @@ struct PostCard: View {
     @State private var showDeleteConfirmation = false  // Delete confirmation
     @State private var showReportSheet = false     // Report sheet
     @State private var isDeleting = false          // Delete loading state
+    @State private var resolvedSessionTitle: String?   // Loaded from cache
+    @State private var resolvedEventTitle: String?     // Loaded from cache
 
     /// Callback para notificar cuando un post ha sido eliminado
     var onPostDeleted: ((Int) -> Void)?
@@ -29,94 +31,135 @@ struct PostCard: View {
             .environmentObject(postService)) {
             VStack(alignment: .leading, spacing: 0) {
 
-                // Header (usuario + ubicación + opciones)
+                // Header
                 headerView
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 12)
 
-                // Media gallery (imágenes/videos) - altura dinámica basada en aspect ratio
+                // Media with overlays (tags, gallery counter, workout, double-tap heart)
                 if !post.media.isEmpty {
-                    PostMediaGallery(mediaItems: post.media, theme: themeManager.currentTheme)
-                        .onTapGesture(count: 2) {
-                            handleDoubleTapLike()
-                        }
-                        .overlay(
-                            // Double-tap like heart animation (Instagram style)
-                            Group {
-                                if showDoubleTapHeart {
-                                    Image(systemName: "heart.fill")
-                                        .font(.system(size: 100))
-                                        .foregroundColor(.white)
-                                        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 0)
-                                        .scaleEffect(heartScale)
-                                        .opacity(showDoubleTapHeart ? 1 : 0)
-                                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: heartScale)
+                    ZStack {
+                        PostMediaGallery(mediaItems: post.media, theme: themeManager.currentTheme)
+
+                        // Tagged session/event badge (top-left overlay on media)
+                        if post.tags.contains(where: { $0.tagType == .session }) {
+                            VStack {
+                                HStack {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "calendar")
+                                            .font(.system(size: 11, weight: .semibold))
+                                        Text(resolvedSessionTitle ?? "Sesión")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .lineLimit(1)
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.ultraThinMaterial.opacity(0.8))
+                                    .background(Color.black.opacity(0.5))
+                                    .clipShape(Capsule())
+                                    Spacer()
                                 }
+                                Spacer()
                             }
-                        )
+                            .padding(12)
+                        } else if post.tags.contains(where: { $0.tagType == .event }) {
+                            VStack {
+                                HStack {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "ticket.fill")
+                                            .font(.system(size: 11, weight: .semibold))
+                                        Text(resolvedEventTitle ?? "Evento")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .lineLimit(1)
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.ultraThinMaterial.opacity(0.8))
+                                    .background(Color.black.opacity(0.5))
+                                    .clipShape(Capsule())
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .padding(12)
+                        }
+
+                        // Gallery counter badge (top-right)
+                        if post.media.count > 1 {
+                            VStack {
+                                HStack {
+                                    Spacer()
+                                    Text("1/\(post.media.count)")
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(Color.black.opacity(0.65))
+                                        .clipShape(Capsule())
+                                }
+                                Spacer()
+                            }
+                            .padding(12)
+                        }
+
+                        // Double-tap heart animation (88px like prototype)
+                        if showDoubleTapHeart {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 88))
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.3), radius: 10)
+                                .scaleEffect(heartScale)
+                                .opacity(showDoubleTapHeart ? 1 : 0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: heartScale)
+                        }
+                    }
+                    .onTapGesture(count: 2) {
+                        handleDoubleTapLike()
+                    }
                 }
 
-                // Activity Cards (sesión/evento etiquetado) - contexto del contenido, edge-to-edge
-                if let sessionTag = post.tags.first(where: { $0.tagType == .session }) {
-                    SessionPillContainer(sessionTag: sessionTag)
-                        .environmentObject(themeManager)
-                        .padding(.top, 10)
-                }
-
-                if let eventTag = post.tags.first(where: { $0.tagType == .event }) {
-                    EventPillContainer(eventTag: eventTag)
-                        .environmentObject(themeManager)
-                        .padding(.top, hasTags(session: true) ? 0 : 10)
-                }
-
-                // Botones de acción (like, comment, share)
+                // Actions
                 actionButtonsView
-                    .padding(.horizontal, 16)
-                    .padding(.top, hasAnyTag ? 10 : 14)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
 
-                // Contador de likes
+                // Likes
                 if post.likeCount > 0 {
                     likesCountView
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 4)
                 }
 
                 // Caption
                 if let caption = post.caption, !caption.isEmpty {
                     captionView
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 14)
                         .padding(.top, 4)
                 }
 
-                // Botón "ver comentarios" si hay comentarios
+                // Comments link
                 if post.commentCount > 0 {
                     viewCommentsButton
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 14)
                         .padding(.top, 6)
                 }
 
-                // Ubicación
-                if let location = post.location, !location.isEmpty {
-                    locationView
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
-                }
-
-                // Tiempo transcurrido
+                // Timestamp
                 timeView
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
-
-                // Divider inferior
-                Divider()
-                    .background(Color.gray.opacity(0.3))
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 14)
             }
-            .background(Color.dynamicBackground(theme: themeManager.currentTheme))
-            .cornerRadius(0) // Sin bordes redondeados para mantener estilo Instagram
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
-        .padding(.bottom, 8)
         .sheet(isPresented: $showLikesSheet) {
             PostLikesListView(postId: post.id, initialLikeCount: post.likeCount)
                 .environmentObject(themeManager)
@@ -148,50 +191,130 @@ struct PostCard: View {
                     )
             }
         }
+        .onAppear {
+            loadTagTitles()
+        }
+    }
+
+    // MARK: - Load Tag Titles from Cache
+
+    private func loadTagTitles() {
+        // Session tag
+        if let sessionTag = post.tags.first(where: { $0.tagType == .session }) {
+            if let title = sessionTag.taggedSession?.title {
+                resolvedSessionTitle = title
+            } else {
+                Task { @MainActor in
+                    if let session = await SessionCacheService.shared.getSession(id: sessionTag.tagId) {
+                        resolvedSessionTitle = session.className
+                    }
+                }
+            }
+        }
+        // Event tag
+        if let eventTag = post.tags.first(where: { $0.tagType == .event }) {
+            if let title = eventTag.taggedEvent?.title {
+                resolvedEventTitle = title
+            } else {
+                Task { @MainActor in
+                    if let event = await EventCacheService.shared.getEvent(id: eventTag.tagId) {
+                        resolvedEventTitle = event.title
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Header View
 
+    private var isVerified: Bool {
+        let role = post.user.role.uppercased()
+        return role == "TRAINER" || role == "OWNER" || role == "MANAGER" || role == "SUPER_ADMIN"
+    }
+
+    private var roleLabel: String? {
+        let role = post.user.role.uppercased()
+        switch role {
+        case "TRAINER": return "COACH"
+        case "OWNER": return "OWNER"
+        case "MANAGER": return "MANAGER"
+        case "SUPER_ADMIN": return "ADMIN"
+        default: return nil
+        }
+    }
+
     private var headerView: some View {
-        HStack(spacing: 12) {
-            // Avatar del usuario con caché
-            CachedAsyncImage(url: post.user.profilePictureUrl) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Circle()
-                    .fill(Color.gray.opacity(0.3))
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .foregroundColor(.gray)
-                    )
+        HStack(spacing: 10) {
+            // Avatar con verified badge
+            ZStack(alignment: .bottomTrailing) {
+                CachedAsyncImage(url: post.user.profilePictureUrl) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Circle()
+                        .fill(Color.gray.opacity(0.3))
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .foregroundColor(.gray)
+                        )
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(Circle())
+
+                // Verified badge
+                if isVerified {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundColor(Color.accentInk)
+                        .frame(width: 14, height: 14)
+                        .background(Color(hex: "#D4FF3F")!)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 2))
+                        .offset(x: 2, y: 2)
+                }
             }
-            .frame(width: 32, height: 32)
-            .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(post.user.fullName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-                if let location = post.location {
-                    Text(location)
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
+                // Name + role badge
+                HStack(spacing: 6) {
+                    Text(post.user.fullName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .lineLimit(1)
+
+                    if let role = roleLabel {
+                        Text(role)
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.3)
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.6))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+                }
+
+                // Location
+                if let location = post.location, !location.isEmpty {
+                    HStack(spacing: 3) {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 10))
+                        Text(location)
+                            .lineLimit(1)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
                 }
             }
 
             Spacer()
 
-            // Botón de opciones
-            Button(action: {
-                showOptionsMenu = true
-            }) {
+            // Options button
+            Button(action: { showOptionsMenu = true }) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 20))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
                     .frame(width: 24, height: 24)
             }
             .confirmationDialog("Opciones", isPresented: $showOptionsMenu, titleVisibility: .hidden) {
@@ -253,61 +376,75 @@ struct PostCard: View {
 
     // MARK: - Action Buttons View
 
+    @State private var isSaved = false
+
     private var actionButtonsView: some View {
-        HStack(spacing: 16) {
-            // Botón de like
+        HStack(spacing: 14) {
+            // Like
             Button(action: {
-                Task {
-                    await toggleLike()
-                }
+                Task { await toggleLike() }
             }) {
-                HStack(spacing: 6) {
-                    Image(systemName: post.hasLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 24))
-                        .foregroundColor(post.hasLiked ? .red : Color.dynamicText(theme: themeManager.currentTheme))
-                        .symbolEffect(.bounce, value: post.hasLiked)
-                }
+                Image(systemName: post.hasLiked ? "heart.fill" : "heart")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundColor(post.hasLiked ? Color(hex: "#FF3B5C")! : Color.dynamicText(theme: themeManager.currentTheme))
+                    .symbolEffect(.bounce, value: post.hasLiked)
             }
             .disabled(isLiking)
 
-            // Botón de comentar (navegación al detalle)
+            // Comment
             Image(systemName: "bubble.right")
-                .font(.system(size: 24))
+                .font(.system(size: 22, weight: .regular))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-            // Botón de compartir
-            Button(action: {
-                // TODO: Implementar compartir
-            }) {
+            // Share
+            Button(action: {}) {
                 Image(systemName: "paperplane")
-                    .font(.system(size: 24))
+                    .font(.system(size: 22, weight: .regular))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
             }
 
             Spacer()
 
-            // Indicador de galería
-            if post.media.count > 1 {
-                Text("1/\(post.media.count)")
+            // Save/Bookmark
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.2)) { isSaved.toggle() }
+                HapticManager.shared.buttonTap()
+            }) {
+                Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            }
+        }
+        .padding(.bottom, 6)
+    }
+
+    // MARK: - Likes Count View (with avatar stack)
+
+    private let likeAvatarColors: [Color] = [
+        Color(hex: "#FF5A1F")!,
+        Color(hex: "#A78BFA")!,
+    ]
+
+    private var likesCountView: some View {
+        Button(action: { showLikesSheet = true }) {
+            HStack(spacing: 6) {
+                // Mini avatar stack (always show 2 decorative avatars)
+                HStack(spacing: -5) {
+                    ForEach(0..<2, id: \.self) { i in
+                        Circle()
+                            .fill(likeAvatarColors[i % likeAvatarColors.count])
+                            .frame(width: 18, height: 18)
+                            .overlay(Circle().stroke(Color.dynamicSurface(theme: themeManager.currentTheme), lineWidth: 2))
+                    }
+                }
+
+                Text(likesText)
                     .font(.system(size: 12))
-                    .foregroundColor(.gray)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7))
             }
         }
     }
 
-    // MARK: - Likes Count View
-
-    private var likesCountView: some View {
-        Button(action: {
-            showLikesSheet = true
-        }) {
-            Text(likesText)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-        }
-    }
-
-    /// Texto de likes con pluralización correcta en español
     private var likesText: String {
         if post.likeCount == 1 {
             return "1 me gusta"
@@ -318,44 +455,39 @@ struct PostCard: View {
 
     // MARK: - Caption View
 
-    private var captionView: some View {
-        HStack(alignment: .top, spacing: 4) {
-            // Username en negrita
-            Text(post.user.fullName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-
-            // Caption texto
-            Text(post.caption ?? "")
-                .font(.system(size: 14))
-                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                .lineLimit(3)
-
-            Spacer()
-        }
+    private var captionUsername: String {
+        let firstName = post.user.fullName.split(separator: " ").first ?? Substring(post.user.fullName)
+        return firstName.lowercased()
     }
 
-    // MARK: - Location View
+    private var captionView: some View {
+        Text(captionAttributed)
+            .font(.system(size: 13))
+            .lineSpacing(3)
+            .lineLimit(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-    private var locationView: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "location.fill")
-                .font(.system(size: 10))
-            Text(post.location ?? "")
-                .font(.system(size: 12))
-        }
-        .foregroundColor(.gray)
+    private var captionAttributed: AttributedString {
+        var username = AttributedString(captionUsername)
+        username.font = .system(size: 13, weight: .semibold)
+        username.foregroundColor = Color.dynamicText(theme: themeManager.currentTheme)
+
+        var caption = AttributedString(" " + (post.caption ?? ""))
+        caption.font = .system(size: 13)
+        caption.foregroundColor = Color.dynamicText(theme: themeManager.currentTheme).opacity(0.7)
+
+        return username + caption
     }
 
     // MARK: - View Comments Button
 
     private var viewCommentsButton: some View {
         Text(commentsText)
-            .font(.system(size: 14))
-            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+            .font(.system(size: 12))
+            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.45))
     }
 
-    /// Texto de comentarios con pluralización correcta en español (estilo Instagram)
     private var commentsText: String {
         if post.commentCount == 1 {
             return "Ver el comentario"
@@ -368,8 +500,9 @@ struct PostCard: View {
 
     private var timeView: some View {
         Text(post.relativeTime.uppercased())
-            .font(.system(size: 10))
-            .foregroundColor(.gray)
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .tracking(0.4)
+            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.3))
     }
 
     // MARK: - Tag Helpers
@@ -534,14 +667,24 @@ struct ReportPostSheet: View {
 
         var displayName: String {
             switch self {
-            case .spam: return "Es spam"
-            case .harassment: return "Acoso o bullying"
-            case .hateSpeech: return "Discurso de odio"
-            case .violence: return "Violencia"
-            case .nudity: return "Desnudez o actividad sexual"
-            case .falseInfo: return "Información falsa"
-            case .other: return "Otro"
+            case .spam: return "Spam"
+            case .harassment: return "Harassment or bullying"
+            case .hateSpeech: return "Hate speech"
+            case .violence: return "Violence"
+            case .nudity: return "Nudity or sexual activity"
+            case .falseInfo: return "False information"
+            case .other: return "Something else"
             }
+        }
+
+        /// Valor que entiende el servidor.
+        ///
+        /// El enum del backend (app/models/post_interaction.py:14-22) no tiene «nudity», así que
+        /// enviarlo tal cual devolvía 422 y la denuncia se perdía. Y es justo el motivo que un
+        /// revisor de App Review prueba primero. Se mapea al cajón que sí existe, y el motivo
+        /// exacto viaja en la descripción para que quien revise lo vea.
+        var wireValue: String {
+            self == .nudity ? "inappropriate" : rawValue
         }
     }
 
@@ -690,6 +833,15 @@ struct ReportPostSheet: View {
         .padding()
     }
 
+    private static func reportDescription(reason: ReportReason, details: String) -> String? {
+        let trimmed = details.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard reason.wireValue != reason.rawValue else {
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        let prefix = "Reported as: \(reason.displayName)"
+        return trimmed.isEmpty ? prefix : "\(prefix). \(trimmed)"
+    }
+
     private func submitReport() async {
         guard let reason = selectedReason else { return }
 
@@ -698,8 +850,10 @@ struct ReportPostSheet: View {
         do {
             try await postService.reportPost(
                 postId: postId,
-                reason: reason.rawValue,
-                description: additionalDetails.isEmpty ? nil : additionalDetails
+                reason: reason.wireValue,
+                // Cuando el motivo se ha tenido que mapear, el original va aquí para que quien
+                // revise la denuncia no pierda la información.
+                description: Self.reportDescription(reason: reason, details: additionalDetails)
             )
 
             // Haptic feedback de éxito

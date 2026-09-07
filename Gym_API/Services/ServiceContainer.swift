@@ -33,6 +33,10 @@ class ServiceContainer: ObservableObject {
     let unreadCountService = UnreadCountService.shared // Singleton for unread message tracking
     let chatManagementService = ChatManagementService.shared // Singleton for chat management (hide, leave, delete)
     let nutritionService = NutritionService.shared // Singleton for nutrition plans and meal tracking
+    let coachingService = CoachingService.shared // Singleton: resuelve el entrenador del cliente
+    let healthService = HealthService.shared // Singleton: mediciones corporales y objetivos
+    let invitationService = InvitationService.shared // Singleton: alta de clientes por invitación
+    let accountService = AccountService.shared // Singleton: borrado de la propia cuenta
 
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -118,6 +122,10 @@ class ServiceContainer: ObservableObject {
         activityService.authService = authService
         attendanceService.authService = authService
         nutritionService.configure(authService: authService, gymService: gymService)
+        coachingService.configure(authService: authService, gymService: gymService)
+        healthService.configure(authService: authService, gymService: gymService)
+        invitationService.configure(authService: authService, gymService: gymService)
+        accountService.configure(authService: authService)
 
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
@@ -356,6 +364,13 @@ class ServiceContainer: ObservableObject {
         eventService.clearEventsOnLogout()
         storyService.clearCache()
 
+        // El contexto de workspace también es del gym anterior. Sin esto, al cambiar de un
+        // espacio de entrenador personal a un gimnasio tradicional la app seguiría creyendo
+        // que es un workspace de entrenador y montaría la raíz equivocada hasta reiniciar.
+        workspaceContextService.clearContext()
+        coachingService.clearData()
+        healthService.clearData()
+
         // ✅ NUEVO: Inicializar ChatProvider cuando se selecciona gym
         // (solo si el usuario está autenticado)
         if authService.isAuthenticated {
@@ -369,10 +384,19 @@ class ServiceContainer: ObservableObject {
             async let storiesTask = storyService.fetchStoriesFeed()
             async let eventsTask = eventService.fetchEvents()
             async let sessionsTask = classService.loadSessionsForDateIfNeeded(date: Date())
+            // El contexto decide qué raíz monta la app, así que se recarga con el resto
+            async let contextTask = workspaceContextService.fetchContext(forceRefresh: true)
+            // Coach y métricas son por gimnasio: se limpiaron arriba, así que hay que repoblarlos
+            // o el cliente vería sus tarjetas vacías hasta cambiar de pestaña.
+            async let coachTask: Void = coachingService.loadCoach(forceRefresh: true)
+            async let healthTask: Void = healthService.loadAll()
 
             await storiesTask
             await eventsTask
             await sessionsTask
+            await contextTask
+            await coachTask
+            await healthTask
 
             await MainActor.run {
                 print("✅ Datos del gym \(gymId) precargados:")
@@ -439,6 +463,12 @@ class ServiceContainer: ObservableObject {
 
         // Clear nutrition data
         nutritionService.clearData()
+
+        // Clear coaching data (cliente de entrenador personal)
+        coachingService.clearData()
+        healthService.clearData()
+        invitationService.clearData()
+        accountService.clearData()
 
         print("✅ Datos de usuario limpiados")
     }
@@ -513,6 +543,10 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.postService)
             .environmentObject(serviceContainer.attendanceService)
             .environmentObject(serviceContainer.nutritionService)
+            .environmentObject(serviceContainer.coachingService)
+            .environmentObject(serviceContainer.healthService)
+            .environmentObject(serviceContainer.invitationService)
+            .environmentObject(serviceContainer.accountService)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

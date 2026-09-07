@@ -60,10 +60,13 @@ struct WorkspaceInfo: Codable {
         type = try container.decode(String.self, forKey: .type)
         // isPersonalTrainer es opcional - default false si no viene
         isPersonalTrainer = try container.decodeIfPresent(Bool.self, forKey: .isPersonalTrainer) ?? false
-        displayName = try container.decode(String.self, forKey: .displayName)
-        entityLabel = try container.decode(String.self, forKey: .entityLabel)
-        timezone = try container.decode(String.self, forKey: .timezone)
-        email = try container.decode(String.self, forKey: .email)
+        // Tolerantes a propósito: el contexto decide qué raíz monta la app, así que un campo
+        // secundario ausente o nulo no puede tumbar la decodificación entera y dejar al usuario
+        // en la pantalla equivocada. `type` e `is_personal_trainer` sí siguen siendo obligatorios.
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? name
+        entityLabel = try container.decodeIfPresent(String.self, forKey: .entityLabel) ?? ""
+        timezone = try container.decodeIfPresent(String.self, forKey: .timezone) ?? TimeZone.current.identifier
+        email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
         phone = try container.decodeIfPresent(String.self, forKey: .phone)
         address = try container.decodeIfPresent(String.self, forKey: .address)
         maxClients = try container.decodeIfPresent(Int.self, forKey: .maxClients)

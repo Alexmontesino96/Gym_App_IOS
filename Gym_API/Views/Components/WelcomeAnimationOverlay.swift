@@ -98,7 +98,7 @@ struct WelcomeAnimationOverlay: View {
                         .scaleEffect(showWave ? 1 : 0.5)
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("¡Hola, \(userName)!")
+                        Text("Hi, \(userName)!")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                         
@@ -155,7 +155,7 @@ struct WelcomeAnimationOverlay: View {
                                     .font(.system(size: 36, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
 
-                                Text("días")
+                                Text("days")
                                     .font(.system(size: 20))
                                     .foregroundColor(.white.opacity(0.8))
                             }
@@ -187,11 +187,11 @@ struct WelcomeAnimationOverlay: View {
                             .font(.system(size: 40))
                             .scaleEffect(fireScale)
 
-                        Text("¡Comienza tu racha!")
+                        Text("Start your streak")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
 
-                        Text("Reserva tu primera clase y empieza a acumular días")
+                        Text("Book your first session and start stacking days")
                             .font(.system(size: 14))
                             .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)

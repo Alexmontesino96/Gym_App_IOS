@@ -29,7 +29,7 @@ struct TodayMealPlanView: View {
             }
         }
         .background(Color.dynamicBackground(theme: themeManager.currentTheme))
-        .navigationTitle("Plan del Dia")
+        .navigationTitle("Today's plan")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable {
             await refreshData()
@@ -141,11 +141,11 @@ struct TodayMealPlanView: View {
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     } else if status == .notStarted {
-                        Text("\(plan.durationDays) dias")
+                        Text("\(plan.durationDays) days")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                     } else {
-                        Text("Completado")
+                        Text("Done")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.green)
                     }
@@ -202,7 +202,7 @@ struct TodayMealPlanView: View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Text("Tu Progreso Hoy")
+                Text("Your progress today")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
@@ -212,7 +212,7 @@ struct TodayMealPlanView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 14))
-                        Text("Completado")
+                        Text("Done")
                             .font(.system(size: 12, weight: .semibold))
                     }
                     .foregroundColor(.green)
@@ -232,7 +232,7 @@ struct TodayMealPlanView: View {
                     .environmentObject(themeManager)
             } else {
                 // No progress data available
-                Text("Cargando progreso...")
+                Text("Loading progress…")
                     .font(.system(size: 14))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .padding(.vertical, 20)
@@ -286,7 +286,7 @@ struct TodayMealPlanView: View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Text("Comidas del Dia")
+                Text("Meals today")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
@@ -316,7 +316,7 @@ struct TodayMealPlanView: View {
                 .scaleEffect(1.2)
                 .tint(Color.dynamicAccent(theme: themeManager.currentTheme))
 
-            Text("Cargando plan del dia...")
+            Text("Loading today's plan…")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
         }
@@ -348,7 +348,7 @@ struct TodayMealPlanView: View {
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
             // Description
-            Text("Explora planes de nutricion y unete a un challenge para comenzar tu transformacion")
+            Text("Browse the plans your coach has published and join one")
                 .font(.system(size: 15))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 .multilineTextAlignment(.center)
@@ -363,7 +363,7 @@ struct TodayMealPlanView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .semibold))
-                    Text("Explorar Planes")
+                    Text("Explore plans")
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .foregroundColor(.white)
@@ -392,9 +392,24 @@ struct TodayMealPlanView: View {
     }
 
     private func loadDataIfNeeded() {
+        print("[TodayMealPlan] Vista abierta - todayPlan existe: \(nutritionService.todayPlan != nil)")
         if nutritionService.todayPlan == nil {
+            print("[TodayMealPlan] No hay plan de hoy cargado, solicitando al servicio...")
             Task {
                 await nutritionService.getTodayPlan()
+                if let plan = nutritionService.todayPlan {
+                    print("[TodayMealPlan] Plan cargado - status: \(plan.status), dia: \(plan.currentDay), comidas: \(plan.meals.count)")
+                    for meal in plan.meals.sorted() {
+                        print("[TodayMealPlan] Comida cargada - id: \(meal.id), tipo: \(meal.mealType.rawValue), nombre: \(meal.name), calorias: \(meal.calories), completada: \(meal.isCompleted)")
+                    }
+                } else {
+                    print("[TodayMealPlan] No se pudo cargar plan de hoy")
+                }
+            }
+        } else if let plan = nutritionService.todayPlan {
+            print("[TodayMealPlan] Plan ya cargado - status: \(plan.status), dia: \(plan.currentDay), comidas: \(plan.meals.count)")
+            for meal in plan.meals.sorted() {
+                print("[TodayMealPlan] Comida disponible - id: \(meal.id), tipo: \(meal.mealType.rawValue), nombre: \(meal.name), calorias: \(meal.calories), completada: \(meal.isCompleted)")
             }
         }
     }

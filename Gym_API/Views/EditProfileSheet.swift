@@ -11,23 +11,38 @@ struct EditProfileSheet: View {
     @State private var bio: String = ""
     @Environment(\.dismiss) private var dismiss
 
+    /// El servidor guarda centímetros y kilos; esto solo decide cómo se enseñan.
+    private let heightUnit = HeightUnit.preferred
+    private let weightUnit = WeightUnit.preferred
+
+    /// La rueda de peso sigue recorriendo kilos, que es lo que se guarda, y muestra la
+    /// equivalencia en la unidad de quien mira. Así no hace falta convertir al guardar.
+    private func weightLabel(kilograms: Int) -> String {
+        let shown = weightUnit.fromKilograms(Double(kilograms))
+        return "\(NumberFormat.decimal(shown, digits: 0)) \(weightUnit.symbol)"
+    }
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
-                Section(header: Text(NSLocalizedString("edit_profile", comment: "Edit Profile"))) {
+                Section(header: Text("Edit Profile")) {
                     TextField("First name", text: $firstName)
                     TextField("Last name", text: $lastName)
                     TextField("Bio", text: $bio, axis: .vertical)
                 }
 
-                Section(header: Text("Measurements (metric)")) {
+                // Las etiquetas venían de NSLocalizedString con es.lproj como única tabla:
+                // en un teléfono en inglés no había recurso que resolver y la sección
+                // mostraba las claves crudas ("height", "weight"). Y las unidades eran
+                // métricas fijas, que no le dicen nada a quien piensa en libras y pies.
+                Section(header: Text(heightUnit.sectionTitle)) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(NSLocalizedString("height", comment: "Height"))
+                        Text("Height")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                         Picker("Height", selection: $heightValue) {
-                            ForEach(100...220, id: \.self) { v in
-                                Text("\(v) cm").tag(v)
+                            ForEach(heightUnit.selectableCentimeters, id: \.self) { centimeters in
+                                Text(heightUnit.label(centimeters: centimeters)).tag(centimeters)
                             }
                         }
                         .pickerStyle(.wheel)
@@ -35,12 +50,12 @@ struct EditProfileSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(NSLocalizedString("weight", comment: "Weight"))
+                        Text("Weight")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                         Picker("Weight", selection: $weightValue) {
-                            ForEach(30...200, id: \.self) { v in
-                                Text("\(v) kg").tag(v)
+                            ForEach(30...200, id: \.self) { kilograms in
+                                Text(weightLabel(kilograms: kilograms)).tag(kilograms)
                             }
                         }
                         .pickerStyle(.wheel)
@@ -55,7 +70,7 @@ struct EditProfileSheet: View {
                     }
                 }
             }
-            .navigationTitle(NSLocalizedString("edit_profile", comment: "Edit Profile"))
+            .navigationTitle("Edit Profile")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

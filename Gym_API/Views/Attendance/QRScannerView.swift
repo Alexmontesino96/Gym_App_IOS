@@ -95,7 +95,7 @@ struct QRScannerView: View {
 
                 // Instrucciones
                 VStack(spacing: 16) {
-                    Text("Escanea el código QR del miembro")
+                    Text("Scan the member's QR code")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
 
@@ -183,18 +183,18 @@ struct QRScannerView: View {
                 .font(.system(size: 60))
                 .foregroundColor(.gray)
 
-            Text("Permiso de Cámara Requerido")
+            Text("Camera access needed")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
-            Text("Necesitamos acceso a tu cámara para escanear códigos QR. Por favor, habilita el permiso en Configuración.")
+            Text("Scanning QR codes needs the camera. Turn it on in Settings.")
                 .font(.system(size: 15))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
             Button(action: openSettings) {
-                Text("Abrir Configuración")
+                Text("Open Settings")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 30)

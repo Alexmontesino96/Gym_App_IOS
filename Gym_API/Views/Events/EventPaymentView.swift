@@ -199,7 +199,8 @@ struct EventPaymentView: View {
                     clientSecret: paymentIntent.clientSecret,
                     merchantDisplayName: "Gym App",
                     stripeAccountId: paymentIntent.stripeAccountId,
-                    applePay: true
+                    // Sin entitlement de Apple Pay no se puede pedir. Ver StripeService.
+                    applePay: false
                 )
 
                 await MainActor.run {

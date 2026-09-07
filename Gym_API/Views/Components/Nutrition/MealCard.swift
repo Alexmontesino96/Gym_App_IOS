@@ -340,7 +340,7 @@ struct MealListSection: View {
             // Sample meals would be shown here
             // In real usage, these would come from the API
 
-            Text("Las tarjetas de comida se mostraran aqui con datos reales del API")
+            Text("Meal cards render here with real data")
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
                 .padding()

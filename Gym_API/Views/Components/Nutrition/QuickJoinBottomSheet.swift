@@ -191,7 +191,7 @@ struct QuickJoinBottomSheet: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("QUÉ INCLUYE")
+                Text("WHAT YOU GET")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                     .tracking(1)
@@ -278,7 +278,7 @@ struct QuickJoinBottomSheet: View {
                 onViewDetails()
             }) {
                 HStack(spacing: 6) {
-                    Text("Ver detalles completos")
+                    Text("See full details")
                         .font(.system(size: 15, weight: .medium))
 
                     Image(systemName: "arrow.right")

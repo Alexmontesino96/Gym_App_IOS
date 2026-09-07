@@ -12,7 +12,10 @@ struct TrainerDashboardView: View {
     @EnvironmentObject var authService: AuthServiceDirect
     @EnvironmentObject var themeManager: ThemeManager
 
-    @State private var showingAllAppointments = false
+    /// Navegación de pestañas, que la posee TrainerMainTabView.
+    var onGoToClients: () -> Void = {}
+    var onGoToMessages: () -> Void = {}
+
     @State private var isRefreshing = false
 
     var body: some View {
@@ -106,13 +109,17 @@ struct TrainerDashboardView: View {
             GridItem(.flexible())
         ], spacing: 16) {
             // Active Clients
+            // Sin plan contratado no hay tope, así que no se pinta ni «of N max» ni barra de
+            // progreso: una barra sobre un límite inexistente es un dato inventado.
             StatCard(
                 title: workspaceContext.getCapitalizedTerm("clients"),
                 value: "\(metrics.activeClients)",
-                subtitle: "of \(metrics.maxClients) max",
+                subtitle: metrics.maxClients.map { "of \($0) max" } ?? "active",
                 icon: "person.2.fill",
-                color: metrics.capacityPercentage >= 90 ? Color.orange : Color.blue,
-                progress: metrics.capacityPercentage / 100,
+                color: metrics.maxClients != nil && metrics.capacityPercentage >= 90
+                    ? Color.orange
+                    : Color.blue,
+                progress: metrics.maxClients != nil ? metrics.capacityPercentage / 100 : nil,
                 theme: themeManager.currentTheme
             )
 
@@ -126,25 +133,22 @@ struct TrainerDashboardView: View {
                 theme: themeManager.currentTheme
             )
 
-            // Client Retention
-            StatCard(
-                title: "Retention",
-                value: "\(Int(metrics.clientRetentionRate))%",
-                subtitle: "client retention",
-                icon: "heart.circle.fill",
-                color: Color.orange,
-                theme: themeManager.currentTheme
-            )
-
-            // Revenue
-            StatCard(
-                title: "Revenue",
-                value: formatCurrency(metrics.revenueThisMonth),
-                subtitle: "this month",
-                icon: "dollarsign.circle.fill",
-                color: Color.purple,
-                theme: themeManager.currentTheme
-            )
+            // Retención e ingresos: RETIRADOS a propósito.
+            // El backend los devolvía escritos a fuego (95 % y 45.000) con un TODO, y aquí se
+            // pintaban como si fueran del entrenador. Volverán cuando se calculen de verdad.
+            // Mientras tanto se muestra la ocupación, que sí sale de datos reales, y SOLO cuando
+            // hay un tope contra el que medirla.
+            if metrics.maxClients != nil {
+                StatCard(
+                    title: "Capacity",
+                    value: "\(Int(metrics.capacityPercentage.rounded()))%",
+                    subtitle: "of your client slots",
+                    icon: "gauge.medium",
+                    color: metrics.capacityPercentage >= 90 ? Color.warningYellow : Color.successGreen,
+                    progress: min(metrics.capacityPercentage / 100, 1),
+                    theme: themeManager.currentTheme
+                )
+            }
         }
     }
 
@@ -180,33 +184,17 @@ struct TrainerDashboardView: View {
                 GridItem(.flexible()),
                 GridItem(.flexible())
             ], spacing: 12) {
-                QuickActionButton(
-                    title: "New \(workspaceContext.getCapitalizedTerm("session"))",
-                    icon: "plus.circle.fill",
-                    color: Color.blue,
-                    theme: themeManager.currentTheme
-                ) {
-                    // TODO: Navigate to new session creation
-                }
-
+                // Antes había cuatro botones y tres no llevaban a ninguna parte: dos con el
+                // cuerpo vacío y un TODO, y el de agenda a una pantalla sin backend. Un botón
+                // inerte en la pantalla de aterrizaje del producto es peor que no tenerlo.
+                // Se conservan solo los que navegan de verdad.
                 QuickActionButton(
                     title: "View \(workspaceContext.getCapitalizedTerm("clients"))",
                     icon: "person.2.fill",
                     color: Color.green,
                     theme: themeManager.currentTheme
                 ) {
-                    // TODO: Navigate to clients list
-                }
-
-                if workspaceContext.isFeatureEnabled(\.showAppointments) {
-                    QuickActionButton(
-                        title: "Schedule",
-                        icon: "calendar",
-                        color: Color.orange,
-                        theme: themeManager.currentTheme
-                    ) {
-                        showingAllAppointments = true
-                    }
+                    onGoToClients()
                 }
 
                 QuickActionButton(
@@ -215,7 +203,7 @@ struct TrainerDashboardView: View {
                     color: Color.purple,
                     theme: themeManager.currentTheme
                 ) {
-                    // TODO: Navigate to messages
+                    onGoToMessages()
                 }
             }
         }
@@ -231,42 +219,34 @@ struct TrainerDashboardView: View {
                     .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
 
                 Spacer()
-
-                Button(action: {
-                    showingAllAppointments = true
-                }) {
-                    Text("View All")
-                        .font(.subheadline)
-                        .foregroundColor(themeManager.currentTheme == .dark ?
-                            Color(red: 0.85, green: 0.2, blue: 0.2) :
-                            Color(red: 61.0/255.0, green: 190.0/255.0, blue: 208.0/255.0))
-                }
+                // "Ver todo" llevaba a AppointmentsView, que también está sobre datos de
+                // ejemplo. Se oculta hasta que exista el módulo de sesiones.
             }
             .padding(.horizontal, 4)
 
-            // Placeholder for appointments
-            VStack(spacing: 12) {
-                AppointmentRow(
-                    time: "10:00 AM",
-                    clientName: "Sample Client 1",
-                    sessionType: "Personal Training",
-                    theme: themeManager.currentTheme
-                )
-
-                AppointmentRow(
-                    time: "2:00 PM",
-                    clientName: "Sample Client 2",
-                    sessionType: "Consultation",
-                    theme: themeManager.currentTheme
-                )
-
-                AppointmentRow(
-                    time: "4:00 PM",
-                    clientName: "Sample Client 3",
-                    sessionType: "Follow-up",
-                    theme: themeManager.currentTheme
-                )
+            // Sin datos de ejemplo: el módulo de sesiones 1:1 no existe todavía, así que aquí
+            // se declara el estado real en vez de enseñar tres clientes inventados, que es lo
+            // que había antes y llegaría al entrenador tal cual en el producto publicado.
+            HStack(spacing: 10) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+                Text("You cannot schedule sessions from the app yet.")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
             }
+            .padding(14)
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                    )
+            )
         }
     }
 
@@ -284,7 +264,7 @@ struct TrainerDashboardView: View {
                 HStack {
                     Image(systemName: "clock.fill")
                         .foregroundColor(.secondary)
-                    Text("Activity feed will appear here")
+                    Text("Your clients' activity will show up here.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -312,15 +292,6 @@ struct TrainerDashboardView: View {
         isRefreshing = false
     }
 
-    // MARK: - Helpers
-
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0"
-    }
 }
 
 // MARK: - Stat Card Component
@@ -407,48 +378,6 @@ struct QuickActionButton: View {
     }
 }
 
-// MARK: - Appointment Row Component
-
-struct AppointmentRow: View {
-    let time: String
-    let clientName: String
-    let sessionType: String
-    let theme: ThemeManager.AppTheme
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(time)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
-            }
-            .frame(width: 70, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(clientName)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(Color.dynamicText(theme: theme))
-
-                Text(sessionType)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.dynamicSurface(theme: theme))
-        )
-    }
-}
 
 // MARK: - Note: ActivityRow component already exists in RecentActivitySection.swift
 // Using placeholder for Recent Activity section until connected to actual data

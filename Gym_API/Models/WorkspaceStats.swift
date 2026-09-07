@@ -55,12 +55,22 @@ enum MetricsContainer: Codable {
 /// Métricas específicas para entrenadores personales
 struct TrainerMetrics: Codable {
     let activeClients: Int
-    let maxClients: Int
+    /// Plazas del plan contratado, o nil si el espacio no tiene tope.
+    ///
+    /// Tiene que ser opcional: el servidor devuelve `null` mientras `gyms.max_clients` no lo
+    /// escriba el cobro de plataforma, y hoy no lo escribe nadie. Declararlo como `Int` hacía
+    /// fallar el decode de TODA la respuesta, así que el panel del entrenador se quedaba
+    /// colgado en «Loading your stats…» para siempre.
+    let maxClients: Int?
+    /// Porcentaje de ocupación. Solo significa algo cuando `maxClients` no es nil: sin tope el
+    /// servidor manda 0.0, que no es una ocupación del 0 %, es «no aplica».
     let capacityPercentage: Double
     let sessionsThisWeek: Int
     let avgSessionsPerClient: Double
-    let clientRetentionRate: Double
-    let revenueThisMonth: Double
+    /// Retirados del payload del backend: devolvían constantes escritas a fuego con un TODO.
+    /// Se mantienen como opcionales para poder volver a pintarlos cuando se calculen de verdad.
+    let clientRetentionRate: Double?
+    let revenueThisMonth: Double?
 
     enum CodingKeys: String, CodingKey {
         case activeClients = "active_clients"
