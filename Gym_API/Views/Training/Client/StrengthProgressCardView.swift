@@ -202,7 +202,7 @@ struct StrengthProgressCardView: View {
     private func recordText(_ record: TrainingTopRecord) -> String {
         var parts: [String] = []
         if let weight = record.weightKg, let reps = record.reps {
-            parts.append("\(Celebration.number(unit.fromKilograms(weight))) × \(reps)")
+            parts.append("\(Celebration.number(unit.loadValue(kilograms: weight))) × \(reps)")
         } else if let reps = record.reps {
             parts.append("\(reps) reps")
         }

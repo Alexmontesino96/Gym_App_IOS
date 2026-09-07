@@ -239,7 +239,7 @@ struct ExerciseHistoryView: View {
 
     private func bestSetRow(_ set: TrainingSetLog) -> some View {
         HStack(spacing: 12) {
-            Text("\(Celebration.number(unit.fromKilograms(set.weightKg ?? 0))) × \(set.reps)")
+            Text("\(Celebration.number(unit.loadValue(kilograms: set.weightKg ?? 0))) × \(set.reps)")
                 .font(TrainingType.monoM())
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicText(theme: theme))
@@ -349,7 +349,7 @@ struct ExerciseHistoryView: View {
         session.sets
             .map { set in
                 guard let weight = set.weightKg else { return "\(set.reps)" }
-                return "\(Celebration.number(unit.fromKilograms(weight)))×\(set.reps)"
+                return "\(Celebration.number(unit.loadValue(kilograms: weight)))×\(set.reps)"
             }
             .joined(separator: "   ")
     }

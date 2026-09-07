@@ -109,6 +109,19 @@ class ServiceContainer: ObservableObject {
     
     /// Configura automáticamente las dependencias entre servicios
     private func setupDependencies() {
+        #if DEBUG
+        // La galería de revisión visual solo necesita el módulo de entrenamiento. Arrancar el
+        // resto (chat, contadores, push) en una app sin sesión pinta el diálogo de permiso de
+        // notificaciones del sistema encima de cada captura y ensucia la revisión.
+        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+            trainingService.configure(authService: authService, gymService: gymService)
+            HTTPClient.shared.authService = authService
+            isInitialized = true
+            print("🖼️ Modo galería: solo las dependencias del módulo de entrenamiento")
+            return
+        }
+        #endif
+
         // Configure AuthService dependencies for all services that need it
         membershipService.authService = authService
         gymService.authService = authService
@@ -134,8 +147,16 @@ class ServiceContainer: ObservableObject {
         // El coordinador se engancha a la red aquí; el monitor lo arranca la app al aparecer.
         trainingSyncCoordinator.configure(trainingService: trainingService, networkMonitor: networkMonitor)
         // La categoría con la acción «Add 30s» tiene que existir antes de programar el primer
-        // descanso; registrarla no pide ningún permiso.
+        // descanso. En la galería de revisión no se registra: tocar el centro de notificaciones
+        // con el SDK de push enlazado hace que el sistema pinte el diálogo de permiso encima de
+        // cada captura.
+        #if DEBUG
+        if TrainingGalleryScenario.fromLaunchArguments() == nil {
+            restTimerNotifier.registerCategory()
+        }
+        #else
         restTimerNotifier.registerCategory()
+        #endif
 
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
@@ -292,6 +313,16 @@ class ServiceContainer: ObservableObject {
     
     /// Configura observadores para cambios en el estado de autenticación
     private func setupObservers() {
+        #if DEBUG
+        // La galería de revisión visual arranca sin sesión a propósito. Sin esta salida, el
+        // observador de autenticación vería `isAuthenticated == false`, llamaría a
+        // `clearUserData()` y borraría los fixtures justo después de pintarlos.
+        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+            print("🖼️ Modo galería: observadores de sesión desactivados")
+            return
+        }
+        #endif
+
         // Observe authentication state changes
         authService.$isAuthenticated
             .sink { [weak self] isAuthenticated in

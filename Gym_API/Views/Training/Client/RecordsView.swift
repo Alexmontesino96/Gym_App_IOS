@@ -222,7 +222,7 @@ private struct RecordRow: View {
             if let reps = record.bestReps { return "\(reps) reps" }
             return NumberFormat.placeholder
         }
-        return "\(Celebration.number(unit.fromKilograms(weight))) × \(reps)"
+        return "\(Celebration.number(unit.loadValue(kilograms: weight))) × \(reps)"
     }
 
     private var deltaText: String {

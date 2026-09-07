@@ -248,19 +248,19 @@ enum TrainingFormat {
 
     /// «Tue, Sep 2»
     static func shortDate(_ date: Date) -> String {
-        let formatter = DateFormatter.localized(template: "EEEShortdMMM")
+        let formatter = DateFormatter.localized(template: "EEEdMMM")
         return formatter.string(from: date)
     }
 
     /// «Thursday, Sep 12»
     static func longDate(_ date: Date) -> String {
-        let formatter = DateFormatter.localized(template: "EEEEdMMM")
+        let formatter = DateFormatter.localized(template: "EEEEMMMd")
         return formatter.string(from: date)
     }
 
     /// «Sep 2»
     static func dayMonth(_ date: Date) -> String {
-        let formatter = DateFormatter.localized(template: "dMMM")
+        let formatter = DateFormatter.localized(template: "MMMd")
         return formatter.string(from: date)
     }
 

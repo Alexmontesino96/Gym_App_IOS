@@ -6,10 +6,25 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 @main
 struct Gym_APIApp: App {
     let serviceContainer = ServiceContainer.shared
+
+    init() {
+        #if DEBUG
+        // La galería de revisión toma capturas sin que nadie toque la pantalla, y el SDK de push
+        // pide el permiso de notificaciones en el arranque: el diálogo del sistema saldría encima
+        // de cada captura. Pedir autorización PROVISIONAL no abre ningún diálogo y deja el estado
+        // fuera de `notDetermined`, que es lo que dispara el prompt.
+        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+            UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert, .sound, .badge, .provisional]
+            ) { _, _ in }
+        }
+        #endif
+    }
     
     // Temporalmente comentado - usando AuthUser en lugar de User de SwiftData
     // para evitar error "failed to find a currently active container for User"
@@ -35,6 +50,16 @@ struct Gym_APIApp: App {
                 .trainingMotionEnvironment(forced: forcedReduceMotion)
                 .preferredColorScheme(serviceContainer.themeManager.currentTheme == .dark ? .dark : .light)
                 .onAppear {
+                    #if DEBUG
+                    // En la galería de revisión no hay sesión ni permisos que pedir: arrancar
+                    // OneSignal pintaría el diálogo del sistema encima de cada captura, y
+                    // `checkAuthStatus()` limpiaría los fixtures al no encontrar credenciales.
+                    if TrainingGalleryScenario.fromLaunchArguments() != nil {
+                        AppEnvironment.validateConfiguration()
+                        return
+                    }
+                    #endif
+
                     // Deja escrito en la consola contra qué backend habla la app. En DEBUG avisa
                     // además si `API_BASE_URL_OVERRIDE` está apuntando a otro sitio: un override
                     // olvidado explica media hora de depuración.
