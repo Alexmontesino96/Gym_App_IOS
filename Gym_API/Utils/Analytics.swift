@@ -63,14 +63,14 @@ enum Analytics {
     /// `@MainActor` porque hoy la salida es `Logger`, que lo es. Las vistas y los servicios del
     /// módulo ya viven ahí, así que ninguna llamada necesita `await`.
     @MainActor
-    static func track(_ event: String, _ props: [String: Any] = [:]) {
+    static func track(_ event: String, _ props: [String: any Sendable] = [:]) {
         send(event, props)
     }
 
     // MARK: - Salida actual
 
     @MainActor
-    private static func send(_ event: String, _ props: [String: Any]) {
+    private static func send(_ event: String, _ props: [String: any Sendable]) {
         guard !props.isEmpty else {
             Logger.shared.info(event, category: .analytics)
             return
@@ -79,7 +79,7 @@ enum Analytics {
     }
 
     /// Orden estable de las claves: dos registros del mismo evento se comparan a ojo.
-    private static func describe(_ props: [String: Any]) -> String {
+    private static func describe(_ props: [String: any Sendable]) -> String {
         let pairs = props.keys.sorted().map { key -> String in
             "\(key)=\(props[key].map { "\($0)" } ?? "nil")"
         }

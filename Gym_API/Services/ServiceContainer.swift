@@ -380,10 +380,6 @@ class ServiceContainer: ObservableObject {
         workspaceContextService.clearContext()
         coachingService.clearData()
         healthService.clearData()
-        // Lo que quede sin sincronizar es trabajo real del gimnasio anterior: se manda antes de
-        // limpiar, nunca se tira.
-        trainingSyncCoordinator.flushBeforeGymChange()
-        trainingService.clearData()
 
         // ✅ NUEVO: Inicializar ChatProvider cuando se selecciona gym
         // (solo si el usuario está autenticado)
@@ -395,6 +391,12 @@ class ServiceContainer: ObservableObject {
 
         // Precargar datos del nuevo gym
         Task {
+            // Primero, lo que quede sin sincronizar del gimnasio anterior. Se espera a
+            // propósito: cada entrada lleva su propio `gym_id`, pero enviarlas antes de repoblar
+            // evita que el envío compita con la precarga. Nunca se tira nada.
+            await trainingSyncCoordinator.flushBeforeGymChange()
+            trainingService.clearData()
+
             async let storiesTask = storyService.fetchStoriesFeed()
             async let eventsTask = eventService.fetchEvents()
             async let sessionsTask = classService.loadSessionsForDateIfNeeded(date: Date())
@@ -488,8 +490,9 @@ class ServiceContainer: ObservableObject {
         invitationService.clearData()
         accountService.clearData()
 
-        // Entrenamiento: datos, cola de escrituras pendientes y unidad de peso. Todo es de la
-        // persona que cierra sesión, no del dispositivo.
+        // Entrenamiento: se apaga lo que hay en memoria y se olvida la unidad de peso, que es
+        // de la persona y no del dispositivo. El OUTBOX NO SE TOCA: los entrenos que todavía no
+        // han llegado al servidor son de quien sale y siguen en su carpeta hasta que vuelva.
         trainingService.clearData()
         trainingSyncCoordinator.clearData()
         WeightUnitPreference.clear()

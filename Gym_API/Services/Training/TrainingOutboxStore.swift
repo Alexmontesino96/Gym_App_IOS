@@ -9,10 +9,17 @@
 //  cuando se pueda. Perder un entreno registrado es inaceptable: es media hora de la vida de
 //  alguien y la razón por la que paga.
 //
-//  Formato: un fichero JSON por registro, `Application Support/TrainingOutbox/{client_uuid}.json`.
-//  Un fichero por sesión y no una base de datos porque una escritura atómica de un fichero es la
-//  operación más difícil de corromper que existe, y porque el fichero se puede abrir y leer a
-//  ojo cuando algo va mal.
+//  Formato: un fichero JSON por registro, en
+//  `Application Support/TrainingOutbox/{user_id}/{client_uuid}.json`.
+//
+//  **Una carpeta por usuario.** Dos cuentas en el mismo teléfono no se pisan, y cerrar sesión no
+//  puede llevarse por delante los entrenos pendientes de quien sale: se quedan en su carpeta y
+//  se envían cuando vuelva a entrar. El único borrado masivo es el de `AccountService`, cuando
+//  la persona borra su cuenta de verdad.
+//
+//  El manejo de ficheros vive en `OutboxFileStore`, dentro de `TrainingCore`, para poder probarlo
+//  contra un directorio temporal. Esto es el envoltorio: decide la raíz, aplica la protección de
+//  datos de iOS y registra en el log.
 //
 //  Es un `actor`: escribir en disco no puede pasar por el hilo principal mientras alguien está
 //  marcando series a un toque por segundo.
@@ -26,136 +33,148 @@ actor TrainingOutboxStore {
     // MARK: - Singleton
     static let shared = TrainingOutboxStore()
 
-    // MARK: - Ubicación
-
-    private let fileManager = FileManager.default
+    // MARK: - Disco
 
     /// `Application Support/TrainingOutbox`. Application Support y no Caches a propósito: el
     /// sistema puede vaciar Caches cuando le falta espacio, y ahí vive trabajo sin sincronizar.
-    private lazy var directory: URL? = {
-        guard let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            Self.logError("Outbox: no hay Application Support")
-            return nil
-        }
-        let url = base.appendingPathComponent("TrainingOutbox", isDirectory: true)
-        if !fileManager.fileExists(atPath: url.path) {
-            do {
-                try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
-            } catch {
-                Self.logError("Outbox: no se pudo crear la carpeta: \(error)")
-                return nil
-            }
-        }
-        return url
-    }()
+    ///
+    /// Protección hasta el primer desbloqueo: una serie se puede marcar con la pantalla
+    /// bloqueada, y `.complete` haría fallar la escritura justo entonces.
+    private let files: OutboxFileStore?
 
-    private init() {}
+    private init() {
+        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            Self.logError("Outbox: no hay Application Support")
+            files = nil
+            return
+        }
+        files = OutboxFileStore(
+            root: base.appendingPathComponent("TrainingOutbox", isDirectory: true),
+            writingOptions: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
+        )
+    }
 
     // MARK: - Escritura
 
     /// Guarda el estado completo de una sesión. Si ya había una entrada con ese `client_uuid`
     /// se reemplaza el cuerpo y se conserva el historial de intentos: la entrada es la sesión,
     /// no cada serie suelta.
+    ///
+    /// `gymId` y `userId` se fijan al crearla y no cambian: son a qué espacio y a quién
+    /// pertenece el entreno, y el envío depende de ellos.
     @discardableResult
-    func upsert(_ payload: WorkoutLogSyncRequest, at date: Date = Date()) -> OutboxEntry? {
+    func upsert(
+        _ payload: WorkoutLogSyncRequest,
+        gymId: Int,
+        userId: Int,
+        at date: Date = Date()
+    ) -> OutboxEntry? {
+        guard let files else { return nil }
         var entry: OutboxEntry
-        if var existing = load(payload.clientUUID) {
+        if var existing = load(payload.clientUUID, userId: userId) {
             existing.update(payload: payload, at: date)
             entry = existing
         } else {
-            entry = OutboxEntry(payload: payload, createdAt: date)
+            entry = OutboxEntry(payload: payload, gymId: gymId, userId: userId, createdAt: date)
         }
-        return write(entry) ? entry : nil
+        guard files.write(entry) else {
+            Self.logError("Outbox: no se pudo guardar \(entry.id)")
+            return nil
+        }
+        return entry
     }
 
-    /// Anota un intento fallido para que la política de reintento sepa cuándo volver.
-    func recordAttempt(_ id: UUID, at date: Date = Date(), error: String?) {
-        guard var entry = load(id) else { return }
-        entry.recordAttempt(at: date, error: error)
-        _ = write(entry)
+    /// Guarda una entrada ya modificada por el drenaje (intento anotado, degradada o apartada).
+    @discardableResult
+    func persist(_ entry: OutboxEntry) -> Bool {
+        guard let files else { return false }
+        guard files.write(entry) else {
+            Self.logError("Outbox: no se pudo guardar \(entry.id)")
+            return false
+        }
+        return true
+    }
+
+    /// Devuelve a la cola todas las entradas apartadas de un usuario. Es lo que hace «Retry».
+    @discardableResult
+    func reopenFailed(userId: Int, at date: Date = Date()) -> Int {
+        guard let files else { return 0 }
+        var reopened = 0
+        for var entry in files.all(userId: userId) where entry.isFailed {
+            entry.reopenForRetry(at: date)
+            if files.write(entry) { reopened += 1 }
+        }
+        return reopened
     }
 
     /// Borra la entrada. Se llama SOLO cuando el servidor ha confirmado el registro.
-    func remove(_ id: UUID) {
-        guard let directory else { return }
-        let url = directory.appendingPathComponent("\(id.uuidString).json")
-        guard fileManager.fileExists(atPath: url.path) else { return }
-        do {
-            try fileManager.removeItem(at: url)
-        } catch {
-            Self.logError("Outbox: no se pudo borrar \(id): \(error)")
-        }
+    func remove(_ id: UUID, userId: Int) {
+        files?.remove(id, userId: userId)
     }
 
-    /// Vacía la cola. Es del usuario, así que se llama al cerrar sesión.
-    func removeAll() {
-        guard let directory else { return }
-        for name in (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? [] {
-            guard Outbox.identifier(fromFileName: name) != nil else { continue }
-            try? fileManager.removeItem(at: directory.appendingPathComponent(name))
-        }
+    /// Vacía la carpeta de un usuario. **Solo se llama al borrar la cuenta**, nunca al cerrar
+    /// sesión: cerrar sesión no puede destruir entrenos que todavía no han llegado al servidor.
+    func removeAll(userId: Int) {
+        files?.removeAll(userId: userId)
+        Self.logInfo("Outbox: carpeta de \(userId) borrada")
     }
 
     // MARK: - Lectura
 
-    func load(_ id: UUID) -> OutboxEntry? {
-        guard let directory else { return nil }
-        let url = directory.appendingPathComponent("\(id.uuidString).json")
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        do {
-            return try Outbox.decode(data)
-        } catch {
-            // Un fichero ilegible es basura, no un entreno: se retira para que no bloquee la cola.
-            Self.logError("Outbox: entrada corrupta \(id), se descarta: \(error)")
-            try? fileManager.removeItem(at: url)
+    func load(_ id: UUID, userId: Int) -> OutboxEntry? {
+        guard let files else { return nil }
+        switch files.read(id, userId: userId) {
+        case .ok(let entry):
+            return entry
+        case .missing:
+            return nil
+        case .corrupt:
+            Self.logError("Outbox: entrada corrupta \(id), se descarta")
             return nil
         }
     }
 
-    /// Todas las entradas en orden de drenaje: primero las sesiones cerradas, luego por antigüedad.
-    func all() -> [OutboxEntry] {
-        guard let directory else { return [] }
-        let names = (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
-        let entries = names.compactMap { name -> OutboxEntry? in
-            guard let id = Outbox.identifier(fromFileName: name) else { return nil }
-            return load(id)
-        }
-        return Outbox.drainOrder(entries)
+    /// Todas las entradas de un usuario en orden de drenaje: primero las sesiones cerradas,
+    /// luego por antigüedad.
+    func all(userId: Int) -> [OutboxEntry] {
+        files?.all(userId: userId) ?? []
     }
 
-    /// Entradas que toca intentar ahora, según el backoff de cada una.
-    func ready(at date: Date = Date(), policy: OutboxRetryPolicy = .standard) -> [OutboxEntry] {
-        Outbox.ready(all(), at: date, policy: policy)
+    /// Entradas que toca intentar ahora, según el backoff de cada una. Las apartadas quedan fuera.
+    func ready(userId: Int, at date: Date = Date(), policy: OutboxRetryPolicy = .standard) -> [OutboxEntry] {
+        Outbox.ready(all(userId: userId), at: date, policy: policy)
     }
 
-    var count: Int { all().count }
+    /// Entradas apartadas, para la lista que enseña la interfaz.
+    func failed(userId: Int) -> [OutboxEntry] {
+        Outbox.failed(all(userId: userId))
+    }
+
+    func count(userId: Int) -> Int { all(userId: userId).count }
 
     /// Cuántas sesiones cerradas siguen sin llegar al servidor. Es lo que pinta «Pending sync».
-    var pendingFinalCount: Int { all().filter(\.isFinal).count }
+    func pendingFinalCount(userId: Int) -> Int {
+        all(userId: userId).filter { $0.isFinal && !$0.isFailed }.count
+    }
+
+    /// Ids de usuario con carpeta en disco. Diagnóstico: la app nunca drena la cola de otra
+    /// persona.
+    func knownUserIds() -> [Int] {
+        files?.knownUserIds() ?? []
+    }
 
     // MARK: - Privado
-
-    @discardableResult
-    private func write(_ entry: OutboxEntry) -> Bool {
-        guard let directory else { return false }
-        let url = directory.appendingPathComponent(entry.fileName)
-        do {
-            let data = try Outbox.encode(entry)
-            // Atómica: o está el fichero entero o está el anterior. Nunca medio JSON.
-            // Protección hasta el primer desbloqueo: una serie se puede marcar con la pantalla
-            // bloqueada, y `.complete` haría fallar la escritura justo entonces.
-            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-            return true
-        } catch {
-            Self.logError("Outbox: no se pudo guardar \(entry.id): \(error)")
-            return false
-        }
-    }
 
     /// `Logger` vive en el hilo principal y esto es un actor: el log salta, el trabajo no.
     private nonisolated static func logError(_ message: String) {
         Task { @MainActor in
             Logger.shared.error(message, category: .training)
+        }
+    }
+
+    private nonisolated static func logInfo(_ message: String) {
+        Task { @MainActor in
+            Logger.shared.info(message, category: .training)
         }
     }
 

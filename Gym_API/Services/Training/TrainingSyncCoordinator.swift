@@ -9,11 +9,17 @@
 //  1. **Nunca dos envíos a la vez.** Dos drenajes concurrentes mandarían la misma entrada dos
 //     veces; el upsert por `client_uuid` lo sobreviviría, pero el segundo POST llegaría con un
 //     cuerpo viejo y podría pisar el nuevo. Un único `Task` y una bandera.
-//  2. **Se drena solo.** Cuando `NetworkMonitor` dice que hay red y cuando la app vuelve a
+//  2. **Cada entrada viaja con SU espacio.** El `X-Gym-ID` sale de la entrada, no del gimnasio
+//     que esté seleccionado cuando por fin haya red.
+//  3. **Se drena solo.** Cuando `NetworkMonitor` dice que hay red y cuando la app vuelve a
 //     primer plano. El usuario no tiene que pedir que se sincronice: la sincronización se
 //     comunica, no se pide (UX §1.3).
-//  3. **Nada se borra sin confirmación.** La entrada sale del disco cuando el servidor devuelve
-//     el registro, y solo entonces.
+//  4. **Nada se borra sin confirmación, y nada se borra por un error.** La entrada sale del
+//     disco cuando el servidor devuelve el registro. Un 403, un 422 o un 404 la dejan apartada
+//     y a la vista, nunca la destruyen.
+//
+//  La decisión de qué hacer con cada entrada NO vive aquí: vive en `OutboxDrainer`, dentro de
+//  `TrainingCore`, donde se prueba sin red ni simulador. Esto es la fontanería.
 //
 
 import Foundation
@@ -30,8 +36,12 @@ final class TrainingSyncCoordinator: ObservableObject {
 
     // MARK: - Published
 
-    /// Sesiones que siguen sin llegar al servidor. Es lo que pinta el chip «Pending sync».
+    /// Sesiones cerradas que siguen sin llegar al servidor. Es lo que pinta el chip «Pending sync».
     @Published private(set) var pendingCount = 0
+    /// Sesiones apartadas porque el servidor las rechazó. Siguen en disco.
+    @Published private(set) var failedCount = 0
+    /// Lo mínimo para poder enseñarlas y ofrecer «Retry».
+    @Published private(set) var failedEntries: [FailedSyncSummary] = []
     /// Último fallo de sincronización, en inglés y listo para pintar. Nulo si todo está enviado.
     @Published private(set) var lastSyncError: String?
     @Published private(set) var isDraining = false
@@ -45,7 +55,7 @@ final class TrainingSyncCoordinator: ObservableObject {
     // MARK: - Privado
 
     private let store = TrainingOutboxStore.shared
-    private let policy = OutboxRetryPolicy.standard
+    private let drainer = OutboxDrainer(policy: .standard)
     private var cancellables = Set<AnyCancellable>()
     private var drainTask: Task<Void, Never>?
     private var isObserving = false
@@ -55,6 +65,16 @@ final class TrainingSyncCoordinator: ObservableObject {
         self.networkMonitor = networkMonitor
         startObserving()
     }
+
+    // MARK: - Identidad
+
+    /// A quién pertenece lo que se encola. Es el id interno del backend, el mismo `user_id` que
+    /// lleva el registro, y decide en qué carpeta vive el fichero.
+    ///
+    /// Se lee del perfil, que la app carga nada más autenticarse y mucho antes de que nadie
+    /// pueda empezar una sesión. Si aún no está, no se encola nada: escribir en la carpeta
+    /// equivocada sería peor que devolver `false` y que la pantalla lo reintente.
+    var currentUserId: Int? { UserProfileService.shared.userProfile?.id }
 
     // MARK: - Observadores
 
@@ -80,7 +100,7 @@ final class TrainingSyncCoordinator: ObservableObject {
             .store(in: &cancellables)
 
         Task { [weak self] in
-            await self?.refreshPendingCount()
+            await self?.refreshCounts()
         }
     }
 
@@ -89,17 +109,40 @@ final class TrainingSyncCoordinator: ObservableObject {
     /// Guarda el estado de la sesión en el outbox e intenta enviarlo.
     ///
     /// Lo llama la pantalla de sesión cada vez que hay algo nuevo que contar: al marcar una
-    /// serie (`in_progress`) y al cerrar (`completed`). Nunca falla de cara al usuario: si no
-    /// hay red, la entrada se queda en disco y el chip lo dice.
-    func enqueue(_ session: WorkoutSession, status: WorkoutLogStatus? = nil, at date: Date = Date()) async {
-        let payload = session.syncRequest(status: status, at: date)
-        await enqueue(payload, at: date)
+    /// serie (`in_progress`) y al cerrar (`completed`). Sin red no falla: la entrada se queda en
+    /// disco y el chip lo dice.
+    ///
+    /// Devuelve `false` solo si no se pudo determinar el espacio o la persona, que en el flujo
+    /// real no puede pasar (no hay sesión sin gimnasio seleccionado ni sin perfil cargado).
+    @discardableResult
+    func enqueue(
+        _ session: WorkoutSession,
+        status: WorkoutLogStatus? = nil,
+        at date: Date = Date()
+    ) async -> Bool {
+        await enqueue(session.syncRequest(status: status, at: date), at: date)
     }
 
-    func enqueue(_ payload: WorkoutLogSyncRequest, at date: Date = Date()) async {
-        await store.upsert(payload, at: date)
-        await refreshPendingCount()
+    @discardableResult
+    func enqueue(
+        _ payload: WorkoutLogSyncRequest,
+        gymId: Int? = nil,
+        userId: Int? = nil,
+        at date: Date = Date()
+    ) async -> Bool {
+        guard let gym = gymId ?? GymService.shared.currentGymId,
+              let user = userId ?? currentUserId else {
+            Logger.shared.error(
+                "Outbox: no se pudo encolar \(payload.clientUUID): falta gimnasio o perfil",
+                category: .training
+            )
+            return false
+        }
+
+        await store.upsert(payload, gymId: gym, userId: user, at: date)
+        await refreshCounts()
         scheduleDrain(reason: "enqueue")
+        return true
     }
 
     // MARK: - Drenar
@@ -113,66 +156,78 @@ final class TrainingSyncCoordinator: ObservableObject {
         }
     }
 
-    /// Drena la cola entera. Espera a que termine, para el «Retry» explícito de la interfaz.
-    ///
-    /// `ignoringBackoff` salta la espera entre reintentos: solo lo usa el «Retry» que pulsa la
-    /// persona, porque acabar de pedirlo es información que el backoff no tiene.
-    func drain(reason: String = "manual", ignoringBackoff: Bool = false) async {
+    /// Drena la cola entera del usuario actual. Espera a que termine, para el «Retry» explícito.
+    func drain(reason: String = "manual") async {
         guard !isDraining else { return }
-        guard let trainingService else { return }
+        guard let trainingService, let userId = currentUserId else { return }
         // Sin red no se intenta: el backoff se gastaría en fallos garantizados.
         if let networkMonitor, !networkMonitor.isConnected {
-            await refreshPendingCount()
+            await refreshCounts()
             return
         }
 
         isDraining = true
         defer { isDraining = false }
 
-        let entries = ignoringBackoff ? await store.all() : await store.ready(at: Date(), policy: policy)
+        let entries = await store.ready(userId: userId, at: Date())
         guard !entries.isEmpty else {
             lastSyncError = nil
-            await refreshPendingCount()
+            await refreshCounts()
             return
         }
 
         Logger.shared.info("Outbox: drenando \(entries.count) entrada(s) [\(reason)]", category: .training)
-        var failure: String?
 
-        for entry in entries {
-            if Task.isCancelled { break }
-            do {
-                // `NetworkRetryManager` absorbe los cortes de un segundo dentro de este intento;
-                // la política del outbox decide cuándo se vuelve a intentar entre drenajes.
-                let log = try await NetworkRetryManager.shared.retry(
-                    operation: { try await trainingService.syncLog(entry.payload) },
-                    policy: .conservative,
-                    context: "training/logs/sync"
-                )
-                await store.remove(entry.id)
-                announce(log, wasFinal: entry.isFinal)
-            } catch {
-                let message = describe(error)
-                await store.recordAttempt(entry.id, at: Date(), error: message)
+        let store = self.store
+        let report = await drainer.drain(
+            entries,
+            at: Date(),
+            send: { [weak self] entry in
+                guard let self else { return .transient(reason: "Could not sync") }
+                return await self.send(entry, using: trainingService)
+            },
+            persist: { entry in await store.persist(entry) },
+            delete: { entry in await store.remove(entry.id, userId: entry.userId) }
+        )
 
-                if let serviceError = error as? TrainingServiceError, !serviceError.isRetryable {
-                    // El servidor lo ha rechazado por el cuerpo o por permisos: reintentarlo no
-                    // lo arregla y dejarlo bloquearía la cola para siempre. Se retira y se avisa.
-                    await store.remove(entry.id)
-                    failure = message
-                    Logger.shared.error("Outbox: entrada \(entry.id) descartada: \(message)", category: .training)
-                } else {
-                    failure = message
-                    Logger.shared.error("Outbox: fallo en \(entry.id): \(message)", category: .training)
-                    // Sin red no tiene sentido seguir con el resto de la cola.
-                    break
+        lastSyncError = report.lastError
+        if report.lastError == nil { lastSyncedAt = Date() }
+        if !report.retriedAsFreeWorkoutIds.isEmpty {
+            Logger.shared.warning(
+                "Outbox: \(report.retriedAsFreeWorkoutIds.count) registro(s) enviados como entreno libre "
+                + "porque su día ya no existe",
+                category: .training
+            )
+        }
+        await refreshCounts()
+    }
+
+    /// Envía una entrada con SU espacio y traduce la respuesta a lo que el drenador entiende.
+    private func send(_ entry: OutboxEntry, using service: TrainingService) async -> OutboxSendOutcome {
+        do {
+            let log = try await service.syncLogWithRetry(entry.payload, gymId: entry.gymId)
+            announce(log, wasFinal: entry.isFinal)
+            return .success
+        } catch let error as TrainingServiceError {
+            if case .server(let status, let message) = error {
+                // 404 con día: el entrenador reescribió el día o cambió la asignación. El
+                // entreno es real; lo caducado es a qué día del programa colgaba.
+                if status == 404, entry.payload.dayId != nil || entry.payload.programId != nil {
+                    return .staleDay(reason: message ?? "That day no longer exists")
+                }
+                if !error.isRetryable {
+                    return .rejected(reason: error.errorDescription ?? "Server error (\(status))")
                 }
             }
+            return error.isRetryable
+                ? .transient(reason: error.errorDescription ?? "Could not sync")
+                : .rejected(reason: error.errorDescription ?? "Could not sync")
+        } catch {
+            if (error as NSError).domain == NSURLErrorDomain {
+                return .transient(reason: "Waiting for a connection")
+            }
+            return .transient(reason: error.localizedDescription)
         }
-
-        lastSyncError = failure
-        if failure == nil { lastSyncedAt = Date() }
-        await refreshPendingCount()
     }
 
     /// Reintento explícito del usuario. Si ya hay un drenaje en marcha, espera a ese en lugar de
@@ -183,13 +238,35 @@ final class TrainingSyncCoordinator: ObservableObject {
             await task.value
             return
         }
-        await drain(reason: "retry", ignoringBackoff: true)
+        await drain(reason: "retry")
+    }
+
+    /// Devuelve a la cola las sesiones apartadas y las vuelve a intentar. Es el botón «Retry»
+    /// de la lista de fallidas.
+    func retryFailed() async {
+        guard let userId = currentUserId else { return }
+        let reopened = await store.reopenFailed(userId: userId, at: Date())
+        guard reopened > 0 else { return }
+        Logger.shared.info("Outbox: \(reopened) entrada(s) devueltas a la cola", category: .training)
+        lastSyncError = nil
+        await refreshCounts()
+        await retryNow()
     }
 
     // MARK: - Estado
 
-    func refreshPendingCount() async {
-        pendingCount = await store.pendingFinalCount
+    func refreshCounts() async {
+        guard let userId = currentUserId else {
+            pendingCount = 0
+            failedCount = 0
+            failedEntries = []
+            return
+        }
+        let all = await store.all(userId: userId)
+        pendingCount = all.filter { $0.isFinal && !$0.isFailed }.count
+        let failed = all.filter(\.isFailed)
+        failedCount = failed.count
+        failedEntries = failed.map(\.summary)
     }
 
     /// El registro cerrado ya está confirmado por el servidor: es el único momento en el que se
@@ -220,34 +297,34 @@ final class TrainingSyncCoordinator: ObservableObject {
         NotificationCenter.default.post(name: .trainingLogSynced, object: log.id)
     }
 
-    private func describe(_ error: Error) -> String {
-        if let serviceError = error as? TrainingServiceError {
-            return serviceError.errorDescription ?? "Could not sync"
-        }
-        if (error as NSError).domain == NSURLErrorDomain {
-            return "Waiting for a connection"
-        }
-        return error.localizedDescription
-    }
-
     // MARK: - Ciclo de vida
 
-    /// Al cerrar sesión. El outbox es de la persona que entrenó, no del dispositivo.
+    /// Al cerrar sesión. **No borra nada del disco**: los entrenos pendientes son de la persona
+    /// que sale y siguen en su carpeta hasta que vuelva a entrar. Aquí solo se apaga lo que hay
+    /// en memoria y se corta el drenaje en curso.
     func clearData() {
         drainTask?.cancel()
         drainTask = nil
         lastSyncError = nil
         lastSyncedAt = nil
         pendingCount = 0
-        Task { [store] in
-            await store.removeAll()
-        }
+        failedCount = 0
+        failedEntries = []
     }
 
-    /// Al cambiar de espacio: las entradas pendientes son del gimnasio anterior y se envían
-    /// antes de que la app cambie de contexto. No se borran: son trabajo real de alguien.
-    func flushBeforeGymChange() {
-        scheduleDrain(reason: "gym-change")
+    /// Al cambiar de espacio: lo pendiente se manda ANTES de seguir. Se espera a propósito, para
+    /// que la precarga del espacio nuevo no compita con el envío del anterior.
+    func flushBeforeGymChange() async {
+        await drain(reason: "gym-change")
+    }
+
+    /// Al borrar la cuenta. Es el único borrado masivo del outbox: si la persona se va de
+    /// verdad, sus entrenos sin sincronizar se van con ella.
+    func eraseAllData(userId: Int) async {
+        drainTask?.cancel()
+        drainTask = nil
+        await store.removeAll(userId: userId)
+        clearData()
     }
 
     deinit {

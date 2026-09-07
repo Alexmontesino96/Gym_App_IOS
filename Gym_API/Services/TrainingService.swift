@@ -361,9 +361,13 @@ final class TrainingService: ObservableObject {
     /// Lo llama el coordinador de sincronización, no las vistas: la pantalla de sesión escribe
     /// en el outbox y sigue funcionando sin red. `throws` a propósito, porque quien lo llama
     /// necesita distinguir «no hay red, reintenta» de «el servidor lo rechazó».
-    func syncLog(_ request: WorkoutLogSyncRequest) async throws -> TrainingWorkoutLog {
+    ///
+    /// - Parameter gymId: el espacio de la ENTRADA del outbox, no el que esté seleccionado. Un
+    ///   registro hecho el martes en un gimnasio se envía el jueves aunque el cliente ya haya
+    ///   cambiado a otro; el `X-Gym-ID` tiene que seguir siendo el del martes.
+    func syncLog(_ request: WorkoutLogSyncRequest, gymId: Int? = nil) async throws -> TrainingWorkoutLog {
         guard let url = URL(string: apiBaseURL + "/training/logs/sync"),
-              var urlRequest = await HTTPClient.shared.makeRequest(url: url, method: "POST") else {
+              var urlRequest = await HTTPClient.shared.makeRequest(url: url, method: "POST", gymId: gymId) else {
             throw TrainingServiceError.couldNotPrepareRequest
         }
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -380,6 +384,22 @@ final class TrainingService: ObservableObject {
             )
         }
         return try decoder.decode(TrainingWorkoutLog.self, from: data)
+    }
+
+    /// `syncLog` con reintento de los cortes de un segundo.
+    ///
+    /// El reintento vive aquí y no en el coordinador a propósito: así el cierre que recibe
+    /// `NetworkRetryManager` no captura este servicio desde otro dominio de aislamiento, que es
+    /// lo que rompería bajo concurrencia estricta de Swift 6.
+    func syncLogWithRetry(_ request: WorkoutLogSyncRequest, gymId: Int?) async throws -> TrainingWorkoutLog {
+        try await NetworkRetryManager.shared.retry(
+            operation: { [weak self] in
+                guard let self else { throw TrainingServiceError.couldNotPrepareRequest }
+                return try await self.syncLog(request, gymId: gymId)
+            },
+            policy: .conservative,
+            context: "training/logs/sync"
+        )
     }
 
     /// `POST /training/logs/{id}/thank`. Solo el propietario y solo sobre una revisión existente.
