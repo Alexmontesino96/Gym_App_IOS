@@ -76,6 +76,7 @@ struct CoachHomeView: View {
                     HomeHeaderView(
                         userName: userName,
                         userInitials: userInitials,
+                        pictureURL: profileService.userProfile?.picture,
                         onNotificationTap: onOpenNotifications,
                         onAvatarTap: onOpenProfile
                     )
@@ -92,7 +93,8 @@ struct CoachHomeView: View {
                             contextNote: session.notes,
                             roleLabel: "Your coach",
                             personName: coachingService.coach?.fullName,
-                            personInitials: coachingService.coach?.initials
+                            personInitials: coachingService.coach?.initials,
+                            personPictureURL: coachingService.coach?.pictureURL
                         )
                     } else {
                         NoUpcomingSessionCard(onSeeSessions: onOpenSessions)

@@ -22,7 +22,6 @@ struct ModernProfileView: View {
     @State private var showingEditProfile = false
     @State private var showingGymSelector = false
     @State private var showProfileCelebration = false
-    @State private var showingQRCode = false
     @State private var showingDeleteAccount = false
 
     /// Misma derivación que `AuthenticatedView.rootForCurrentUser`, con el mismo triple respaldo:
@@ -61,7 +60,11 @@ struct ModernProfileView: View {
                         // que se encuentre sin buscar, así que va aquí y no dentro de ajustes.
                         deleteAccountButton
 
-                        Spacer(minLength: 100)
+                        // `safeAreaInset` y no un `Spacer(minLength: 100)` a ojo: la barra de
+                        // pestanas es un TabView NATIVO, que ya aporta su propia zona segura, asi
+                        // que los 100 pt se sumaban a ella en unas pantallas y faltaban en otras.
+                        // Con esto «Sign out» deja de quedar debajo de la barra.
+                        Spacer(minLength: 24)
                     }
                 }
 
@@ -101,13 +104,6 @@ struct ModernProfileView: View {
             .sheet(isPresented: $showingColorPicker) {
                 SimpleColorSettingsView()
                     .environmentObject(themeManager)
-            }
-            .sheet(isPresented: $showingQRCode) {
-                QRCodeSheet(
-                    qrCode: profileService.userProfile?.qrCode,
-                    userName: profileService.userProfile?.fullName
-                )
-                .environmentObject(themeManager)
             }
         }
         .overlay(
@@ -184,11 +180,14 @@ struct ModernProfileView: View {
 
                 // Name + member since
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(profileService.userProfile?.fullName ?? authService.user?.name ?? "Usuario")
+                    Text(profileService.userProfile?.fullName ?? authService.user?.name ?? "Athlete")
                         .font(.system(size: 22, weight: .bold))
                         .tracking(-0.4)
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .lineLimit(1)
+                        // Antes que cortar, encoger: un nombre largo se lee entero a 18 pt mejor
+                        // que a medias a 22.
+                        .minimumScaleFactor(0.8)
 
                     if let memberSinceText {
                         // «Client since» en un espacio de entrenador: quien está aquí no es socio
@@ -199,18 +198,11 @@ struct ModernProfileView: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                // QR button
-                Button(action: { showingQRCode = true }) {
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 18))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                        .frame(width: 40, height: 40)
-                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
-                }
+                // El boton de QR estaba aqui y le robaba 40 pt al nombre, que se cortaba en
+                // «Jose Paul Rodr…» con 178 pt reales para 22 pt bold. Y era un duplicado: la
+                // misma hoja se abre desde la home (ClientMainTabView) y desde el heroe.
             }
 
             // Stats row
@@ -371,10 +363,23 @@ struct ModernProfileView: View {
                     action: { themeManager.toggleTheme() }
                 )
 
+                // El valor era el literal «Lime», asi que decia «Lime» aunque la app estuviera
+                // pintando rojo. Y no existe ningun mapa de hex a nombre en el proyecto: los
+                // nombres viven como comentarios junto a cada color. Un circulo del color actual
+                // dice lo mismo, no puede desincronizarse y no necesita traduccion.
                 settingsRow(
                     icon: "paintbrush.fill",
                     label: "Appearance",
-                    value: "Lime",
+                    value: nil,
+                    accessory: AnyView(
+                        Circle()
+                            .fill(Color.dynamicAccent(theme: themeManager.currentTheme))
+                            .frame(width: 18, height: 18)
+                            .overlay(
+                                Circle().stroke(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.15), lineWidth: 1)
+                            )
+                            .accessibilityLabel("Current accent colour")
+                    ),
                     action: { showingColorPicker = true }
                 )
 
@@ -405,7 +410,15 @@ struct ModernProfileView: View {
         }
     }
 
-    private func settingsRow(icon: String, label: String, value: String?, action: @escaping () -> Void) -> some View {
+    private func settingsRow(
+        icon: String,
+        label: String,
+        value: String?,
+        /// Adorno opcional a la derecha, en lugar del texto: lo usa «Appearance» para pintar el
+        /// color en vez de un nombre que habria que mantener sincronizado y traducir.
+        accessory: AnyView? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 // Icon
@@ -425,7 +438,9 @@ struct ModernProfileView: View {
 
                 // Value + chevron
                 HStack(spacing: 6) {
-                    if let value = value {
+                    if let accessory {
+                        accessory
+                    } else if let value = value {
                         Text(value)
                             .font(.system(size: 12))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
@@ -441,7 +456,7 @@ struct ModernProfileView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

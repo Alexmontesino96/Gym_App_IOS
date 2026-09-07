@@ -191,7 +191,7 @@ struct WeightCheckInSheet: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
-            .navigationTitle("Check-in")
+            .navigationTitle("Weekly check-in")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {

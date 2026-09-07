@@ -25,13 +25,29 @@ struct TodaySessionHeroCard: View {
     /// Nombre y siglas de quien imparte, si se conocen por otra vía que el propio `gymClass`.
     var personName: String? = nil
     var personInitials: String? = nil
+    /// Foto de quien imparte, si se conoce. `CoachSummary.pictureURL` ya la trae cargada y aqui
+    /// solo se pintaban las iniciales, asi que la misma persona salia con dos caras distintas en
+    /// la misma pantalla: siglas en el heroe y foto en la tarjeta de justo debajo.
+    var personPictureURL: String? = nil
 
     private var displayedPersonName: String { personName ?? gymClass.instructor }
 
     @EnvironmentObject var themeManager: ThemeManager
 
-    private let accentColor = Color(hex: "#D4FF3F")!
-    private let accentGreen = Color(hex: "#4ADE80")!
+    // El acento del TEMA, no dos hex cableados. Esta tarjeta declaraba `themeManager` y no lo
+    // leia nunca, asi que era el unico bloque grande de la home que ignoraba el color que el
+    // usuario habia elegido: la app pintaba rojo por todas partes y el heroe seguia lima.
+    private var accentColor: Color { Color.dynamicAccent(theme: themeManager.currentTheme) }
+
+    /// Segunda parada del degradado, derivada del acento en vez de un verde fijo que no pegaba
+    /// con ningun acento salvo el lima.
+    private var accentSecondary: Color { accentColor.opacity(0.72) }
+
+    /// Casi negro o blanco, la que mas contraste da sobre el acento elegido. Con `accentInk`
+    /// fijo, un acento oscuro como el teal `#00827E` dejaba el heroe ilegible.
+    private var inkOnAccent: Color {
+        ThemeManager.accentInkForCurrentAccent(theme: themeManager.currentTheme)
+    }
 
     private var durationMinutes: Int {
         let interval = gymClass.endTime.timeIntervalSince(gymClass.startTime)
@@ -75,6 +91,15 @@ struct TodaySessionHeroCard: View {
         let formatter = DateFormatter.localized(template: "jmm")
         formatter.timeZone = gymTimeZone
         return "\(formatter.string(from: gymClass.startTime))–\(formatter.string(from: gymClass.endTime))"
+    }
+
+    private var initialsBadge: some View {
+        Text(instructorInitials)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundColor(accentColor)
+            .frame(width: 32, height: 32)
+            .background(Color.black.opacity(0.85))
+            .clipShape(Circle())
     }
 
     private var instructorInitials: String {
@@ -164,12 +189,15 @@ struct TodaySessionHeroCard: View {
                     HStack {
                         // Instructor
                         HStack(spacing: 8) {
-                            Text(instructorInitials)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(accentColor)
+                            if let personPictureURL, !personPictureURL.isEmpty {
+                                CustomImageView(url: personPictureURL, cacheKey: personPictureURL, size: 32) {
+                                    AnyView(initialsBadge)
+                                }
                                 .frame(width: 32, height: 32)
-                                .background(Color.black.opacity(0.85))
                                 .clipShape(Circle())
+                            } else {
+                                initialsBadge
+                            }
 
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(displayedPersonName)
@@ -193,7 +221,11 @@ struct TodaySessionHeroCard: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "qrcode")
                                     .font(.system(size: 16))
-                                Text("CHECK IN")
+                                // «I'M HERE» y no «CHECK-IN»: a un dedo de distancia estaba la
+                                // accion rapida de check-in semanal, que es otra cosa (el peso y
+                                // las tres escalas). Una palabra para dos funciones distintas en
+                                // la misma pantalla.
+                                Text("I'M HERE")
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             .foregroundColor(accentColor)
@@ -208,10 +240,10 @@ struct TodaySessionHeroCard: View {
                 }
                 .padding(20)
             }
-            .foregroundColor(Color.accentInk)
+            .foregroundColor(inkOnAccent)
             .background(
                 LinearGradient(
-                    colors: [accentColor, accentGreen.opacity(0.7)],
+                    colors: [accentColor, accentSecondary],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

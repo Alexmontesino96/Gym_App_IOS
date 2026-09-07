@@ -243,6 +243,35 @@ extension ThemeManager {
         ]
     }
     
+    // MARK: - Tinta legible sobre el acento
+    //
+    // El acento lo elige el usuario de una lista de 23, y ahi conviven el lima `#D4FF3F` y el
+    // teal `#00827E`. Escribir siempre con `accentInk` (#0A0A0A) deja el texto ilegible sobre los
+    // oscuros, y escribir siempre en blanco lo deja ilegible sobre los claros. Asi que se decide
+    // por contraste real, no por un umbral a ojo.
+
+    /// Luminancia relativa segun WCAG 2.1 de un hex `#RRGGBB`.
+    static func relativeLuminance(hex: String) -> Double {
+        let limpio = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard limpio.count == 6, let valor = UInt32(limpio, radix: 16) else { return 0 }
+        func canal(_ bruto: Double) -> Double {
+            let s = bruto / 255.0
+            return s <= 0.03928 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4)
+        }
+        let r = canal(Double((valor >> 16) & 0xFF))
+        let g = canal(Double((valor >> 8) & 0xFF))
+        let b = canal(Double(valor & 0xFF))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    /// La tinta que mas contrasta sobre el acento actual: casi negro o blanco, la que gane.
+    static func accentInkForCurrentAccent(theme: AppTheme) -> Color {
+        let l = relativeLuminance(hex: accentHexFromDefaults(for: theme))
+        let contrasteConOscuro = (l + 0.05) / (relativeLuminance(hex: "#0A0A0A") + 0.05)
+        let contrasteConBlanco = 1.05 / (l + 0.05)
+        return contrasteConOscuro >= contrasteConBlanco ? Color.accentInk : .white
+    }
+
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard
         if theme == .light {

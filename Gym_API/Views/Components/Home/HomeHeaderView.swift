@@ -5,6 +5,10 @@ import SwiftUI
 struct HomeHeaderView: View {
     let userName: String
     let userInitials: String
+    /// Foto de perfil, si se conoce. Opcional con valor por defecto porque esta cabecera la
+    /// comparte la home del gimnasio, que no la pasa. `UserProfileService.userProfile.picture`
+    /// ya la tiene cargada; lo unico que faltaba era este parametro.
+    var pictureURL: String? = nil
     let onNotificationTap: () -> Void
     let onAvatarTap: () -> Void
 
@@ -65,23 +69,33 @@ struct HomeHeaderView: View {
                     }
                 }
 
-                // Avatar
+                // Avatar. Con foto cuando la hay; si no, las iniciales sobre el acento del tema.
+                // El degradado naranja-violeta que habia aqui estaba cableado y era el unico
+                // color de la pantalla que no respetaba lo que el usuario habia elegido.
                 Button(action: onAvatarTap) {
-                    Text(userInitials)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "#FF5A1F")!, Color(hex: "#A78BFA")!],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(Circle())
+                    Group {
+                        if let pictureURL, !pictureURL.isEmpty {
+                            CustomImageView(url: pictureURL, cacheKey: pictureURL, size: 40) {
+                                AnyView(initialsAvatar)
+                            }
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                        } else {
+                            initialsAvatar
+                        }
+                    }
                 }
             }
         }
         .padding(.horizontal, 4)
+    }
+
+    private var initialsAvatar: some View {
+        Text(userInitials)
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: themeManager.currentTheme))
+            .frame(width: 40, height: 40)
+            .background(Color.dynamicAccent(theme: themeManager.currentTheme))
+            .clipShape(Circle())
     }
 }
