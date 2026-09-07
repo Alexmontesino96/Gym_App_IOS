@@ -1,0 +1,56 @@
+[
+  {
+    "id": 301,
+    "title": "Upper A",
+    "completed_at": "2026-09-21T22:54:20.000000Z",
+    "duration_seconds": 3130,
+    "total_sets": 18,
+    "total_volume_kg": 5660.5,
+    "pr_count": 1,
+    "is_partial": false,
+    "reviewed_at": "2026-09-22T12:04:00.000000Z",
+    "top_pr": {
+      "exercise_name": "Bench press",
+      "exercise_key": "barbell_bench_press",
+      "weight_kg": 83.9,
+      "reps": 5,
+      "e1rm_kg": 97.88
+    }
+  },
+  {
+    "id": 302,
+    "title": "Lower A",
+    "completed_at": "2026-09-22T23:12:00.000000Z",
+    "duration_seconds": 2880,
+    "total_sets": 16,
+    "total_volume_kg": 7420.0,
+    "pr_count": 0,
+    "is_partial": false,
+    "reviewed_at": null,
+    "top_pr": null
+  },
+  {
+    "id": 298,
+    "title": "Upper B",
+    "completed_at": "2026-09-17T22:41:00.000000Z",
+    "duration_seconds": 2410,
+    "total_sets": 9,
+    "total_volume_kg": 2980.0,
+    "pr_count": 0,
+    "is_partial": true,
+    "reviewed_at": null,
+    "top_pr": null
+  },
+  {
+    "id": 294,
+    "title": "Free workout",
+    "completed_at": "2026-09-14T18:02:00.000000Z",
+    "duration_seconds": 1620,
+    "total_sets": 8,
+    "total_volume_kg": 1980.0,
+    "pr_count": 0,
+    "is_partial": false,
+    "reviewed_at": null,
+    "top_pr": null
+  }
+]
