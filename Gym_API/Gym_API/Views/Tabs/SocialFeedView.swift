@@ -24,6 +24,14 @@ struct SocialFeedView: View {
     /// un error. Esas dos raíces arrancan en conversaciones.
     var initialTab: SocialTab = .feed
 
+    /// El usuario tiene un unico interlocutor: su entrenador.
+    ///
+    /// Solo lo pasa `ClientMainTabView`. La pantalla la comparte `TrainerMainTabView`, y alli hay
+    /// una conversacion por cliente, asi que la lista con filtros sigue siendo lo correcto. Por eso
+    /// esto es un parametro y no una deduccion a partir de cuantas conversaciones haya: un
+    /// entrenador con un solo cliente no debe ver la interfaz del cliente.
+    var singleContact: Bool = false
+
     // MARK: - Environment Objects
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var authService: AuthServiceDirect
@@ -192,7 +200,9 @@ struct SocialFeedView: View {
 
             Spacer()
 
+            // Buscar entre una conversacion, y anadir una segunda con quien: no hay a quien.
             HStack(spacing: 8) {
+                if !singleContact {
                 Button(action: {
                     withAnimation { showingSearch.toggle() }
                 }) {
@@ -205,8 +215,10 @@ struct SocialFeedView: View {
                         .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
                 }
 
+                }
+
                 // El «+» solo existe en conversaciones. En el muro no hacía nada al pulsarlo.
-                if activeTab == .chats {
+                if activeTab == .chats, !singleContact {
                 Button(action: {
                     showingUserSelector = true
                 }) {
@@ -243,13 +255,21 @@ struct SocialFeedView: View {
                     .padding(.bottom, 8)
             }
 
-            // Filter chips
-            ChatFilterChips(activeFilter: $chatFilter, unreadCount: unreadCountService.totalUnreadCount)
-                .environmentObject(themeManager)
-                .padding(.bottom, 8)
+            // Los filtros (All / Unread / Groups / Direct / Teams) organizan decenas de
+            // conversaciones. Con una sola, cuatro de los cinco devuelven la misma lista o una
+            // vacia, y ademas desbordan en un scroll horizontal sin indicador, asi que el quinto
+            // ni se ve. Fuera cuando hay un unico interlocutor.
+            if !singleContact {
+                ChatFilterChips(activeFilter: $chatFilter, unreadCount: unreadCountService.totalUnreadCount)
+                    .environmentObject(themeManager)
+                    .padding(.bottom, 8)
+            }
 
-            // Chat list
-            messagesContent
+            if singleContact {
+                singleContactContent
+            } else {
+                messagesContent
+            }
         }
     }
 
@@ -288,6 +308,202 @@ struct SocialFeedView: View {
     // (searchBarView and socialFeedContent removed - replaced by inline chatSearchBar and feedTabContent)
 
     // MARK: - Messages Content
+    // MARK: - Un solo interlocutor: el entrenador
+
+    /// La conversacion con el coach. Es la unica directa que tiene un cliente de entrenador.
+    private var coachConversation: ChatConversation? {
+        conversations.first { $0.type == .direct }
+    }
+
+    private var otherConversations: [ChatConversation] {
+        guard let coach = coachConversation else { return conversations }
+        return conversations.filter { $0.id != coach.id }
+    }
+
+    /// La conversacion con el entrenador deja de ser una fila en una lista y pasa a ser la
+    /// pantalla. Con un unico interlocutor, una lista de un elemento es un indice de un solo
+    /// capitulo: obliga a un toque para llegar a lo unico que hay.
+    private var singleContactContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                if let coach = coachConversation {
+                    coachHeroCard(coach)
+                } else if isLoadingFromCache || conversations.isEmpty {
+                    noCoachYetCard
+                }
+
+                if !otherConversations.isEmpty {
+                    Text("OTHER CONVERSATIONS")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(0.9)
+                        .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+                        .padding(.top, 14)
+                        .padding(.leading, 2)
+
+                    ForEach(otherConversations) { conversation in
+                        SwipeableConversationRow.withDeleteOnly(
+                            conversation: conversation,
+                            themeManager: themeManager,
+                            currentUserId: currentChatUserId,
+                            onTap: { openConversation(conversation) },
+                            onDelete: { deleteConversation(conversation) }
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .refreshable { await refreshConversations() }
+    }
+
+    /// Hoy la hora, esta semana el dia, y antes la fecha. `formatDate` vive en `ConversationRow`
+    /// y no es alcanzable desde aqui.
+    private func lastActivityLabel(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return DateFormatter.localized(template: "jmm").string(from: date)
+        }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        if let hace7 = calendar.date(byAdding: .day, value: -7, to: Date()), date > hace7 {
+            return DateFormatter.localized(template: "EEEE").string(from: date)
+        }
+        return DateFormatter.localized(template: "MMMd").string(from: date)
+    }
+
+    private var currentChatUserId: String? {
+        (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id
+    }
+
+    @ViewBuilder
+    private func coachHeroCard(_ conversation: ChatConversation) -> some View {
+        let other = conversation.otherUser(currentUserId: currentChatUserId)
+        let theme = themeManager.currentTheme
+
+        Button {
+            openConversation(conversation)
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 14) {
+                    ConversationAvatarView(
+                        conversation: conversation,
+                        themeManager: themeManager,
+                        size: 60,
+                        currentUserId: currentChatUserId
+                    )
+                    .environmentObject(ServiceContainer.shared.storyService)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(conversation.title(currentUserId: currentChatUserId))
+                            .font(.system(size: 20, weight: .bold))
+                            .tracking(-0.4)
+                            .foregroundColor(Color.dynamicText(theme: theme))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+
+                        Text("Your coach")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    }
+
+                    Spacer(minLength: 0)
+
+                    if conversation.unreadCount > 0 {
+                        Text("\(conversation.unreadCount)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
+                    }
+                }
+
+                // El ultimo mensaje a dos lineas y no a una: en una lista de veinte el recorte
+                // se compensa mirando el resto; aqui es lo unico que hay.
+                if let last = conversation.lastMessage, !last.text.isEmpty {
+                    Text(last.text)
+                        .font(.system(size: 15))
+                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("No messages yet. Say hi to \(other?.name.components(separatedBy: " ").first ?? "your coach").")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                }
+
+                HStack(spacing: 6) {
+                    if conversation.lastMessage != nil {
+                        Text(lastActivityLabel(conversation.lastActivity))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                    }
+                    Spacer(minLength: 0)
+                    Text("Open conversation")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color.dynamicAccent(theme: theme))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.dynamicAccent(theme: theme))
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.dynamicSurface(theme: theme))
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Todavia no hay conversacion. No se finge una: se dice quien la abre.
+    private var noCoachYetCard: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 34, weight: .light))
+                .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+            Text("No conversation yet")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+            Text("Your coach will start the conversation here. Everything you agree on lives in this thread.")
+                .font(.system(size: 14))
+                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 44)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func openConversation(_ conversation: ChatConversation) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            selectedConversation = conversation
+            showingChat = true
+        }
+        markConversationRead(conversation)
+    }
+
+    private func markConversationRead(_ conversation: ChatConversation) {
+        guard let idx = conversations.firstIndex(where: { $0.id == conversation.id }) else { return }
+        let c = conversations[idx]
+        conversations[idx] = ChatConversation(
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            members: c.members,
+            lastMessage: c.lastMessage,
+            lastActivity: c.lastActivity,
+            unreadCount: 0,
+            metadata: c.metadata
+        )
+        saveConversationsToCache(conversations)
+    }
+
     private var messagesContent: some View {
         Group {
             if isLoadingFromCache && conversations.isEmpty {

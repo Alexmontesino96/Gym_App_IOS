@@ -100,13 +100,6 @@ struct CoachHomeView: View {
                         NoUpcomingSessionCard(onSeeSessions: onOpenSessions)
                     }
 
-                    ClientQuickActionsGrid(
-                        onSessions: onOpenSessions,
-                        onCoach: onOpenCoachChat,
-                        onCheckIn: { showingCheckIn = true },
-                        onNutrition: onOpenNutrition
-                    )
-
                     CoachCardView(
                         coach: coachingService.coach,
                         state: coachingService.coachState,
@@ -128,6 +121,8 @@ struct CoachHomeView: View {
                         checkInCard(compact: false)
                     }
 
+                    nutritionRow
+
                     ProgramPlaceholderCard()
 
                     Spacer(minLength: 100)
@@ -145,6 +140,49 @@ struct CoachHomeView: View {
                     .environmentObject(healthService)
             }
         }
+    }
+
+    /// La rejilla de cuatro acciones rapidas se retiro: «Sessions» y «Coach» son pestanas —y
+    /// «Coach» es ademas el boton rojo de la tarjeta de justo debajo—, y «Check-in» duplicaba la
+    /// tarjeta de check-in que viene despues, con su propio boton. Tres de cuatro repetian algo
+    /// visible en la MISMA pantalla.
+    ///
+    /// Nutricion era la unica sin otra puerta, asi que se queda con una fila propia.
+    private var nutritionRow: some View {
+        Button(action: onOpenNutrition) {
+            HStack(spacing: 12) {
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                    .frame(width: 36, height: 36)
+                    .background(Color.dynamicSurface2(theme: themeManager.currentTheme))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Nutrition")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
+                    Text("Meal plans your coach shares with you")
+                        .font(.system(size: 11))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func checkInCard(compact: Bool) -> some View {
@@ -171,74 +209,6 @@ struct CoachHomeView: View {
     private func loadCoachAndNote(forceRefresh: Bool) async {
         await coachingService.loadCoach(forceRefresh: forceRefresh)
         await coachingService.loadCoachNote(forceRefresh: forceRefresh)
-    }
-}
-
-// MARK: - Acciones rápidas del cliente
-
-/// Rejilla de 4 acciones. Mantiene la geometría de `QuickActionsGrid` (icono 18pt en caja
-/// 36x36, tarjeta de radio 22) pero con las acciones del cliente y con tokens del tema: el
-/// original lleva las etiquetas fijas y un borde blanco que en tema claro es invisible.
-private struct ClientQuickActionsGrid: View {
-    let onSessions: () -> Void
-    let onCoach: () -> Void
-    let onCheckIn: () -> Void
-    let onNutrition: () -> Void
-
-    @EnvironmentObject var themeManager: ThemeManager
-
-    private var actions: [(icon: String, label: String, action: () -> Void)] {
-        [
-            ("calendar", "Sessions", onSessions),
-            ("bubble.left.and.text.bubble.right", "Coach", onCoach),
-            ("figure.stand", "Check-in", onCheckIn),
-            ("fork.knife", "Nutrition", onNutrition),
-        ]
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("QUICK ACTIONS")
-                .font(.system(size: 9, weight: .bold))
-                .tracking(1.0)
-                .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                ForEach(Array(actions.enumerated()), id: \.offset) { _, item in
-                    Button {
-                        HapticManager.shared.buttonTap()
-                        item.action()
-                    } label: {
-                        VStack(spacing: 8) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.dynamicSurface2(theme: themeManager.currentTheme))
-                                    .frame(width: 36, height: 36)
-                                Image(systemName: item.icon)
-                                    .font(.system(size: 18, weight: .regular))
-                                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                            }
-                            Text(item.label)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 8)
-                        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-                        .clipShape(RoundedRectangle(cornerRadius: 22))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 22)
-                                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
     }
 }
 

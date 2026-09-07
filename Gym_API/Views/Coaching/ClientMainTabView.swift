@@ -57,7 +57,7 @@ struct ClientMainTabView: View {
             .tag(Tab.sessions)
 
             AnimatedTabContent(isSelected: selectedTab == .messages) {
-                SocialFeedView(pendingEventChat: $pendingEventChat, showsFeed: false, initialTab: .chats)
+                SocialFeedView(pendingEventChat: $pendingEventChat, showsFeed: false, initialTab: .chats, singleContact: true)
             }
             .tabItem {
                 Image(systemName: selectedTab == .messages ? "message.fill" : "message")

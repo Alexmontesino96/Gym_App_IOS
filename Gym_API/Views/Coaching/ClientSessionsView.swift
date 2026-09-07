@@ -20,19 +20,6 @@ struct ClientSessionsView: View {
     /// otro botón que no lleva a ningún sitio.
     var onAskCoach: (() -> Void)? = nil
 
-    @State private var tab: SessionsTab = .upcoming
-
-    private enum SessionsTab: String, CaseIterable {
-        case upcoming, history
-
-        var title: String {
-            switch self {
-            case .upcoming: return "Upcoming"
-            case .history: return "History"
-            }
-        }
-    }
-
     private var registered: [GymClass] {
         classService.classes.filter { classService.userRegistrationStatus[$0.id] ?? false }
     }
@@ -47,36 +34,65 @@ struct ClientSessionsView: View {
         return registered.filter { $0.startTime <= now }.sorted { $0.startTime > $1.startTime }
     }
 
-    private var visible: [GymClass] {
-        tab == .upcoming ? upcoming : history
+    /// Cuantas sesiones lleva con su entrenador y desde cuando. Es lo unico que una lista de
+    /// clases de gimnasio no puede contar y que a un cliente de entrenador si le importa: la
+    /// relacion, no el catalogo.
+    private var continuityLine: String? {
+        guard let primera = history.last else { return nil }
+        let n = history.count
+        let desde = DateFormatter.localized(template: "MMMyyyy").string(from: primera.startTime)
+        let coach = history.first?.instructor ?? upcoming.first?.instructor
+        let conQuien = (coach?.isEmpty == false) ? " with \(coach!)" : ""
+        return "\(n) session\(n == 1 ? "" : "s")\(conQuien) · since \(desde)"
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                picker
+            // Un solo scroll, ordenado por relevancia: lo que viene, como pedir mas, y lo hecho.
+            //
+            // Antes habia un segmentado Upcoming/History. Con tres sesiones proximas y cuatro
+            // pasadas, esconder la mitad detras de un toque no organiza nada: solo obliga a
+            // recordar que la otra mitad existe. El segmentado tiene sentido con cientos de
+            // filas, no con siete.
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    if let continuityLine {
+                        Text(continuityLine)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            .padding(.bottom, 6)
+                    }
 
-                if visible.isEmpty {
-                    emptyState
-                } else {
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 10) {
-                            ForEach(visible) { session in
-                                SessionRow(
-                                    session: session,
-                                    isPast: tab == .history,
-                                    isNext: tab == .upcoming && session.id == upcoming.first?.id
-                                )
-                            }
+                    if upcoming.isEmpty && history.isEmpty {
+                        emptyState
+                    }
 
-                            if tab == .upcoming, onAskCoach != nil {
-                                askForSessionCard
-                            }
+                    if !upcoming.isEmpty {
+                        sectionHeader("NEXT")
+                        ForEach(upcoming) { session in
+                            SessionRow(
+                                session: session,
+                                isPast: false,
+                                isNext: session.id == upcoming.first?.id
+                            )
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 100)
+                    }
+
+                    if onAskCoach != nil {
+                        askForSessionCard
+                            .padding(.top, upcoming.isEmpty ? 0 : 4)
+                    }
+
+                    if !history.isEmpty {
+                        sectionHeader("DONE")
+                            .padding(.top, 12)
+                        ForEach(history) { session in
+                            SessionRow(session: session, isPast: true)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
             .padding(.top, 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -110,44 +126,13 @@ struct ClientSessionsView: View {
         await classService.loadParticipationStatus(startDate: start, endDate: end)
     }
 
-    private var picker: some View {
-        HStack(spacing: 4) {
-            ForEach(SessionsTab.allCases, id: \.self) { item in
-                pickerButton(for: item)
-            }
-        }
-        .padding(4)
-        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15), lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-    }
-
-    @ViewBuilder
-    private func pickerButton(for item: SessionsTab) -> some View {
-        let isSelected: Bool = (tab == item)
-        let fill: Color = isSelected
-            ? Color.dynamicText(theme: themeManager.currentTheme)
-            : Color.clear
-        let label: Color = isSelected
-            ? Color.dynamicBackground(theme: themeManager.currentTheme)
-            : Color.dynamicTextSecondary(theme: themeManager.currentTheme)
-
-        Button {
-            HapticManager.shared.buttonTap()
-            withAnimation(.easeInOut(duration: 0.2)) { tab = item }
-        } label: {
-            Text(item.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(label)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 9).fill(fill))
-        }
-        .buttonStyle(.plain)
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 9, weight: .bold))
+            .tracking(0.9)
+            .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
+            .padding(.leading, 2)
+            .padding(.bottom, 2)
     }
 
     /// Remate de la lista de próximas. No hay endpoint para solicitar una sesión, así que
@@ -193,18 +178,17 @@ struct ClientSessionsView: View {
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.system(size: 38, weight: .light))
                 .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
-            Text(tab == .upcoming ? "No upcoming sessions" : "No completed sessions yet")
+            Text("No sessions yet")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
-            Text(tab == .upcoming
-                 ? "Whatever your trainer schedules for you shows up here."
-                 : "Your first completed session will show up in this history.")
+            Text("Whatever your trainer schedules for you shows up here.")
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 48)
+        .frame(maxWidth: .infinity)
     }
 }
 
