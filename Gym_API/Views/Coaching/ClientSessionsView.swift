@@ -100,6 +100,14 @@ struct ClientSessionsView: View {
         let start = calendar.date(byAdding: .day, value: -120, to: today) ?? today
         let end = calendar.date(byAdding: .day, value: 30, to: today) ?? today
         await classService.fetchSessionsByDateRange(startDate: start, endDate: end, limit: 200)
+
+        // Y las INSCRIPCIONES, que es la otra mitad de la interseccion. Antes esto solo cargaba
+        // las sesiones: `upcoming` cruza `classService.classes` con `userRegistrationStatus`, y
+        // ese diccionario lo rellenaba una ventana de [hoy-3, hoy+7], asi que de tres sesiones
+        // inscritas se veia una. `fetchMyClasses` no tiene ventana (el servidor filtra a futuro)
+        // y fusiona, y la de participaciones cubre ademas el historial por tramos.
+        await classService.fetchMyClasses(limit: 200)
+        await classService.loadParticipationStatus(startDate: start, endDate: end)
     }
 
     private var picker: some View {

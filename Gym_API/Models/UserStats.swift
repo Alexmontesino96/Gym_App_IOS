@@ -426,7 +426,11 @@ extension UserStats {
         self.weeklyClasses = comprehensive.fitnessMetrics.classesAttended
         self.weeklyEvents = comprehensive.eventsMetrics.eventsAttended
         self.weeklyHours = comprehensive.fitnessMetrics.totalWorkoutHours
-        self.monthlyClasses = comprehensive.fitnessMetrics.classesAttended * 4 // Approximation
+        // SIN multiplicar. `classesAttended` ya viene del periodo que se pidio, y la llamada usa
+        // `period: .month` (UserStatsService.swift:84), asi que el «× 4 // Approximation» que
+        // habia aqui cuadruplicaba un dato que ya era mensual: cuatro sesiones asistidas se
+        // pintaban como dieciseis.
+        self.monthlyClasses = comprehensive.fitnessMetrics.classesAttended
         self.totalStreak = comprehensive.fitnessMetrics.streakLongest
         self.currentStreak = comprehensive.fitnessMetrics.streakCurrent
         self.lastUpdated = Date()

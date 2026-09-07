@@ -4,7 +4,9 @@ import SwiftUI
 /// Large accent-gradient card showing the user's next reserved class
 struct TodaySessionHeroCard: View {
     let gymClass: GymClass
-    let onCheckInTap: () -> Void
+    /// Asistencia por QR. Opcional a proposito: solo tiene sentido el dia de la sesion, y en la
+    /// home del gimnasio no habia nada detras (su cuerpo era un haptico y un TODO).
+    var onCheckInTap: (() -> Void)? = nil
     let onCardTap: () -> Void
 
     // MARK: - Contexto opcional (cliente de entrenador personal)
@@ -36,10 +38,42 @@ struct TodaySessionHeroCard: View {
         return max(Int(interval / 60), 1)
     }
 
+    // MARK: - El dia y la hora, en la zona del espacio
+    //
+    // La hora que vale es la que dijo el entrenador al crear la sesion, no la del telefono de
+    // quien mira. `GymClass.gymTimezone` viaja desde `time_info.gym_timezone` y hasta ahora no
+    // lo usaba nadie aqui: un cliente en otra zona veia una hora distinta a la de su coach.
+
+    private var gymTimeZone: TimeZone {
+        gymClass.gymTimezone.flatMap(TimeZone.init(identifier:)) ?? .current
+    }
+
+    private var gymCalendar: Calendar {
+        var calendar = Calendar.current
+        calendar.timeZone = gymTimeZone
+        return calendar
+    }
+
+    /// Cabecera. Antes era el literal «YOUR SESSION TODAY» para cualquier sesion futura, asi que
+    /// una del miercoles se anunciaba como de hoy.
+    private var dayHeadline: String {
+        if gymCalendar.isDateInToday(gymClass.startTime) { return "YOUR SESSION TODAY" }
+        if gymCalendar.isDateInTomorrow(gymClass.startTime) { return "YOUR SESSION TOMORROW" }
+        let formatter = DateFormatter.localized(template: "EEEE")
+        formatter.timeZone = gymTimeZone
+        return "YOUR SESSION \(formatter.string(from: gymClass.startTime).uppercased())"
+    }
+
+    /// El QR de asistencia solo tiene sentido el dia de la sesion.
+    private var isToday: Bool {
+        gymCalendar.isDateInToday(gymClass.startTime)
+    }
+
     /// Reloj de 12 o de 24 horas según el país, no "HH:mm" fijo: es la hora más visible
     /// de toda la app y en Estados Unidos "18:30" se lee mal.
     private var timeRange: String {
         let formatter = DateFormatter.localized(template: "jmm")
+        formatter.timeZone = gymTimeZone
         return "\(formatter.string(from: gymClass.startTime))–\(formatter.string(from: gymClass.endTime))"
     }
 
@@ -71,7 +105,7 @@ struct TodaySessionHeroCard: View {
                     // Top row: class info + duration badge
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("YOUR SESSION TODAY")
+                            Text(dayHeadline)
                                 .font(.system(size: 11, weight: .bold))
                                 .tracking(1.1)
                                 .opacity(0.7)
@@ -151,11 +185,15 @@ struct TodaySessionHeroCard: View {
                         Spacer()
 
                         // Check-in pill
+                        // Solo el dia de la sesion, y solo si hay algo detras. Antes salia
+                        // siempre: en la home del gimnasio no hacia nada, y en la del cliente
+                        // ofrecia registrar asistencia a una sesion de dos dias despues.
+                        if isToday, let onCheckInTap {
                         Button(action: onCheckInTap) {
                             HStack(spacing: 6) {
                                 Image(systemName: "qrcode")
                                     .font(.system(size: 16))
-                                Text("CHECK-IN")
+                                Text("CHECK IN")
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             .foregroundColor(accentColor)
@@ -165,6 +203,7 @@ struct TodaySessionHeroCard: View {
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        }
                     }
                 }
                 .padding(20)

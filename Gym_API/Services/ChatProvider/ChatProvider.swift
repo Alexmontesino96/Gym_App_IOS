@@ -449,6 +449,37 @@ struct ChatConversation: Identifiable {
     }
 }
 
+// MARK: - Quién es «el otro» en una conversación 1:1
+
+extension ChatConversation {
+    /// El otro participante de una conversación directa.
+    ///
+    /// Los identificadores llegan en varias formas (`gym_5_user_8`, `user_8`, `8`), así que la
+    /// comparación va sobre el número con `extractNumericUserId()`. Sin normalizar, un
+    /// identificador multi-tenant no casa nunca y se devuelve al propio usuario.
+    func otherUser(currentUserId: String?) -> ChatUser? {
+        guard type == .direct else { return nil }
+        guard let currentUserId, !currentUserId.isEmpty else { return members.first }
+        let mine = currentUserId.extractNumericUserId()
+        return members.first { $0.id.extractNumericUserId() != mine }
+    }
+
+    /// Título de la conversación tal y como debe verlo quien la mira.
+    ///
+    /// En un chat 1:1 NO se usa `name`. El backend lo compone como «Chat {creador} - {destinatario}»
+    /// (app/services/chat.py:923) mientras el identificador del canal ordena a los miembros
+    /// ALFABÉTICAMENTE (chat.py:464-468). `resolveDirectChatName` empareja los dos por posición,
+    /// así que cuando los dos órdenes no coinciden devuelve el nombre equivocado y el cliente
+    /// acaba viendo el suyo propio en la conversación con su entrenador. El miembro, en cambio,
+    /// viene resuelto por identificador y es de fiar.
+    func title(currentUserId: String?) -> String {
+        if let other = otherUser(currentUserId: currentUserId), !other.name.isEmpty {
+            return other.name
+        }
+        return name ?? "Chat"
+    }
+}
+
 struct CreateConversationRequest {
     let id: String? // ID específico del canal (opcional)
     let name: String?

@@ -23,6 +23,10 @@ struct NumericStepperFieldView: View {
     var unit: String? = nil
     var decimals: Int = 1
     var compact: Bool = false
+    /// Cuando es cierto se pinta el marcador en vez de la cifra. El control necesita un `Double`
+    /// de partida por fuerza, pero enseñarlo como número invita a guardarlo como si fuera un dato
+    /// que la persona ha confirmado. Así se distingue «no hay valor» de «vale eso».
+    var isUnset: Bool = false
 
     @EnvironmentObject var themeManager: ThemeManager
     @State private var repeatTimer: Timer?
@@ -38,7 +42,7 @@ struct NumericStepperFieldView: View {
     private let maxTicks = 100
 
     private var formatted: String {
-        NumberFormat.decimal(value, digits: decimals)
+        isUnset ? NumberFormat.placeholder : NumberFormat.decimal(value, digits: decimals)
     }
 
     private var canDecrease: Bool { value - step >= range.lowerBound - 0.0001 }

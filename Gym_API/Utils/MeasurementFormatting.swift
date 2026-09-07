@@ -57,8 +57,10 @@ enum WeightUnit {
         }
     }
 
-    /// Valor por defecto del check-in cuando no hay ninguna medición previa.
-    var defaultWeight: Double {
+    /// Punto de partida del CONTROL cuando no hay medición previa. **No es un dato**: nunca se
+    /// debe guardar sin que la persona lo confirme. El nombre anterior, «peso por defecto»,
+    /// invitaba justo a lo contrario, y así se escribieron 165 lb en un histórico real.
+    var stepperStartValue: Double {
         switch self {
         case .kilograms: return 75
         case .pounds: return 165

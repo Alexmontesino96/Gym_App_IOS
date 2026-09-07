@@ -755,7 +755,7 @@ struct SocialFeedView: View {
         for conversation in conversations {
             if conversation.type == .direct {
                 // Obtener el otro usuario de los miembros
-                let otherUser = conversation.members.first { $0.id != currentUserId }
+                let otherUser = conversation.otherUser(currentUserId: currentUserId)
 
                 if let otherUser = otherUser {
                     if let avatarURL = otherUser.avatarURL, !avatarURL.isEmpty {
@@ -902,20 +902,12 @@ struct SocialFeedView: View {
     private func storyPriority(for conversation: ChatConversation) -> Int {
         // Priorizar direct chats cuyo otro usuario tiene historias no vistas
         guard conversation.type == .direct else { return 0 }
-        // Map other user id similar to ConversationAvatarView
-        let other: ChatUser?
-        if let currentUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId ?? authService.user?.id {
-            other = conversation.members.first { user in
-                let normalizedMember = user.id.replacingOccurrences(of: "user_", with: "")
-                let normalizedCurrent = currentUserId.replacingOccurrences(of: "user_", with: "")
-                return normalizedMember != normalizedCurrent && user.id != currentUserId
-            }
-        } else {
-            other = conversation.members.first
-        }
-        guard let otherUser = other else { return 0 }
-        let normalizedId = otherUser.id.replacingOccurrences(of: "user_", with: "")
-        guard let userIdInt = Int(normalizedId) else { return 0 }
+        let currentUserId = (chatProviderManager.currentProvider as? GetStreamChatProvider)?.currentUserId
+            ?? authService.user?.id
+        guard let otherUser = conversation.otherUser(currentUserId: currentUserId) else { return 0 }
+        // `extractNumericUserId` y no `replacingOccurrences`: con un identificador multi-tenant
+        // (`gym_5_user_8`) el reemplazo deja «gym_5_8», que no es un numero y aborta en silencio.
+        guard let userIdInt = Int(otherUser.id.extractNumericUserId()) else { return 0 }
         let unseen = ServiceContainer.shared.storyService.unseenCount(for: userIdInt)
         return unseen > 0 ? 1 : 0
     }
@@ -972,7 +964,7 @@ struct ConversationRow: View {
                 // Top row: Name and time
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(conversation.name ?? "Chat")
+                        Text(conversation.title(currentUserId: currentUserId))
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                             .lineLimit(1)
@@ -995,9 +987,14 @@ struct ConversationRow: View {
 
                     VStack(alignment: .trailing, spacing: 6) {
                         HStack(spacing: 6) {
-                            Text(formatDate(conversation.lastActivity))
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            // Sin mensajes no hay «ultima actividad» que ensenar: `lastActivity`
+                            // cae a la fecha de creacion del canal, y pintarla al lado de
+                            // «No messages» es una hora que no significa nada.
+                            if conversation.lastMessage != nil {
+                                Text(formatDate(conversation.lastActivity))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
+                            }
 
                             // Unread dot (Instagram-like)
                             if conversation.unreadCount > 0 {
@@ -1265,35 +1262,13 @@ struct ConversationAvatarView: View {
         return [colors[index], colors[(index + 1) % colors.count]]
     }
 
+    /// Quien es «el otro» en un chat 1:1. La logica esta en `ChatConversation.otherUser`
+    /// (Services/ChatProvider/ChatProvider.swift): estaba duplicada en tres sitios de este
+    /// fichero, y una de las tres comparaba sin normalizar el identificador.
     private var otherUser: ChatUser? {
-        // For direct conversations, get the other user (not current user)
-        if conversation.type == .direct {
-            // Filter to get the other user
-            if let currentUserId = currentUserId {
-                return conversation.members.first { user in
-                    !isCurrentUser(userId: user.id, currentUserId: currentUserId)
-                }
-            } else {
-                // Fallback to first member if we don't have current user ID
-                return conversation.members.first
-            }
-        }
-        return nil
+        conversation.otherUser(currentUserId: currentUserId)
     }
 
-    /// Determines if a given member userId refers to the current user, accounting for different ID formats.
-    /// Uses extractNumericUserId() extension for consistent ID comparison.
-    private func isCurrentUser(userId: String, currentUserId: String) -> Bool {
-        // Direct match
-        if userId == currentUserId { return true }
-
-        // Compare numeric IDs extracted from both strings
-        // Handles formats: gym_X_user_Y, user_Y, Y
-        let normalizedMember = userId.extractNumericUserId()
-        let normalizedCurrent = currentUserId.extractNumericUserId()
-
-        return normalizedMember == normalizedCurrent
-    }
 
     private var conversationIcon: String {
         switch conversation.type {

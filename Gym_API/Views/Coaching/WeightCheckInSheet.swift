@@ -24,7 +24,14 @@ struct WeightCheckInSheet: View {
     /// Unidad en la que se teclea y se lee. El servidor sigue recibiendo kilos.
     private let unit = WeightUnit.preferred
 
-    @State private var weight: Double = WeightUnit.preferred.defaultWeight
+    /// Lo que la persona ha tecleado, si ha tecleado algo. `nil` NO es «cero»: es «todavía no».
+    ///
+    /// Antes esto era `Double` inicializado a `WeightUnit.preferred.defaultWeight`, o sea 165 lb.
+    /// Ese inicializador corre ANTES de que exista el entorno, así que era imposible consultar
+    /// ahí el peso previo, y el `.onAppear` que lo copiaba era un disparo único: si la red no
+    /// había respondido todavía, la hoja se quedaba con las 165 y nada volvía a sincronizarla.
+    /// Abrir y pulsar Save escribía ese número inventado en el histórico del cliente.
+    @State private var weight: Double?
     @State private var notes: String = ""
 
     // Las tres escalas del diseño. Opcionales: nadie está obligado a puntuar, y arrancar en un
@@ -41,9 +48,35 @@ struct WeightCheckInSheet: View {
         healthService.currentWeight.map { unit.fromKilograms($0) }
     }
 
+    /// El valor que pinta el control. Se lee EN VIVO, no se copia: si la medición previa llega
+    /// tarde, el control se actualiza solo y la carrera desaparece sin `onAppear` ni `onChange`.
+    private var effectiveWeight: Double {
+        weight ?? previousWeight ?? unit.stepperStartValue
+    }
+
+    /// No hay nada que guardar: ni peso previo ni nada tecleado.
+    private var hasNoWeight: Bool {
+        weight == nil && previousWeight == nil
+    }
+
+    private var weightBinding: Binding<Double> {
+        Binding(get: { effectiveWeight }, set: { weight = $0 })
+    }
+
+    /// Qué decir bajo el control cuando no hay cifra: cargando, no se pudo, o de verdad es la
+    /// primera vez. Antes las tres se veían igual, y las tres enseñaban 165 lb.
+    private var weightHint: String? {
+        guard hasNoWeight else { return deltaText }
+        switch healthService.weightState {
+        case .loading, .idle: return "Looking up your last weigh-in…"
+        case .failed: return "Couldn't load your last weigh-in. Enter today's weight."
+        case .loaded: return "First weigh-in. Enter today's weight."
+        }
+    }
+
     private var deltaText: String? {
         guard let previous = previousWeight else { return nil }
-        let delta = ((weight - previous) * 10).rounded() / 10
+        let delta = ((effectiveWeight - previous) * 10).rounded() / 10
         guard abs(delta) >= 0.05 else { return "Same as last time" }
         return "\(NumberFormat.signedDecimal(delta)) \(unit.symbol) since last time"
     }
@@ -67,15 +100,16 @@ struct WeightCheckInSheet: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     NumericStepperFieldView(
-                        value: $weight,
+                        value: weightBinding,
                         step: unit.step,
                         range: unit.editableRange,
                         unit: unit.symbol,
-                        decimals: 1
+                        decimals: 1,
+                        isUnset: hasNoWeight
                     )
 
-                    if let deltaText {
-                        Text(deltaText)
+                    if let weightHint {
+                        Text(weightHint)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                     }
@@ -150,7 +184,8 @@ struct WeightCheckInSheet: View {
                     .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
                 }
                 .buttonStyle(.plain)
-                .disabled(healthService.isSaving)
+                .disabled(healthService.isSaving || hasNoWeight)
+                .opacity(hasNoWeight ? 0.5 : 1)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -165,8 +200,8 @@ struct WeightCheckInSheet: View {
                 }
             }
             .onAppear {
-                // Se parte del último peso conocido: es el gesto de menos fricción.
-                if let previous = previousWeight { weight = previous }
+                // Ya no se copia el peso previo aquí: `effectiveWeight` lo lee en vivo, así que
+                // llegue cuando llegue el control lo recoge solo.
                 healthService.saveErrorMessage = nil
             }
         }
@@ -180,8 +215,9 @@ struct WeightCheckInSheet: View {
             // por el mismo sitio que antes.
             //
             // El backend valida el peso en kilos (0 < weight <= 500), así que se convierte aquí.
+            guard !hasNoWeight else { return }
             let saved = await healthService.submitWeeklyCheckIn(
-                weightKilograms: unit.toKilograms(weight),
+                weightKilograms: unit.toKilograms(effectiveWeight),
                 energy: energy,
                 sleep: sleep,
                 soreness: soreness,

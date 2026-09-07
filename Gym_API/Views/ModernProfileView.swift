@@ -25,6 +25,15 @@ struct ModernProfileView: View {
     @State private var showingQRCode = false
     @State private var showingDeleteAccount = false
 
+    /// Misma derivación que `AuthenticatedView.rootForCurrentUser`, con el mismo triple respaldo:
+    /// el backend no serializa `is_personal_trainer` en `/gyms/my` (es una @property de Python sin
+    /// @computed_field), así que `type` es el que vale de verdad.
+    private var isPersonalTrainerWorkspace: Bool {
+        WorkspaceContextService.shared.isPersonalTrainer
+            || (gymService.currentGym?.isPersonalTrainer ?? false)
+            || gymService.currentGym?.type?.lowercased() == "personal_trainer"
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -40,7 +49,7 @@ struct ModernProfileView: View {
                         profileCard
 
                         // Membership card
-                        membershipCard
+                        workspaceCard
 
                         // Settings list
                         settingsList
@@ -181,9 +190,13 @@ struct ModernProfileView: View {
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                         .lineLimit(1)
 
-                    Text("Member since \(memberSinceText)")
-                        .font(.system(size: 12))
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                    if let memberSinceText {
+                        // «Client since» en un espacio de entrenador: quien está aquí no es socio
+                        // de un gimnasio, es cliente de una persona.
+                        Text("\(isPersonalTrainerWorkspace ? "Client" : "Member") since \(memberSinceText)")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+                    }
                 }
 
                 Spacer()
@@ -201,10 +214,15 @@ struct ModernProfileView: View {
             }
 
             // Stats row
+            //
+            // `statValue` distingue «cero de verdad» de «no se pudo cargar». Antes las dos cosas
+            // se pintaban igual: `fetchComprehensiveStats` tiene cinco salidas silenciosas que
+            // dejan el modelo vacio, y el endpoint esta limitado a 10 peticiones por minuto con
+            // tres llamadores, asi que un 429 daba el mismo «0 / 0 / 0» que un usuario nuevo.
             HStack(spacing: 16) {
-                statItem(value: "\(userStatsService.userStats.monthlyClasses)", label: "sessions", alignment: .leading)
-                statItem(value: "\(userStatsService.userStats.currentStreak)", label: "streak", alignment: .center)
-                statItem(value: "\(userStatsService.achievements.count)", label: "badges", alignment: .center)
+                statItem(value: statValue(userStatsService.userStats.monthlyClasses), label: "sessions", alignment: .leading)
+                statItem(value: statValue(userStatsService.userStats.currentStreak), label: "streak", alignment: .center)
+                statItem(value: statValue(userStatsService.achievements.count), label: "badges", alignment: .center)
             }
             .padding(.top, 20)
             .overlay(alignment: .top) {
@@ -241,6 +259,15 @@ struct ModernProfileView: View {
         .padding(.horizontal, 20)
     }
 
+    /// Una cifra solo se pinta cuando se sabe. Si la carga fallo o sigue en curso y no hay nada
+    /// que ensenar, se pinta el marcador: un cero afirma que no has entrenado, y eso puede ser
+    /// falso.
+    private func statValue(_ value: Int) -> String {
+        if value > 0 { return "\(value)" }
+        if userStatsService.isLoading || userStatsService.error != nil { return NumberFormat.placeholder }
+        return "0"
+    }
+
     private func statItem(value: String, label: String, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment == .leading ? .leading : .center, spacing: 2) {
             Text(value)
@@ -273,46 +300,45 @@ struct ModernProfileView: View {
             )
     }
 
-    // MARK: - Membership Card
+    // MARK: - Espacio de trabajo
 
-    private var membershipCard: some View {
-        Button(action: { /* Navigate to billing */ }) {
-            HStack(spacing: 12) {
-                // Crown icon
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(Color(hex: "#D4FF3F")!)
-                    .frame(width: 44, height: 44)
-                    .background(Color(hex: "#D4FF3F")!.opacity(0.18))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+    /// Antes era una tarjeta «MEMBERSHIP» con corona que pintaba el NOMBRE DEL GIMNASIO bajo ese
+    /// rótulo, con respaldo al literal «Premium», dentro de un `Button` cuyo cuerpo estaba vacío
+    /// (`/* Navigate to billing */`) y con un chevron prometiendo una navegación inexistente.
+    ///
+    /// Un cliente de entrenador personal no tiene membresía: tiene un entrenador. Y en un
+    /// gimnasio, lo que hay aquí es el espacio al que perteneces, no un plan contratado.
+    private var workspaceCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: isPersonalTrainerWorkspace ? "figure.strengthtraining.traditional" : "building.2.fill")
+                .font(.system(size: 20))
+                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                .frame(width: 44, height: 44)
+                .background(Color.dynamicAccent(theme: themeManager.currentTheme).opacity(0.18))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                // Plan info
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("MEMBERSHIP")
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(0.8)
-                        .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(isPersonalTrainerWorkspace ? "YOUR TRAINER" : "YOUR GYM")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.5))
 
-                    Text(gymService.currentGym?.name ?? "Premium")
+                if let name = gymService.currentGym?.name, !name.isEmpty {
+                    Text(name)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme).opacity(0.4))
             }
-            .padding(16)
-            .background(Color.dynamicSurface(theme: themeManager.currentTheme))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
+
+            Spacer()
         }
-        .buttonStyle(.plain)
+        .padding(16)
+        .background(Color.dynamicSurface(theme: themeManager.currentTheme))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.dynamicBorder(theme: themeManager.currentTheme).opacity(0.15), lineWidth: 1)
+        )
         .padding(.horizontal, 20)
     }
 
@@ -491,12 +517,12 @@ struct ModernProfileView: View {
 
     // MARK: - Helpers
 
-    private var memberSinceText: String {
-        if let createdAt = profileService.userProfile?.createdAt {
-            let formatter = DateFormatter.localized(template: "MMMyyyy")
-            return formatter.string(from: createdAt).capitalized
-        }
-        return "2024"
+    /// Devuelve nil cuando no se sabe, y entonces la línea no se pinta. Antes el respaldo era
+    /// el literal «2024»: la app afirmaba una fecha de alta que no había leído de ninguna parte.
+    private var memberSinceText: String? {
+        guard let createdAt = profileService.userProfile?.createdAt else { return nil }
+        let formatter = DateFormatter.localized(template: "MMMyyyy")
+        return formatter.string(from: createdAt).capitalized
     }
 
     private func getUserInitials() -> String {

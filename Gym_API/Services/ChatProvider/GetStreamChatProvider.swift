@@ -1083,8 +1083,11 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
     /// Resuelve el nombre para un chat directo extrayendo el usuario opuesto
     private func resolveDirectChatName(from apiName: String, channelId: String) -> String {
         // Si no tenemos usuario actual, devolver nombre completo
+        // `extractNumericUserId` y no `replacingOccurrences`: con un identificador multi-tenant
+        // (`gym_5_user_8`) el reemplazo deja «gym_5_8», `Int()` da nil y el guard abortaba
+        // devolviendo el nombre compuesto entero.
         guard let currentUser = currentUser,
-              let currentUserId = Int(currentUser.id.replacingOccurrences(of: "user_", with: "")) else {
+              let currentUserId = Int(currentUser.id.extractNumericUserId()) else {
             print("⚠️ No hay usuario actual configurado para resolver nombres de chat directo")
             return apiName
         }
@@ -1124,29 +1127,34 @@ extension GetStreamChatProvider: ChatChannelControllerDelegate {
         
         // Dividir por " - " para obtener los dos nombres
         let names = cleanName.components(separatedBy: " - ")
-        if names.count == 2 {
-            // Para un chat "direct_user_10_user_8":
-            // - Si currentUserId == 10, queremos el nombre del userId 8 (segundo usuario)
-            // - Si currentUserId == 8, queremos el nombre del userId 10 (primer usuario)
-            
-            let firstUserName = names[0].trimmingCharacters(in: .whitespaces)
-            let secondUserName = names[1].trimmingCharacters(in: .whitespaces)
-            
-            // Determinar cuál nombre corresponde al usuario opuesto
-            // userId1 corresponde al primer nombre, userId2 al segundo
-            let resolvedName: String
-            if otherUserId == userId1 {
-                resolvedName = firstUserName
-            } else {
-                resolvedName = secondUserName
-            }
-            
-            print("✅ Nombre resuelto: \(resolvedName)")
-            return resolvedName
-        } else {
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        // NO se puede emparejar nombre con identificador por posicion, y antes se hacia:
+        //   - el backend compone el nombre como «Chat {creador} - {destinatario}»
+        //     (app/services/chat.py:923), o sea en orden de creacion;
+        //   - el identificador del canal ordena a los miembros ALFABETICAMENTE sobre cadenas
+        //     recortadas a 15 caracteres (chat.py:464-468).
+        // Con `gym_5_user_4` y `gym_5_user_8` los dos ordenes coinciden; con `..._user_11` y
+        // `..._user_8` no, porque "1" < "8". Cuando divergen, la version anterior devolvia con
+        // total confianza el nombre del PROPIO usuario en su conversacion con el entrenador.
+        //
+        // Lo unico decidible con estos datos es descartar el nombre propio. Si no se reconoce,
+        // se devuelve el compuesto: contiene a los dos y no afirma nada falso.
+        guard names.count == 2 else {
             print("⚠️ El formato del nombre de la API no es el esperado: \(apiName)")
             return apiName
         }
+
+        let myName = currentUser.name.trimmingCharacters(in: .whitespaces)
+        if !myName.isEmpty, let other = names.first(where: { $0.caseInsensitiveCompare(myName) != .orderedSame }),
+           names.contains(where: { $0.caseInsensitiveCompare(myName) == .orderedSame }) {
+            print("✅ Nombre resuelto por descarte del propio: \(other)")
+            return other
+        }
+
+        print("⚠️ No se pudo decidir cual de los dos nombres es el otro; se devuelve el compuesto")
+        return cleanName
     }
 
     /// Extrae miembros de un canal directo desde el channel ID y nombres

@@ -220,11 +220,43 @@ class ClassService: ObservableObject {
         await loadParticipationStatusIfNeeded(startDate: newStartDate, endDate: newEndDate)
     }
     
+    /// Tope del rango que acepta `/schedule/participation/my-participation-status`.
+    ///
+    /// El servidor rechaza con 422 cualquier ventana mayor (participation.py:1049-1055), y la
+    /// comprobación es incondicional. `ClientSessionsView` carga 150 días de sesiones, así que
+    /// sin este recorte la siguiente petición de participaciones fallaba entera y dejaba a la
+    /// home y a Clases sin saber a qué está inscrito nadie.
+    private static let maxParticipationWindowDays = 90
+
+    /// Igual que `loadParticipationStatusIfNeeded` pero accesible desde las vistas que cargan su
+    /// propio rango, como `ClientSessionsView`. Respeta la misma cache de cinco minutos.
+    func loadParticipationStatus(startDate: Date, endDate: Date) async {
+        await loadParticipationStatusIfNeeded(startDate: startDate, endDate: endDate)
+    }
+
     // MARK: - Load Participation Status If Needed
     private func loadParticipationStatusIfNeeded(startDate: Date, endDate: Date) async {
         // Solo cargar si no tenemos datos recientes (cache de 5 minutos)
-        if !shouldUseOptimizedParticipationData() {
+        guard !shouldUseOptimizedParticipationData() else { return }
+
+        let calendar = Calendar.current
+        let span = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 0
+        guard span > Self.maxParticipationWindowDays else {
             await fetchMyParticipationStatus(startDate: startDate, endDate: endDate)
+            return
+        }
+
+        // Ventana demasiado ancha: se pide por tramos y se fusiona. Como ahora el diccionario
+        // se fusiona en vez de reemplazarse, los tramos se acumulan sin pisarse.
+        var tramoInicio = startDate
+        while tramoInicio < endDate {
+            let tramoFin = min(
+                calendar.date(byAdding: .day, value: Self.maxParticipationWindowDays, to: tramoInicio) ?? endDate,
+                endDate
+            )
+            await fetchMyParticipationStatus(startDate: tramoInicio, endDate: tramoFin)
+            guard let siguiente = calendar.date(byAdding: .day, value: 1, to: tramoFin) else { break }
+            tramoInicio = siguiente
         }
     }
     
@@ -649,19 +681,17 @@ class ClassService: ObservableObject {
                 print("✅ Successfully fetched \(participationResponse.participations.count) participation statuses")
                 
                 await MainActor.run {
-                    // Limpiar estado anterior
-                    self.userParticipations.removeAll()
-                    var newUserRegistrationStatus: [Int: Bool] = [:]
-                    
-                    // Actualizar con nuevos datos
+                    // FUSIONAR, no reemplazar. Esta respuesta solo cubre [startDate, endDate], y
+                    // antes se vaciaban los dos diccionarios antes de rellenarlos: toda
+                    // inscripción fuera de esa ventana se BORRABA, no solo se quedaba sin cargar.
+                    // Con la ventana por defecto de [hoy−3, hoy+7], las sesiones de dentro de dos
+                    // y tres semanas desaparecían de «Upcoming» aunque estuvieran cargadas.
+                    // `fetchMyClasses` ya fusionaba; esto lo alinea con aquello.
                     for participation in participationResponse.participations {
                         self.userParticipations[participation.sessionId] = participation
-                        
-                        // Actualizar el estado booleano legacy para compatibilidad
-                        newUserRegistrationStatus[participation.sessionId] = participation.status.isActiveParticipation
+                        self.userRegistrationStatus[participation.sessionId] = participation.status.isActiveParticipation
                     }
-                    
-                    self.userRegistrationStatus = newUserRegistrationStatus
+
                     self.lastParticipationStatusUpdate = Date()
                     print("📊 Total participaciones cargadas: \(self.userParticipations.count)")
                     print("📊 Estado de participación actualizado con \(self.userParticipations.count) entradas")
