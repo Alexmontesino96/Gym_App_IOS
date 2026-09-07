@@ -255,9 +255,6 @@ extension ContextualActionsSection {
                 // Social actions
                 actions.append(contentsOf: generateSocialActions())
                 
-                // Workout actions
-                actions.append(contentsOf: generateWorkoutActions())
-                
                 // Settings actions
                 actions.append(contentsOf: generateSettingsActions())
                 
@@ -495,56 +492,12 @@ extension ContextualActionsSection {
         return actions
     }
     
-    private func generateWorkoutActions() -> [ContextualAction] {
-        var actions: [ContextualAction] = []
-        
-        // Mock: Would come from workout tracking
-        let hasIncompleteWorkout = false
-        let hasPersonalRecord = true
-        let suggestedWorkout = true
-        
-        if hasIncompleteWorkout {
-            actions.append(ContextualAction(
-                title: "Continue Workout",
-                subtitle: "Resume your session",
-                icon: "play.circle.fill",
-                color: .green,
-                priority: .high,
-                type: .workout,
-                action: { continueWorkout() },
-                isEnabled: true
-            ))
-        }
-        
-        if hasPersonalRecord {
-            actions.append(ContextualAction(
-                title: "Beat Your Record",
-                subtitle: "Try to improve your best",
-                icon: "trophy.circle.fill",
-                color: .yellow,
-                priority: .medium,
-                type: .workout,
-                action: { navigateToPersonalRecords() },
-                isEnabled: true
-            ))
-        }
-        
-        if suggestedWorkout {
-            actions.append(ContextualAction(
-                title: "Suggested Workout",
-                subtitle: "Based on your progress",
-                icon: "lightbulb.circle.fill",
-                color: .orange,
-                priority: .low,
-                type: .workout,
-                action: { showSuggestedWorkout() },
-                isEnabled: true
-            ))
-        }
-        
-        return actions
-    }
-    
+    // Las acciones de entrenamiento vivían aquí con datos inventados
+    // (`hasIncompleteWorkout = false`, `hasPersonalRecord = true`) y tres destinos que no
+    // existían. El módulo de entrenamiento las sustituye con datos reales: «Log» en la home del
+    // cliente abre la sesión de hoy, las marcas están en S16 y la sugerencia de entreno es el
+    // programa del entrenador, no una heurística de la app.
+
     private func generateSettingsActions() -> [ContextualAction] {
         var actions: [ContextualAction] = []
         
@@ -658,22 +611,6 @@ extension ContextualActionsSection {
     private func navigateToMessages() {
         print("💬 Navigating to messages...")
         // TODO: Navigate to messages view
-    }
-    
-    // Workout actions
-    private func continueWorkout() {
-        print("🏋️‍♂️ Continuing workout...")
-        // TODO: Navigate to workout continuation
-    }
-    
-    private func navigateToPersonalRecords() {
-        print("🏆 Navigating to personal records...")
-        // TODO: Navigate to personal records view
-    }
-    
-    private func showSuggestedWorkout() {
-        print("💡 Showing suggested workout...")
-        // TODO: Show suggested workout modal
     }
     
     // Settings actions

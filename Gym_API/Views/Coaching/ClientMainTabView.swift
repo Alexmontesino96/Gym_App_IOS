@@ -79,6 +79,11 @@ struct ClientMainTabView: View {
         .onChange(of: selectedTab) { _, _ in
             HapticManager.shared.buttonTap()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .trainingOpenLog)) { _ in
+            // El deep link `training/logs/{id}` abre el resumen, que vive en la pila de Home.
+            // Aquí solo se cambia de pestaña; la home escucha el mismo aviso y presenta S18.
+            selectedTab = .home
+        }
         .sheet(isPresented: $showQRCode) {
             QRCodeSheet(
                 qrCode: profileService.userProfile?.qrCode,

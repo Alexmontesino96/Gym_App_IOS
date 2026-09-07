@@ -11,7 +11,7 @@ protocol PostServicing {
     func getByLocation(_ location: String, limit: Int, offset: Int) async throws -> PagedResponse<Post>
 
     // MARK: - CRUD de Posts
-    func createPost(caption: String?, location: String?, images: [UIImage], sessionId: Int?, eventId: Int?) async throws -> Post
+    func createPost(caption: String?, location: String?, images: [UIImage], sessionId: Int?, eventId: Int?, workoutLogId: Int?) async throws -> Post
     func getPost(id: Int) async throws -> Post
     func getUserPosts(userId: Int, limit: Int, offset: Int) async throws -> PagedResponse<Post>
     func updatePost(id: Int, caption: String?, location: String?) async throws -> Post
@@ -344,7 +344,9 @@ class PostService: ObservableObject, PostServicing {
         return try decoder.decode(Post.self, from: data)
     }
 
-    func createPost(caption: String? = nil, location: String? = nil, images: [UIImage], sessionId: Int? = nil, eventId: Int? = nil) async throws -> Post {
+    /// - Parameter workoutLogId: registro de entrenamiento etiquetado (plan §7.2). Viaja como
+    ///   `workout_log_id`, con la misma forma que `session_id` y `event_id`.
+    func createPost(caption: String? = nil, location: String? = nil, images: [UIImage], sessionId: Int? = nil, eventId: Int? = nil, workoutLogId: Int? = nil) async throws -> Post {
         print("🌐 [PostService] createPost() llamado")
         print("📊 [PostService] - Caption: '\(caption ?? "nil")'")
         print("📊 [PostService] - Location: '\(location ?? "nil")'")
@@ -417,6 +419,14 @@ class PostService: ObservableObject, PostServicing {
             print("✅ [PostService] event_id agregado al body del request")
         } else {
             print("⚠️ [PostService] No hay evento para etiquetar (eventId = nil)")
+        }
+
+        // Add workoutLogId for training log tagging (plan §7.2)
+        if let workoutLogId = workoutLogId {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"workout_log_id\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(workoutLogId)\r\n".data(using: .utf8)!)
+            print("📌 [PostService] Etiquetando registro de entrenamiento ID: \(workoutLogId)")
         }
 
         // Add images

@@ -657,6 +657,50 @@ class GymService: ObservableObject {
         return nil
     }
 
+    // MARK: - Módulos activos del espacio
+
+    /// Qué módulos tiene encendidos el espacio actual, por código (`stories`, `posts`, `training`…).
+    ///
+    /// Hasta ahora la app no tenía forma de saberlo: `GymDetail.modules` solo se pintaba como
+    /// lista informativa en el explorador de gimnasios. El módulo de entrenamiento lo necesita
+    /// para ocultar «To story» y «To feed» en espacios donde esos módulos nacen apagados
+    /// (plan §7.2), en lugar de ofrecer un botón que devolvería 403.
+    @Published private(set) var currentGymModules: [String: Bool] = [:]
+
+    private var modulesLoadedForGymId: Int?
+
+    /// `true`/`false` si se sabe; `nil` mientras no haya llegado la respuesta.
+    ///
+    /// Quien lo consulta decide qué hacer con el `nil`. El módulo de entrenamiento **falla
+    /// cerrado**: sin respuesta no enseña los botones de compartir.
+    func isModuleEnabled(_ code: String) -> Bool? {
+        currentGymModules[code]
+    }
+
+    /// Carga los módulos del espacio actual una sola vez por gimnasio.
+    func loadCurrentGymModulesIfNeeded() async {
+        guard let gymId = currentGymId else { return }
+        guard modulesLoadedForGymId != gymId else { return }
+        modulesLoadedForGymId = gymId
+
+        guard let detail = await getGymDetails(gymId: gymId) else {
+            // Que falle no se cachea: al volver a entrar se reintenta.
+            modulesLoadedForGymId = nil
+            return
+        }
+        guard currentGymId == gymId else { return }
+        currentGymModules = Dictionary(
+            detail.modules.map { ($0.moduleName, $0.isEnabled) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
+    /// Se llama al cambiar de espacio: lo que valía para el gimnasio anterior no vale aquí.
+    func clearModuleCache() {
+        currentGymModules = [:]
+        modulesLoadedForGymId = nil
+    }
+
     deinit {
         #if DEBUG
         print("🗑️ GymService deinitialized")

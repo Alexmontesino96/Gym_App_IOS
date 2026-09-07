@@ -230,6 +230,39 @@ class UserProfileService: ObservableObject {
         }
     }
     
+    /// Escribe la unidad de peso preferida del usuario (`kg` o `lb`) en su perfil.
+    ///
+    /// El plan §4.6 sitúa esta preferencia en la persona, no en el dispositivo: quien entrena en
+    /// libras espera libras también al cambiar de móvil. La petición se construye con
+    /// `HTTPClient.shared.makeRequest`, que es lo que añade el token y el espacio.
+    ///
+    /// Devuelve `false` si el servidor la rechaza; la interfaz ya ha guardado el valor en local,
+    /// así que un fallo aquí no cambia lo que el usuario ve.
+    @discardableResult
+    func updatePreferredWeightUnit(_ unit: String) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/users/profile"),
+              var request = await HTTPClient.shared.makeRequest(url: url, method: "PUT") else {
+            return false
+        }
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["preferred_weight_unit": unit]
+        )
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                return false
+            }
+            if let updated = try? configuredJSONDecoder().decode(UserProfile.self, from: data) {
+                await MainActor.run { self.userProfile = updated }
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// Verifica si el perfil del usuario tiene los campos básicos completos
     /// Criterios: nombre/apellido no vacíos, altura/peso > 0, edad dentro de un rango razonable
     func isProfileComplete() -> Bool {

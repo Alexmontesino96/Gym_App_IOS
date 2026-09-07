@@ -30,8 +30,9 @@ struct Gym_APIApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AuthenticatedView()
+            rootView
                 .withServiceContainer()
+                .trainingMotionEnvironment(forced: forcedReduceMotion)
                 .preferredColorScheme(serviceContainer.themeManager.currentTheme == .dark ? .dark : .light)
                 .onAppear {
                     // Deja escrito en la consola contra qué backend habla la app. En DEBUG avisa
@@ -45,10 +46,40 @@ struct Gym_APIApp: App {
                     // Inicializar OneSignal
                     serviceContainer.oneSignalService.initialize()
 
+                    // Después de OneSignal: encadena su delegado para enrutar los deep links de
+                    // entrenamiento y la acción «Add 30s» del cronómetro de descanso.
+                    TrainingNotificationRouter.shared.install()
+
                     // Verificar estado de autenticación
                     serviceContainer.authService.checkAuthStatus()
                 }
         }
         // .modelContainer(sharedModelContainer) // Comentado temporalmente
+    }
+
+    /// `-reduce-motion 1` de la galería de revisión. En Release siempre es falso: el ajuste del
+    /// sistema es el único que cuenta.
+    private var forcedReduceMotion: Bool {
+        #if DEBUG
+        return TrainingGalleryScenario.forcesReduceMotion()
+        #else
+        return false
+        #endif
+    }
+
+    /// Raíz de la app. En DEBUG, `-training-gallery <pantalla>` arranca directamente en una
+    /// pantalla del módulo de entrenamiento con los fixtures del contrato y sin login, que es lo
+    /// que usa `PLAN_MODULO_ENTRENAMIENTO_REPORTES/tools/screenshots.sh` para la revisión visual.
+    @ViewBuilder
+    private var rootView: some View {
+        #if DEBUG
+        if let scenario = TrainingGalleryScenario.fromLaunchArguments() {
+            TrainingGalleryView(scenario: scenario)
+        } else {
+            AuthenticatedView()
+        }
+        #else
+        AuthenticatedView()
+        #endif
     }
 }

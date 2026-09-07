@@ -596,6 +596,57 @@ final class TrainingService: ObservableObject {
         Logger.shared.error("TrainingService decode \(endpoint): \(error)", category: .training)
     }
 
+    // MARK: - Recordatorios de sesión
+
+    /// Preferencia `training_reminders_enabled` del plan §7.3. Vive en `user_gyms`, así que es
+    /// por espacio: alguien puede querer avisos de su entrenador y no de su gimnasio.
+    ///
+    /// Se guarda primero en el dispositivo y luego se intenta escribir en el servidor. Mientras
+    /// WP7 no exponga la ruta, un 404 o un 405 no se pintan como error: el conmutador conserva
+    /// lo que la persona eligió y se vuelve a enviar la próxima vez que lo toque.
+    func remindersEnabled() -> Bool {
+        guard let gymId = GymService.shared.currentGymId else { return true }
+        let key = Self.remindersKey(gymId: gymId)
+        guard UserDefaults.standard.object(forKey: key) != nil else { return true }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    @discardableResult
+    func setRemindersEnabled(_ enabled: Bool) async -> Bool {
+        guard let gymId = GymService.shared.currentGymId else { return false }
+        UserDefaults.standard.set(enabled, forKey: Self.remindersKey(gymId: gymId))
+
+        guard let url = URL(string: apiBaseURL + "/training/me/preferences"),
+              var request = await HTTPClient.shared.makeRequest(url: url, method: "PUT") else {
+            return false
+        }
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["training_reminders_enabled": enabled]
+        )
+
+        do {
+            let (_, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return false }
+            if (200...299).contains(http.statusCode) { return true }
+            if http.statusCode == 404 || http.statusCode == 405 {
+                Logger.shared.info(
+                    "Recordatorios: el backend todavía no expone /training/me/preferences",
+                    category: .training
+                )
+                return false
+            }
+            Logger.shared.error("Recordatorios -> \(http.statusCode)", category: .training)
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    private static func remindersKey(gymId: Int) -> String {
+        "training.reminders.\(gymId)"
+    }
+
     // MARK: - Ciclo de vida
 
     func clearData() {
@@ -635,6 +686,103 @@ final class TrainingService: ObservableObject {
         #endif
     }
 }
+
+#if DEBUG
+// MARK: - Galería de revisión
+
+extension TrainingService {
+
+    /// Rellena el servicio con los fixtures del contrato para la galería de revisión visual
+    /// (`-training-gallery <pantalla>`). Solo existe en DEBUG y no toca la red.
+    ///
+    /// La galería pinta las pantallas **de producción**, no maquetas: por eso los datos entran
+    /// por aquí y no por un `init` alternativo de cada vista. Si una pantalla se rompe, la
+    /// captura lo enseña.
+    func loadFixtures(for scenario: TrainingGalleryScenario) {
+        clearData()
+
+        func decode<T: Decodable>(_ type: T.Type, _ name: String) -> T? {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
+                  let data = try? Data(contentsOf: url) else {
+                print("⚠️ Fixture no encontrado: \(name).json")
+                return nil
+            }
+            do {
+                return try decoder.decode(type, from: data)
+            } catch {
+                print("⚠️ Fixture ilegible \(name).json: \(error)")
+                return nil
+            }
+        }
+
+        if scenario.usesProgram {
+            myProgram = decode(MyProgramResponse.self, scenario.usesGroupProgram ? "me_program_group" : "me_program")
+            programState = scenario.isError ? .failed : .loaded
+            week = myProgram?.week
+            weekState = programState
+            strengthSummary = myProgram?.focusLifts ?? []
+            strengthState = .loaded
+        } else if scenario.isEmpty {
+            programState = .loaded
+        }
+
+        if scenario.usesDay {
+            day = decode(TrainingDay.self, "me_day")
+            today = day
+            dayState = .loaded
+        }
+
+        if scenario.usesLogs {
+            logs = decode([TrainingWorkoutLogSummary].self, "me_logs") ?? []
+            logsState = .loaded
+        } else if scenario.isEmpty {
+            logsState = .loaded
+        }
+
+        if scenario.usesRecords {
+            records = decode([TrainingPersonalRecord].self, "me_records") ?? []
+            recordsState = .loaded
+        } else if scenario.isEmpty {
+            recordsState = .loaded
+        }
+
+        if scenario.usesHistory {
+            exerciseHistory = decode(ExerciseHistory.self, "exercise_history")
+            exerciseHistoryState = .loaded
+        } else if scenario.isEmpty {
+            exerciseHistoryState = .loaded
+        }
+
+        if scenario.usesGroup {
+            groupToday = decode(GroupToday.self, "group_today")
+            groupState = .loaded
+        }
+
+        if scenario.usesExercises {
+            exercises = decode([ExerciseCatalogItem].self, "exercises") ?? []
+            exercisesState = .loaded
+        }
+
+        if scenario == .s18PersonalRecord {
+            selectedLog = decode(TrainingWorkoutLog.self, "logs_sync_response")
+        }
+    }
+
+    /// El día de los fixtures, para arrancar S11 en la galería.
+    func fixtureDay() -> TrainingDay? {
+        guard let url = Bundle.main.url(forResource: "me_day", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? decoder.decode(TrainingDay.self, from: data)
+    }
+
+    /// El registro cerrado de los fixtures, para S18 en modo lectura.
+    func fixtureLog() -> TrainingWorkoutLog? {
+        guard let url = Bundle.main.url(forResource: "logs_sync_response", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? decoder.decode(TrainingWorkoutLog.self, from: data)
+    }
+}
+#endif
 
 // MARK: - Errores
 

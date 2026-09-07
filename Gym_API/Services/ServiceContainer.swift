@@ -396,6 +396,9 @@ class ServiceContainer: ObservableObject {
             // evita que el envío compita con la precarga. Nunca se tira nada.
             await trainingSyncCoordinator.flushBeforeGymChange()
             trainingService.clearData()
+            // Los módulos activos son del espacio anterior: lo que aquí esté encendido puede
+            // estar apagado en el siguiente.
+            gymService.clearModuleCache()
 
             async let storiesTask = storyService.fetchStoriesFeed()
             async let eventsTask = eventService.fetchEvents()
