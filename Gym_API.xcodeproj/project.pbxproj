@@ -458,6 +458,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		FDAA10022F0100010029E82C /* TrainingCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TrainingCore;
+		};
 		FDB0AFF62E27A3FF0029E82C /* StreamChat */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FDB0AFF52E27A3FF0029E82C /* XCRemoteSwiftPackageReference "stream-chat-swift" */;
@@ -522,10 +526,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FDFDAE5A2EAFA49D004B8F8D /* XCRemoteSwiftPackageReference "stripe-ios" */;
 			productName = StripePaymentSheet;
-		};
-		FDAA10022F0100010029E82C /* TrainingCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = TrainingCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

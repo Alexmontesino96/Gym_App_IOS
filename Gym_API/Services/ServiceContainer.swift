@@ -37,6 +37,10 @@ class ServiceContainer: ObservableObject {
     let healthService = HealthService.shared // Singleton: mediciones corporales y objetivos
     let invitationService = InvitationService.shared // Singleton: alta de clientes por invitación
     let accountService = AccountService.shared // Singleton: borrado de la propia cuenta
+    let trainingService = TrainingService.shared // Singleton: programas, registros y marcas
+    let trainingSyncCoordinator = TrainingSyncCoordinator.shared // Singleton: drena el outbox
+    let networkMonitor = NetworkMonitor.shared // Singleton: hay red o no la hay
+    let restTimerNotifier = RestTimerNotifier.shared // Singleton: aviso del fin del descanso
 
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -126,6 +130,12 @@ class ServiceContainer: ObservableObject {
         healthService.configure(authService: authService, gymService: gymService)
         invitationService.configure(authService: authService, gymService: gymService)
         accountService.configure(authService: authService)
+        trainingService.configure(authService: authService, gymService: gymService)
+        // El coordinador se engancha a la red aquí; el monitor lo arranca la app al aparecer.
+        trainingSyncCoordinator.configure(trainingService: trainingService, networkMonitor: networkMonitor)
+        // La categoría con la acción «Add 30s» tiene que existir antes de programar el primer
+        // descanso; registrarla no pide ningún permiso.
+        restTimerNotifier.registerCategory()
 
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
@@ -370,6 +380,10 @@ class ServiceContainer: ObservableObject {
         workspaceContextService.clearContext()
         coachingService.clearData()
         healthService.clearData()
+        // Lo que quede sin sincronizar es trabajo real del gimnasio anterior: se manda antes de
+        // limpiar, nunca se tira.
+        trainingSyncCoordinator.flushBeforeGymChange()
+        trainingService.clearData()
 
         // ✅ NUEVO: Inicializar ChatProvider cuando se selecciona gym
         // (solo si el usuario está autenticado)
@@ -390,6 +404,9 @@ class ServiceContainer: ObservableObject {
             // o el cliente vería sus tarjetas vacías hasta cambiar de pestaña.
             async let coachTask: Void = coachingService.loadCoach(forceRefresh: true)
             async let healthTask: Void = healthService.loadAll()
+            // El programa es por gimnasio igual que el coach: sin esto la home enseñaría el
+            // hueco de «tu entrenador no ha publicado nada» en un espacio donde sí lo hay.
+            async let trainingTask: Void = trainingService.loadHome()
 
             await storiesTask
             await eventsTask
@@ -397,6 +414,7 @@ class ServiceContainer: ObservableObject {
             await contextTask
             await coachTask
             await healthTask
+            await trainingTask
 
             await MainActor.run {
                 print("✅ Datos del gym \(gymId) precargados:")
@@ -469,6 +487,12 @@ class ServiceContainer: ObservableObject {
         healthService.clearData()
         invitationService.clearData()
         accountService.clearData()
+
+        // Entrenamiento: datos, cola de escrituras pendientes y unidad de peso. Todo es de la
+        // persona que cierra sesión, no del dispositivo.
+        trainingService.clearData()
+        trainingSyncCoordinator.clearData()
+        WeightUnitPreference.clear()
 
         print("✅ Datos de usuario limpiados")
     }
@@ -547,6 +571,9 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.healthService)
             .environmentObject(serviceContainer.invitationService)
             .environmentObject(serviceContainer.accountService)
+            .environmentObject(serviceContainer.trainingService)
+            .environmentObject(serviceContainer.trainingSyncCoordinator)
+            .environmentObject(serviceContainer.networkMonitor)
             .environment(\.serviceContainer, serviceContainer)
     }
 }
