@@ -72,6 +72,10 @@ public enum LogCategory: String, CaseIterable, Codable {
     case general = "📝 General"
     case performance = "⏱️ Performance"
     case security = "🔒 Security"
+    case training = "🏋️‍♀️ Training"
+    /// Fachada de analítica de producto (`Utils/Analytics.swift`). Categoría propia para poder
+    /// filtrarla en la consola sin ahogarse en el resto del log.
+    case analytics = "📈 Analytics"
 
     var subsystem: String {
         return "com.gymapi.Gym-API.\(self.rawValue)"

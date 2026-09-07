@@ -34,6 +34,14 @@ struct Gym_APIApp: App {
                 .withServiceContainer()
                 .preferredColorScheme(serviceContainer.themeManager.currentTheme == .dark ? .dark : .light)
                 .onAppear {
+                    // Deja escrito en la consola contra qué backend habla la app. En DEBUG avisa
+                    // además si `API_BASE_URL_OVERRIDE` está apuntando a otro sitio: un override
+                    // olvidado explica media hora de depuración.
+                    AppEnvironment.validateConfiguration()
+
+                    // Vigilancia de red: el outbox de entrenamiento se drena cuando vuelve.
+                    NetworkMonitor.shared.start()
+
                     // Inicializar OneSignal
                     serviceContainer.oneSignalService.initialize()
 
