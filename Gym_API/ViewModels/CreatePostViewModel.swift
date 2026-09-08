@@ -20,6 +20,8 @@ class CreatePostViewModel: ObservableObject {
     @Published var successMessage: String?
     @Published var taggedSessionId: Int? = nil  // ID de la sesión etiquetada
     @Published var taggedEventId: Int? = nil    // ID del evento etiquetado
+    /// Registro de entrenamiento etiquetado (plan §7.2). Lo fija S18 al compartir al feed.
+    @Published var taggedWorkoutLogId: Int? = nil
 
     // MARK: - Private Properties
 
@@ -31,8 +33,9 @@ class CreatePostViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init(postService: PostService = .shared) {
+    init(postService: PostService = .shared, taggedWorkoutLogId: Int? = nil) {
         self.postService = postService
+        self.taggedWorkoutLogId = taggedWorkoutLogId
     }
 
     // MARK: - Public Methods
@@ -159,6 +162,7 @@ class CreatePostViewModel: ObservableObject {
         successMessage = nil
         taggedSessionId = nil  // Reset tagged session
         taggedEventId = nil    // Reset tagged event
+        taggedWorkoutLogId = nil
     }
 
     // MARK: - Validation

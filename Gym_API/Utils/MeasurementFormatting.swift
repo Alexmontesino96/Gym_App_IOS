@@ -181,3 +181,137 @@ enum HeightUnit {
         }
     }
 }
+
+// MARK: - Unidad de carga del módulo de entrenamiento
+
+//  El check-in de peso corporal y el registro de una serie no se teclean igual. Uno sube de
+//  0,1 kg en 0,1 kg porque la báscula lo permite; el otro sube de disco en disco: 5 lb o 2,5 kg
+//  (plan §2.2). Por eso la carga tiene su propio paso y su propio formato, y no reutiliza los
+//  de `WeightUnit.step`.
+
+import TrainingCore
+
+extension WeightUnit {
+
+    /// Puente con `TrainingCore`, que tiene su propia unidad porque el paquete no puede ver la app.
+    var trainingUnit: TrainingWeightUnit {
+        switch self {
+        case .kilograms: return .kilograms
+        case .pounds: return .pounds
+        }
+    }
+
+    init(training: TrainingWeightUnit) {
+        switch training {
+        case .kilograms: self = .kilograms
+        case .pounds: self = .pounds
+        }
+    }
+
+    /// Escalón de carga: 5 lb o 2,5 kg. Es lo que cabe en la barra, no lo que cabe en la pantalla.
+    var loadStep: Double { trainingUnit.loadStep }
+
+    /// De kilos guardados a la cifra que se teclea, ya cuadrada al escalón.
+    /// 83,9 kg → 185 lb, no 184,9.
+    func loadValue(kilograms: Double) -> Double {
+        guard kilograms.isFinite else { return 0 }
+        let converted = fromKilograms(kilograms)
+        return (converted / loadStep).rounded() * loadStep
+    }
+
+    /// De lo que teclea la persona a los kilos que se envían al servidor.
+    func kilograms(fromLoad value: Double) -> Double {
+        toKilograms(value)
+    }
+
+    /// «185 lb» / «84 kg». Sin decimales cuando la cifra es redonda, que es casi siempre.
+    func loadLabel(kilograms: Double) -> String {
+        guard kilograms.isFinite else { return NumberFormat.placeholder }
+        return "\(NumberFormat.trimmedDecimal(loadValue(kilograms: kilograms))) \(symbol)"
+    }
+
+    /// «12,480 lb»: el volumen de una sesión es un número grande y sin separador no se lee.
+    func volumeLabel(kilograms: Double) -> String {
+        guard kilograms.isFinite else { return NumberFormat.placeholder }
+        let converted = fromKilograms(kilograms).rounded()
+        return "\(NumberFormat.grouped(converted)) \(symbol)"
+    }
+
+    /// «+10 lb» / «−2,5 kg», para los deltas de una marca.
+    func signedLoadLabel(kilograms: Double) -> String {
+        guard kilograms.isFinite else { return NumberFormat.placeholder }
+        let converted = loadValue(kilograms: kilograms)
+        return "\(NumberFormat.signedDecimal(converted, digits: converted == converted.rounded() ? 0 : 1)) \(symbol)"
+    }
+}
+
+extension NumberFormat {
+
+    /// Entero con el separador de miles del sitio: 12,480 en Estados Unidos, 12.480 en España.
+    static func grouped(_ value: Double) -> String {
+        guard value.isFinite else { return placeholder }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale.current
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? String(Int(value))
+    }
+}
+
+// MARK: - Preferencia de unidad
+
+/// Resuelve la unidad de peso UNA sola vez y la conserva.
+///
+/// Orden: lo que el usuario haya elegido en la app > `preferred_weight_unit` de su perfil >
+/// el sistema de medida de su sitio. Recalcularlo en cada vista es la vía rápida a que media
+/// pantalla diga libras y la otra media kilos.
+enum WeightUnitPreference {
+
+    private static let storageKey = "training.preferredWeightUnit"
+    private static var cached: WeightUnit?
+
+    /// La unidad que ve el usuario en toda la app.
+    static var current: WeightUnit {
+        if let cached { return cached }
+        let resolved = stored ?? WeightUnit.preferred
+        cached = resolved
+        return resolved
+    }
+
+    /// Unidad guardada en el dispositivo, si el usuario la eligió alguna vez.
+    static var stored: WeightUnit? {
+        guard let raw = UserDefaults.standard.string(forKey: storageKey) else { return nil }
+        return TrainingWeightUnit(rawValue: raw).map(WeightUnit.init(training:))
+    }
+
+    /// Incorpora la preferencia del perfil. Solo manda si el usuario no ha elegido ya en el
+    /// dispositivo: lo que se toca en Ajustes gana a lo que dice el servidor.
+    @discardableResult
+    static func resolve(profileUnit: String?) -> WeightUnit {
+        if let stored {
+            cached = stored
+            return stored
+        }
+        if let profileUnit, let unit = TrainingWeightUnit(rawValue: profileUnit) {
+            let resolved = WeightUnit(training: unit)
+            cached = resolved
+            return resolved
+        }
+        return current
+    }
+
+    /// El usuario cambia la unidad en Ajustes. WP4 escribe además el perfil en el servidor.
+    static func set(_ unit: WeightUnit) {
+        cached = unit
+        UserDefaults.standard.set(unit.trainingUnit.rawValue, forKey: storageKey)
+        Task { @MainActor in
+            Logger.shared.info("Unidad de peso: \(unit.symbol)", category: .training)
+        }
+    }
+
+    /// Se llama al cerrar sesión: la unidad es de la persona, no del dispositivo.
+    static func clear() {
+        cached = nil
+        UserDefaults.standard.removeObject(forKey: storageKey)
+    }
+}

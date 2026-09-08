@@ -1,0 +1,62 @@
+[
+  {
+    "id": 41,
+    "exercise_key": "barbell_bench_press",
+    "name": "Bench press",
+    "gym_id": null,
+    "category": "strength",
+    "primary_muscles": ["chest", "triceps", "front delts"],
+    "equipment": "barbell",
+    "is_unilateral": false,
+    "default_rest_seconds": 120,
+    "instructions": "Set the bar over your eyes. Touch the chest, pause, and press back to lockout.",
+    "demo_video_url": null,
+    "thumbnail_url": null,
+    "is_active": true
+  },
+  {
+    "id": 58,
+    "exercise_key": "cable_row",
+    "name": "Cable row",
+    "gym_id": null,
+    "category": "strength",
+    "primary_muscles": ["lats", "mid back", "biceps"],
+    "equipment": "cable",
+    "is_unilateral": false,
+    "default_rest_seconds": 90,
+    "instructions": "Sit tall and pull to the navel. Let the shoulder blades travel with the handle.",
+    "demo_video_url": null,
+    "thumbnail_url": null,
+    "is_active": true
+  },
+  {
+    "id": 62,
+    "exercise_key": "dumbbell_incline_press",
+    "name": "Incline dumbbell press",
+    "gym_id": null,
+    "category": "strength",
+    "primary_muscles": ["upper chest", "front delts"],
+    "equipment": "dumbbell",
+    "is_unilateral": false,
+    "default_rest_seconds": 90,
+    "instructions": "Set the bench near 30 degrees. Keep the wrists stacked over the elbows.",
+    "demo_video_url": null,
+    "thumbnail_url": null,
+    "is_active": true
+  },
+  {
+    "id": 210,
+    "exercise_key": "g12_sled_push_turf",
+    "name": "Sled push (turf)",
+    "gym_id": 12,
+    "category": "cardio",
+    "primary_muscles": ["quads", "glutes"],
+    "equipment": "sled",
+    "is_unilateral": false,
+    "default_rest_seconds": 60,
+    "instructions": "Push the length of the turf. Keep the arms locked and drive from the hips.",
+    "demo_video_url": null,
+    "thumbnail_url": null,
+    "is_active": true
+  }
+]

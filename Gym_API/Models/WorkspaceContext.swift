@@ -19,12 +19,19 @@ struct WorkspaceContext: Codable {
     let userContext: UserContextInfo
     let apiVersion: String
     let environment: String
+    /// Códigos de los módulos encendidos en este espacio (`training`, `stories`, `posts`…).
+    ///
+    /// Opcional porque un backend anterior a WP8 no manda la clave: con `nil` quien pregunta no
+    /// sabe nada, que es distinto de saber que está apagado. `GymService` falla cerrado en ese
+    /// caso, igual que hacía cuando la respuesta de módulos no llegaba.
+    let activeModules: [String]?
 
     enum CodingKeys: String, CodingKey {
         case workspace, terminology, features, navigation, branding, environment
         case quickActions = "quick_actions"
         case userContext = "user_context"
         case apiVersion = "api_version"
+        case activeModules = "active_modules"
     }
 }
 
@@ -90,9 +97,13 @@ struct WorkspaceFeatures: Codable {
     let simplifiedBilling: Bool
     let maxClientsLimit: Bool
     let personalBranding: Bool
+    /// Módulo de entrenamiento (plan §5). Falla cerrado: si el backend todavía no manda la clave,
+    /// o el espacio no lo tiene activo, la app no enseña nada del módulo. Se lee con
+    /// `workspaceContext.isFeatureEnabled(\.training)`.
+    let training: Bool
 
     enum CodingKeys: String, CodingKey {
-        case chat, notifications, nutrition
+        case chat, notifications, nutrition, training
         case healthTracking = "health_tracking"
         case showMultipleTrainers = "show_multiple_trainers"
         case showEquipmentManagement = "show_equipment_management"
@@ -103,6 +114,26 @@ struct WorkspaceFeatures: Codable {
         case simplifiedBilling = "simplified_billing"
         case maxClientsLimit = "max_clients_limit"
         case personalBranding = "personal_branding"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        chat = try container.decode(Bool.self, forKey: .chat)
+        notifications = try container.decode(Bool.self, forKey: .notifications)
+        healthTracking = try container.decode(Bool.self, forKey: .healthTracking)
+        nutrition = try container.decode(Bool.self, forKey: .nutrition)
+        showMultipleTrainers = try container.decode(Bool.self, forKey: .showMultipleTrainers)
+        showEquipmentManagement = try container.decode(Bool.self, forKey: .showEquipmentManagement)
+        showClassSchedule = try container.decode(Bool.self, forKey: .showClassSchedule)
+        showAppointments = try container.decode(Bool.self, forKey: .showAppointments)
+        showClientProgress = try container.decode(Bool.self, forKey: .showClientProgress)
+        showSessionPackages = try container.decode(Bool.self, forKey: .showSessionPackages)
+        simplifiedBilling = try container.decode(Bool.self, forKey: .simplifiedBilling)
+        maxClientsLimit = try container.decode(Bool.self, forKey: .maxClientsLimit)
+        personalBranding = try container.decode(Bool.self, forKey: .personalBranding)
+        // La única tolerante: el backend del módulo llega después que esta app, y la caché de
+        // contexto que ya está en el disco de la gente no tiene la clave. Ausente = apagado.
+        training = try container.decodeIfPresent(Bool.self, forKey: .training) ?? false
     }
 }
 

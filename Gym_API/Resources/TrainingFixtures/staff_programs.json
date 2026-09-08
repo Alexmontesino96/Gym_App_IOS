@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Off-season strength",
+    "description": "12 weeks, three blocks.",
+    "goal": "strength",
+    "duration_weeks": 12,
+    "visibility": "private",
+    "focus_exercise_keys": [
+      "barbell_back_squat",
+      "barbell_bench_press"
+    ],
+    "id": 7,
+    "gym_id": 1,
+    "creator_id": 1,
+    "status": "active",
+    "is_template": false,
+    "source_program_id": 1,
+    "assigned_count": 1
+  },
+  {
+    "name": "Spring Bootcamp",
+    "description": null,
+    "goal": null,
+    "duration_weeks": 4,
+    "visibility": "group",
+    "focus_exercise_keys": [],
+    "id": 9,
+    "gym_id": 1,
+    "creator_id": 1,
+    "status": "active",
+    "is_template": true,
+    "source_program_id": null,
+    "assigned_count": 3
+  }
+]

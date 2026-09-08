@@ -1,4 +1,5 @@
 import SwiftUI
+import TrainingCore
 
 // MARK: - Modern Profile View (Prototype-matched design)
 struct ModernProfileView: View {
@@ -23,6 +24,9 @@ struct ModernProfileView: View {
     @State private var showingGymSelector = false
     @State private var showProfileCelebration = false
     @State private var showingDeleteAccount = false
+    /// Ajustes del módulo de entrenamiento (plan §4.6 y §7.3).
+    @State private var weightUnit: WeightUnit = WeightUnitPreference.current
+    @State private var remindersEnabled = true
 
     /// Misma derivación que `AuthenticatedView.rootForCurrentUser`, con el mismo triple respaldo:
     /// el backend no serializa `is_personal_trainer` en `/gyms/my` (es una @property de Python sin
@@ -363,6 +367,26 @@ struct ModernProfileView: View {
                     action: { themeManager.toggleTheme() }
                 )
 
+                if isTrainingEnabled {
+                    // Unidad de peso: se escribe en el perfil, no en el dispositivo, porque es
+                    // de la persona (plan §4.6). Un toque alterna; no hace falta una pantalla
+                    // para dos opciones.
+                    settingsRow(
+                        icon: "scalemass.fill",
+                        label: "Weight unit",
+                        value: weightUnit.symbol,
+                        action: { toggleWeightUnit() }
+                    )
+
+                    // «Session reminders»: los avisos de «hoy toca» del plan §7.3.
+                    settingsRow(
+                        icon: "bell.badge.fill",
+                        label: "Session reminders",
+                        value: remindersEnabled ? "On" : "Off",
+                        action: { toggleReminders() }
+                    )
+                }
+
                 // El valor era el literal «Lime», asi que decia «Lime» aunque la app estuviera
                 // pintando rojo. Y no existe ningun mapa de hex a nombre en el proyecto: los
                 // nombres viven como comentarios junto a cada color. Un circulo del color actual
@@ -561,8 +585,14 @@ struct ModernProfileView: View {
 
     private func loadData() {
         userStatsService.achievements = []
+        // Los dos ajustes del módulo se resuelven antes de pintar: la unidad, del perfil; los
+        // recordatorios, de la preferencia guardada para este espacio.
+        remindersEnabled = TrainingService.shared.remindersEnabled()
         Task {
             await profileService.fetchUserProfileIfStale()
+            weightUnit = WeightUnitPreference.resolve(
+                profileUnit: profileService.userProfile?.preferredWeightUnit
+            )
             await GymService.shared.getMyGyms()
             try? await Task.sleep(nanoseconds: 100_000_000)
 
@@ -573,6 +603,33 @@ struct ModernProfileView: View {
             if let profile = profileService.userProfile {
                 colorCustomizationManager.loadColorFromProfile(profile)
             }
+        }
+    }
+
+    // MARK: - Ajustes del módulo de entrenamiento
+
+    /// El módulo solo aparece si el espacio lo tiene encendido. Falla cerrado.
+    private var isTrainingEnabled: Bool {
+        WorkspaceContextService.shared.isFeatureEnabled(\.training)
+    }
+
+    private func toggleWeightUnit() {
+        HapticManager.shared.toggleSwitch()
+        let updated: WeightUnit = weightUnit == .kilograms ? .pounds : .kilograms
+        weightUnit = updated
+        // Local primero: la unidad cambia en pantalla al instante y el servidor se entera después.
+        WeightUnitPreference.set(updated)
+        Task {
+            await UserProfileService.shared.updatePreferredWeightUnit(updated.trainingUnit.rawValue)
+        }
+    }
+
+    private func toggleReminders() {
+        HapticManager.shared.toggleSwitch()
+        let updated = !remindersEnabled
+        remindersEnabled = updated
+        Task {
+            await TrainingService.shared.setRemindersEnabled(updated)
         }
     }
 

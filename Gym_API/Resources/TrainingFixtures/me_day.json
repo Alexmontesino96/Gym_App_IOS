@@ -1,0 +1,101 @@
+{
+  "id": 88,
+  "program_id": 7,
+  "day_number": 18,
+  "week_number": 3,
+  "name": "Upper B",
+  "is_rest": false,
+  "focus": "Press strength",
+  "notes": "Keep the bar path tight.",
+  "is_published": true,
+  "coach_note": "Stay at 185 today. I want clean bar speed, not a max.",
+  "exercises": [
+    {
+      "id": 510,
+      "day_id": 88,
+      "exercise_id": 41,
+      "exercise_key": "barbell_bench_press",
+      "exercise_name": "Bench press",
+      "order_index": 0,
+      "superset_group": "A",
+      "sets_count": 4,
+      "reps": "5",
+      "load_mode": "weight",
+      "load_value": 83.9,
+      "rpe_target": 8,
+      "rest_seconds": 120,
+      "notes": "Pause one second on the chest.",
+      "set_overrides": [
+        {
+          "set_number": 4,
+          "reps": "AMRAP",
+          "rpe_target": 9,
+          "rest_seconds": 180
+        }
+      ],
+      "last_performance": {
+        "exercise_key": "barbell_bench_press",
+        "weight_kg": 83.9,
+        "reps": 5,
+        "e1rm_kg": 97.88,
+        "performed_at": "2026-09-21T22:12:04.000000Z",
+        "suggested_weight_kg": 86.2
+      }
+    },
+    {
+      "id": 511,
+      "day_id": 88,
+      "exercise_id": 58,
+      "exercise_key": "cable_row",
+      "exercise_name": "Cable row",
+      "order_index": 1,
+      "superset_group": "A",
+      "sets_count": 4,
+      "reps": "8-10",
+      "load_mode": "weight",
+      "load_value": 61.2,
+      "rpe_target": null,
+      "rest_seconds": 90,
+      "notes": null,
+      "set_overrides": null,
+      "last_performance": null
+    },
+    {
+      "id": 512,
+      "day_id": 88,
+      "exercise_id": 62,
+      "exercise_key": "dumbbell_incline_press",
+      "exercise_name": "Incline dumbbell press",
+      "order_index": 2,
+      "superset_group": null,
+      "sets_count": 3,
+      "reps": "10",
+      "load_mode": "rpe",
+      "load_value": null,
+      "rpe_target": 7.5,
+      "rest_seconds": 90,
+      "notes": null,
+      "set_overrides": null,
+      "last_performance": null
+    },
+    {
+      "id": 513,
+      "day_id": 88,
+      "exercise_id": 74,
+      "exercise_key": "bodyweight_pull_up",
+      "exercise_name": "Pull-up",
+      "order_index": 3,
+      "superset_group": null,
+      "sets_count": 3,
+      "reps": "AMRAP",
+      "load_mode": "bodyweight",
+      "load_value": null,
+      "rpe_target": null,
+      "rest_seconds": 120,
+      "notes": null,
+      "set_overrides": null,
+      "last_performance": null
+    }
+  ],
+  "date": "2026-09-24"
+}

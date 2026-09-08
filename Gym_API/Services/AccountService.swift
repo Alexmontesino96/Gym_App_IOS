@@ -92,6 +92,12 @@ final class AccountService: ObservableObject {
                 return nil
             }
 
+            // La cuenta ya no existe: los entrenos que quedaran sin sincronizar tampoco tienen
+            // a dónde ir. Es el ÚNICO sitio donde se vacía el outbox; cerrar sesión no lo toca.
+            if let userId = UserProfileService.shared.userProfile?.id {
+                await TrainingSyncCoordinator.shared.eraseAllData(userId: userId)
+            }
+
             return try decoder.decode(AccountDeletionResult.self, from: data)
         } catch {
             if (error as NSError).code == NSURLErrorCancelled { return nil }

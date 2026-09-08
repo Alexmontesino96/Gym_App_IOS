@@ -30,6 +30,10 @@ struct UserProfile: Codable, Identifiable, Equatable {
     let auth0Id: String?  // ✅ Opcional - algunos usuarios no tienen este campo
     let picture: String?
     let color: String?
+    /// `kg` o `lb`. Columna nueva del backend (plan §4.6): mientras no exista llega nula y la
+    /// app resuelve la unidad por el sitio del dispositivo. Es `var` con valor por defecto para
+    /// que el inicializador por miembros siga funcionando donde ya se usaba.
+    var preferredWeightUnit: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, email, role, bio, goals, picture
@@ -47,6 +51,7 @@ struct UserProfile: Codable, Identifiable, Equatable {
         case updatedAt = "updated_at"
         case auth0Id = "auth0_id"
         case color
+        case preferredWeightUnit = "preferred_weight_unit"
     }
 
     // MARK: - Computed Properties

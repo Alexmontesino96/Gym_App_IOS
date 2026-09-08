@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import TrainingCore
 
 // MARK: - Theme Manager
 class ThemeManager: ObservableObject {
@@ -117,6 +118,81 @@ extension Color {
     static func dynamicAccent(theme: ThemeManager.AppTheme) -> Color {
         let hex = ThemeManager.accentHexFromDefaults(for: theme)
         return Color(hex: hex) ?? (theme == .light ? Color.lightAccentPrimary : Color.darkAccentPrimary)
+    }
+
+    /// El acento cuando se usa como TINTA: glifo o texto sobre una superficie.
+    ///
+    /// En oscuro es el acento tal cual. En claro, el acento se oscurece en HSB —conservando su
+    /// tono— hasta alcanzar 4,5:1 contra la superficie de tarjeta. El lima por defecto sobre
+    /// `#F6F7FA` daba 1,2:1: un check verde lima sobre una tarjeta clara no se ve, y eso es lo
+    /// que enseñaban las capturas de la revisión 1.
+    ///
+    /// **No** se usa para RELLENOS. El fondo lima de un botón está bien: la tinta de encima la
+    /// decide `accentInkForCurrentAccent`. Esto es para el otro caso.
+    static func dynamicAccentText(theme: ThemeManager.AppTheme) -> Color {
+        let accent = ThemeManager.accentHexFromDefaults(for: theme)
+        guard theme == .light else {
+            return Color(hex: accent) ?? Color.darkAccentPrimary
+        }
+        let readable = AccentContrast.readableHex(
+            accent: accent,
+            onSurface: ThemeManager.lightSurfaceHex
+        )
+        return Color(hex: readable) ?? Color.lightAccentPrimary
+    }
+
+    /// El amarillo de aviso como TINTA, legible en los dos temas.
+    ///
+    /// Mismo problema y misma solución que `dynamicAccentText`: `#FFCC00` sobre la tarjeta clara
+    /// `#F6F7FA` da 1,7:1, y las desviaciones de S22 («above target», «below load») son texto que
+    /// hay que poder leer, no un adorno. Se oscurece con el mismo cálculo hasta 4,5:1.
+    /// En oscuro el amarillo ya contrasta de sobra y se devuelve tal cual.
+    static func dynamicWarningText(theme: ThemeManager.AppTheme) -> Color {
+        guard theme == .light else { return Color.warningYellow }
+        let readable = AccentContrast.readableHex(
+            accent: ThemeManager.warningYellowHex,
+            onSurface: ThemeManager.lightSurfaceHex
+        )
+        return Color(hex: readable) ?? Color.warningYellow
+    }
+
+    /// El verde de acierto como TINTA, legible en los dos temas.
+    ///
+    /// El gemelo de `dynamicWarningText` para el otro lado del delta: `#4ADE80` sobre la tarjeta
+    /// clara `#F6F7FA` da 1,6:1, todavía peor que el amarillo. Un «+2.5 kg» en verde sobre fondo
+    /// claro es texto que hay que poder leer —es la cifra entera del delta de W6 y de S15—, no un
+    /// adorno. Mismo cálculo, mismo umbral de 4,5:1, mismo tono conservado.
+    static func dynamicSuccessText(theme: ThemeManager.AppTheme) -> Color {
+        guard theme == .light else { return Color.successGreen }
+        let readable = AccentContrast.readableHex(
+            accent: ThemeManager.successGreenHex,
+            onSurface: ThemeManager.lightSurfaceHex
+        )
+        return Color(hex: readable) ?? Color.successGreen
+    }
+
+    /// El borde de una tarjeta, con el contraste que el checklist de la UX exige (§10.2: ≥ 1,5:1
+    /// contra el fondo de la página).
+    ///
+    /// Existe porque el trazo que había —`dynamicBorder` al 15 %— era invisible, y no por poco:
+    ///
+    /// | | claro | oscuro |
+    /// |---|---|---|
+    /// | superficie de tarjeta vs fondo | 1,07:1 | 1,12:1 |
+    /// | trazo al 15 % vs fondo | **1,11:1** | **1,14:1** |
+    /// | este token vs fondo | **1,57:1** | **1,74:1** |
+    /// | este token vs la propia tarjeta | 1,47:1 | 1,55:1 |
+    ///
+    /// La tarjeta y el fondo se diferencian en 1,07:1 en claro: sin un borde que se vea, el
+    /// bloque no existe como tal. Son colores opacos y no una opacidad sobre otro token porque
+    /// el número de arriba solo tiene sentido si se puede medir, y `Color.opacity` compone
+    /// contra lo que haya detrás, que en el borde de una tarjeta son dos cosas distintas a la
+    /// vez.
+    static func dynamicCardBorder(theme: ThemeManager.AppTheme) -> Color {
+        switch theme {
+        case .light: return Color(red: 206/255, green: 206/255, blue: 206/255)   // #CECECE
+        case .dark: return Color(red: 59/255, green: 59/255, blue: 59/255)       // #3B3B3B
+        }
     }
 
     static func dynamicTextTertiary(theme: ThemeManager.AppTheme) -> Color {
@@ -288,6 +364,17 @@ extension ThemeManager {
         ]
         return nombres[hex.uppercased()] ?? hex
     }
+
+    /// `lightSurfacePrimary` en hexadecimal: RGB(246, 247, 250). Es la superficie sobre la que
+    /// viven los glifos de acento en tema claro, y la referencia de `dynamicAccentText`.
+    static let lightSurfaceHex = "#F6F7FA"
+
+    /// El mismo `#FFCC00` de `Color.warningYellow`, en texto, para poder oscurecerlo con el
+    /// cálculo de contraste. Si cambia uno, cambia el otro.
+    static let warningYellowHex = "#FFCC00"
+
+    /// El mismo `#4ADE80` de `Color.successGreen`, en texto. Si cambia uno, cambia el otro.
+    static let successGreenHex = "#4ADE80"
 
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard

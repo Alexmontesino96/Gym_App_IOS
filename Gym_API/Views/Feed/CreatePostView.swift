@@ -7,8 +7,16 @@ struct CreatePostView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var attendanceService: AttendanceService
     @EnvironmentObject var eventService: EventService
-    @StateObject private var viewModel = CreatePostViewModel()
+    @StateObject private var viewModel: CreatePostViewModel
     @Environment(\.dismiss) private var dismiss
+
+    /// Registro de entrenamiento etiquetado (plan §7.2). Nulo en el flujo normal del feed, así
+    /// que `CreatePostView()` sigue construyéndose igual en los tres sitios que ya lo hacían.
+    init(taggedWorkoutLogId: Int? = nil) {
+        _viewModel = StateObject(
+            wrappedValue: CreatePostViewModel(taggedWorkoutLogId: taggedWorkoutLogId)
+        )
+    }
 
     // MARK: - State
 

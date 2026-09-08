@@ -37,6 +37,10 @@ class ServiceContainer: ObservableObject {
     let healthService = HealthService.shared // Singleton: mediciones corporales y objetivos
     let invitationService = InvitationService.shared // Singleton: alta de clientes por invitación
     let accountService = AccountService.shared // Singleton: borrado de la propia cuenta
+    let trainingService = TrainingService.shared // Singleton: programas, registros y marcas
+    let trainingSyncCoordinator = TrainingSyncCoordinator.shared // Singleton: drena el outbox
+    let networkMonitor = NetworkMonitor.shared // Singleton: hay red o no la hay
+    let restTimerNotifier = RestTimerNotifier.shared // Singleton: aviso del fin del descanso
 
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -105,6 +109,19 @@ class ServiceContainer: ObservableObject {
     
     /// Configura automáticamente las dependencias entre servicios
     private func setupDependencies() {
+        #if DEBUG
+        // La galería de revisión visual solo necesita el módulo de entrenamiento. Arrancar el
+        // resto (chat, contadores, push) en una app sin sesión pinta el diálogo de permiso de
+        // notificaciones del sistema encima de cada captura y ensucia la revisión.
+        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+            trainingService.configure(authService: authService, gymService: gymService)
+            HTTPClient.shared.authService = authService
+            isInitialized = true
+            print("🖼️ Modo galería: solo las dependencias del módulo de entrenamiento")
+            return
+        }
+        #endif
+
         // Configure AuthService dependencies for all services that need it
         membershipService.authService = authService
         gymService.authService = authService
@@ -126,6 +143,20 @@ class ServiceContainer: ObservableObject {
         healthService.configure(authService: authService, gymService: gymService)
         invitationService.configure(authService: authService, gymService: gymService)
         accountService.configure(authService: authService)
+        trainingService.configure(authService: authService, gymService: gymService)
+        // El coordinador se engancha a la red aquí; el monitor lo arranca la app al aparecer.
+        trainingSyncCoordinator.configure(trainingService: trainingService, networkMonitor: networkMonitor)
+        // La categoría con la acción «Add 30s» tiene que existir antes de programar el primer
+        // descanso. En la galería de revisión no se registra: tocar el centro de notificaciones
+        // con el SDK de push enlazado hace que el sistema pinte el diálogo de permiso encima de
+        // cada captura.
+        #if DEBUG
+        if TrainingGalleryScenario.fromLaunchArguments() == nil {
+            restTimerNotifier.registerCategory()
+        }
+        #else
+        restTimerNotifier.registerCategory()
+        #endif
 
         print("🔧 Dependencias de AuthService configuradas automáticamente en todos los servicios")
 
@@ -282,6 +313,16 @@ class ServiceContainer: ObservableObject {
     
     /// Configura observadores para cambios en el estado de autenticación
     private func setupObservers() {
+        #if DEBUG
+        // La galería de revisión visual arranca sin sesión a propósito. Sin esta salida, el
+        // observador de autenticación vería `isAuthenticated == false`, llamaría a
+        // `clearUserData()` y borraría los fixtures justo después de pintarlos.
+        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+            print("🖼️ Modo galería: observadores de sesión desactivados")
+            return
+        }
+        #endif
+
         // Observe authentication state changes
         authService.$isAuthenticated
             .sink { [weak self] isAuthenticated in
@@ -381,6 +422,15 @@ class ServiceContainer: ObservableObject {
 
         // Precargar datos del nuevo gym
         Task {
+            // Primero, lo que quede sin sincronizar del gimnasio anterior. Se espera a
+            // propósito: cada entrada lleva su propio `gym_id`, pero enviarlas antes de repoblar
+            // evita que el envío compita con la precarga. Nunca se tira nada.
+            await trainingSyncCoordinator.flushBeforeGymChange()
+            trainingService.clearData()
+            // Los módulos activos son del espacio anterior: lo que aquí esté encendido puede
+            // estar apagado en el siguiente.
+            gymService.clearModuleCache()
+
             async let storiesTask = storyService.fetchStoriesFeed()
             async let eventsTask = eventService.fetchEvents()
             async let sessionsTask = classService.loadSessionsForDateIfNeeded(date: Date())
@@ -390,6 +440,9 @@ class ServiceContainer: ObservableObject {
             // o el cliente vería sus tarjetas vacías hasta cambiar de pestaña.
             async let coachTask: Void = coachingService.loadCoach(forceRefresh: true)
             async let healthTask: Void = healthService.loadAll()
+            // El programa es por gimnasio igual que el coach: sin esto la home enseñaría el
+            // hueco de «tu entrenador no ha publicado nada» en un espacio donde sí lo hay.
+            async let trainingTask: Void = trainingService.loadHome()
 
             await storiesTask
             await eventsTask
@@ -397,6 +450,7 @@ class ServiceContainer: ObservableObject {
             await contextTask
             await coachTask
             await healthTask
+            await trainingTask
 
             await MainActor.run {
                 print("✅ Datos del gym \(gymId) precargados:")
@@ -469,6 +523,15 @@ class ServiceContainer: ObservableObject {
         healthService.clearData()
         invitationService.clearData()
         accountService.clearData()
+
+        // Entrenamiento: se apaga lo que hay en memoria y se olvida la unidad de peso, que es
+        // de la persona y no del dispositivo. El OUTBOX NO SE TOCA: los entrenos que todavía no
+        // han llegado al servidor son de quien sale y siguen en su carpeta hasta que vuelva.
+        trainingService.clearData()
+        trainingSyncCoordinator.clearData()
+        WeightUnitPreference.clear()
+        // La lista «Recently used with …» del editor de día es de la cuenta, no del teléfono.
+        TrainingRecentExercises.clear()
 
         print("✅ Datos de usuario limpiados")
     }
@@ -547,6 +610,9 @@ struct ServiceContainerModifier: ViewModifier {
             .environmentObject(serviceContainer.healthService)
             .environmentObject(serviceContainer.invitationService)
             .environmentObject(serviceContainer.accountService)
+            .environmentObject(serviceContainer.trainingService)
+            .environmentObject(serviceContainer.trainingSyncCoordinator)
+            .environmentObject(serviceContainer.networkMonitor)
             .environment(\.serviceContainer, serviceContainer)
     }
 }

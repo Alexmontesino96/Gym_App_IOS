@@ -1,0 +1,33 @@
+{
+  "trained_today": [
+    {
+      "user_id": 91,
+      "name": "Leo Prieto",
+      "picture_url": null,
+      "day_name": "Lower A",
+      "log_id": 512,
+      "kudos_given": false
+    },
+    {
+      "user_id": 92,
+      "name": "Sam Ortega",
+      "picture_url": null,
+      "day_name": "Lower A",
+      "log_id": 513,
+      "kudos_given": true
+    }
+  ],
+  "trained_count": 2,
+  "total_members": 3,
+  "week": [
+    {"date": "2026-09-21", "trained_count": 3},
+    {"date": "2026-09-22", "trained_count": 2},
+    {"date": "2026-09-23", "trained_count": 0},
+    {"date": "2026-09-24", "trained_count": 2},
+    {"date": "2026-09-25", "trained_count": 0},
+    {"date": "2026-09-26", "trained_count": 0},
+    {"date": "2026-09-27", "trained_count": 0}
+  ],
+  "consistency_pct": 74.5,
+  "is_new": false
+}

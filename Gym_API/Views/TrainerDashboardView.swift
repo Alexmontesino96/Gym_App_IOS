@@ -17,6 +17,7 @@
 //
 
 import SwiftUI
+import TrainingCore
 
 struct TrainerDashboardView: View {
     @EnvironmentObject var workspaceContext: WorkspaceContextService
@@ -24,6 +25,7 @@ struct TrainerDashboardView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var classService: ClassService
     @EnvironmentObject var coachingService: CoachingService
+    @EnvironmentObject var trainingService: TrainingService
     @StateObject private var profileService = UserProfileService.shared
 
     /// Navegación de pestañas, que la posee TrainerMainTabView.
@@ -31,6 +33,7 @@ struct TrainerDashboardView: View {
     var onGoToMessages: () -> Void = {}
 
     @State private var now = Date()
+    @State private var path = NavigationPath()
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
@@ -70,11 +73,12 @@ struct TrainerDashboardView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
                     header
                     todaySection
+                    if isTrainingEnabled { toReviewSection }
                     weekStrip
                     checkInsSection
                     Spacer(minLength: 16)
@@ -84,10 +88,46 @@ struct TrainerDashboardView: View {
             }
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationBarHidden(true)
+            .navigationDestination(for: TrainerTrainingRoute.self) { route in
+                TrainerTrainingDestination(route: route, path: $path, onMessage: onGoToMessages)
+            }
             .task { await load() }
             .refreshable { await load(force: true) }
             .onReceive(clock) { now = $0 }
+            .onReceive(NotificationCenter.default.publisher(for: .trainingOpenLog)) { notification in
+                // Deep link `training/logs/{id}` del push «Dana finished Upper A» (plan §7.1).
+                // Aquí el usuario es personal, así que el registro se abre en S22, no en S18.
+                guard isTrainingEnabled, let id = notification.object as? Int else { return }
+                Analytics.track(Analytics.Event.reminderOpened, [Analytics.Property.logId: id])
+                path.append(TrainerTrainingRoute.logReview(logId: id, client: nil))
+            }
         }
+    }
+
+    /// El módulo puede estar apagado en el espacio: sin él, la sección no existe y nada se rompe.
+    /// Misma fuente que la home del cliente (`WorkspaceFeatures.training`, plan §8.2).
+    private var isTrainingEnabled: Bool {
+        workspaceContext.isFeatureEnabled(\.training)
+    }
+
+    // MARK: - To review (plan §6.2, GET /inbox)
+
+    /// La sección vive en `TrainerInboxSection` para que la galería de revisión la capture tal
+    /// cual, sin una maqueta paralela que se quede vieja.
+    private var toReviewSection: some View {
+        TrainerInboxSection { log in
+            path.append(TrainerTrainingRoute.logReview(logId: log.id, client: client(for: log)))
+        }
+    }
+
+    /// Quién entrenó, con el nombre y la foto que ya trae el buzón.
+    private func client(for log: TrainingWorkoutLogSummary) -> TrainingClientRef? {
+        guard let id = log.userId else { return nil }
+        return TrainingClientRef(
+            id: id,
+            name: log.userName ?? "Client",
+            pictureURL: log.userPictureURL
+        )
     }
 
     // MARK: - Cabecera
@@ -515,13 +555,19 @@ struct TrainerDashboardView: View {
     private func load(force: Bool = false) async {
         async let stats: Void = loadStats(force: force)
         async let sessions: Void = classService.loadSessionsForDateIfNeeded(date: Date())
-        _ = await (stats, sessions)
+        async let inbox: Void = loadInbox()
+        _ = await (stats, sessions, inbox)
 
         // El roster necesita las sesiones ya cargadas; los check-ins, la lista de clientes.
         async let roster: Void = coachingService.loadTodayRoster(from: classService.sessions)
         async let checkIns: Void = coachingService.loadRecentCheckIns()
         _ = await (roster, checkIns)
         now = Date()
+    }
+
+    private func loadInbox() async {
+        guard isTrainingEnabled else { return }
+        await trainingService.fetchInbox()
     }
 
     private func loadStats(force: Bool) async {
@@ -538,4 +584,5 @@ struct TrainerDashboardView: View {
         .environmentObject(ThemeManager())
         .environmentObject(ServiceContainer.shared.classService)
         .environmentObject(ServiceContainer.shared.coachingService)
+        .environmentObject(ServiceContainer.shared.trainingService)
 }

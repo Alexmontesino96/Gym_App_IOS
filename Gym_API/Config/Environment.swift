@@ -175,6 +175,8 @@ enum AppEnvironment {
     static func validateConfiguration() {
         let env = current
 
+        DebugBaseURLOverride.logIfActive()
+
         #if DEBUG
         print("🔧 Environment: \(env.displayName)")
         print("📍 Base URL: \(env.baseURL)")
@@ -198,13 +200,70 @@ enum AppEnvironment {
     }
 }
 
+// MARK: - Override local (solo DEBUG)
+
+/// Apunta el simulador a un backend local sin recompilar.
+///
+/// El módulo de entrenamiento se construye contra un backend en `localhost` mientras el de
+/// producción no lo tiene (plan §15: «solo existe un backend, el de producción»). Esto permite
+/// cambiar de destino desde la terminal:
+///
+/// ```sh
+/// xcrun simctl spawn booted defaults write com.alexmontesino.gymapi \
+///     API_BASE_URL_OVERRIDE http://localhost:8000/api/v1
+/// xcrun simctl spawn booted defaults delete com.alexmontesino.gymapi API_BASE_URL_OVERRIDE
+/// ```
+///
+/// También vale como argumento de lanzamiento, que no persiste entre arranques:
+/// `xcrun simctl launch booted com.alexmontesino.gymapi -API_BASE_URL_OVERRIDE http://…`
+/// (los argumentos `-clave valor` entran en el dominio de argumentos de `UserDefaults`).
+///
+/// Compilado SOLO en DEBUG: en una build de App Store este código no existe, así que ni una
+/// clave de `UserDefaults` ni un perfil de configuración pueden desviar el tráfico de nadie.
+enum DebugBaseURLOverride {
+
+    static let userDefaultsKey = "API_BASE_URL_OVERRIDE"
+
+    /// URL de override activa, si la hay y es válida.
+    static var value: String? {
+        #if DEBUG
+        guard let raw = UserDefaults.standard.string(forKey: userDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              let url = URL(string: raw),
+              url.scheme != nil,
+              url.host != nil else { return nil }
+        // Sin barra final: todas las rutas del proyecto empiezan por "/".
+        return raw.hasSuffix("/") ? String(raw.dropLast()) : raw
+        #else
+        return nil
+        #endif
+    }
+
+    static var isActive: Bool { value != nil }
+
+    /// Se llama una vez al arrancar para que quede escrito en la consola con qué backend
+    /// está hablando la app. Un override olvidado explica media hora de depuración.
+    static func logIfActive() {
+        #if DEBUG
+        if let value {
+            print("🔀 API_BASE_URL_OVERRIDE activo: \(value)")
+            // `Logger` vive en el hilo principal y esto se llama al arrancar, antes de la escena.
+            Task { @MainActor in
+                Logger.shared.warning("Base URL sobreescrita en DEBUG: \(value)", category: .network)
+            }
+        }
+        #endif
+    }
+}
+
 // MARK: - Global Helper
 /// Acceso rápido al ambiente actual
 var currentEnvironment: AppEnvironment {
     AppEnvironment.current
 }
 
-/// Acceso rápido a la base URL
+/// Acceso rápido a la base URL. En DEBUG respeta `API_BASE_URL_OVERRIDE`.
 var apiBaseURL: String {
-    AppEnvironment.current.baseURL
+    DebugBaseURLOverride.value ?? AppEnvironment.current.baseURL
 }
