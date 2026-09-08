@@ -327,6 +327,26 @@ final class TrainingSyncCoordinator: ObservableObject {
         clearData()
     }
 
+    #if DEBUG
+    /// Solo para la galería de revisión: pinta el chip de sincronización en el estado pedido.
+    /// No toca el disco ni encola nada; es el estado publicado y nada más.
+    func simulateGalleryState(pending: Int, failed: Int, reason: String = "The training module is off in this space.") {
+        pendingCount = pending
+        failedCount = failed
+        failedEntries = (0..<failed).map { index in
+            FailedSyncSummary(
+                id: UUID(),
+                title: index == 0 ? "Upper B" : "Lower A",
+                completedAt: Date().addingTimeInterval(-3600),
+                setCount: 14,
+                reason: reason,
+                failedAt: Date().addingTimeInterval(-1800)
+            )
+        }
+        lastSyncError = failed > 0 ? reason : nil
+    }
+    #endif
+
     deinit {
         #if DEBUG
         print("🗑️ TrainingSyncCoordinator deinitialized")

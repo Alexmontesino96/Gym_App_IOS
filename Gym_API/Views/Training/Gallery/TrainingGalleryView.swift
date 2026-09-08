@@ -41,6 +41,9 @@ enum TrainingGalleryScenario: String, CaseIterable {
     case s17
     case s18
     case s18PersonalRecord = "s18-pr"
+    /// El tercer estado del chip de sincronización: el servidor apartó una sesión y hay que
+    /// ofrecer «Retry» (revisión 2 de WP3).
+    case s16Failed = "s16-failed"
 
     /// Argumento de lanzamiento: `-training-gallery <valor>`.
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> TrainingGalleryScenario? {
@@ -113,6 +116,15 @@ struct TrainingGalleryView: View {
             themeManager.currentTheme = colorScheme == .dark ? .dark : .light
             gymService.setModulesForGallery(["stories": true, "posts": true, "training": true])
             trainingService.loadFixtures(for: scenario)
+            // Los dos estados de la cola que no se pueden provocar sin red ni servidor.
+            switch scenario {
+            case .s11Offline:
+                syncCoordinator.simulateGalleryState(pending: 1, failed: 0)
+            case .s16Failed:
+                syncCoordinator.simulateGalleryState(pending: 0, failed: 1)
+            default:
+                syncCoordinator.simulateGalleryState(pending: 0, failed: 0)
+            }
             isReady = true
         }
         .onChange(of: colorScheme) { _, newValue in
@@ -144,7 +156,7 @@ struct TrainingGalleryView: View {
                     exerciseName: "Bench press"
                 )
             }
-        case .s16, .s16Empty:
+        case .s16, .s16Empty, .s16Failed:
             NavigationStack {
                 RecordsView()
             }
