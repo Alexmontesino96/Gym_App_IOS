@@ -209,10 +209,14 @@ enum AppEnvironment {
 /// cambiar de destino desde la terminal:
 ///
 /// ```sh
-/// xcrun simctl spawn booted defaults write com.gymapi.Gym-API \
+/// xcrun simctl spawn booted defaults write com.alexmontesino.gymapi \
 ///     API_BASE_URL_OVERRIDE http://localhost:8000/api/v1
-/// xcrun simctl spawn booted defaults delete com.gymapi.Gym-API API_BASE_URL_OVERRIDE
+/// xcrun simctl spawn booted defaults delete com.alexmontesino.gymapi API_BASE_URL_OVERRIDE
 /// ```
+///
+/// También vale como argumento de lanzamiento, que no persiste entre arranques:
+/// `xcrun simctl launch booted com.alexmontesino.gymapi -API_BASE_URL_OVERRIDE http://…`
+/// (los argumentos `-clave valor` entran en el dominio de argumentos de `UserDefaults`).
 ///
 /// Compilado SOLO en DEBUG: en una build de App Store este código no existe, así que ni una
 /// clave de `UserDefaults` ni un perfil de configuración pueden desviar el tráfico de nadie.
