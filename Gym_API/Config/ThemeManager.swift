@@ -141,6 +141,21 @@ extension Color {
         return Color(hex: readable) ?? Color.lightAccentPrimary
     }
 
+    /// El amarillo de aviso como TINTA, legible en los dos temas.
+    ///
+    /// Mismo problema y misma solución que `dynamicAccentText`: `#FFCC00` sobre la tarjeta clara
+    /// `#F6F7FA` da 1,7:1, y las desviaciones de S22 («above target», «below load») son texto que
+    /// hay que poder leer, no un adorno. Se oscurece con el mismo cálculo hasta 4,5:1.
+    /// En oscuro el amarillo ya contrasta de sobra y se devuelve tal cual.
+    static func dynamicWarningText(theme: ThemeManager.AppTheme) -> Color {
+        guard theme == .light else { return Color.warningYellow }
+        let readable = AccentContrast.readableHex(
+            accent: ThemeManager.warningYellowHex,
+            onSurface: ThemeManager.lightSurfaceHex
+        )
+        return Color(hex: readable) ?? Color.warningYellow
+    }
+
     static func dynamicTextTertiary(theme: ThemeManager.AppTheme) -> Color {
         switch theme {
         case .light: return Color.lightTextTertiary
@@ -314,6 +329,10 @@ extension ThemeManager {
     /// `lightSurfacePrimary` en hexadecimal: RGB(246, 247, 250). Es la superficie sobre la que
     /// viven los glifos de acento en tema claro, y la referencia de `dynamicAccentText`.
     static let lightSurfaceHex = "#F6F7FA"
+
+    /// El mismo `#FFCC00` de `Color.warningYellow`, en texto, para poder oscurecerlo con el
+    /// cálculo de contraste. Si cambia uno, cambia el otro.
+    static let warningYellowHex = "#FFCC00"
 
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard

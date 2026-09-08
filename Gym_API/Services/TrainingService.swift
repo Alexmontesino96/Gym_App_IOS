@@ -744,22 +744,24 @@ extension TrainingService {
     /// La galería pinta las pantallas **de producción**, no maquetas: por eso los datos entran
     /// por aquí y no por un `init` alternativo de cada vista. Si una pantalla se rompe, la
     /// captura lo enseña.
+    /// Lee un fixture del paquete. Método y no función local para que lo compartan la carga del
+    /// cliente y la del entrenador.
+    private func decode<T: Decodable>(_ type: T.Type, _ name: String) -> T? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
+              let data = try? Data(contentsOf: url) else {
+            print("⚠️ Fixture no encontrado: \(name).json")
+            return nil
+        }
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            print("⚠️ Fixture ilegible \(name).json: \(error)")
+            return nil
+        }
+    }
+
     func loadFixtures(for scenario: TrainingGalleryScenario) {
         clearData()
-
-        func decode<T: Decodable>(_ type: T.Type, _ name: String) -> T? {
-            guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
-                  let data = try? Data(contentsOf: url) else {
-                print("⚠️ Fixture no encontrado: \(name).json")
-                return nil
-            }
-            do {
-                return try decoder.decode(type, from: data)
-            } catch {
-                print("⚠️ Fixture ilegible \(name).json: \(error)")
-                return nil
-            }
-        }
 
         if scenario.usesProgram {
             myProgram = decode(MyProgramResponse.self, scenario.usesGroupProgram ? "me_program_group" : "me_program")
@@ -811,6 +813,50 @@ extension TrainingService {
 
         if scenario == .s18PersonalRecord {
             selectedLog = decode(TrainingWorkoutLog.self, "logs_sync_response")
+        }
+
+        if scenario.isStaff {
+            loadStaffFixtures(for: scenario)
+        }
+    }
+
+    /// Fixtures de las pantallas del ENTRENADOR (WP5).
+    ///
+    /// Van aparte de los del cliente porque no comparten ni un endpoint: S20 lee la ficha del
+    /// cliente, S21 los días del programa, S22 un registro con su prescripción y S23 las notas
+    /// recientes. Mezclarlos dejaría media pantalla del entrenador pintada con datos de «mi»
+    /// programa, que es justo el error que la galería tiene que poder enseñar.
+    private func loadStaffFixtures(for scenario: TrainingGalleryScenario) {
+        switch scenario {
+        case .s20Empty:
+            clientPrograms = decode(ClientProgramsResponse.self, "staff_client_programs_empty")
+            clientProgramsState = .loaded
+            programDaysState = .loaded
+            clientLogsState = .loaded
+
+        case .s20, .s21, .s21Error, .s23, .clientDetail:
+            clientPrograms = decode(ClientProgramsResponse.self, "staff_client_programs")
+            clientProgramsState = .loaded
+            programDays = decode([TrainingDay].self, "staff_program_days") ?? []
+            programDaysState = .loaded
+            clientLogs = decode([TrainingWorkoutLogSummary].self, "staff_client_logs") ?? []
+            clientLogsState = .loaded
+            recentDayNotes = decode([TrainingClientDayNote].self, "staff_day_notes") ?? []
+            programs = decode([TrainingProgram].self, "staff_programs") ?? []
+            programsState = .loaded
+
+        case .s22:
+            selectedLog = decode(TrainingWorkoutLog.self, "staff_log_review")
+
+        case .s22PersonalRecord:
+            selectedLog = decode(TrainingWorkoutLog.self, "staff_log_review_pr")
+
+        case .inbox:
+            inbox = decode([TrainingWorkoutLogSummary].self, "staff_inbox") ?? []
+            inboxState = .loaded
+
+        default:
+            break
         }
     }
 

@@ -45,6 +45,18 @@ enum TrainingGalleryScenario: String, CaseIterable {
     /// ofrecer «Retry» (revisión 2 de WP3).
     case s16Failed = "s16-failed"
 
+    // Pantallas del entrenador (WP5).
+    case s20
+    case s20Empty = "s20-empty"
+    case s21
+    /// El banner «Couldn't save. Your changes are still here.», que sin servidor no se provoca.
+    case s21Error = "s21-error"
+    case s22
+    case s22PersonalRecord = "s22-pr"
+    case s23
+    case clientDetail = "clientdetail"
+    case inbox
+
     /// Argumento de lanzamiento: `-training-gallery <valor>`.
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> TrainingGalleryScenario? {
         guard let index = arguments.firstIndex(of: "-training-gallery"),
@@ -61,8 +73,18 @@ enum TrainingGalleryScenario: String, CaseIterable {
 
     var isEmpty: Bool {
         switch self {
-        case .s11Empty, .s12Empty, .s15Empty, .s16Empty: return true
+        case .s11Empty, .s12Empty, .s15Empty, .s16Empty, .s20Empty: return true
         default: return false
+        }
+    }
+
+    /// Las pantallas del entrenador cargan sus propios fixtures y ninguno de los del cliente.
+    var isStaff: Bool {
+        switch self {
+        case .s20, .s20Empty, .s21, .s21Error, .s22, .s22PersonalRecord, .s23, .clientDetail, .inbox:
+            return true
+        default:
+            return false
         }
     }
 
@@ -71,6 +93,7 @@ enum TrainingGalleryScenario: String, CaseIterable {
     var isOffline: Bool { self == .s11Offline }
 
     var usesProgram: Bool {
+        if isStaff { return false }
         switch self {
         case .s12Empty, .s15Empty, .s16Empty, .s11Empty: return false
         default: return true
@@ -78,10 +101,10 @@ enum TrainingGalleryScenario: String, CaseIterable {
     }
 
     var usesGroupProgram: Bool { self == .group }
-    var usesDay: Bool { !isEmpty }
-    var usesLogs: Bool { !isEmpty }
-    var usesRecords: Bool { !isEmpty }
-    var usesHistory: Bool { !isEmpty }
+    var usesDay: Bool { !isEmpty && !isStaff }
+    var usesLogs: Bool { !isEmpty && !isStaff }
+    var usesRecords: Bool { !isEmpty && !isStaff }
+    var usesHistory: Bool { !isEmpty && !isStaff }
     var usesGroup: Bool { self == .group }
     var usesExercises: Bool { true }
 }
@@ -96,6 +119,7 @@ struct TrainingGalleryView: View {
     @EnvironmentObject var trainingService: TrainingService
     @EnvironmentObject var syncCoordinator: TrainingSyncCoordinator
     @EnvironmentObject var gymService: GymService
+    @EnvironmentObject var coachingService: CoachingService
 
     @State private var isReady = false
     /// La apariencia la decide el simulador (`xcrun simctl ui … appearance`), no el tema
@@ -116,6 +140,9 @@ struct TrainingGalleryView: View {
             themeManager.currentTheme = colorScheme == .dark ? .dark : .light
             gymService.setModulesForGallery(["stories": true, "posts": true, "training": true])
             trainingService.loadFixtures(for: scenario)
+            if scenario == .clientDetail {
+                coachingService.setCheckInsForGallery([Self.galleryCheckIn])
+            }
             // Los dos estados de la cola que no se pueden provocar sin red ni servidor.
             switch scenario {
             case .s11Offline:
@@ -173,8 +200,75 @@ struct TrainingGalleryView: View {
             SessionSummaryView(source: .finished(fixtureSession()), onClose: {})
         case .s18PersonalRecord:
             SessionSummaryView(source: .log(id: 301), onClose: {})
+
+        // MARK: Entrenador (WP5)
+
+        case .clientDetail:
+            NavigationStack {
+                ClientDetailView(client: Self.galleryClient)
+            }
+        case .s20, .s20Empty:
+            NavigationStack {
+                ClientProgramsView(client: Self.galleryClient)
+            }
+        case .s21, .s21Error:
+            DayEditorView(
+                day: trainingService.programDays.first { $0.dayNumber == 18 },
+                programId: 7,
+                dayNumber: 18,
+                client: Self.galleryClient,
+                simulatedError: scenario == .s21Error
+                    ? "Couldn't save. Your changes are still here."
+                    : nil
+            )
+        case .s22:
+            NavigationStack {
+                LogReviewView(logId: 301, client: Self.galleryClient)
+            }
+        case .s22PersonalRecord:
+            NavigationStack {
+                LogReviewView(logId: 302, client: Self.galleryClient)
+            }
+        case .s23:
+            DayNoteSheet(client: Self.galleryClient, date: Self.galleryNoteDate)
+        case .inbox:
+            ScrollView {
+                TrainerInboxSection { _ in }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+            }
+            .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
         }
     }
+
+    /// La persona de todas las capturas del entrenador. El nombre importa: media docena de
+    /// textos lo llevan dentro («Note for Dana», «Recently used with Dana», «Sent to Dana»).
+    static let galleryClient = TrainingClientRef(id: 2, name: "Dana Reyes")
+
+    /// El jueves del wireframe de S23.
+    static let galleryNoteDate = CalendarDate(year: 2026, month: 9, day: 24)
+
+    /// El check-in que la ficha del cliente reutiliza del panel del entrenador.
+    static let galleryCheckIn = ClientCheckIn(
+        client: ClientSummary(
+            id: 2,
+            fullName: "Dana Reyes",
+            email: "dana@example.com",
+            pictureURL: nil,
+            joinedAt: nil
+        ),
+        checkIn: WeeklyCheckIn(
+            id: 77,
+            weekStart: CalendarDate(year: 2026, month: 9, day: 21).startOfDay(in: .current),
+            energy: 4,
+            sleep: 2,
+            soreness: 3,
+            notes: "Slept badly on Tuesday, otherwise good week.",
+            weight: 63.5,
+            measurementId: nil,
+            createdAt: CalendarDate(year: 2026, month: 9, day: 22).startOfDay(in: .current)
+        )
+    )
 
     // MARK: - Widgets
 

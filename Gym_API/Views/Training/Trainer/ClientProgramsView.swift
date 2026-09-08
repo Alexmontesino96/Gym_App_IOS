@@ -61,17 +61,9 @@ struct ClientProgramsView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
-                switch trainingService.clientProgramsState {
-                case .idle, .loading:
-                    loading
-                case .failed:
-                    TrainingRetryRow(
-                        message: "Couldn't load \(client.firstName)'s programs.",
-                        retryTitle: "Retry",
-                        onRetry: { Task { await load() } }
-                    )
-                    .trainingCard(theme: theme)
-                case .loaded:
+                // Los datos mandan sobre el estado: si ya hay una ficha cargada, un fallo de
+                // refresco no la borra de la pantalla, solo ofrece reintentar.
+                if trainingService.clientPrograms != nil {
                     if summary != nil {
                         activeProgramCard
                         weekSection
@@ -79,6 +71,15 @@ struct ClientProgramsView: View {
                         emptyState
                     }
                     pastPrograms
+                } else if trainingService.clientProgramsState == .failed {
+                    TrainingRetryRow(
+                        message: "Couldn't load \(client.firstName)'s programs.",
+                        retryTitle: "Retry",
+                        onRetry: { Task { await load() } }
+                    )
+                    .trainingCard(theme: theme)
+                } else {
+                    loading
                 }
             }
             .padding(.horizontal, 16)
@@ -197,7 +198,7 @@ struct ClientProgramsView: View {
                     .monospacedDigit()
                     .foregroundColor(
                         summary.isAdherenceLow
-                            ? Color.warningYellow
+                            ? Color.dynamicWarningText(theme: theme)
                             : Color.dynamicTextTertiary(theme: theme)
                     )
                     .lineLimit(1)
@@ -221,8 +222,16 @@ struct ClientProgramsView: View {
 
             Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
 
-            switch trainingService.programDaysState {
-            case .idle, .loading:
+            if !days.isEmpty {
+                dayList
+            } else if trainingService.programDaysState == .failed {
+                TrainingRetryRow(
+                    message: "Couldn't load week \(week).",
+                    retryTitle: "Retry",
+                    onRetry: { Task { await reloadWeek() } }
+                )
+                .padding(.top, 10)
+            } else {
                 VStack(spacing: 10) {
                     ForEach(0..<7, id: \.self) { _ in
                         HStack(spacing: 12) {
@@ -237,15 +246,6 @@ struct ClientProgramsView: View {
                 .padding(.top, 10)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Loading week \(week)")
-            case .failed:
-                TrainingRetryRow(
-                    message: "Couldn't load week \(week).",
-                    retryTitle: "Retry",
-                    onRetry: { Task { await reloadWeek() } }
-                )
-                .padding(.top, 10)
-            case .loaded:
-                dayList
             }
         }
         .trainingCard(theme: theme, padding: 14)

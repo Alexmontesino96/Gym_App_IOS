@@ -91,6 +91,18 @@ struct AccentContrastTests {
         #expect(AccentContrast.contrastRatio(readable, Self.lightBackground) > 1)
     }
 
+    @Test("El amarillo de aviso tampoco se lee en claro, y el mismo cálculo lo arregla")
+    func warningYellowNeedsDarkening() {
+        // `#FFCC00` es el `warningYellow` de `ThemeManager`. Las desviaciones de S22 («above
+        // target», «below load») son TEXTO, así que necesitan 4,5:1 igual que el acento.
+        let raw = AccentContrast.contrastRatio("#FFCC00", "#F6F7FA")
+        #expect(raw < AccentContrast.minimumTextContrast)
+
+        let readable = AccentContrast.readableHex(accent: "#FFCC00", onSurface: "#F6F7FA")
+        #expect(AccentContrast.contrastRatio(readable, "#F6F7FA") >= AccentContrast.minimumTextContrast)
+        #expect(readable != "#FFCC00")
+    }
+
     @Test("Un hexadecimal que no lo es se devuelve intacto")
     func invalidHexIsReturnedAsIs() {
         #expect(AccentContrast.readableHex(accent: "no-soy-un-color", onSurface: Self.lightSurface) == "no-soy-un-color")

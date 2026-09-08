@@ -394,6 +394,15 @@ final class CoachingService: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Solo para la galería de revisión: sin sesión no hay check-ins que pedir y la ficha del
+    /// cliente se capturaría con la sección vacía, que no es el estado que hay que revisar.
+    func setCheckInsForGallery(_ items: [ClientCheckIn]) {
+        recentCheckIns = items
+        checkInsState = .loaded
+    }
+    #endif
+
     // MARK: - Ciclo de vida
 
     func clearData() {

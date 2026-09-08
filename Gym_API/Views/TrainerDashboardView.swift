@@ -112,67 +112,11 @@ struct TrainerDashboardView: View {
 
     // MARK: - To review (plan §6.2, GET /inbox)
 
-    /// Lo que falta por mirar en todo el espacio, más reciente primero.
-    ///
-    /// Mismo patrón que `todaySection`: skeleton mientras carga, vacío que dice la verdad
-    /// («no hay nada», no «no se pudo»), y error con reintento que no borra lo que ya había.
+    /// La sección vive en `TrainerInboxSection` para que la galería de revisión la capture tal
+    /// cual, sin una maqueta paralela que se quede vieja.
     private var toReviewSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                eyebrow("TO REVIEW")
-                Spacer()
-                if !trainingService.inbox.isEmpty {
-                    Text("\(trainingService.inbox.count)")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-                        .monospacedDigit()
-                }
-            }
-
-            switch trainingService.inboxState {
-            case .loading, .idle where trainingService.inbox.isEmpty:
-                skeletonCard(height: 76)
-                skeletonCard(height: 76)
-            case .failed where trainingService.inbox.isEmpty:
-                TrainingRetryRow(
-                    message: "Couldn't load the sessions to review.",
-                    retryTitle: "Retry",
-                    onRetry: { Task { await trainingService.fetchInbox() } }
-                )
-                .padding(14)
-                .background(Color.dynamicSurface(theme: theme))
-                .clipShape(RoundedRectangle(cornerRadius: 22))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22)
-                        .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
-                )
-            default:
-                if trainingService.inbox.isEmpty {
-                    infoCard(icon: "checkmark.circle",
-                             text: "Nothing to review. Sessions your clients finish land here.")
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(trainingService.inbox.enumerated()), id: \.element.id) { index, log in
-                            TrainerLogRow(log: log, unit: WeightUnitPreference.current) {
-                                path.append(TrainerTrainingRoute.logReview(
-                                    logId: log.id,
-                                    client: client(for: log)
-                                ))
-                            }
-                            if index < trainingService.inbox.count - 1 {
-                                Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
-                            }
-                        }
-                    }
-                    .padding(14)
-                    .background(Color.dynamicSurface(theme: theme))
-                    .clipShape(RoundedRectangle(cornerRadius: 22))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
-                    )
-                }
-            }
+        TrainerInboxSection { log in
+            path.append(TrainerTrainingRoute.logReview(logId: log.id, client: client(for: log)))
         }
     }
 

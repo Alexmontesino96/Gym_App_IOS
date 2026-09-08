@@ -142,6 +142,9 @@ struct TrainerTextField: View {
     @Binding var text: String
     var placeholder: String = ""
     var spokenValue: String?
+    /// Centrado y en mayúsculas para las cifras («5», «AMRAP»); alineado a la izquierda y en
+    /// frases para lo que se escribe leyendo («Upper B», «Strict press.»).
+    var isPrescriptionValue: Bool = true
     /// Steppers opcionales: nulos, el campo es solo texto.
     var onDecrement: (() -> Void)?
     var onIncrement: (() -> Void)?
@@ -166,12 +169,13 @@ struct TrainerTextField: View {
                 }
 
                 TextField(placeholder, text: $text)
-                    .font(TrainingType.monoM())
+                    .font(isPrescriptionValue ? TrainingType.monoM() : TrainingType.body())
                     .monospacedDigit()
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(isPrescriptionValue ? .center : .leading)
                     .foregroundColor(Color.dynamicText(theme: theme))
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled(isPrescriptionValue)
+                    .textInputAutocapitalization(isPrescriptionValue ? .characters : .sentences)
+                    .padding(.horizontal, isPrescriptionValue ? 0 : 12)
                     .frame(maxWidth: .infinity, minHeight: 44)
 
                 if let onIncrement {

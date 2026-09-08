@@ -24,6 +24,10 @@ struct DayEditorView: View {
     @StateObject private var model: DayEditorViewModel
     /// Se llama al guardar bien, para que S20 refresque la semana.
     private let onSaved: () -> Void
+    /// Banner de error precargado. Lo usa **solo** la galería de revisión: el estado «no se pudo
+    /// guardar» no se puede provocar sin un servidor que responda mal, y sin captura no se puede
+    /// revisar. En la app nadie lo pasa.
+    private let simulatedError: String?
 
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var trainingService: TrainingService
@@ -42,7 +46,8 @@ struct DayEditorView: View {
         programId: Int,
         dayNumber: Int,
         client: TrainingClientRef,
-        onSaved: @escaping () -> Void = {}
+        onSaved: @escaping () -> Void = {},
+        simulatedError: String? = nil
     ) {
         _model = StateObject(wrappedValue: DayEditorViewModel(
             day: day,
@@ -51,6 +56,7 @@ struct DayEditorView: View {
             client: client
         ))
         self.onSaved = onSaved
+        self.simulatedError = simulatedError
     }
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
@@ -115,6 +121,9 @@ struct DayEditorView: View {
                 Button("Discard", role: .destructive) { dismiss() }
                 Button("Keep editing", role: .cancel) {}
             }
+            .onAppear {
+                if let simulatedError { model.errorMessage = simulatedError }
+            }
         }
         .interactiveDismissDisabled(model.hasChanges)
     }
@@ -177,7 +186,8 @@ struct DayEditorView: View {
                 label: "Day name",
                 text: $model.name,
                 placeholder: "Upper B",
-                spokenValue: model.name.isEmpty ? "Empty" : model.name
+                spokenValue: model.name.isEmpty ? "Empty" : model.name,
+                isPrescriptionValue: false
             )
 
             Toggle(isOn: $model.isRest) {
@@ -205,7 +215,7 @@ struct DayEditorView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle")
                 .font(TrainingType.icon(14))
-                .foregroundColor(Color.warningYellow)
+                .foregroundColor(Color.dynamicWarningText(theme: theme))
             Text(message)
                 .font(TrainingType.caption())
                 .foregroundColor(Color.dynamicText(theme: theme))
@@ -264,6 +274,9 @@ struct DayEditorView: View {
                 )
             }
 
+            // Dos campos por fila y nunca tres: con tres, cada valor se queda en veinte puntos
+            // de ancho y «2:00» se corta a «2:…». El stepper de carga se queda en su sitio
+            // aunque el modo no lleve número, para que la fila no salte al cambiar de modo.
             TrainerFieldRow {
                 TrainerMenuField(label: "Load", value: LoadModeConversion.title(for: exercise.loadMode)) {
                     ForEach(LoadModeConversion.allModes, id: \.self) { mode in
@@ -279,15 +292,14 @@ struct DayEditorView: View {
                     }
                 }
 
-                if model.loadDraft(for: exercise.localId).hasNumericField {
-                    TrainerStepperField(
-                        label: exercise.loadMode == .weight ? unit.symbol.uppercased() : "%",
-                        value: loadText(exercise),
-                        spokenValue: spokenLoad(exercise),
-                        onDecrement: { model.adjustLoad(id: exercise.localId, by: -1, unit: unit) },
-                        onIncrement: { model.adjustLoad(id: exercise.localId, by: 1, unit: unit) }
-                    )
-                }
+                TrainerStepperField(
+                    label: loadFieldLabel(exercise),
+                    value: loadText(exercise),
+                    isEnabled: model.loadDraft(for: exercise.localId).hasNumericField,
+                    spokenValue: spokenLoad(exercise),
+                    onDecrement: { model.adjustLoad(id: exercise.localId, by: -1, unit: unit) },
+                    onIncrement: { model.adjustLoad(id: exercise.localId, by: 1, unit: unit) }
+                )
             }
 
             TrainerFieldRow {
@@ -306,16 +318,18 @@ struct DayEditorView: View {
                     onDecrement: { model.adjustRest(id: exercise.localId, by: -1) },
                     onIncrement: { model.adjustRest(id: exercise.localId, by: 1) }
                 )
+            }
 
+            TrainerFieldRow {
                 TrainerMenuField(label: "Superset", value: exercise.supersetGroup ?? NumberFormat.placeholder) {
                     Button("None") { model.setSuperset(id: exercise.localId, group: nil) }
                     ForEach(["A", "B", "C", "D"], id: \.self) { group in
                         Button(group) { model.setSuperset(id: exercise.localId, group: group) }
                     }
                 }
-            }
 
-            noteField(exercise)
+                noteField(exercise)
+            }
         }
         .trainingCard(theme: theme, padding: 14)
         .opacity(draggingId == exercise.localId ? 0.4 : 1)
@@ -410,7 +424,8 @@ struct DayEditorView: View {
                 label: "Note",
                 text: noteBinding(exercise),
                 placeholder: "Strict press.",
-                spokenValue: exercise.notes ?? "Empty"
+                spokenValue: exercise.notes ?? "Empty",
+                isPrescriptionValue: false
             )
         } else {
             Button {
@@ -424,13 +439,13 @@ struct DayEditorView: View {
                         .fontWeight(.semibold)
                 }
                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .overlay(
                     Capsule().stroke(Color.dynamicBorder(theme: theme).opacity(0.4), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
+            .padding(.top, 18)
             .accessibilityLabel("Add a note to \(exercise.displayName)")
         }
     }
@@ -496,6 +511,16 @@ struct DayEditorView: View {
     }
 
     // MARK: - Texto
+
+    /// La etiqueta del campo dice en qué se mide: la unidad del cliente, el porcentaje o, en
+    /// los modos sin carga, la palabra que explica por qué está apagado.
+    private func loadFieldLabel(_ exercise: DayExerciseInput) -> String {
+        switch exercise.loadMode {
+        case .weight: return unit.symbol.uppercased()
+        case .percent1RM: return "% of 1RM"
+        case .rpe, .bodyweight: return "No load"
+        }
+    }
 
     private func loadText(_ exercise: DayExerciseInput) -> String {
         guard let value = exercise.loadValue else { return NumberFormat.placeholder }

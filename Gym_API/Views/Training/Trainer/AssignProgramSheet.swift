@@ -109,6 +109,13 @@ struct AssignProgramSheet: View {
             TrainingEyebrow(text: "Program")
 
             switch trainingService.programsState {
+            case _ where !programs.isEmpty:
+                ForEach(Array(programs.enumerated()), id: \.element.id) { index, program in
+                    programRow(program)
+                    if index < programs.count - 1 {
+                        Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
+                    }
+                }
             case .idle, .loading:
                 VStack(spacing: 10) {
                     ForEach(0..<3, id: \.self) { _ in

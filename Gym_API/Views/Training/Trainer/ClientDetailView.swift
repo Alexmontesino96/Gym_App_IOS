@@ -134,8 +134,20 @@ struct ClientDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             TrainingEyebrow(text: "Programs")
 
-            switch trainingService.clientProgramsState {
-            case .idle, .loading:
+            if trainingService.clientPrograms != nil {
+                if let summary {
+                    activeCard(summary)
+                } else {
+                    noProgramCard
+                }
+            } else if trainingService.clientProgramsState == .failed {
+                TrainingRetryRow(
+                    message: "Couldn't load the program.",
+                    retryTitle: "Retry",
+                    onRetry: { Task { await trainingService.fetchClientPrograms(userId: client.id) } }
+                )
+                .trainingCard(theme: theme)
+            } else {
                 VStack(alignment: .leading, spacing: 8) {
                     TrainingSkeletonBar(width: 180, height: 18)
                     TrainingSkeletonBar(width: 140, height: 12)
@@ -144,21 +156,6 @@ struct ClientDetailView: View {
                 .trainingCard(theme: theme)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Loading programs")
-
-            case .failed:
-                TrainingRetryRow(
-                    message: "Couldn't load the program.",
-                    retryTitle: "Retry",
-                    onRetry: { Task { await trainingService.fetchClientPrograms(userId: client.id) } }
-                )
-                .trainingCard(theme: theme)
-
-            case .loaded:
-                if let summary {
-                    activeCard(summary)
-                } else {
-                    noProgramCard
-                }
             }
         }
     }
@@ -244,7 +241,7 @@ struct ClientDetailView: View {
             Text("Adherence \(NumberFormat.trimmedDecimal(adherence))%")
                 .font(TrainingType.caption())
                 .monospacedDigit()
-                .foregroundColor(isLow ? Color.warningYellow : Color.dynamicTextTertiary(theme: theme))
+                .foregroundColor(isLow ? Color.dynamicWarningText(theme: theme) : Color.dynamicTextTertiary(theme: theme))
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -278,8 +275,15 @@ struct ClientDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             TrainingEyebrow(text: "Recent logs")
 
-            switch trainingService.clientLogsState {
-            case .idle, .loading:
+            if trainingService.clientLogsState == .failed && trainingService.clientLogs.isEmpty {
+                TrainingRetryRow(
+                    message: "Couldn't load the recent logs.",
+                    retryTitle: "Retry",
+                    onRetry: { Task { await trainingService.fetchClientLogs(userId: client.id, limit: 10) } }
+                )
+                .trainingCard(theme: theme)
+            } else if trainingService.clientLogsState == .idle || trainingService.clientLogsState == .loading,
+                      trainingService.clientLogs.isEmpty {
                 VStack(spacing: 10) {
                     ForEach(0..<3, id: \.self) { _ in
                         HStack(spacing: 12) {
@@ -295,16 +299,7 @@ struct ClientDetailView: View {
                 .trainingCard(theme: theme, padding: 14)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Loading recent logs")
-
-            case .failed:
-                TrainingRetryRow(
-                    message: "Couldn't load the recent logs.",
-                    retryTitle: "Retry",
-                    onRetry: { Task { await trainingService.fetchClientLogs(userId: client.id, limit: 10) } }
-                )
-                .trainingCard(theme: theme)
-
-            case .loaded:
+            } else {
                 if trainingService.clientLogs.isEmpty {
                     Text("\(client.firstName) hasn't logged a session yet.")
                         .font(TrainingType.body())
@@ -396,7 +391,7 @@ struct ClientDetailView: View {
                     .font(TrainingType.monoS())
                     .monospacedDigit()
             }
-            .foregroundColor(alert ? Color.warningYellow : Color.dynamicTextSecondary(theme: theme))
+            .foregroundColor(alert ? Color.dynamicWarningText(theme: theme) : Color.dynamicTextSecondary(theme: theme))
             .padding(.horizontal, 9)
             .frame(minHeight: 28)
             .background(

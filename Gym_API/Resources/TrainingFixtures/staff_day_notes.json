@@ -1,0 +1,22 @@
+[
+  {
+    "text": "Bar speed held on the last two sets.",
+    "id": 41,
+    "user_id": 2,
+    "author_id": 1,
+    "date": "2026-09-21",
+    "day_id": 95,
+    "read_at": null,
+    "created_at": "2026-09-21T08:00:00"
+  },
+  {
+    "text": "Take an extra minute between top sets.",
+    "id": 38,
+    "user_id": 2,
+    "author_id": 1,
+    "date": "2026-09-17",
+    "day_id": 92,
+    "read_at": "2026-09-17T09:10:00",
+    "created_at": "2026-09-17T08:00:00"
+  }
+]

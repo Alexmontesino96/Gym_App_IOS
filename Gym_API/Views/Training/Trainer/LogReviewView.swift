@@ -332,7 +332,7 @@ struct LogReviewView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
-                .foregroundColor(Color.warningYellow)
+                .foregroundColor(Color.dynamicWarningText(theme: theme))
             }
 
             if reviewed.setLog.isPR {
