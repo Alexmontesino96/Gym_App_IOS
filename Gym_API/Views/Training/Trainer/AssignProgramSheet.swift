@@ -98,6 +98,7 @@ struct AssignProgramSheet: View {
             } message: {
                 Text("\(client.firstName) already follows a program. Replacing ends it today; the logs stay.")
             }
+            .trainingAnnouncement(errorMessage)
         }
     }
 
@@ -188,7 +189,9 @@ struct AssignProgramSheet: View {
                     Text(programSubtitle(program))
                         .font(TrainingType.caption())
                         .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer(minLength: 0)

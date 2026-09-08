@@ -102,6 +102,7 @@ struct WeekTargetPickerSheet: View {
                         .disabled(!canCopy)
                 }
             }
+            .trainingAnnouncement(errorMessage)
         }
     }
 

@@ -100,6 +100,8 @@ struct LogReviewView: View {
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .trainingAnnouncement(errorMessage)
+        .trainingAnnouncement(confirmation)
     }
 
     private var navigationTitle: String {

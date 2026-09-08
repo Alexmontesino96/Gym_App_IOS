@@ -109,6 +109,7 @@ struct DayNoteSheet: View {
                 }
             }
             .task { await load() }
+            .trainingAnnouncement(errorMessage)
         }
     }
 
@@ -131,12 +132,17 @@ struct DayNoteSheet: View {
                     .padding(.horizontal, 13)
                     .padding(.top, 16)
                     .allowsHitTesting(false)
+                    // El editor de debajo ya dice su etiqueta y su valor; leer además el
+                    // marcador de posición duplica la frase.
+                    .accessibilityHidden(true)
             }
 
             TextEditor(text: $text)
                 .font(TrainingType.body())
                 .foregroundColor(Color.dynamicText(theme: theme))
                 .scrollContentBackground(.hidden)
+                .accessibilityLabel("Note for \(client.firstName)")
+                .accessibilityValue(trimmed.isEmpty ? "Empty" : trimmed)
                 .focused($isFocused)
                 .frame(minHeight: 132)
                 .padding(8)
@@ -155,8 +161,8 @@ struct DayNoteSheet: View {
             RoundedRectangle(cornerRadius: 22)
                 .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
         )
-        .accessibilityLabel("Note for \(client.firstName)")
-        .accessibilityValue(trimmed.isEmpty ? "Empty" : trimmed)
+        // La etiqueta y el valor van en el `TextEditor`, no en el `ZStack`: envolver un control
+        // editable en un elemento de accesibilidad puede dejarlo en solo lectura para VoiceOver.
     }
 
     private var counter: some View {

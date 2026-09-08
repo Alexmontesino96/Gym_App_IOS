@@ -49,6 +49,42 @@ enum TrainingWeekday {
     }
 }
 
+// MARK: - Mensajes de estado
+
+extension View {
+
+    /// Anuncia por VoiceOver un mensaje que aparece **sin mover el foco**.
+    ///
+    /// Es el caso de todos los errores y confirmaciones del panel: se pulsa «Save», falla la
+    /// petición y el texto sale en otro sitio de la pantalla. Quien ve la pantalla lo lee; quien
+    /// la escucha se queda con el foco en un botón que vuelve a estar habilitado y sin nada que
+    /// le diga que ha pasado algo (WCAG 4.1.3).
+    func trainingAnnouncement(_ message: String?) -> some View {
+        onChange(of: message) { _, newValue in
+            guard let newValue, !newValue.isEmpty else { return }
+            UIAccessibility.post(notification: .announcement, argument: newValue)
+        }
+    }
+}
+
+/// Aplica `accessibilityAdjustableAction` solo cuando de verdad hay algo que ajustar.
+///
+/// Adjuntarlo siempre y neutralizarlo con un `guard` dentro deja el elemento anunciado como
+/// «ajustable»: VoiceOver invita a deslizar, el gesto se gasta y no pasa nada.
+struct TrainerAdjustable: ViewModifier {
+
+    let isActive: Bool
+    let action: (AccessibilityAdjustmentDirection) -> Void
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.accessibilityAdjustableAction(action)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Stepper con etiqueta
 
 /// `Sets ‹ 4 ›`. Etiqueta encima, valor monoespaciado y dos objetivos de 44 pt.
@@ -100,14 +136,16 @@ struct TrainerStepperField: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue(spokenValue ?? value)
-        .accessibilityAdjustableAction { direction in
-            guard isEnabled else { return }
+        // El contenedor es el elemento que lee VoiceOver: sin esto seguía anunciándose como
+        // ajustable aunque el modo de carga no llevara número.
+        .disabled(!isEnabled)
+        .modifier(TrainerAdjustable(isActive: isEnabled) { direction in
             switch direction {
             case .increment: onIncrement()
             case .decrement: onDecrement()
             @unknown default: break
             }
-        }
+        })
     }
 
     private func chevron(_ systemName: String, action: @escaping () -> Void) -> some View {
@@ -162,6 +200,8 @@ struct TrainerTextField: View {
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                // La etiqueta viaja en el propio campo; leerla dos veces no ayuda a nadie.
+                .accessibilityHidden(true)
 
             HStack(spacing: 0) {
                 if let onDecrement {
@@ -177,6 +217,18 @@ struct TrainerTextField: View {
                     .textInputAutocapitalization(isPrescriptionValue ? .characters : .sentences)
                     .padding(.horizontal, isPrescriptionValue ? 0 : 12)
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    // El campo NO se agrupa con `children: .combine`: agrupar un control
+                    // editable puede convertirlo en una etiqueta de solo lectura para VoiceOver,
+                    // y estos son los únicos sitios del módulo donde se escribe texto libre.
+                    .accessibilityLabel(label)
+                    .accessibilityValue(spokenValue ?? (text.isEmpty ? "Empty" : text))
+                    .modifier(TrainerAdjustable(isActive: isAdjustable) { direction in
+                        switch direction {
+                        case .increment: onIncrement?()
+                        case .decrement: onDecrement?()
+                        @unknown default: break
+                        }
+                    })
 
                 if let onIncrement {
                     chevron("chevron.right", action: onIncrement)
@@ -186,17 +238,12 @@ struct TrainerTextField: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(label)
-        .accessibilityValue(spokenValue ?? text)
-        .accessibilityAdjustableAction { direction in
-            guard steppersEnabled else { return }
-            switch direction {
-            case .increment: onIncrement?()
-            case .decrement: onDecrement?()
-            @unknown default: break
-            }
-        }
+    }
+
+    /// Solo es ajustable si hay steppers **y** están activos: «Day name» y «Note» no los tienen,
+    /// y «Reps» los apaga con «AMRAP».
+    private var isAdjustable: Bool {
+        steppersEnabled && (onDecrement != nil || onIncrement != nil)
     }
 
     private func chevron(_ systemName: String, action: @escaping () -> Void) -> some View {

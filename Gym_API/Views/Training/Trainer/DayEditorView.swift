@@ -124,6 +124,7 @@ struct DayEditorView: View {
             .onAppear {
                 if let simulatedError { model.errorMessage = simulatedError }
             }
+            .trainingAnnouncement(model.errorMessage)
         }
         .interactiveDismissDisabled(model.hasChanges)
     }
@@ -158,7 +159,9 @@ struct DayEditorView: View {
         }
         .frame(minWidth: 44, minHeight: 44)
         .disabled(!model.canSave)
-        .accessibilityLabel(model.showsSuccess ? "Saved" : "Save")
+        // Mientras gira el indicador, «Save» a secas no dice nada: quien escucha la pantalla no
+        // sabe si su toque llegó a hacer algo.
+        .accessibilityLabel(model.showsSuccess ? "Saved" : (model.isSaving ? "Saving" : "Save"))
     }
 
     private func save() async {
@@ -342,6 +345,16 @@ struct DayEditorView: View {
             draggingId = nil
             return moved
         }
+        // Alternativa VISIBLE al arrastre, para quien ve la pantalla y no usa VoiceOver ni
+        // Control por conmutador pero tampoco puede sostener un arrastre de precisión
+        // (WCAG 2.5.7). Las acciones de rotor de abajo cubren a quien sí usa esas tecnologías.
+        .contextMenu {
+            Button("Move up") { _ = model.moveUp(id: exercise.localId) }
+                .disabled(model.index(of: exercise.localId) == 0)
+            Button("Move down") { _ = model.moveDown(id: exercise.localId) }
+                .disabled(model.index(of: exercise.localId) == model.exercises.count - 1)
+            Button("Remove", role: .destructive) { remove(exercise) }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(position). \(exercise.displayName)")
         .accessibilityActions {
@@ -395,7 +408,7 @@ struct DayEditorView: View {
         Image(systemName: "line.3.horizontal")
             .font(TrainingType.icon(13))
             .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-            .frame(width: 32, height: 44)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
             .draggable(exercise.localId.uuidString) {
                 Text(exercise.displayName)
