@@ -265,7 +265,7 @@ extension TrainingService {
             Analytics.track(Analytics.Event.programAssigned, [
                 Analytics.Property.programId: programId,
                 Analytics.Property.mode: request.mode.rawValue,
-                "client_count": request.userIds.count
+                Analytics.Property.clientCount: request.userIds.count
             ])
             return .assigned(assignments)
         }
@@ -482,9 +482,9 @@ extension TrainingService {
             body: DayNoteRequest(text: text)
         ) else { return nil }
 
-        Analytics.track("day_note_sent", [
-            "client_id": userId,
-            "date": date.iso
+        Analytics.track(Analytics.Event.dayNoteSent, [
+            Analytics.Property.clientId: userId,
+            Analytics.Property.date: date.iso
         ])
 
         guard let note = try? decoder.decode(TrainingClientDayNote.self, from: data) else { return nil }

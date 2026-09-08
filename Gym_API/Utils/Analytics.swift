@@ -37,6 +37,9 @@ enum Analytics {
         static let kudosSent = "kudos_sent"
         static let reminderOpened = "reminder_opened"
         static let restTimerSkipped = "rest_timer_skipped"
+        /// El entrenador escribe la nota de un día (WP5). No está en la lista de §7.4 porque S23
+        /// nació con el paquete del entrenador; el prompt de WP5 sí lo exige.
+        static let dayNoteSent = "day_note_sent"
     }
 
     /// Claves de propiedad que se repiten, para que dos pantallas no las escriban distinto.
@@ -54,6 +57,10 @@ enum Analytics {
         static let source = "source"
         static let mode = "mode"
         static let isFreeWorkout = "is_free_workout"
+        /// Solo el identificador, nunca el nombre ni el correo de nadie.
+        static let clientId = "client_id"
+        static let clientCount = "client_count"
+        static let date = "date"
     }
 
     // MARK: - API
