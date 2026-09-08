@@ -269,6 +269,18 @@ struct TrainerMenuField<Content: View>: View {
     }
 }
 
+// MARK: - Umbral de apilado
+
+extension DynamicTypeSize {
+
+    /// A partir de aquí una fila de dos columnas deja de caber y hay que apilarla.
+    ///
+    /// **No** es `isAccessibilitySize`: ese empieza en `accessibility1`, y el checklist §10.8 se
+    /// verifica en `xxxLarge`, que es el último tamaño NO de accesibilidad. Con el umbral en
+    /// accesibilidad, «9,566 lb» ya se cortaba en la captura de `xxxLarge`.
+    var stacksTrainerRows: Bool { self >= .xxxLarge }
+}
+
 // MARK: - Fila de campos que se apila en tamaños de accesibilidad
 
 /// Dos o tres campos en horizontal; en `accessibility1` y más grandes, uno debajo de otro.
@@ -282,7 +294,7 @@ struct TrainerFieldRow<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
+        if dynamicTypeSize.stacksTrainerRows {
             VStack(alignment: .leading, spacing: 10, content: content)
         } else {
             HStack(alignment: .top, spacing: 10, content: content)

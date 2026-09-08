@@ -375,7 +375,9 @@ struct ClientProgramsView: View {
     /// El estado nunca es solo un color: cada uno lleva su palabra y, el hecho, además su glifo.
     @ViewBuilder
     private func statusLabel(day: TrainingDay, weekDay: TrainingWeekDay?) -> some View {
-        let status = weekDay?.status ?? (day.isRest ? .rest : (isCurrentWeek ? .pending : .pending))
+        // Solo la semana en curso trae estado real (`/clients/{id}/programs`); en cualquier otra,
+        // `/programs/{id}/days` no lo sabe y la fila dice «Planned», que es la verdad.
+        let status = weekDay?.status ?? (day.isRest ? .rest : .pending)
 
         HStack(spacing: 5) {
             switch status {

@@ -452,6 +452,7 @@ struct TrainerLogRow: View {
     let action: () -> Void
 
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
@@ -460,50 +461,76 @@ struct TrainerLogRow: View {
             HapticManager.shared.play(.selection)
             action()
         } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(title)
-                            .font(TrainingType.headline())
-                            .foregroundColor(Color.dynamicText(theme: theme))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-
-                        if log.prCount > 0 {
-                            PRBadge(isConfirmed: true, showsText: false)
-                        }
-                    }
-
-                    Text(metrics)
-                        .font(TrainingType.monoS())
-                        .monospacedDigit()
-                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-
-                Spacer(minLength: 8)
-
-                // «To review» / «Reviewed» es texto, no un punto de color.
-                Text(log.isReviewed ? "Reviewed" : "To review")
-                    .font(TrainingType.caption())
-                    .fontWeight(log.isReviewed ? .regular : .semibold)
-                    .foregroundColor(
-                        log.isReviewed
-                            ? Color.dynamicTextTertiary(theme: theme)
-                            : Color.dynamicText(theme: theme)
-                    )
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-            .contentShape(Rectangle())
+            content
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
         .accessibilityHint("Opens the session.")
         .accessibilityAddTraits(.isButton)
+    }
+
+    /// A tamaños de accesibilidad la fila se apila: en horizontal, «9,566 lb» se queda en
+    /// «9,566…» y la unidad —que es la mitad del dato— desaparece.
+    @ViewBuilder
+    private var content: some View {
+        if dynamicTypeSize.stacksTrainerRows {
+            VStack(alignment: .leading, spacing: 6) {
+                titleLine
+                metricsLine
+                statusLabel
+            }
+        } else {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    titleLine
+                    metricsLine
+                }
+                Spacer(minLength: 8)
+                statusLabel
+            }
+        }
+    }
+
+    private var titleLine: some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(TrainingType.headline())
+                .foregroundColor(Color.dynamicText(theme: theme))
+                .lineLimit(dynamicTypeSize.stacksTrainerRows ? 2 : 1)
+                .multilineTextAlignment(.leading)
+                .minimumScaleFactor(0.8)
+
+            if log.prCount > 0 {
+                PRBadge(isConfirmed: true, showsText: false)
+            }
+        }
+    }
+
+    private var metricsLine: some View {
+        Text(metrics)
+            .font(TrainingType.monoS())
+            .monospacedDigit()
+            .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            .lineLimit(dynamicTypeSize.stacksTrainerRows ? 3 : 1)
+            .minimumScaleFactor(0.7)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// «To review» / «Reviewed» es texto, no un punto de color.
+    private var statusLabel: some View {
+        Text(log.isReviewed ? "Reviewed" : "To review")
+            .font(TrainingType.caption())
+            .fontWeight(log.isReviewed ? .regular : .semibold)
+            .foregroundColor(
+                log.isReviewed
+                    ? Color.dynamicTextTertiary(theme: theme)
+                    : Color.dynamicText(theme: theme)
+            )
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     private var title: String {

@@ -243,7 +243,7 @@ struct LogReviewView: View {
         VStack(alignment: .leading, spacing: 10) {
             // A tamaños de accesibilidad la prescripción baja a su propia línea: al lado del
             // nombre se corta en «@ RPE…» y el objetivo es justo lo que hay que leer.
-            if dynamicTypeSize.isAccessibilitySize {
+            if dynamicTypeSize.stacksTrainerRows {
                 VStack(alignment: .leading, spacing: 4) {
                     exerciseNameButton(exercise)
                     prescriptionLabel(exercise)
@@ -291,7 +291,7 @@ struct LogReviewView: View {
             Text("prescribed \(TrainingPrescription.text(for: prescription, unit: unit, includeRest: false))")
                 .font(TrainingType.caption())
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .lineLimit(dynamicTypeSize.stacksTrainerRows ? 2 : 1)
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel("Prescribed \(TrainingPrescription.spoken(for: prescription, unit: unit))")
