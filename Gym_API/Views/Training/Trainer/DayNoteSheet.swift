@@ -30,6 +30,7 @@ struct DayNoteSheet: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var trainingService: TrainingService
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var text = ""
     @State private var isLoading = true
@@ -47,10 +48,27 @@ struct DayNoteSheet: View {
         DateFormatter.localized(template: "EEEE").string(from: date.startOfDay(in: .current))
     }
 
+    /// «Note for Dana · Sep 24». A partir de `xxxLarge` la barra no da para tanto y la fecha se
+    /// baja al cuerpo en vez de dejar que iOS la corte con puntos suspensivos.
+    private var navigationTitle: String {
+        let name = "Note for \(client.firstName)"
+        guard !dynamicTypeSize.stacksTrainerRows else { return name }
+        return "\(name) · \(TrainingFormat.dayMonth(date.startOfDay(in: .current)))"
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
+                    // A tamaños grandes el título de la barra pierde la fecha para no cortarse,
+                    // así que la fecha baja aquí: sin ella no se sabe para qué día es la nota.
+                    if dynamicTypeSize.stacksTrainerRows {
+                        Text(TrainingFormat.longDate(date.startOfDay(in: .current)))
+                            .font(TrainingType.caption())
+                            .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     editor
                     counter
                     explanation
@@ -71,7 +89,7 @@ struct DayNoteSheet: View {
                 .padding(.bottom, 40)
             }
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
-            .navigationTitle("Note for \(client.firstName) · \(TrainingFormat.dayMonth(date.startOfDay(in: .current)))")
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
