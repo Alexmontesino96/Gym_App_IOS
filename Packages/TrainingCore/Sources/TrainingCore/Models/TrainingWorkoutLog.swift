@@ -155,9 +155,14 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
     public let clientThanked: Bool
     /// Solo en `GET /logs/{id}`.
     public let sets: [TrainingSetLog]
+    /// La prescripción del día tal y como estaba al registrarlo. Solo en `GET /logs/{id}` y en
+    /// la respuesta de `POST /logs/{id}/review`, y solo si el registro cuelga de un día: un
+    /// entreno libre no tiene contra qué compararse. Es lo que permite a S22 decir «above
+    /// target» sin ir a buscar el programa, que además pudo cambiar desde entonces.
+    public let prescription: [TrainingDayExercise]
 
     public enum CodingKeys: String, CodingKey {
-        case id, status, title, notes, feeling, sets
+        case id, status, title, notes, feeling, sets, prescription
         case gymId = "gym_id"
         case userId = "user_id"
         case programId = "program_id"
@@ -206,7 +211,8 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         coachComment: String? = nil,
         coachCongratulated: Bool = false,
         clientThanked: Bool = false,
-        sets: [TrainingSetLog] = []
+        sets: [TrainingSetLog] = [],
+        prescription: [TrainingDayExercise] = []
     ) {
         self.id = id
         self.gymId = gymId
@@ -234,6 +240,7 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         self.coachCongratulated = coachCongratulated
         self.clientThanked = clientThanked
         self.sets = sets
+        self.prescription = prescription
     }
 
     public init(from decoder: Decoder) throws {
@@ -264,6 +271,7 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         coachCongratulated = try container.decodeIfPresent(Bool.self, forKey: .coachCongratulated) ?? false
         clientThanked = try container.decodeIfPresent(Bool.self, forKey: .clientThanked) ?? false
         sets = try container.decodeIfPresent([TrainingSetLog].self, forKey: .sets) ?? []
+        prescription = try container.decodeIfPresent([TrainingDayExercise].self, forKey: .prescription) ?? []
     }
 
     public var isReviewed: Bool { reviewedAt != nil }

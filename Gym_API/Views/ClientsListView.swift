@@ -15,14 +15,20 @@
 //
 
 import SwiftUI
+import TrainingCore
 
 struct ClientsListView: View {
+    /// Lleva a la pestaña de mensajes. La posee `TrainerMainTabView`, igual que en el panel.
+    var onGoToMessages: () -> Void = {}
+
     @EnvironmentObject var workspaceContext: WorkspaceContextService
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var coachingService: CoachingService
+    @EnvironmentObject var trainingService: TrainingService
 
     @State private var searchText = ""
     @State private var showingInvite = false
+    @State private var path = NavigationPath()
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
@@ -35,7 +41,7 @@ struct ClientsListView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 header
 
@@ -59,6 +65,9 @@ struct ClientsListView: View {
                     .accessibilityLabel("Invite a client")
                 }
             }
+            .navigationDestination(for: TrainerTrainingRoute.self) { route in
+                TrainerTrainingDestination(route: route, path: $path, onMessage: onGoToMessages)
+            }
             .task { await coachingService.loadClients() }
             .refreshable { await coachingService.loadClients(forceRefresh: true) }
             .sheet(isPresented: $showingInvite, onDismiss: {
@@ -71,6 +80,7 @@ struct ClientsListView: View {
             }
         }
     }
+
 
     // MARK: - Cabecera
 
@@ -158,7 +168,11 @@ struct ClientsListView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: 10) {
                 ForEach(filteredClients) { client in
-                    ClientRowView(client: client)
+                    NavigationLink(value: TrainerTrainingRoute.clientDetail(TrainingClientRef(client: client))) {
+                        ClientRowView(client: client)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the client's programs and logs.")
                 }
             }
             .padding(.horizontal, 16)

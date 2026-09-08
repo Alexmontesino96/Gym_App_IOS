@@ -530,6 +530,8 @@ class ServiceContainer: ObservableObject {
         trainingService.clearData()
         trainingSyncCoordinator.clearData()
         WeightUnitPreference.clear()
+        // La lista «Recently used with …» del editor de día es de la cuenta, no del teléfono.
+        TrainingRecentExercises.clear()
 
         print("✅ Datos de usuario limpiados")
     }

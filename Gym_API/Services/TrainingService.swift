@@ -38,12 +38,16 @@ final class TrainingService: ObservableObject {
     /// `GET /me/today`: el día de hoy, o nulo si toca descanso o no hay programa.
     @Published private(set) var today: TrainingDay?
     @Published private(set) var logs: [TrainingWorkoutLogSummary] = []
-    @Published private(set) var selectedLog: TrainingWorkoutLog?
+    /// La escribe también la revisión del entrenador (`TrainingService+Staff.swift`), que vive
+    /// en otro fichero: por eso sin `private(set)`.
+    @Published var selectedLog: TrainingWorkoutLog?
     @Published private(set) var records: [TrainingPersonalRecord] = []
     @Published private(set) var strengthSummary: [StrengthSummaryItem] = []
-    @Published private(set) var exerciseHistory: ExerciseHistory?
+    /// S15 es la misma pantalla para el cliente y, en lectura, para el entrenador.
+    @Published var exerciseHistory: ExerciseHistory?
     @Published private(set) var groupToday: GroupToday?
-    @Published private(set) var exercises: [ExerciseCatalogItem] = []
+    /// El catálogo lo amplía también el entrenador con sus ejercicios propios.
+    @Published var exercises: [ExerciseCatalogItem] = []
 
     // MARK: - Published · estado
 
@@ -53,9 +57,45 @@ final class TrainingService: ObservableObject {
     @Published private(set) var logsState: LoadState = .idle
     @Published private(set) var recordsState: LoadState = .idle
     @Published private(set) var strengthState: LoadState = .idle
-    @Published private(set) var exerciseHistoryState: LoadState = .idle
+    @Published var exerciseHistoryState: LoadState = .idle
     @Published private(set) var groupState: LoadState = .idle
     @Published private(set) var exercisesState: LoadState = .idle
+
+    // MARK: - Published · personal (plan §6.2, WP5)
+    //
+    // Van aquí y no en `TrainingService+Staff.swift` porque `@Published` solo existe en el
+    // cuerpo de la clase; los métodos que las llenan sí viven en esa extensión.
+    //
+    // Y por eso mismo NO llevan `private(set)`: Swift ampara ese modificador al FICHERO, y el
+    // servicio está partido en dos. Quien escribe sigue siendo el servicio y solo el servicio:
+    // ninguna vista asigna nada, todas llaman a un método.
+
+    /// `GET /programs`: la lista plana de plantillas del espacio.
+    @Published var programs: [TrainingProgram] = []
+    /// `GET /programs/{id}`: el programa abierto, con sus bloques.
+    @Published var programDetail: TrainingProgramDetail?
+    /// `GET /programs/{id}/days?week=`: siempre siete días, con `id: null` en los que no existen.
+    @Published var programDays: [TrainingDay] = []
+    /// `GET /clients/{id}/programs`: el activo y los pasados.
+    @Published var clientPrograms: ClientProgramsResponse?
+    /// `GET /clients/{id}/logs`: los registros de un cliente, ya paginados.
+    @Published var clientLogs: [TrainingWorkoutLogSummary] = []
+    /// `GET /clients/{id}/records`.
+    @Published var clientRecords: [TrainingPersonalRecord] = []
+    /// `GET /inbox`: lo que falta por revisar en todo el espacio.
+    @Published var inbox: [TrainingWorkoutLogSummary] = []
+    /// Quedan páginas por pedir del buzón.
+    @Published var inboxHasMore = false
+    /// `GET /clients/{id}/day-notes?recent=5`: la lista RECENT de S23.
+    @Published var recentDayNotes: [TrainingClientDayNote] = []
+
+    @Published var programsState: LoadState = .idle
+    @Published var programDetailState: LoadState = .idle
+    @Published var programDaysState: LoadState = .idle
+    @Published var clientProgramsState: LoadState = .idle
+    @Published var clientLogsState: LoadState = .idle
+    @Published var clientRecordsState: LoadState = .idle
+    @Published var inboxState: LoadState = .idle
 
     @Published private(set) var isLoading = false
     @Published var isSaving = false
@@ -71,8 +111,10 @@ final class TrainingService: ObservableObject {
     // MARK: - Privado
 
     private let session = URLSession.shared
-    private lazy var decoder = BackendJSON.decoder()
-    private lazy var encoder = BackendJSON.encoder()
+    // `internal` y no `private` porque la extensión de personal (`TrainingService+Staff.swift`)
+    // usa el mismo transporte: repetirlo allí sería tener dos capas de red que se desvían.
+    lazy var decoder = BackendJSON.decoder()
+    lazy var encoder = BackendJSON.encoder()
     /// Evita que la respuesta de un gimnasio repueble el estado después de cambiar a otro.
     private var loadedForGymId: Int?
     private var isLoadingHome = false
@@ -487,11 +529,11 @@ final class TrainingService: ObservableObject {
 
     // MARK: - Transporte
 
-    private func stillCurrent(_ expected: Int?) -> Bool {
+    func stillCurrent(_ expected: Int?) -> Bool {
         GymService.shared.currentGymId == expected
     }
 
-    private func get(_ path: String) async -> Data? {
+    func get(_ path: String) async -> Data? {
         guard let url = URL(string: apiBaseURL + path),
               let request = await HTTPClient.shared.makeRequest(url: url, method: "GET") else {
             errorMessage = "Could not prepare the request"
@@ -500,7 +542,7 @@ final class TrainingService: ObservableObject {
         return await perform(request, path: path, isWrite: false)
     }
 
-    private func send<T: Encodable>(_ path: String, method: String, body: T) async -> Data? {
+    func send<T: Encodable>(_ path: String, method: String, body: T) async -> Data? {
         guard let url = URL(string: apiBaseURL + path),
               var request = await HTTPClient.shared.makeRequest(url: url, method: method) else {
             saveErrorMessage = "Could not prepare the request"
@@ -518,7 +560,7 @@ final class TrainingService: ObservableObject {
     }
 
     /// Escritura sin cuerpo (`thank`, `kudos`): el contrato solo pide el id en la ruta.
-    private func post(_ path: String) async -> Data? {
+    func post(_ path: String) async -> Data? {
         guard let url = URL(string: apiBaseURL + path),
               let request = await HTTPClient.shared.makeRequest(url: url, method: "POST") else {
             saveErrorMessage = "Could not prepare the request"
@@ -527,7 +569,7 @@ final class TrainingService: ObservableObject {
         return await perform(request, path: path, isWrite: true)
     }
 
-    private func perform(_ request: URLRequest, path: String, isWrite: Bool) async -> Data? {
+    func perform(_ request: URLRequest, path: String, isWrite: Bool) async -> Data? {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else { return nil }
@@ -564,12 +606,12 @@ final class TrainingService: ObservableObject {
         }
     }
 
-    private func assign(_ message: String?, isWrite: Bool) {
+    func assign(_ message: String?, isWrite: Bool) {
         if isWrite { saveErrorMessage = message } else { errorMessage = message }
     }
 
     /// Extrae el `detail` de un error de FastAPI, que puede ser texto o una lista de validación.
-    private func detailMessage(from data: Data) -> String? {
+    func detailMessage(from data: Data) -> String? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         if let text = object["detail"] as? String { return text }
         if let items = object["detail"] as? [[String: Any]] {
@@ -583,17 +625,17 @@ final class TrainingService: ObservableObject {
     }
 
     /// El backend devuelve el literal `null` cuando no hay recurso, y eso no es un error.
-    private func isNullBody(_ data: Data) -> Bool {
+    func isNullBody(_ data: Data) -> Bool {
         if data.isEmpty { return true }
         let body = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return body == "null"
     }
 
-    private func escape(_ value: String) -> String {
+    func escape(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? value
     }
 
-    private func report(_ error: Error, endpoint: String) {
+    func report(_ error: Error, endpoint: String) {
         errorMessage = "Could not read your training data"
         Logger.shared.error("TrainingService decode \(endpoint): \(error)", category: .training)
     }
@@ -680,6 +722,8 @@ final class TrainingService: ObservableObject {
         isSaving = false
         isLoadingHome = false
         loadedForGymId = nil
+
+        clearStaffData()
     }
 
     deinit {

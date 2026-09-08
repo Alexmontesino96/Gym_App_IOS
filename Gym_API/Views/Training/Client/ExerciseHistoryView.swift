@@ -16,6 +16,13 @@ struct ExerciseHistoryView: View {
 
     let exerciseKey: String
     let exerciseName: String
+    /// Cliente del que se lee el historial. Nulo —el caso normal— es «yo».
+    ///
+    /// Con un id, la pantalla es la misma en modo lectura para el entrenador (UX §2: S22 →
+    /// nombre de ejercicio → S15). Solo cambia el endpoint del que se lee; ni una vista, ni un
+    /// texto, ni un estado. Duplicar la pantalla para eso habría dejado dos gráficos que
+    /// divergen a la primera corrección.
+    var clientId: Int?
     /// Abre S18 de una sesión del historial.
     var onOpenLog: ((Int) -> Void)?
     /// Salida del estado vacío.
@@ -138,7 +145,15 @@ struct ExerciseHistoryView: View {
     }
 
     private func load() async {
-        await trainingService.fetchExerciseHistory(exerciseKey: exerciseKey, range: range.rawValue)
+        if let clientId {
+            await trainingService.fetchClientExerciseHistory(
+                userId: clientId,
+                exerciseKey: exerciseKey,
+                range: range.rawValue
+            )
+        } else {
+            await trainingService.fetchExerciseHistory(exerciseKey: exerciseKey, range: range.rawValue)
+        }
     }
 
     // MARK: - Cabecera

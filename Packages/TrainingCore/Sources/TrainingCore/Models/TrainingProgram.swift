@@ -419,7 +419,11 @@ public struct TrainingDay: Codable, Hashable, Identifiable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        // `id` puede llegar NULO y no es un error: `GET /programs/{id}/days?week=` devuelve
+        // siempre los siete días de la semana y los que todavía no existen en base viajan con
+        // `{id: null, is_rest: true, exercises: []}` (WP2-informe §4.3). Se traducen a 0, que es
+        // lo que `exists` interpreta como «este día no está creado; guardarlo lo crea».
+        id = try container.decodeIfPresent(Int.self, forKey: .id) ?? 0
         programId = try container.decodeIfPresent(Int.self, forKey: .programId)
         let number = try container.decodeIfPresent(Int.self, forKey: .dayNumber) ?? 1
         dayNumber = number
@@ -442,6 +446,10 @@ public struct TrainingDay: Codable, Hashable, Identifiable, Sendable {
             coachNote = nil
         }
     }
+
+    /// El día existe en base. Un día del carrusel del entrenador que nunca se ha escrito llega
+    /// con `id: null` y solo se convierte en fila real al guardarlo.
+    public var exists: Bool { id > 0 }
 
     /// Título que se enseña arriba de la sesión. Sin nombre, el día se llama por su número.
     public var displayName: String {

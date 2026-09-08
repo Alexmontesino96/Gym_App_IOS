@@ -1,0 +1,287 @@
+//
+//  TrainerFields.swift
+//  Gym_API
+//
+//  Los controles que el editor de día repite quince veces (UX §6, S21) y el nombre del día de
+//  la semana que usan S20 y S21.
+//
+//  Existen aquí, y no como `NumericStepperFieldView`, por lo mismo que decidió WP4 para la fila
+//  de serie: en modo compacto los botones de ese componente miden 32 × 36 pt y el checklist §10.6
+//  pide 44 × 44 reales. Estos los cumplen sin agrandar el dibujo.
+//
+
+import SwiftUI
+import TrainingCore
+
+// MARK: - Días de la semana
+
+enum TrainingWeekday {
+
+    /// «Monday»… «Sunday» a partir de la posición 1-7 dentro de la semana del programa.
+    ///
+    /// Los nombres salen del calendario del dispositivo (`standaloneWeekdaySymbols`, que empieza
+    /// en domingo) reordenados para empezar en lunes, que es como se numeran los días del
+    /// programa (plan §4.2).
+    static func name(index: Int) -> String {
+        let symbols = Calendar.current.standaloneWeekdaySymbols
+        guard symbols.count == 7 else { return "Day \(index)" }
+        let mondayFirst = Array(symbols[1...]) + [symbols[0]]
+        let position = min(max(1, index), 7) - 1
+        return mondayFirst[position].capitalized
+    }
+
+    /// «MON»… «SUN», para las filas apretadas de S20.
+    static func shortName(index: Int) -> String {
+        let symbols = Calendar.current.shortStandaloneWeekdaySymbols
+        guard symbols.count == 7 else { return "D\(index)" }
+        let mondayFirst = Array(symbols[1...]) + [symbols[0]]
+        let position = min(max(1, index), 7) - 1
+        return mondayFirst[position].uppercased()
+    }
+
+    /// El día de la semana de un `day_number` del programa.
+    static func name(forDayNumber dayNumber: Int) -> String {
+        name(index: WeekMath.weekdayIndex(forDayNumber: dayNumber))
+    }
+
+    static func shortName(forDayNumber dayNumber: Int) -> String {
+        shortName(index: WeekMath.weekdayIndex(forDayNumber: dayNumber))
+    }
+}
+
+// MARK: - Stepper con etiqueta
+
+/// `Sets ‹ 4 ›`. Etiqueta encima, valor monoespaciado y dos objetivos de 44 pt.
+struct TrainerStepperField: View {
+
+    let label: String
+    /// El valor ya formateado. Se pasa hecho porque cada campo tiene su formato (mm:ss, RPE, %).
+    let value: String
+    var isEnabled: Bool = true
+    /// Lo que dice VoiceOver al ajustar. Sin él, «4» no significa nada.
+    var spokenValue: String?
+    let onDecrement: () -> Void
+    let onIncrement: () -> Void
+
+    @EnvironmentObject var themeManager: ThemeManager
+
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(TrainingType.label())
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            HStack(spacing: 0) {
+                chevron("chevron.left", action: onDecrement)
+
+                Text(value)
+                    .font(TrainingType.monoM())
+                    .monospacedDigit()
+                    .foregroundColor(
+                        isEnabled
+                            ? Color.dynamicText(theme: theme)
+                            : Color.dynamicTextTertiary(theme: theme)
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+
+                chevron("chevron.right", action: onIncrement)
+            }
+            .background(Color.dynamicSurface2(theme: theme))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(spokenValue ?? value)
+        .accessibilityAdjustableAction { direction in
+            guard isEnabled else { return }
+            switch direction {
+            case .increment: onIncrement()
+            case .decrement: onDecrement()
+            @unknown default: break
+            }
+        }
+    }
+
+    private func chevron(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            HapticManager.shared.play(.selection)
+            action()
+        }) {
+            Image(systemName: systemName)
+                .font(TrainingType.icon(12))
+                .foregroundColor(
+                    isEnabled
+                        ? Color.dynamicTextSecondary(theme: theme)
+                        : Color.dynamicTextTertiary(theme: theme).opacity(0.5)
+                )
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        // El stepper entero es un solo elemento para VoiceOver, que lo ajusta por deslizamiento.
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Campo de texto con etiqueta
+
+/// `Reps ‹ 8-10 ›`: texto libre del contrato ("5", "8-10", "AMRAP") con steppers que solo
+/// funcionan cuando el valor es un número.
+struct TrainerTextField: View {
+
+    let label: String
+    @Binding var text: String
+    var placeholder: String = ""
+    var spokenValue: String?
+    /// Steppers opcionales: nulos, el campo es solo texto.
+    var onDecrement: (() -> Void)?
+    var onIncrement: (() -> Void)?
+    var steppersEnabled: Bool = true
+
+    @EnvironmentObject var themeManager: ThemeManager
+
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(TrainingType.label())
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            HStack(spacing: 0) {
+                if let onDecrement {
+                    chevron("chevron.left", action: onDecrement)
+                }
+
+                TextField(placeholder, text: $text)
+                    .font(TrainingType.monoM())
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.characters)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+
+                if let onIncrement {
+                    chevron("chevron.right", action: onIncrement)
+                }
+            }
+            .background(Color.dynamicSurface2(theme: theme))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
+        .accessibilityValue(spokenValue ?? text)
+        .accessibilityAdjustableAction { direction in
+            guard steppersEnabled else { return }
+            switch direction {
+            case .increment: onIncrement?()
+            case .decrement: onDecrement?()
+            @unknown default: break
+            }
+        }
+    }
+
+    private func chevron(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            HapticManager.shared.play(.selection)
+            action()
+        }) {
+            Image(systemName: systemName)
+                .font(TrainingType.icon(12))
+                .foregroundColor(
+                    steppersEnabled
+                        ? Color.dynamicTextSecondary(theme: theme)
+                        : Color.dynamicTextTertiary(theme: theme).opacity(0.5)
+                )
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!steppersEnabled)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Menú con etiqueta
+
+/// `Load ‹ RPE ▾ ›`: un menú que se lee como los steppers de al lado.
+struct TrainerMenuField<Content: View>: View {
+
+    let label: String
+    let value: String
+    @ViewBuilder let content: () -> Content
+
+    @EnvironmentObject var themeManager: ThemeManager
+
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(TrainingType.label())
+                .tracking(0.8)
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Menu {
+                content()
+            } label: {
+                HStack(spacing: 6) {
+                    Text(value)
+                        .font(TrainingType.caption())
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.dynamicText(theme: theme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    Image(systemName: "chevron.down")
+                        .font(TrainingType.icon(9))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                }
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Color.dynamicSurface2(theme: theme))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .accessibilityLabel(label)
+            .accessibilityValue(value)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Fila de campos que se apila en tamaños de accesibilidad
+
+/// Dos o tres campos en horizontal; en `accessibility1` y más grandes, uno debajo de otro.
+///
+/// Sin esto, tres steppers en una fila de 350 pt a tamaño xxxLarge dejan cada cifra en 40 pt y
+/// «AMRAP» deja de caber (checklist §10.8).
+struct TrainerFieldRow<Content: View>: View {
+
+    @ViewBuilder let content: () -> Content
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 10, content: content)
+        } else {
+            HStack(alignment: .top, spacing: 10, content: content)
+        }
+    }
+}

@@ -30,7 +30,7 @@ struct TrainerMainTabView: View {
 
             // Clients (not members)
             AnimatedTabContent(isSelected: selectedTab == 1) {
-                ClientsListView()
+                ClientsListView(onGoToMessages: { selectedTab = 3 })
             }
             .tabItem {
                 Image(systemName: selectedTab == 1 ? "person.2.fill" : "person.2")
@@ -69,6 +69,11 @@ struct TrainerMainTabView: View {
         .accentColor(Color.dynamicAccent(theme: themeManager.currentTheme))
         .onChange(of: selectedTab) { oldValue, newValue in
             handleTabChange(from: oldValue, to: newValue)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .trainingOpenLog)) { _ in
+            // El deep link `training/logs/{id}` abre S22, que vive en la pila del panel. Aquí
+            // solo se cambia de pestaña; el panel escucha el mismo aviso y empuja la pantalla.
+            selectedTab = 0
         }
     }
 

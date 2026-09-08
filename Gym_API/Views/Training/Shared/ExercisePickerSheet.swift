@@ -35,6 +35,10 @@ struct ExercisePickerSheet: View {
     }
 
     let mode: Mode
+    /// Con quién se está escribiendo el día. Solo lo pasa el editor del entrenador (S21) y es lo
+    /// que enciende la sección «Recently used with Dana»; en las pantallas del cliente es nulo y
+    /// la hoja se comporta exactamente como antes.
+    var recentForClient: TrainingClientRef?
     let onSelect: (ExerciseCatalogItem) -> Void
 
     @EnvironmentObject var themeManager: ThemeManager
@@ -92,31 +96,22 @@ struct ExercisePickerSheet: View {
     private var content: some View {
         if !trainingService.exercises.isEmpty {
             List {
-                ForEach(trainingService.exercises) { item in
-                    Button(action: {
-                        HapticManager.shared.play(.selection)
-                        onSelect(item)
-                        dismiss()
-                    }) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.name)
-                                .font(TrainingType.headline())
-                                .foregroundColor(Color.dynamicText(theme: theme))
-
-                            if !item.primaryMuscles.isEmpty {
-                                Text(item.primaryMuscles.prefix(3).joined(separator: " · "))
-                                    .font(TrainingType.caption())
-                                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-                                    .lineLimit(1)
-                            }
+                if !recentItems.isEmpty {
+                    Section {
+                        ForEach(recentItems) { item in
+                            row(item)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                        .contentShape(Rectangle())
+                    } header: {
+                        Text("Recently used with \(recentForClient?.firstName ?? "")")
+                            .font(TrainingType.label())
+                            .tracking(0.8)
+                            .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                     }
-                    .buttonStyle(.plain)
                     .listRowBackground(Color.dynamicSurface(theme: theme))
-                    .accessibilityLabel(item.name)
-                    .accessibilityHint(item.primaryMuscles.isEmpty ? "" : "Works \(item.primaryMuscles.joined(separator: ", ")).")
+                }
+
+                ForEach(otherItems) { item in
+                    row(item)
                 }
             }
             .listStyle(.plain)
@@ -155,5 +150,59 @@ struct ExercisePickerSheet: View {
             .trainingCard(theme: theme)
             .padding(16)
         }
+    }
+
+    // MARK: - Fila
+
+    private func row(_ item: ExerciseCatalogItem) -> some View {
+        Button(action: {
+            HapticManager.shared.play(.selection)
+            onSelect(item)
+            dismiss()
+        }) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.name)
+                    .font(TrainingType.headline())
+                    .foregroundColor(Color.dynamicText(theme: theme))
+
+                if !item.primaryMuscles.isEmpty {
+                    Text(item.primaryMuscles.prefix(3).joined(separator: " · "))
+                        .font(TrainingType.caption())
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Color.dynamicSurface(theme: theme))
+        .accessibilityLabel(item.name)
+        .accessibilityHint(item.primaryMuscles.isEmpty ? "" : "Works \(item.primaryMuscles.joined(separator: ", ")).")
+    }
+
+    // MARK: - Recientes con este cliente (S21)
+
+    /// Las claves recordadas en el dispositivo, resueltas contra el catálogo cargado y en el
+    /// mismo orden en que se usaron.
+    ///
+    /// Solo se enseña sin búsqueda activa: buscando «row» la respuesta esperada es lo que se
+    /// parece a «row», no lo que se puso el martes pasado.
+    private var recentItems: [ExerciseCatalogItem] {
+        guard let client = recentForClient, query.isEmpty else { return [] }
+        let keys = TrainingRecentExercises.keys(forClient: client.id)
+        guard !keys.isEmpty else { return [] }
+        let byKey = Dictionary(
+            trainingService.exercises.map { ($0.exerciseKey, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return keys.compactMap { byKey[$0] }
+    }
+
+    /// El catálogo sin lo que ya está arriba: la misma fila dos veces confunde más que ahorra.
+    private var otherItems: [ExerciseCatalogItem] {
+        let recent = Set(recentItems.map(\.id))
+        guard !recent.isEmpty else { return trainingService.exercises }
+        return trainingService.exercises.filter { !recent.contains($0.id) }
     }
 }

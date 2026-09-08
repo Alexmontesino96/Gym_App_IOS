@@ -17,6 +17,7 @@
 //
 
 import SwiftUI
+import TrainingCore
 
 struct TrainerDashboardView: View {
     @EnvironmentObject var workspaceContext: WorkspaceContextService
@@ -24,6 +25,7 @@ struct TrainerDashboardView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var classService: ClassService
     @EnvironmentObject var coachingService: CoachingService
+    @EnvironmentObject var trainingService: TrainingService
     @StateObject private var profileService = UserProfileService.shared
 
     /// Navegación de pestañas, que la posee TrainerMainTabView.
@@ -31,6 +33,7 @@ struct TrainerDashboardView: View {
     var onGoToMessages: () -> Void = {}
 
     @State private var now = Date()
+    @State private var path = NavigationPath()
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
@@ -70,11 +73,12 @@ struct TrainerDashboardView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
                     header
                     todaySection
+                    if isTrainingEnabled { toReviewSection }
                     weekStrip
                     checkInsSection
                     Spacer(minLength: 16)
@@ -84,10 +88,102 @@ struct TrainerDashboardView: View {
             }
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationBarHidden(true)
+            .navigationDestination(for: TrainerTrainingRoute.self) { route in
+                TrainerTrainingDestination(route: route, path: $path, onMessage: onGoToMessages)
+            }
             .task { await load() }
             .refreshable { await load(force: true) }
             .onReceive(clock) { now = $0 }
+            .onReceive(NotificationCenter.default.publisher(for: .trainingOpenLog)) { notification in
+                // Deep link `training/logs/{id}` del push «Dana finished Upper A» (plan §7.1).
+                // Aquí el usuario es personal, así que el registro se abre en S22, no en S18.
+                guard isTrainingEnabled, let id = notification.object as? Int else { return }
+                Analytics.track(Analytics.Event.reminderOpened, [Analytics.Property.logId: id])
+                path.append(TrainerTrainingRoute.logReview(logId: id, client: nil))
+            }
         }
+    }
+
+    /// El módulo puede estar apagado en el espacio: sin él, la sección no existe y nada se rompe.
+    /// Misma fuente que la home del cliente (`WorkspaceFeatures.training`, plan §8.2).
+    private var isTrainingEnabled: Bool {
+        workspaceContext.isFeatureEnabled(\.training)
+    }
+
+    // MARK: - To review (plan §6.2, GET /inbox)
+
+    /// Lo que falta por mirar en todo el espacio, más reciente primero.
+    ///
+    /// Mismo patrón que `todaySection`: skeleton mientras carga, vacío que dice la verdad
+    /// («no hay nada», no «no se pudo»), y error con reintento que no borra lo que ya había.
+    private var toReviewSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                eyebrow("TO REVIEW")
+                Spacer()
+                if !trainingService.inbox.isEmpty {
+                    Text("\(trainingService.inbox.count)")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                        .monospacedDigit()
+                }
+            }
+
+            switch trainingService.inboxState {
+            case .loading, .idle where trainingService.inbox.isEmpty:
+                skeletonCard(height: 76)
+                skeletonCard(height: 76)
+            case .failed where trainingService.inbox.isEmpty:
+                TrainingRetryRow(
+                    message: "Couldn't load the sessions to review.",
+                    retryTitle: "Retry",
+                    onRetry: { Task { await trainingService.fetchInbox() } }
+                )
+                .padding(14)
+                .background(Color.dynamicSurface(theme: theme))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+                )
+            default:
+                if trainingService.inbox.isEmpty {
+                    infoCard(icon: "checkmark.circle",
+                             text: "Nothing to review. Sessions your clients finish land here.")
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(trainingService.inbox.enumerated()), id: \.element.id) { index, log in
+                            TrainerLogRow(log: log, unit: WeightUnitPreference.current) {
+                                path.append(TrainerTrainingRoute.logReview(
+                                    logId: log.id,
+                                    client: client(for: log)
+                                ))
+                            }
+                            if index < trainingService.inbox.count - 1 {
+                                Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(Color.dynamicSurface(theme: theme))
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+                    )
+                }
+            }
+        }
+    }
+
+    /// Quién entrenó, con el nombre y la foto que ya trae el buzón.
+    private func client(for log: TrainingWorkoutLogSummary) -> TrainingClientRef? {
+        guard let id = log.userId else { return nil }
+        return TrainingClientRef(
+            id: id,
+            name: log.userName ?? "Client",
+            pictureURL: log.userPictureURL
+        )
     }
 
     // MARK: - Cabecera
@@ -515,13 +611,19 @@ struct TrainerDashboardView: View {
     private func load(force: Bool = false) async {
         async let stats: Void = loadStats(force: force)
         async let sessions: Void = classService.loadSessionsForDateIfNeeded(date: Date())
-        _ = await (stats, sessions)
+        async let inbox: Void = loadInbox()
+        _ = await (stats, sessions, inbox)
 
         // El roster necesita las sesiones ya cargadas; los check-ins, la lista de clientes.
         async let roster: Void = coachingService.loadTodayRoster(from: classService.sessions)
         async let checkIns: Void = coachingService.loadRecentCheckIns()
         _ = await (roster, checkIns)
         now = Date()
+    }
+
+    private func loadInbox() async {
+        guard isTrainingEnabled else { return }
+        await trainingService.fetchInbox()
     }
 
     private func loadStats(force: Bool) async {
@@ -538,4 +640,5 @@ struct TrainerDashboardView: View {
         .environmentObject(ThemeManager())
         .environmentObject(ServiceContainer.shared.classService)
         .environmentObject(ServiceContainer.shared.coachingService)
+        .environmentObject(ServiceContainer.shared.trainingService)
 }
