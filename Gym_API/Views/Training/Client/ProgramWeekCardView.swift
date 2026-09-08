@@ -98,7 +98,9 @@ struct ProgramWeekCardView: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                // 44 pt reales: la cabecera es el atajo a S12 y el checklist §10.6 no distingue
+                // entre un botón y una fila que se puede tocar.
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
