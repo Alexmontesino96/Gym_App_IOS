@@ -371,10 +371,16 @@ public struct TrainingDay: Codable, Hashable, Identifiable, Sendable {
     public let isPublished: Bool
     public let exercises: [TrainingDayExercise]
     /// Nota del coach de esa fecha, cuando el endpoint la incluye.
+    ///
+    /// El backend real la manda como CADENA (`"coach_note": "Warm up…"`); el contrato del plan
+    /// la describía como el objeto completo con autor y hora. Se aceptan las dos: con la cadena
+    /// se construye una nota sin autor, que es lo que hay.
     public let coachNote: TrainingClientDayNote?
+    /// Fecha del día, cuando el endpoint la incluye. `/me/today` y `/me/days/{id}` la mandan.
+    public let date: CalendarDate?
 
     public enum CodingKeys: String, CodingKey {
-        case id, name, focus, notes, exercises
+        case id, name, focus, notes, exercises, date
         case programId = "program_id"
         case dayNumber = "day_number"
         case weekNumber = "week_number"
@@ -394,7 +400,8 @@ public struct TrainingDay: Codable, Hashable, Identifiable, Sendable {
         notes: String? = nil,
         isPublished: Bool = true,
         exercises: [TrainingDayExercise] = [],
-        coachNote: TrainingClientDayNote? = nil
+        coachNote: TrainingClientDayNote? = nil,
+        date: CalendarDate? = nil
     ) {
         self.id = id
         self.programId = programId
@@ -407,6 +414,7 @@ public struct TrainingDay: Codable, Hashable, Identifiable, Sendable {
         self.isPublished = isPublished
         self.exercises = exercises
         self.coachNote = coachNote
+        self.date = date
     }
 
     public init(from decoder: Decoder) throws {
@@ -423,7 +431,16 @@ public struct TrainingDay: Codable, Hashable, Identifiable, Sendable {
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         isPublished = try container.decodeIfPresent(Bool.self, forKey: .isPublished) ?? true
         exercises = try container.decodeIfPresent([TrainingDayExercise].self, forKey: .exercises) ?? []
-        coachNote = try container.decodeIfPresent(TrainingClientDayNote.self, forKey: .coachNote)
+        date = try container.decodeIfPresent(CalendarDate.self, forKey: .date)
+
+        if let note = try? container.decodeIfPresent(TrainingClientDayNote.self, forKey: .coachNote) {
+            coachNote = note
+        } else if let text = try container.decodeIfPresent(String.self, forKey: .coachNote),
+                  !text.isEmpty {
+            coachNote = TrainingClientDayNote(id: 0, date: CalendarDate(year: 1970, month: 1, day: 1), text: text)
+        } else {
+            coachNote = nil
+        }
     }
 
     /// Título que se enseña arriba de la sesión. Sin nombre, el día se llama por su número.

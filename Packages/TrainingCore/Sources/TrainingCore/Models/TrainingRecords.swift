@@ -125,6 +125,70 @@ public struct StrengthSummaryPoint: Codable, Hashable, Sendable {
         self.e1rmKg = e1rmKg
         self.logId = logId
     }
+
+    /// Dos formas legítimas del backend, no dos tipos del mismo campo:
+    /// `/me/strength-summary` manda una lista de VALORES (`[116.67]`) y
+    /// `/me/exercises/{key}/history` una lista de PUNTOS con fecha y registro.
+    public init(from decoder: Decoder) throws {
+        if let value = try? decoder.singleValueContainer().decode(Double.self) {
+            self.init(date: nil, e1rmKg: value, logId: nil)
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            date: try container.decodeIfPresent(CalendarDate.self, forKey: .date),
+            e1rmKg: try container.decodeIfPresent(Double.self, forKey: .e1rmKg) ?? 0,
+            logId: try container.decodeIfPresent(Int.self, forKey: .logId)
+        )
+    }
+}
+
+// MARK: - Sobre de `/me/strength-summary`
+
+/// El endpoint no devuelve un array plano: envuelve la lista en `entries`.
+public struct StrengthSummaryResponse: Codable, Hashable, Sendable {
+
+    public let entries: [StrengthSummaryItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries
+    }
+
+    public init(entries: [StrengthSummaryItem]) {
+        self.entries = entries
+    }
+
+    public init(from decoder: Decoder) throws {
+        // Se acepta también el array desnudo: es lo que describe el plan §6.1 y lo que devolvía
+        // el contrato antes de que el backend lo envolviera.
+        if let list = try? decoder.singleValueContainer().decode([StrengthSummaryItem].self) {
+            self.init(entries: list)
+            return
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(entries: try container.decodeIfPresent([StrengthSummaryItem].self, forKey: .entries) ?? [])
+    }
+}
+
+// MARK: - Preferencias del módulo
+
+/// `GET`/`PUT /training/me/preferences` (plan §7.3).
+public struct TrainingPreferences: Codable, Hashable, Sendable {
+
+    public let remindersEnabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case remindersEnabled = "training_reminders_enabled"
+    }
+
+    public init(remindersEnabled: Bool) {
+        self.remindersEnabled = remindersEnabled
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        remindersEnabled = try container.decodeIfPresent(Bool.self, forKey: .remindersEnabled) ?? true
+    }
 }
 
 public struct StrengthSummaryItem: Codable, Hashable, Identifiable, Sendable {
@@ -136,7 +200,10 @@ public struct StrengthSummaryItem: Codable, Hashable, Identifiable, Sendable {
     public let deltaWeeks: Int?
     /// Los últimos 8 puntos de la serie que pinta la sparkline.
     public let points: [StrengthSummaryPoint]
+    /// El backend real manda `last_pr` como FECHA. El contrato del plan lo describía como un
+    /// objeto con la serie; se aceptan las dos formas y la vista pinta lo que tenga.
     public let lastPR: TrainingTopRecord?
+    public let lastPRDate: Date?
 
     public var id: String { exerciseKey }
 
@@ -157,7 +224,8 @@ public struct StrengthSummaryItem: Codable, Hashable, Identifiable, Sendable {
         deltaKg: Double? = nil,
         deltaWeeks: Int? = nil,
         points: [StrengthSummaryPoint] = [],
-        lastPR: TrainingTopRecord? = nil
+        lastPR: TrainingTopRecord? = nil,
+        lastPRDate: Date? = nil
     ) {
         self.exerciseKey = exerciseKey
         self.exerciseName = exerciseName
@@ -166,6 +234,7 @@ public struct StrengthSummaryItem: Codable, Hashable, Identifiable, Sendable {
         self.deltaWeeks = deltaWeeks
         self.points = points
         self.lastPR = lastPR
+        self.lastPRDate = lastPRDate
     }
 
     public init(from decoder: Decoder) throws {
@@ -176,7 +245,8 @@ public struct StrengthSummaryItem: Codable, Hashable, Identifiable, Sendable {
         deltaKg = try container.decodeIfPresent(Double.self, forKey: .deltaKg)
         deltaWeeks = try container.decodeIfPresent(Int.self, forKey: .deltaWeeks)
         points = try container.decodeIfPresent([StrengthSummaryPoint].self, forKey: .points) ?? []
-        lastPR = try container.decodeIfPresent(TrainingTopRecord.self, forKey: .lastPR)
+        lastPR = try? container.decodeIfPresent(TrainingTopRecord.self, forKey: .lastPR)
+        lastPRDate = try? container.decodeIfPresent(Date.self, forKey: .lastPR)
     }
 
     /// La tarjeta de fuerza solo se enseña con serie real; con menos de dos puntos se conserva
@@ -239,10 +309,13 @@ public struct ExerciseHistory: Codable, Hashable, Sendable {
     public let range: String?
     public let points: [StrengthSummaryPoint]
     public let bestSets: [TrainingSetLog]
+    /// El backend real manda un solo mejor registro en `best`; el contrato del plan describía
+    /// una lista de mejores series en `best_sets`. S15 pinta la lista si viene y, si no, esta.
+    public let best: TrainingPersonalRecord?
     public let sessions: [ExerciseHistorySession]
 
     public enum CodingKeys: String, CodingKey {
-        case range, points, sessions
+        case range, points, sessions, best
         case exerciseKey = "exercise_key"
         case exerciseName = "exercise_name"
         case bestSets = "best_sets"
@@ -254,6 +327,7 @@ public struct ExerciseHistory: Codable, Hashable, Sendable {
         range: String? = nil,
         points: [StrengthSummaryPoint] = [],
         bestSets: [TrainingSetLog] = [],
+        best: TrainingPersonalRecord? = nil,
         sessions: [ExerciseHistorySession] = []
     ) {
         self.exerciseKey = exerciseKey
@@ -261,6 +335,7 @@ public struct ExerciseHistory: Codable, Hashable, Sendable {
         self.range = range
         self.points = points
         self.bestSets = bestSets
+        self.best = best
         self.sessions = sessions
     }
 
@@ -271,6 +346,7 @@ public struct ExerciseHistory: Codable, Hashable, Sendable {
         range = try container.decodeIfPresent(String.self, forKey: .range)
         points = try container.decodeIfPresent([StrengthSummaryPoint].self, forKey: .points) ?? []
         bestSets = try container.decodeIfPresent([TrainingSetLog].self, forKey: .bestSets) ?? []
+        best = try container.decodeIfPresent(TrainingPersonalRecord.self, forKey: .best)
         sessions = try container.decodeIfPresent([ExerciseHistorySession].self, forKey: .sessions) ?? []
     }
 }

@@ -116,8 +116,11 @@ public enum Celebration {
     public static func deltaText(kilograms: Double, unit: TrainingWeightUnit) -> String? {
         let converted = unit.fromKilograms(kilograms)
         guard abs(converted) >= 0.1 else { return nil }
+        // Al medio más cercano: convertir 4,54 kg da 10,0086 lb y «up 10 lb» es lo que se dice
+        // en un gimnasio. Sin redondear salían deltas como «up 9.9 lb».
+        let rounded = (abs(converted) * 2).rounded() / 2
         let word = converted > 0 ? "up" : "down"
-        return "\(word) \(number(abs(converted))) \(unit.symbol)"
+        return "\(word) \(number(rounded)) \(unit.symbol)"
     }
 
     /// Sin decimales cuando el valor es entero: «185», no «185.0».
@@ -148,9 +151,17 @@ public enum Celebration {
         unit: TrainingWeightUnit
     ) -> PersonalRecordCelebration {
 
-        let milestone = weightKg.flatMap {
-            OneRepMax.milestoneReached(weightKg: $0, previousBestKg: previousBestKg, unit: unit)
-        }
+        // El hito por cifra redonda solo se evalúa cuando se sabe cuál era la marca anterior.
+        // Sin ese dato, cualquier serie que caiga en 185 lb se celebraría como hito aunque la
+        // persona lleve un año levantando más: es celebrar de más, que gasta la celebración.
+        let milestone: Double? = {
+            guard let weightKg, let previousBestKg else { return nil }
+            return OneRepMax.milestoneReached(
+                weightKg: weightKg,
+                previousBestKg: previousBestKg,
+                unit: unit
+            )
+        }()
         let level: CelebrationLevel = (isFirstRecord || milestone != nil) ? .milestone : .record
 
         let headline = setText(exerciseName: exerciseName, weightKg: weightKg, reps: reps, unit: unit)

@@ -85,6 +85,13 @@ struct SessionLogView: View {
                     Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
                 }
 
+                // La nota del entrenador es del DÍA, no del ejercicio: se pinta una vez, arriba.
+                // Repetirla bajo cada ejercicio la convertía en una instrucción de ese ejercicio.
+                if let coachNote, !coachNote.isEmpty {
+                    coachNoteBanner(coachNote)
+                    Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
+                }
+
                 body(for: activeExercise)
 
                 bottomBar
@@ -408,11 +415,31 @@ struct SessionLogView: View {
 
             if let notes = exercise.notes, !notes.isEmpty {
                 noteLine(notes)
-            } else if let coachNote, !coachNote.isEmpty {
-                noteLine(coachNote)
             }
         }
         .padding(.horizontal, 16)
+    }
+
+    private func coachNoteBanner(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "quote.opening")
+                .font(.system(size: 11))
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .accessibilityHidden(true)
+
+            Text(text)
+                .font(TrainingType.caption())
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.dynamicSurface2(theme: theme).opacity(0.5))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Note from your coach. \(text)")
     }
 
     private func noteLine(_ text: String) -> some View {

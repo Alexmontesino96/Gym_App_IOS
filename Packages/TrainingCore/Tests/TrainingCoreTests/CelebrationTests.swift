@@ -85,6 +85,24 @@ struct CelebrationTests {
         #expect(celebration.level == .record)
     }
 
+    @Test("Sin saber la marca anterior no se inventa un hito")
+    func withoutPreviousBestThereIsNoMilestone() {
+        // 83,9 kg son exactamente 185 lb, que es una cifra redonda del catálogo. Sin la marca
+        // anterior no hay forma de saber si se acaba de cruzar, así que se queda en nivel 2.
+        let celebration = Celebration.forConfirmedRecord(
+            exerciseName: "Bench press",
+            weightKg: 83.9,
+            reps: 5,
+            e1rmKg: 97.88,
+            deltaKg: 2.3,
+            isFirstRecord: false,
+            previousBestKg: nil,
+            unit: .pounds
+        )
+        #expect(celebration.level == .record)
+        #expect(celebration.title == "NEW RECORD")
+    }
+
     @Test("La mejor serie local es nivel 1 y NUNCA se llama Personal record")
     func localBestIsNeverAPersonalRecord() {
         let best = BestSetSoFar(

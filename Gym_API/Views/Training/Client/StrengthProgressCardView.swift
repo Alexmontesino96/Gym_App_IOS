@@ -86,8 +86,8 @@ struct StrengthProgressCardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if let lastPR = item.lastPR {
-                    lastRecordRow(lastPR)
+                if item.lastPR != nil || item.lastPRDate != nil {
+                    lastRecordRow(item.lastPR)
                 }
             }
             .trainingCard(theme: theme)
@@ -163,7 +163,9 @@ struct StrengthProgressCardView: View {
 
     // MARK: - Última marca
 
-    private func lastRecordRow(_ record: TrainingTopRecord) -> some View {
+    /// El backend real manda `last_pr` como fecha; el contrato del plan, como serie completa.
+    /// Con la serie se pinta «185 × 5 · Sep 8»; con la fecha sola, «Sep 8».
+    private func lastRecordRow(_ record: TrainingTopRecord?) -> some View {
         Button(action: {
             HapticManager.shared.play(.selection)
             onOpenRecords()
@@ -199,35 +201,37 @@ struct StrengthProgressCardView: View {
         .accessibilityHint("Opens your records.")
     }
 
-    private func recordText(_ record: TrainingTopRecord) -> String {
+    private func recordText(_ record: TrainingTopRecord?) -> String {
         var parts: [String] = []
-        if let weight = record.weightKg, let reps = record.reps {
-            parts.append("\(Celebration.number(unit.loadValue(kilograms: weight))) × \(reps)")
-        } else if let reps = record.reps {
-            parts.append("\(reps) reps")
+        if let record {
+            if let weight = record.weightKg, let reps = record.reps {
+                parts.append("\(Celebration.number(unit.loadValue(kilograms: weight))) × \(reps)")
+            } else if let reps = record.reps {
+                parts.append("\(reps) reps")
+            }
         }
-        if let achieved = item.lastPRDate {
+        if let achieved = lastRecordDate {
             parts.append(TrainingFormat.dayMonth(achieved))
         }
-        return parts.joined(separator: " · ")
+        return parts.isEmpty ? NumberFormat.placeholder : parts.joined(separator: " · ")
     }
 
-    private func spokenRecord(_ record: TrainingTopRecord) -> String {
-        Celebration.spokenSet(
+    /// La fecha del último punto es la de la sesión donde se hizo la marca; si el backend manda
+    /// `last_pr` como fecha, esa gana.
+    private var lastRecordDate: Date? {
+        item.lastPRDate ?? item.points.last?.date?.startOfDay(in: .current)
+    }
+
+    private func spokenRecord(_ record: TrainingTopRecord?) -> String {
+        guard let record else {
+            guard let date = lastRecordDate else { return "Date not available." }
+            return "\(TrainingFormat.dayMonth(date))."
+        }
+        return Celebration.spokenSet(
             exerciseName: record.exerciseName,
             weightKg: record.weightKg,
             reps: record.reps ?? 1,
             unit: unit.trainingUnit
         )
-    }
-}
-
-// MARK: - Fecha de la última marca
-
-private extension StrengthSummaryItem {
-    /// La fecha del último punto es la de la sesión donde se hizo la marca. El contrato no manda
-    /// una fecha propia en `last_pr`, así que se toma de la serie, que sí la tiene.
-    var lastPRDate: Date? {
-        points.last?.date?.startOfDay(in: .current)
     }
 }

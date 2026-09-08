@@ -297,7 +297,9 @@ final class TrainingService: ObservableObject {
         }
         guard stillCurrent(expected) else { return }
         do {
-            strengthSummary = try decoder.decode([StrengthSummaryItem].self, from: data)
+            // El backend envuelve la lista en `entries`; `StrengthSummaryResponse` acepta también
+            // el array desnudo que describe el plan §6.1.
+            strengthSummary = try decoder.decode(StrengthSummaryResponse.self, from: data).entries
             strengthState = .loaded
         } catch {
             strengthState = .failed

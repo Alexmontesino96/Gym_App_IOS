@@ -695,6 +695,15 @@ class GymService: ObservableObject {
         )
     }
 
+    #if DEBUG
+    /// Solo para la galería de revisión: sin red no hay forma de saber qué módulos tiene el
+    /// espacio, y la sección «Share» de S18 no se podría capturar.
+    func setModulesForGallery(_ modules: [String: Bool]) {
+        currentGymModules = modules
+        modulesLoadedForGymId = -1
+    }
+    #endif
+
     /// Se llama al cambiar de espacio: lo que valía para el gimnasio anterior no vale aquí.
     func clearModuleCache() {
         currentGymModules = [:]

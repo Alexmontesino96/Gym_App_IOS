@@ -49,6 +49,12 @@ enum TrainingType {
     static func rowHeight(_ base: CGFloat = 56) -> CGFloat {
         min(UIFontMetrics.default.scaledValue(for: base), base * 1.6)
     }
+
+    /// Alto reservado para la cifra de una métrica. Sin él, tres cifras de anchos distintos se
+    /// escalan de forma distinta y las etiquetas de debajo dejan de estar alineadas.
+    static func metricValueHeight(large: Bool) -> CGFloat {
+        large ? cap(40, 52) * 1.15 : cap(28, 38) * 1.15
+    }
 }
 
 // MARK: - Tarjeta canónica
@@ -147,6 +153,7 @@ struct TrainingMetricView: View {
                 .foregroundColor(Color.dynamicText(theme: theme))
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
+                .frame(height: TrainingType.metricValueHeight(large: large), alignment: .bottomLeading)
 
             Text(label)
                 .font(TrainingType.label())

@@ -8,17 +8,7 @@
   "focus": "Press strength",
   "notes": "Keep the bar path tight.",
   "is_published": true,
-  "coach_note": {
-    "id": 55,
-    "gym_id": 12,
-    "user_id": 77,
-    "author_id": 44,
-    "date": "2026-09-24",
-    "day_id": 88,
-    "text": "Stay at 185 today. I want clean bar speed, not a max.",
-    "read_at": null,
-    "author": {"user_id": 44, "name": "Marcus Hale", "picture_url": null}
-  },
+  "coach_note": "Stay at 185 today. I want clean bar speed, not a max.",
   "exercises": [
     {
       "id": 510,
@@ -36,7 +26,12 @@
       "rest_seconds": 120,
       "notes": "Pause one second on the chest.",
       "set_overrides": [
-        {"set_number": 4, "reps": "AMRAP", "rpe_target": 9, "rest_seconds": 180}
+        {
+          "set_number": 4,
+          "reps": "AMRAP",
+          "rpe_target": 9,
+          "rest_seconds": 180
+        }
       ],
       "last_performance": {
         "exercise_key": "barbell_bench_press",
@@ -101,5 +96,6 @@
       "set_overrides": null,
       "last_performance": null
     }
-  ]
+  ],
+  "date": "2026-09-24"
 }

@@ -18,7 +18,9 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
     /// Id de servidor. Nulo mientras la serie solo existe en el teléfono.
     public let id: Int?
     /// Idempotencia: el servidor hace upsert por esta clave (plan §4.7).
-    public let clientUUID: UUID
+    /// Texto libre, no `UUID`: el servidor devuelve la cadena que le mandó el cliente y los
+    /// datos sembrados usan claves como `"scenario-step5-set-1"`.
+    public let clientUUID: String
     public let workoutLogId: Int?
     public let dayExerciseId: Int?
     public let exerciseId: Int?
@@ -56,7 +58,7 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
 
     public init(
         id: Int? = nil,
-        clientUUID: UUID,
+        clientUUID: String,
         workoutLogId: Int? = nil,
         dayExerciseId: Int? = nil,
         exerciseId: Int? = nil,
@@ -95,7 +97,7 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(Int.self, forKey: .id)
-        clientUUID = try container.decodeIfPresent(UUID.self, forKey: .clientUUID) ?? UUID()
+        clientUUID = try container.decodeIfPresent(String.self, forKey: .clientUUID) ?? UUID().uuidString
         workoutLogId = try container.decodeIfPresent(Int.self, forKey: .workoutLogId)
         dayExerciseId = try container.decodeIfPresent(Int.self, forKey: .dayExerciseId)
         exerciseId = try container.decodeIfPresent(Int.self, forKey: .exerciseId)
@@ -130,7 +132,8 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
     public let programId: Int?
     public let dayId: Int?
     public let scheduledDate: CalendarDate?
-    public let clientUUID: UUID?
+    /// Ver `TrainingSetLog.clientUUID`.
+    public let clientUUID: String?
     public let status: WorkoutLogStatus
     public let title: String
     public let startedAt: Date?
@@ -184,7 +187,7 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         programId: Int? = nil,
         dayId: Int? = nil,
         scheduledDate: CalendarDate? = nil,
-        clientUUID: UUID? = nil,
+        clientUUID: String? = nil,
         status: WorkoutLogStatus = .completed,
         title: String,
         startedAt: Date? = nil,
@@ -241,7 +244,7 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         programId = try container.decodeIfPresent(Int.self, forKey: .programId)
         dayId = try container.decodeIfPresent(Int.self, forKey: .dayId)
         scheduledDate = try container.decodeIfPresent(CalendarDate.self, forKey: .scheduledDate)
-        clientUUID = try container.decodeIfPresent(UUID.self, forKey: .clientUUID)
+        clientUUID = try container.decodeIfPresent(String.self, forKey: .clientUUID)
         status = try container.decodeIfPresent(WorkoutLogStatus.self, forKey: .status) ?? .completed
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Workout"
         startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt)

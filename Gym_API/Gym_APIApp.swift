@@ -48,7 +48,9 @@ struct Gym_APIApp: App {
             rootView
                 .withServiceContainer()
                 .trainingMotionEnvironment(forced: forcedReduceMotion)
-                .preferredColorScheme(serviceContainer.themeManager.currentTheme == .dark ? .dark : .light)
+                // En la galería manda la apariencia del simulador, que es lo que conmuta
+                // `screenshots.sh` para sacar la matriz de claro y oscuro.
+                .preferredColorScheme(preferredScheme)
                 .onAppear {
                     #if DEBUG
                     // En la galería de revisión no hay sesión ni permisos que pedir: arrancar
@@ -80,6 +82,15 @@ struct Gym_APIApp: App {
                 }
         }
         // .modelContainer(sharedModelContainer) // Comentado temporalmente
+    }
+
+    /// El tema de la app manda siempre, salvo en la galería de revisión: allí lo decide la
+    /// apariencia del simulador.
+    private var preferredScheme: ColorScheme? {
+        #if DEBUG
+        if TrainingGalleryScenario.fromLaunchArguments() != nil { return nil }
+        #endif
+        return serviceContainer.themeManager.currentTheme == .dark ? .dark : .light
     }
 
     /// `-reduce-motion 1` de la galería de revisión. En Release siempre es falso: el ajuste del

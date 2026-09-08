@@ -37,6 +37,9 @@ public struct CalendarDate: Hashable, Comparable, Codable, Sendable, CustomStrin
 
     /// Parsea "YYYY-MM-DD". Acepta también un ISO 8601 completo quedándose con la parte de fecha,
     /// porque algunos endpoints devuelven la misma columna como fecha y como marca de tiempo.
+    /// Acepta `"2026-09-24"` y también `"2026-09-24T23:31:29.377238"`: algunos endpoints mandan
+    /// un instante donde el contrato dice fecha, y para un día de calendario lo que vale es el
+    /// día. Nunca al revés: de aquí no sale una hora inventada.
     public init?(iso: String) {
         let trimmed = iso.trimmingCharacters(in: .whitespacesAndNewlines)
         let datePart = trimmed.split(separator: "T", maxSplits: 1).first.map(String.init) ?? trimmed

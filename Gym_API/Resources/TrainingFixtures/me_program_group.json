@@ -188,54 +188,16 @@
       "delta_kg": 6.8,
       "delta_weeks": 8,
       "points": [
-        {
-          "date": "2026-08-03",
-          "e1rm_kg": 115.2,
-          "log_id": 210
-        },
-        {
-          "date": "2026-08-10",
-          "e1rm_kg": 116.1,
-          "log_id": 224
-        },
-        {
-          "date": "2026-08-17",
-          "e1rm_kg": 117.5,
-          "log_id": 238
-        },
-        {
-          "date": "2026-08-24",
-          "e1rm_kg": 117.5,
-          "log_id": 251
-        },
-        {
-          "date": "2026-08-31",
-          "e1rm_kg": 119.0,
-          "log_id": 266
-        },
-        {
-          "date": "2026-09-07",
-          "e1rm_kg": 120.3,
-          "log_id": 279
-        },
-        {
-          "date": "2026-09-14",
-          "e1rm_kg": 121.1,
-          "log_id": 291
-        },
-        {
-          "date": "2026-09-21",
-          "e1rm_kg": 122.0,
-          "log_id": 302
-        }
+        115.2,
+        116.1,
+        117.5,
+        117.5,
+        119.0,
+        120.3,
+        121.1,
+        122.0
       ],
-      "last_pr": {
-        "exercise_name": "Back squat",
-        "exercise_key": "barbell_back_squat",
-        "weight_kg": 111.1,
-        "reps": 3,
-        "e1rm_kg": 122.0
-      }
+      "last_pr": "2026-09-21T22:12:04.000000Z"
     },
     {
       "exercise_key": "barbell_bench_press",
@@ -244,34 +206,12 @@
       "delta_kg": 4.5,
       "delta_weeks": 8,
       "points": [
-        {
-          "date": "2026-08-04",
-          "e1rm_kg": 93.4,
-          "log_id": 212
-        },
-        {
-          "date": "2026-08-18",
-          "e1rm_kg": 95.0,
-          "log_id": 240
-        },
-        {
-          "date": "2026-09-01",
-          "e1rm_kg": 96.2,
-          "log_id": 268
-        },
-        {
-          "date": "2026-09-21",
-          "e1rm_kg": 97.88,
-          "log_id": 301
-        }
+        93.4,
+        95.0,
+        96.2,
+        97.88
       ],
-      "last_pr": {
-        "exercise_name": "Bench press",
-        "exercise_key": "barbell_bench_press",
-        "weight_kg": 83.9,
-        "reps": 5,
-        "e1rm_kg": 97.88
-      }
+      "last_pr": "2026-09-21T22:12:04.000000Z"
     }
   ]
 }

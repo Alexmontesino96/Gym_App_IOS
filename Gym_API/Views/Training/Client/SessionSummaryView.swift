@@ -156,8 +156,9 @@ struct SessionSummaryView: View {
             Task {
                 // El servidor acaba de confirmar un registro. Si es el nuestro, la pantalla pasa
                 // de «Best set so far» a «Personal record» sin que nadie tenga que recargar.
+                // El servidor devuelve el `client_uuid` tal cual se lo mandamos, como texto.
                 if let fetched = await trainingService.fetchLog(id),
-                   fetched.clientUUID == session.clientUUID {
+                   fetched.clientUUID?.caseInsensitiveCompare(session.clientUUID.uuidString) == .orderedSame {
                     log = fetched
                 }
             }
@@ -478,7 +479,13 @@ struct SessionSummaryView: View {
 
         switch source {
         case .log(let id):
-            log = await trainingService.fetchLog(id)
+            // Si el registro ya está en memoria (lo acaba de traer otra pantalla, o son los
+            // fixtures de la galería), se pinta sin volver a pedirlo.
+            if let cached = trainingService.selectedLog, cached.id == id {
+                log = cached
+            } else {
+                log = await trainingService.fetchLog(id)
+            }
             feeling = log?.feeling
             note = log?.notes ?? ""
         case .finished(let session):

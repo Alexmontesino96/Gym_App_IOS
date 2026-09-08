@@ -141,12 +141,20 @@ struct TrainingDayDetailView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Cara del entrenador cuando el endpoint la manda. El backend real envía la nota como
+    /// cadena, sin autor: en ese caso un círculo con «?» sería peor que una comilla.
     private func avatar(for person: TrainingPerson?) -> some View {
         ZStack {
             Circle().fill(Color.dynamicSurface2(theme: theme))
-            Text(person?.initials ?? "?")
-                .font(TrainingType.label())
-                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+            if let person {
+                Text(person.initials)
+                    .font(TrainingType.label())
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+            } else {
+                Image(systemName: "quote.opening")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            }
         }
         .frame(width: 28, height: 28)
         .accessibilityHidden(true)

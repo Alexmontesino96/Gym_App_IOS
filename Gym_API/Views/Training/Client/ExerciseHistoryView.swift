@@ -103,6 +103,8 @@ struct ExerciseHistoryView: View {
 
                 if let history, !history.bestSets.isEmpty {
                     bestSets(history.bestSets)
+                } else if let best = history?.best {
+                    bestRecord(best)
                 }
 
                 if let history, !history.sessions.isEmpty {
@@ -235,6 +237,66 @@ struct ExerciseHistoryView: View {
             }
             .trainingCard(theme: theme, padding: 0)
         }
+    }
+
+    /// El backend real manda un único mejor registro en `best`.
+    private func bestRecord(_ record: TrainingPersonalRecord) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TrainingEyebrow(text: "Best sets")
+
+            HStack(spacing: 12) {
+                Text(bestRecordText(record))
+                    .font(TrainingType.monoM())
+                    .monospacedDigit()
+                    .foregroundColor(Color.dynamicText(theme: theme))
+
+                if let achieved = record.achievedAt {
+                    Text(TrainingFormat.dayMonth(achieved))
+                        .font(TrainingType.monoS())
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                }
+
+                if let e1rm = record.bestE1RMKg {
+                    Text("est. \(unit.loadLabel(kilograms: e1rm))")
+                        .font(TrainingType.monoS())
+                        .monospacedDigit()
+                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                }
+
+                Spacer(minLength: 4)
+
+                PRBadge(isConfirmed: true, showsText: false)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(minHeight: 48)
+            .trainingCard(theme: theme, padding: 0)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(bestRecordLabel(record))
+        }
+    }
+
+    private func bestRecordText(_ record: TrainingPersonalRecord) -> String {
+        guard let weight = record.bestWeightKg, let reps = record.bestReps else {
+            return record.bestReps.map { "\($0) reps" } ?? NumberFormat.placeholder
+        }
+        return "\(Celebration.number(unit.loadValue(kilograms: weight))) × \(reps)"
+    }
+
+    private func bestRecordLabel(_ record: TrainingPersonalRecord) -> String {
+        var parts = [
+            Celebration.spokenSet(
+                exerciseName: exerciseName,
+                weightKg: record.bestWeightKg,
+                reps: record.bestReps ?? 1,
+                unit: unit.trainingUnit
+            )
+        ]
+        if let e1rm = record.bestE1RMKg {
+            parts.append("Estimated one rep max \(Celebration.loadText(kilograms: e1rm, unit: unit.trainingUnit)).")
+        }
+        parts.append(PRBadge.confirmedText + ".")
+        return parts.joined(separator: " ")
     }
 
     private func bestSetRow(_ set: TrainingSetLog) -> some View {

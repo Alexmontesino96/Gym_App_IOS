@@ -123,7 +123,7 @@ struct GroupTodayCardView: View {
                     .font(TrainingType.caption())
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 if let consistency = group.consistencyPct {
-                    Text("\(Celebration.number(consistency))% consistency")
+                    Text("\(Int(consistency.rounded()))% consistency")
                         .font(TrainingType.caption())
                         .monospacedDigit()
                         .foregroundColor(Color.dynamicTextSecondary(theme: theme))
@@ -160,7 +160,7 @@ struct GroupTodayCardView: View {
         var parts = ["Your group today.", "\(programName)."]
         parts.append("\(group.trainedCount) of \(group.totalMembers) members trained today.")
         if let consistency = group.consistencyPct, !group.isNew {
-            parts.append("Group consistency this week, \(Celebration.number(consistency)) percent.")
+            parts.append("Group consistency this week, \(Int(consistency.rounded())) percent.")
         }
         return parts.joined(separator: " ")
     }

@@ -166,12 +166,9 @@ struct SetRowView: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(Color.dynamicAccent(theme: theme))
                         .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
-                } else if state == .active {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
-                        .opacity(0.55)
                 }
+                // La activa NO lleva glifo: un check a media opacidad sobre el relleno de acento
+                // se lee como «ya marcada», que es exactamente lo contrario de lo que significa.
             }
             .trainingTouchTarget()
         }
@@ -310,6 +307,8 @@ struct SetTableHeader: View {
                     .frame(width: 34, alignment: .trailing)
                 Color.clear.frame(width: 44, height: 1)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             .font(TrainingType.label())
             .tracking(0.8)
             .foregroundColor(Color.dynamicTextTertiary(theme: theme))

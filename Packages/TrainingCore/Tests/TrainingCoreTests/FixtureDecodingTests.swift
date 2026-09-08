@@ -139,7 +139,11 @@ struct FixtureDecodingTests {
         #expect(squat.hasEnoughDataForChart)
         #expect(squat.currentE1RMKg == 122.0)
         #expect(squat.deltaWeeks == 8)
-        #expect(squat.points.first?.date == CalendarDate(year: 2026, month: 8, day: 3))
+        // `/me/strength-summary` manda los puntos como VALORES sueltos (así los devuelve el
+        // backend real), no como objetos con fecha: la serie basta para la curva de W6.
+        #expect(squat.points.first?.date == nil)
+        #expect(squat.points.first?.e1rmKg == 115.2)
+        #expect(squat.lastPRDate != nil)
     }
 
     @Test("El día trae prescripción, overrides, nota del coach y última ejecución")
@@ -164,10 +168,11 @@ struct FixtureDecodingTests {
         #expect(bench.targetReps == 5)
         #expect(bench.lastPerformance?.suggestedWeightKg == 86.2)
 
+        // El backend manda la nota del coach como CADENA, sin autor ni fecha propios.
         let note = try #require(day.coachNote)
-        #expect(note.author?.name == "Marcus Hale")
-        #expect(note.isUnread)
-        #expect(note.date == CalendarDate(year: 2026, month: 9, day: 24))
+        #expect(note.text == "Stay at 185 today. I want clean bar speed, not a max.")
+        #expect(note.author == nil)
+        #expect(day.date == CalendarDate(year: 2026, month: 9, day: 24))
 
         // Los modos de carga sin peso decodifican con `load_value` nulo.
         #expect(day.exercises[2].loadMode == .rpe)

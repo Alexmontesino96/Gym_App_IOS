@@ -92,8 +92,12 @@ struct TrainingGalleryView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var trainingService: TrainingService
     @EnvironmentObject var syncCoordinator: TrainingSyncCoordinator
+    @EnvironmentObject var gymService: GymService
 
     @State private var isReady = false
+    /// La apariencia la decide el simulador (`xcrun simctl ui … appearance`), no el tema
+    /// guardado: es lo que permite capturar la misma pantalla en claro y en oscuro.
+    @Environment(\.colorScheme) private var colorScheme
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
@@ -106,8 +110,13 @@ struct TrainingGalleryView: View {
             }
         }
         .onAppear {
+            themeManager.currentTheme = colorScheme == .dark ? .dark : .light
+            gymService.setModulesForGallery(["stories": true, "posts": true, "training": true])
             trainingService.loadFixtures(for: scenario)
             isReady = true
+        }
+        .onChange(of: colorScheme) { _, newValue in
+            themeManager.currentTheme = newValue == .dark ? .dark : .light
         }
     }
 
