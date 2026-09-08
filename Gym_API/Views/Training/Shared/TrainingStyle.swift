@@ -187,7 +187,10 @@ struct TrainingMetricRow<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
+        // El mismo umbral que `stacksTrainerRows`: xxxLarge, no `isAccessibilitySize`. En xxxLarge
+        // —que todavía no es talla de accesibilidad— «7,092 lb» ya no cabe en un tercio de la
+        // pantalla y sale como «7,092…». Es la captura `s18_light_extra-extra-extra-large.png`.
+        if dynamicTypeSize >= .xxxLarge {
             VStack(alignment: .leading, spacing: 12) {
                 content
             }
