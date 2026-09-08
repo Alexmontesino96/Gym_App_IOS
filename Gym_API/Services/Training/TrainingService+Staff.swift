@@ -26,6 +26,10 @@ extension TrainingService {
 
     /// `GET /training/programs?status=&skip=&limit=`. Lista **plana** de plantillas.
     func fetchPrograms(status: TrainingProgramStatus? = nil, limit: Int = 50, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         programsState = .loading
         var path = "/training/programs?limit=\(limit)"
@@ -48,6 +52,10 @@ extension TrainingService {
     /// `GET /training/programs/{id}`. El programa con `blocks` embebidos y sin días.
     @discardableResult
     func fetchProgramDetail(_ programId: Int, expecting gymId: Int? = nil) async -> TrainingProgramDetail? {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return programDetail }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         programDetailState = .loading
         guard let data = await get("/training/programs/\(programId)") else {
@@ -161,6 +169,10 @@ extension TrainingService {
     /// Devuelve **siempre siete días**: los que no existen en base llegan con `id: null` e
     /// `is_rest: true`. La vista los pinta como descanso y el editor los crea al guardar.
     func fetchProgramDays(programId: Int, week: Int, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         // Igual que `fetchWeek`: `stillCurrent` vigila el gimnasio, no la semana. Cambiar de
         // semana varias veces seguidas —o volver del duplicador— podía dejar en pantalla los
@@ -300,6 +312,10 @@ extension TrainingService {
 
     /// `GET /training/clients/{user_id}/programs` → `{active, past}`.
     func fetchClientPrograms(userId: Int, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         clientProgramsState = .loading
         guard let data = await get("/training/clients/\(userId)/programs") else {
@@ -318,6 +334,10 @@ extension TrainingService {
 
     /// `GET /training/clients/{user_id}/logs?limit=&before=`.
     func fetchClientLogs(userId: Int, limit: Int = 20, before: Int? = nil, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         clientLogsState = .loading
         var path = "/training/clients/\(userId)/logs?limit=\(limit)"
@@ -340,6 +360,10 @@ extension TrainingService {
 
     /// `GET /training/clients/{user_id}/records`.
     func fetchClientRecords(userId: Int, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         clientRecordsState = .loading
         guard let data = await get("/training/clients/\(userId)/records") else {
@@ -366,6 +390,10 @@ extension TrainingService {
         range: String = "8w",
         expecting gymId: Int? = nil
     ) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         exerciseHistoryState = .loading
         let path = "/training/clients/\(userId)/exercises/\(escape(exerciseKey))/history?range=\(range)"
@@ -388,6 +416,10 @@ extension TrainingService {
     /// No se publica: la usa el editor de día para sugerir una carga y solo importa mientras esa
     /// hoja está abierta.
     func fetchClientLastPerformance(userId: Int, exerciseKey: String) async -> ClientLastPerformance? {
+        #if DEBUG
+        // La galería no tiene backend al que preguntar la última carga.
+        if isGalleryMode { return nil }
+        #endif
         let path = "/training/clients/\(userId)/exercises/\(escape(exerciseKey))/last-performance"
         guard let data = await get(path), !isNullBody(data) else { return nil }
         return try? decoder.decode(ClientLastPerformance.self, from: data)
@@ -431,6 +463,10 @@ extension TrainingService {
 
     /// `GET /training/inbox?limit=&before=`. Registros completados y sin revisar del espacio.
     func fetchInbox(limit: Int = 20, before: Int? = nil, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         inboxState = .loading
         var path = "/training/inbox?limit=\(limit)"
@@ -454,6 +490,10 @@ extension TrainingService {
 
     /// Pide la página siguiente del buzón. Sin más páginas no hace nada.
     func fetchMoreInbox(limit: Int = 20) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         guard inboxHasMore, let cursor = InboxCursor.next(after: inbox) else { return }
         await fetchInbox(limit: limit, before: cursor)
     }
@@ -462,6 +502,10 @@ extension TrainingService {
 
     /// `GET /training/clients/{user_id}/day-notes/{date}`. Sin nota devuelve `null` con 200.
     func fetchDayNote(userId: Int, date: CalendarDate) async -> TrainingClientDayNote? {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return nil }
+        #endif
         guard let data = await get("/training/clients/\(userId)/day-notes/\(date.iso)"),
               !isNullBody(data) else { return nil }
         return try? decoder.decode(TrainingClientDayNote.self, from: data)
@@ -469,6 +513,10 @@ extension TrainingService {
 
     /// `GET /training/clients/{user_id}/day-notes?recent=`. La lista RECENT de S23.
     func fetchRecentDayNotes(userId: Int, count: Int = 5, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         guard let data = await get("/training/clients/\(userId)/day-notes?recent=\(count)") else { return }
         guard stillCurrent(expected) else { return }

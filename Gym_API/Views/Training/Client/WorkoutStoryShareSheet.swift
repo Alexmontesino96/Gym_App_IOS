@@ -144,7 +144,7 @@ struct WorkoutStoryShareSheet: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18))
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+                        .stroke(Color.dynamicCardBorder(theme: theme), lineWidth: 1)
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(previewLabel)

@@ -76,7 +76,7 @@ extension View {
             .clipShape(RoundedRectangle(cornerRadius: 22))
             .overlay(
                 RoundedRectangle(cornerRadius: 22)
-                    .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+                    .stroke(Color.dynamicCardBorder(theme: theme), lineWidth: 1)
             )
     }
 
@@ -91,7 +91,7 @@ extension View {
             .overlay(
                 RoundedRectangle(cornerRadius: 22)
                     .stroke(
-                        Color.dynamicBorder(theme: theme).opacity(0.15),
+                        Color.dynamicCardBorder(theme: theme),
                         style: StrokeStyle(lineWidth: 1, dash: [4, 4])
                     )
             )

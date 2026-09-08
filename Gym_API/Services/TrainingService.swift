@@ -143,6 +143,10 @@ final class TrainingService: ObservableObject {
 
     /// Carga en paralelo lo que necesita la home. Una sola entrada para `.task` y `.refreshable`.
     func loadHome() async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         guard !isLoadingHome else { return }
         isLoadingHome = true
         isLoading = true
@@ -163,6 +167,10 @@ final class TrainingService: ObservableObject {
 
     /// `GET /training/me/program`
     func fetchMyProgram(expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         programState = .loading
         guard let data = await get("/training/me/program") else {
@@ -201,8 +209,26 @@ final class TrainingService: ObservableObject {
     /// almacenadas; `internal` para que la otra mitad del servicio lo alcance.
     var programDaysRequestToken = 0
 
+    #if DEBUG
+    /// La galería pinta con fixtures y **sin red**.
+    ///
+    /// Cada pantalla del módulo carga lo suyo en su `.task`. En la galería esa carga sale hacia
+    /// un backend que no existe, falla, y el `catch` machaca el fixture con el estado de error:
+    /// por eso `s15-empty` y `s16-empty` enseñaban «Couldn't load…» en vez del vacío que
+    /// prometen, y por eso dos de los cuatro estados del checklist §10.10 no se podían capturar.
+    /// Con esto puesto las cargas no salen y se ve exactamente el fixture que se pidió.
+    ///
+    /// Aquí y no en la extensión de DEBUG porque una `extension` no puede tener propiedades
+    /// almacenadas, que es lo mismo que le pasa a los dos contadores de arriba.
+    private(set) var isGalleryMode = false
+    #endif
+
     /// `GET /training/me/week?week_number=`
     func fetchWeek(_ weekNumber: Int, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         weekRequestToken &+= 1
         let token = weekRequestToken
@@ -223,6 +249,10 @@ final class TrainingService: ObservableObject {
 
     /// `GET /training/me/days/{day_id}`
     func fetchDay(_ dayId: Int, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         dayState = .loading
         guard let data = await get("/training/me/days/\(dayId)") else {
@@ -242,6 +272,10 @@ final class TrainingService: ObservableObject {
     /// `GET /training/me/today`. Devuelve el día para poder arrancar S11 sin esperar a la home.
     @discardableResult
     func fetchToday(expecting gymId: Int? = nil) async -> TrainingDay? {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return today }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         guard let data = await get("/training/me/today") else { return nil }
         guard stillCurrent(expected) else { return nil }
@@ -263,6 +297,10 @@ final class TrainingService: ObservableObject {
     /// `GET /training/me/logs?limit=&before=`. Sin `before` reemplaza la lista; con `before`
     /// añade la página siguiente, que es como pagina el contrato (cursor por id).
     func fetchMyLogs(limit: Int = 20, before: Int? = nil, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         logsState = .loading
         var path = "/training/me/logs?limit=\(limit)"
@@ -288,6 +326,10 @@ final class TrainingService: ObservableObject {
     /// `GET /training/logs/{id}`. Propietario o personal.
     @discardableResult
     func fetchLog(_ logId: Int, expecting gymId: Int? = nil) async -> TrainingWorkoutLog? {
+        #if DEBUG
+        // El registro de la galería sale del fixture, que S18 y S22 ya tienen cargado.
+        if isGalleryMode { return fixtureLog() }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         guard let data = await get("/training/logs/\(logId)") else { return nil }
         guard stillCurrent(expected) else { return nil }
@@ -307,6 +349,10 @@ final class TrainingService: ObservableObject {
         range: String = "8w",
         expecting gymId: Int? = nil
     ) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         exerciseHistoryState = .loading
         let key = escape(exerciseKey)
@@ -326,6 +372,10 @@ final class TrainingService: ObservableObject {
 
     /// `GET /training/me/records`
     func fetchRecords(expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         recordsState = .loading
         guard let data = await get("/training/me/records") else {
@@ -344,6 +394,10 @@ final class TrainingService: ObservableObject {
 
     /// `GET /training/me/strength-summary`
     func fetchStrengthSummary(expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         strengthState = .loading
         guard let data = await get("/training/me/strength-summary") else {
@@ -369,6 +423,10 @@ final class TrainingService: ObservableObject {
         limit: Int = 50,
         expecting gymId: Int? = nil
     ) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         exercisesState = .loading
         var path = "/training/exercises?limit=\(limit)"
@@ -395,6 +453,10 @@ final class TrainingService: ObservableObject {
     /// pesos de otro cliente (plan §4.8), y el modelo que lo decodifica tampoco tiene sitio
     /// para guardarlos.
     func fetchGroupToday(programId: Int, expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
         let expected = gymId ?? GymService.shared.currentGymId
         groupState = .loading
         guard let data = await get("/training/programs/\(programId)/group/today") else {
@@ -743,6 +805,10 @@ final class TrainingService: ObservableObject {
     // MARK: - Ciclo de vida
 
     func clearData() {
+        #if DEBUG
+        isGalleryMode = false
+        #endif
+
         myProgram = nil
         week = nil
         day = nil
@@ -811,6 +877,7 @@ extension TrainingService {
 
     func loadFixtures(for scenario: TrainingGalleryScenario) {
         clearData()
+        isGalleryMode = true
 
         if scenario.usesProgram {
             myProgram = decode(MyProgramResponse.self, scenario.usesGroupProgram ? "me_program_group" : "me_program")

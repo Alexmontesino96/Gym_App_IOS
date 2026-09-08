@@ -171,6 +171,30 @@ extension Color {
         return Color(hex: readable) ?? Color.successGreen
     }
 
+    /// El borde de una tarjeta, con el contraste que el checklist de la UX exige (§10.2: ≥ 1,5:1
+    /// contra el fondo de la página).
+    ///
+    /// Existe porque el trazo que había —`dynamicBorder` al 15 %— era invisible, y no por poco:
+    ///
+    /// | | claro | oscuro |
+    /// |---|---|---|
+    /// | superficie de tarjeta vs fondo | 1,07:1 | 1,12:1 |
+    /// | trazo al 15 % vs fondo | **1,11:1** | **1,14:1** |
+    /// | este token vs fondo | **1,57:1** | **1,74:1** |
+    /// | este token vs la propia tarjeta | 1,47:1 | 1,55:1 |
+    ///
+    /// La tarjeta y el fondo se diferencian en 1,07:1 en claro: sin un borde que se vea, el
+    /// bloque no existe como tal. Son colores opacos y no una opacidad sobre otro token porque
+    /// el número de arriba solo tiene sentido si se puede medir, y `Color.opacity` compone
+    /// contra lo que haya detrás, que en el borde de una tarjeta son dos cosas distintas a la
+    /// vez.
+    static func dynamicCardBorder(theme: ThemeManager.AppTheme) -> Color {
+        switch theme {
+        case .light: return Color(red: 206/255, green: 206/255, blue: 206/255)   // #CECECE
+        case .dark: return Color(red: 59/255, green: 59/255, blue: 59/255)       // #3B3B3B
+        }
+    }
+
     static func dynamicTextTertiary(theme: ThemeManager.AppTheme) -> Color {
         switch theme {
         case .light: return Color.lightTextTertiary
