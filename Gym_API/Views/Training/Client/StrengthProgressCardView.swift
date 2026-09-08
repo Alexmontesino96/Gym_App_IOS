@@ -94,7 +94,10 @@ struct StrengthProgressCardView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Con `.contain` y sin etiqueta propia, VoiceOver anunciaba el botón exterior sin decir
+        // qué abre; es la única entrada a S15 desde la home.
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(currentValueLabel)
         .accessibilityHint("Opens the full history for \(item.exerciseName).")
     }
 

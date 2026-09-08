@@ -71,6 +71,10 @@ struct SetRowView: View {
         .accessibilityValue("\(exercise.rowValue(for: set, unit: unit.trainingUnit)). \(state.spokenState)")
         .accessibilityAction(named: Text(set.isDone ? "Undo" : "Mark done"), onToggle)
         .accessibilityAction(named: Text("Set RPE"), onEditRPE)
+        // Sin estas dos, las repeticiones no se pueden cambiar con VoiceOver: el `editingBar`
+        // está oculto y el ajuste por deslizamiento lo ocupa el peso.
+        .accessibilityAction(named: Text("Increase reps")) { onChangeReps(set.reps + 1) }
+        .accessibilityAction(named: Text("Decrease reps")) { onChangeReps(max(0, set.reps - 1)) }
         .accessibilityAction(named: Text("Remove set"), onRemove)
         .accessibilityAdjustableAction { direction in
             // Con VoiceOver, deslizar arriba y abajo cambia el peso al escalón de la unidad.
@@ -90,6 +94,8 @@ struct SetRowView: View {
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 .frame(width: 22, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             Text(weightText)
                 .font(TrainingType.monoM())
@@ -104,12 +110,18 @@ struct SetRowView: View {
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicText(theme: theme))
                 .frame(width: 44, alignment: .trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
+            // Una columna de ancho fijo sin tope de líneas parte la cifra en dos y rompe la
+            // alineación tabular justo en xxxLarge, que es donde más falta hace.
             Text(rpeText)
                 .font(TrainingType.monoM())
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                 .frame(width: 34, alignment: .trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             checkButton
         }

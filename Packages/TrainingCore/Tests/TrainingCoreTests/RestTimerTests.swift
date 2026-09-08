@@ -13,6 +13,28 @@ import Foundation
 @Suite("Cronómetro de descanso")
 struct RestTimerTests {
 
+    @Test("El valor hablado cambia cada 15 s, no cada segundo")
+    func accessibilityValueDoesNotChangeEverySecond() {
+        let start = Date()
+        let timer = RestTimer(
+            exerciseName: "Bench press",
+            setNumber: 2,
+            totalSets: 4,
+            seconds: 120,
+            startedAt: start
+        )
+        // Diez segundos seguidos dentro del mismo bloque: el valor tiene que ser el mismo, o
+        // VoiceOver reanunciaría el cronómetro una vez por segundo durante todo el descanso.
+        let values = (0..<10).map { offset in
+            timer.accessibilityValue(at: start.addingTimeInterval(Double(offset)))
+        }
+        #expect(Set(values).count == 1)
+
+        // Y al cruzar el bloque, cambia.
+        let later = timer.accessibilityValue(at: start.addingTimeInterval(20))
+        #expect(later != values[0])
+    }
+
     static let start = Date(timeIntervalSince1970: 1_790_000_000)
 
     static func timer(seconds: Int = 120) -> RestTimer {
@@ -87,7 +109,8 @@ struct RestTimerTests {
     func accessibilityValue() {
         let timer = Self.timer(seconds: 120)
         #expect(timer.accessibilityValue(at: Self.start) == "2 minutes remaining")
-        #expect(timer.accessibilityValue(at: Self.start.addingTimeInterval(36)) == "1 minutes 24 seconds remaining")
+        // Redondeado al bloque de 15 s: a los 36 s quedan 84, que se dicen como 1:30.
+        #expect(timer.accessibilityValue(at: Self.start.addingTimeInterval(36)) == "1 minutes 30 seconds remaining")
         #expect(timer.accessibilityValue(at: Self.start.addingTimeInterval(105)) == "15 seconds remaining")
     }
 

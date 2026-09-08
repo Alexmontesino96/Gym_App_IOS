@@ -115,12 +115,20 @@ public struct RestTimer: Hashable, Sendable {
 
     public static let notificationTitle = "Rest done"
 
-    /// Valor de accesibilidad de la barra. Se actualiza cada 15 s, no cada segundo, para no
-    /// saturar VoiceOver (UX §8).
+    /// Cada cuánto cambia el valor hablado del cronómetro (UX §8).
+    public static let accessibilityGranularity: TimeInterval = 15
+
+    /// Valor de accesibilidad de la barra.
+    ///
+    /// El tiempo restante se redondea a bloques de 15 s **a propósito**: la vista repinta cada
+    /// segundo, y si el valor cambiara con ella VoiceOver reanunciaría el cronómetro una vez por
+    /// segundo durante todo el descanso. El comentario decía 15 s desde el principio; el código
+    /// devolvía los segundos exactos.
     public func accessibilityValue(at now: Date) -> String {
         switch phase(at: now) {
         case .running(let remaining):
-            let seconds = Int(remaining.rounded())
+            let block = Self.accessibilityGranularity
+            let seconds = max(Int(block), Int((remaining / block).rounded(.up) * block))
             let minutes = seconds / 60
             let rest = seconds % 60
             if minutes > 0 && rest > 0 { return "\(minutes) minutes \(rest) seconds remaining" }

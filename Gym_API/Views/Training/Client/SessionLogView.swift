@@ -168,10 +168,19 @@ struct SessionLogView: View {
                     onClose()
                 }
             }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Color.dynamicText(theme: theme))
-                    .trainingTouchTarget()
+                // Con la palabra, no solo el aspa: es un `fullScreenCover` y el checklist §10.9
+                // pide un control textual de salida visible. Todas las demás pantallas del
+                // módulo dicen «Close» o «Cancel»; esta era la excepción.
+                HStack(spacing: 4) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Close")
+                        .font(TrainingType.caption())
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(Color.dynamicText(theme: theme))
+                .padding(.horizontal, 8)
+                .trainingTouchTarget(minWidth: 60)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close session")

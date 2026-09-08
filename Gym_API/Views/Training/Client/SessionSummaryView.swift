@@ -220,6 +220,10 @@ struct SessionSummaryView: View {
                     .font(TrainingType.subhead())
                     .monospacedDigit()
                     .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    // «52:10» deletreado es una cifra sin significado.
+                    .accessibilityLabel(
+                        "\(TrainingFormat.longDate(completedAt)). \(TrainingFormat.spokenDuration(durationSeconds))."
+                    )
             }
 
             if isPartial {
@@ -284,7 +288,8 @@ struct SessionSummaryView: View {
     }
 
     private var announcement: String {
-        var text = "Session complete. \(totalSets) sets, \(unit.volumeLabel(kilograms: totalVolumeKg))"
+        var text = "Session complete. \(TrainingFormat.spokenDuration(durationSeconds)), "
+        text += "\(totalSets) sets, \(unit.volumeLabel(kilograms: totalVolumeKg))"
         if let log, log.prCount > 0 {
             text += ", \(log.prCount) personal record\(log.prCount == 1 ? "" : "s")"
         }

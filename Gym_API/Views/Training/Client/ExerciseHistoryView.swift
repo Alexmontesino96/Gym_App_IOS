@@ -306,12 +306,16 @@ struct ExerciseHistoryView: View {
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicText(theme: theme))
                 .frame(width: 92, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             if let date = set.completedAt {
                 Text(TrainingFormat.dayMonth(date))
                     .font(TrainingType.monoS())
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                     .frame(width: 62, alignment: .leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
 
             if let e1rm = set.e1rmKg {

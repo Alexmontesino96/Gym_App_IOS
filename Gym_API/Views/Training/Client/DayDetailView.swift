@@ -308,6 +308,8 @@ private struct ExerciseRow: View {
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 .frame(width: 24, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(exercise.exerciseName)
