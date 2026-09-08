@@ -34,6 +34,7 @@ struct LogReviewView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var trainingService: TrainingService
     @Environment(\.trainingReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var comment = ""
     @State private var isSending = false
@@ -240,30 +241,18 @@ struct LogReviewView: View {
 
     private func exerciseCard(_ exercise: ReviewedExercise) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Button {
-                    onOpenExerciseHistory(exercise.exerciseKey, exercise.exerciseName)
-                } label: {
-                    Text(exercise.exerciseName)
-                        .font(TrainingType.headline())
-                        .foregroundColor(Color.dynamicText(theme: theme))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .frame(minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
+            // A tamaños de accesibilidad la prescripción baja a su propia línea: al lado del
+            // nombre se corta en «@ RPE…» y el objetivo es justo lo que hay que leer.
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    exerciseNameButton(exercise)
+                    prescriptionLabel(exercise)
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the history for this exercise.")
-
-                Spacer(minLength: 8)
-
-                if let prescription = exercise.prescription {
-                    Text("prescribed \(TrainingPrescription.text(for: prescription, unit: unit, includeRest: false))")
-                        .font(TrainingType.caption())
-                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .accessibilityLabel("Prescribed \(TrainingPrescription.spoken(for: prescription, unit: unit))")
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    exerciseNameButton(exercise)
+                    Spacer(minLength: 8)
+                    prescriptionLabel(exercise)
                 }
             }
 
@@ -278,6 +267,35 @@ struct LogReviewView: View {
             }
         }
         .trainingCard(theme: theme)
+    }
+
+    private func exerciseNameButton(_ exercise: ReviewedExercise) -> some View {
+        Button {
+            onOpenExerciseHistory(exercise.exerciseKey, exercise.exerciseName)
+        } label: {
+            Text(exercise.exerciseName)
+                .font(TrainingType.headline())
+                .foregroundColor(Color.dynamicText(theme: theme))
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens the history for this exercise.")
+    }
+
+    @ViewBuilder
+    private func prescriptionLabel(_ exercise: ReviewedExercise) -> some View {
+        if let prescription = exercise.prescription {
+            Text("prescribed \(TrainingPrescription.text(for: prescription, unit: unit, includeRest: false))")
+                .font(TrainingType.caption())
+                .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel("Prescribed \(TrainingPrescription.spoken(for: prescription, unit: unit))")
+        }
     }
 
     /// Los ejercicios sin desviación se compactan a una línea, como el wireframe: lo que hay que

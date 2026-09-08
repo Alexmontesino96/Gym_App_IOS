@@ -559,6 +559,42 @@ final class TrainingService: ObservableObject {
         return await perform(request, path: path, isWrite: true)
     }
 
+    /// Como `send`, pero devolviendo también el código de estado.
+    ///
+    /// Existe por un caso concreto: el **409 de asignar** —«este cliente ya tiene un programa»—
+    /// no es un fallo que enseñar, es la pregunta «¿lo reemplazo?». Distinguirlo leyendo el
+    /// texto del error sería adivinar; leyendo el código, no.
+    func sendReportingStatus<T: Encodable>(
+        _ path: String,
+        method: String,
+        body: T
+    ) async -> (status: Int, data: Data)? {
+        guard let url = URL(string: apiBaseURL + path),
+              var request = await HTTPClient.shared.makeRequest(url: url, method: method) else {
+            saveErrorMessage = "Could not prepare the request"
+            return nil
+        }
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        do {
+            request.httpBody = try encoder.encode(body)
+        } catch {
+            saveErrorMessage = "Could not prepare the data"
+            Logger.shared.error("TrainingService encode \(path): \(error)", category: .training)
+            return nil
+        }
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return nil }
+            return (http.statusCode, data)
+        } catch {
+            if (error as NSError).code == NSURLErrorCancelled { return nil }
+            saveErrorMessage = "Could not connect"
+            Logger.shared.error("TrainingService \(path): \(error.localizedDescription)", category: .training)
+            return nil
+        }
+    }
+
     /// Escritura sin cuerpo (`thank`, `kudos`): el contrato solo pide el id en la ruta.
     func post(_ path: String) async -> Data? {
         guard let url = URL(string: apiBaseURL + path),

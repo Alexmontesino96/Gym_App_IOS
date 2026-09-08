@@ -252,44 +252,31 @@ extension TrainingService {
         saveErrorMessage = nil
         defer { isSaving = false }
 
-        guard let url = URL(string: apiBaseURL + "/training/programs/\(programId)/assign"),
-              var urlRequest = await HTTPClient.shared.makeRequest(url: url, method: "POST") else {
-            saveErrorMessage = "Could not prepare the request"
-            return .cancelled
-        }
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        do {
-            urlRequest.httpBody = try encoder.encode(request)
-        } catch {
-            saveErrorMessage = "Could not prepare the data"
+        guard let response = await sendReportingStatus(
+            "/training/programs/\(programId)/assign",
+            method: "POST",
+            body: request
+        ) else {
             return .cancelled
         }
 
-        do {
-            let (data, response) = try await URLSession.shared.data(for: urlRequest)
-            guard let http = response as? HTTPURLResponse else { return .cancelled }
-
-            if (200...299).contains(http.statusCode) {
-                let assignments = (try? decoder.decode(AssignmentsResponse.self, from: data))?.assignments ?? []
-                Analytics.track(Analytics.Event.programAssigned, [
-                    Analytics.Property.programId: programId,
-                    Analytics.Property.mode: request.mode.rawValue,
-                    "client_count": request.userIds.count
-                ])
-                return .assigned(assignments)
-            }
-            if http.statusCode == 409 {
-                return .alreadyAssigned(message: detailMessage(from: data))
-            }
-            saveErrorMessage = detailMessage(from: data) ?? "Couldn't assign the program."
-            Logger.shared.error("TrainingService assign -> \(http.statusCode)", category: .training)
-            return .cancelled
-        } catch {
-            if (error as NSError).code == NSURLErrorCancelled { return .cancelled }
-            saveErrorMessage = "Could not connect"
-            Logger.shared.error("TrainingService assign: \(error.localizedDescription)", category: .training)
-            return .cancelled
+        if (200...299).contains(response.status) {
+            let assignments = (try? decoder.decode(AssignmentsResponse.self, from: response.data))?.assignments ?? []
+            Analytics.track(Analytics.Event.programAssigned, [
+                Analytics.Property.programId: programId,
+                Analytics.Property.mode: request.mode.rawValue,
+                "client_count": request.userIds.count
+            ])
+            return .assigned(assignments)
         }
+
+        if response.status == 409 {
+            return .alreadyAssigned(message: detailMessage(from: response.data))
+        }
+
+        saveErrorMessage = detailMessage(from: response.data) ?? "Couldn't assign the program."
+        Logger.shared.error("TrainingService assign -> \(response.status)", category: .training)
+        return .cancelled
     }
 
     /// `DELETE /training/assignments/{id}`. Pone `status = ended`; nunca borra.

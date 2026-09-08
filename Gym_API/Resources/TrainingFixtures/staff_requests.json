@@ -1,0 +1,55 @@
+{
+  "_comment": "Los cuerpos EXACTOS que la app del entrenador envía. Los fija un test del paquete (StaffRequestBodyTests) y los consume la prueba de integración contra el backend local (tools/wp5-integration-test.py). Si el codificador cambia, el test se pone rojo aquí y no en producción.",
+  "assign": {
+    "user_ids": [2],
+    "start_date": "2026-09-28",
+    "mode": "copy",
+    "replace": false
+  },
+  "assign_replace": {
+    "user_ids": [2],
+    "start_date": "2026-09-28",
+    "mode": "copy",
+    "replace": true
+  },
+  "review": {
+    "comment": "Bar speed held on the last two sets. Add 5 lb next week.",
+    "congratulate": true
+  },
+  "day_note": {
+    "text": "Keep the press strict. If the last set feels above RPE 9, stop at 4 reps."
+  },
+  "day_upsert": {
+    "name": "Upper B",
+    "is_rest": false,
+    "is_published": true,
+    "exercises": [
+      {
+        "exercise_key": "barbell_bench_press",
+        "exercise_name": "Barbell Bench Press",
+        "order_index": 0,
+        "superset_group": "A",
+        "sets_count": 4,
+        "reps": "5",
+        "load_mode": "weight",
+        "load_value": 83.9,
+        "rpe_target": 8,
+        "rest_seconds": 180,
+        "notes": "Strict press."
+      },
+      {
+        "exercise_key": "pull_up",
+        "order_index": 1,
+        "superset_group": "A",
+        "sets_count": 4,
+        "reps": "AMRAP",
+        "load_mode": "bodyweight",
+        "rest_seconds": 90
+      }
+    ]
+  },
+  "duplicate_week": {
+    "target_weeks": [4, 5],
+    "keep_loads": true
+  }
+}
