@@ -87,7 +87,8 @@ struct SessionLogView: View {
 
                 // La nota del entrenador es del DÍA, no del ejercicio: se pinta una vez, arriba.
                 // Repetirla bajo cada ejercicio la convertía en una instrucción de ese ejercicio.
-                if let coachNote, !coachNote.isEmpty {
+                // Y un entreno libre no cuelga de ningún día: ahí la nota no viene a cuento.
+                if let coachNote, !coachNote.isEmpty, !session.isFreeWorkout {
                     coachNoteBanner(coachNote)
                     Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
                 }
@@ -499,8 +500,6 @@ struct SessionLogView: View {
 
     private var freeWorkoutEmpty: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Spacer(minLength: 40)
-
             Text("Add the first exercise to start logging.")
                 .font(TrainingType.body())
                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
@@ -529,8 +528,9 @@ struct SessionLogView: View {
 
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(.horizontal, 16)
+        .padding(.top, 24)
     }
 
     // MARK: - Barra inferior
