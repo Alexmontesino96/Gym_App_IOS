@@ -174,6 +174,31 @@ struct TrainingMetricView: View {
     }
 }
 
+/// La fila de tres métricas de W8 y S18, que se apila en tallas de accesibilidad.
+///
+/// `TrainingMetricView` se defendía solo con `minimumScaleFactor(0.5)`: a partir de xxxLarge eso
+/// no reflowea, encoge. Una cifra como «12,480 lb» o «52:10» acababa a la mitad del cuerpo del
+/// texto que tiene al lado, que es justo lo contrario de lo que pide quien ha subido la letra.
+/// El resto del módulo ya resuelve esto cambiando de eje (`SetRowView.isStacked`,
+/// `TrainerFieldRow.stacksTrainerRows`); esto es lo mismo, en un solo sitio.
+struct TrainingMetricRow<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+        } else {
+            HStack(alignment: .top, spacing: 12) {
+                content
+            }
+        }
+    }
+}
+
 /// Fila de reintento de una sección que no cargó. No ocupa la pantalla entera: la tarjeta de al
 /// lado puede seguir teniendo datos buenos.
 struct TrainingRetryRow: View {

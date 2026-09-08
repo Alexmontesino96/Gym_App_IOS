@@ -89,7 +89,10 @@ struct LogReviewView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .padding(.bottom, 90)
+            // Solo el respiro entre la última fila y la barra. La ALTURA de la barra la
+            // reserva `safeAreaInset` de abajo, que la mide de verdad; un número fijo aquí se
+            // queda corto en cuanto el campo crece a cuatro líneas o el texto va en xxxLarge.
+            .padding(.bottom, 16)
         }
         .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
@@ -457,7 +460,23 @@ struct LogReviewView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.dynamicBackground(theme: theme).opacity(0.96))
+        // Opaca, no al 96 %.
+        //
+        // Con 0,96 las filas que pasan por debajo se transparentaban a través de la barra y se
+        // leían como una fila fantasma medio tachada: es lo que se ve en la captura
+        // `s22-pr_light_medium.png` de la revisión de WP5, y es lo que hacía pensar que la
+        // barra tapaba el final del registro. El inset ya reservaba el sitio; lo que faltaba
+        // era que la barra fuese un suelo y no un cristal. La línea de arriba separa la barra
+        // del contenido sin pintar una sombra.
+        .background(
+            Color.dynamicBackground(theme: theme)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.dynamicBorder(theme: theme).opacity(0.25))
+                        .frame(height: 0.5)
+                }
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 
     private var canSend: Bool {

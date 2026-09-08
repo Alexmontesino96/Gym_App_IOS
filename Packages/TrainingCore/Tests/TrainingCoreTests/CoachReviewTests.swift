@@ -351,4 +351,22 @@ struct CoachReviewTests {
         let merged = InboxCursor.merge([summary(10)], with: [summary(40), summary(5)])
         #expect(merged.map(\.id) == [40, 10, 5])
     }
+
+    @Test("El tope deja las filas más recientes y tira las más viejas")
+    func inboxCapKeepsTheNewest() {
+        let many = (1...250).reversed().map(summary)   // 250, 249, … 1
+        let capped = InboxCursor.capped(many)
+        #expect(capped.count == InboxCursor.maxRetained)
+        #expect(capped.first?.id == 250)
+        #expect(capped.last?.id == 250 - InboxCursor.maxRetained + 1)
+    }
+
+    @Test("Por debajo del tope no se toca nada")
+    func inboxCapIsANoOpBelowTheLimit() {
+        let few = [summary(30), summary(28), summary(25)]
+        #expect(InboxCursor.capped(few).map(\.id) == [30, 28, 25])
+        #expect(InboxCursor.capped([]).isEmpty)
+        // Un tope de cero o negativo no borra la lista: sería peor que no tener tope.
+        #expect(InboxCursor.capped(few, to: 0).count == 3)
+    }
 }

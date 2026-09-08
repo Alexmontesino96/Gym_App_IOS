@@ -135,82 +135,84 @@ struct RestTimerSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                stepper
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    stepper
 
-                HStack(spacing: 8) {
-                    ForEach(presets, id: \.self) { preset in
-                        Button(action: {
-                            HapticManager.shared.play(.selection)
-                            seconds = preset
-                        }) {
-                            Text(TrainingPrescription.clock(preset))
-                                .font(TrainingType.caption())
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
-                                .foregroundColor(
-                                    seconds == preset
-                                        ? Color.dynamicText(theme: theme)
-                                        : Color.dynamicTextSecondary(theme: theme)
-                                )
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(
-                                    Capsule().fill(seconds == preset ? Color.dynamicSurface2(theme: theme) : Color.clear)
-                                )
-                                .overlay(
-                                    Capsule().stroke(
-                                        Color.dynamicBorder(theme: theme).opacity(seconds == preset ? 0.5 : 0.2),
-                                        lineWidth: 1
+                    HStack(spacing: 8) {
+                        ForEach(presets, id: \.self) { preset in
+                            Button(action: {
+                                HapticManager.shared.play(.selection)
+                                seconds = preset
+                            }) {
+                                Text(TrainingPrescription.clock(preset))
+                                    .font(TrainingType.caption())
+                                    .fontWeight(.semibold)
+                                    .monospacedDigit()
+                                    .foregroundColor(
+                                        seconds == preset
+                                            ? Color.dynamicText(theme: theme)
+                                            : Color.dynamicTextSecondary(theme: theme)
                                     )
-                                )
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .background(
+                                        Capsule().fill(seconds == preset ? Color.dynamicSurface2(theme: theme) : Color.clear)
+                                    )
+                                    .overlay(
+                                        Capsule().stroke(
+                                            Color.dynamicBorder(theme: theme).opacity(seconds == preset ? 0.5 : 0.2),
+                                            lineWidth: 1
+                                        )
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(TrainingPrescription.spokenRest(preset))
+                            .accessibilityAddTraits(seconds == preset ? [.isButton, .isSelected] : .isButton)
+                        }
+                    }
+
+                    Toggle(isOn: $applyToExercise) {
+                        Text("Use this for all sets of this exercise")
+                            .font(TrainingType.body())
+                            .foregroundColor(Color.dynamicText(theme: theme))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .tint(Color.dynamicAccent(theme: theme))
+
+                    if let permissionHint {
+                        Button(action: openSettings) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "bell.slash")
+                                    .font(TrainingType.caption())
+                                Text(permissionHint)
+                                    .font(TrainingType.caption())
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                            .frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(TrainingPrescription.spokenRest(preset))
-                        .accessibilityAddTraits(seconds == preset ? [.isButton, .isSelected] : .isButton)
+                        .accessibilityHint("Opens the system settings.")
                     }
-                }
 
-                Toggle(isOn: $applyToExercise) {
-                    Text("Use this for all sets of this exercise")
-                        .font(TrainingType.body())
-                        .foregroundColor(Color.dynamicText(theme: theme))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .tint(Color.dynamicAccent(theme: theme))
-
-                if let permissionHint {
-                    Button(action: openSettings) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "bell.slash")
-                                .font(TrainingType.caption())
-                            Text(permissionHint)
-                                .font(TrainingType.caption())
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                        .frame(minHeight: 44)
+                    Button(action: {
+                        HapticManager.shared.play(.light)
+                        onApply(seconds, applyToExercise)
+                        dismiss()
+                    }) {
+                        Text("Apply")
+                            .font(TrainingType.headline())
+                            .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Opens the system settings.")
-                }
 
-                Button(action: {
-                    HapticManager.shared.play(.light)
-                    onApply(seconds, applyToExercise)
-                    dismiss()
-                }) {
-                    Text("Apply")
-                        .font(TrainingType.headline())
-                        .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-
-                Spacer(minLength: 0)
+                .padding(16)
             }
-            .padding(16)
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationTitle("Rest timer")
             .navigationBarTitleDisplayMode(.inline)
@@ -221,7 +223,10 @@ struct RestTimerSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(permissionHint == nil ? 380 : 440)])
+        // El alto de apertura, con `.large` detrás: el `Toggle` de «Use this for all sets»
+        // ocupa tres líneas en talla de accesibilidad y empujaba «Apply» fuera de los 380 pt,
+        // sin scroll con el que llegar a él.
+        .presentationDetents([.height(permissionHint == nil ? 380 : 440), .large])
     }
 
     private var stepper: some View {

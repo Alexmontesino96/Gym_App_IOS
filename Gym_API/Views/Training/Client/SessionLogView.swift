@@ -46,6 +46,14 @@ struct SessionLogView: View {
     @State private var showsNoteEditor = false
     @State private var noteDraft = ""
 
+    /// Foco de VoiceOver del aviso de primera vez.
+    ///
+    /// Los coach marks se pintan superpuestos dentro del mismo `ZStack`, no como `.sheet`, así
+    /// que `.isModal` aísla el subárbol para el rotor pero no MUEVE el foco: quien usa VoiceOver
+    /// seguía sobre la fila de la serie que estaba leyendo, tapada por el velo, sin enterarse de
+    /// que había un aviso encima. `SessionSummaryView` ya hace esto mismo con su título.
+    @AccessibilityFocusState private var coachMarksFocused: Bool
+
     init(
         viewModel: SessionLogViewModel,
         coachNote: String? = nil,
@@ -100,6 +108,7 @@ struct SessionLogView: View {
 
             if viewModel.showsCoachMarks {
                 coachMarks
+                    .onAppear { coachMarksFocused = true }
             }
         }
         .onAppear { viewModel.onAppear() }
@@ -604,6 +613,7 @@ struct SessionLogView: View {
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityFocused($coachMarksFocused)
 
                 Button(action: { viewModel.dismissCoachMarks() }) {
                     Text("Got it")
@@ -643,32 +653,34 @@ struct SessionNoteSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                TextField("What should your coach know?", text: $text, axis: .vertical)
-                    .lineLimit(3...6)
-                    .font(TrainingType.body())
-                    .foregroundColor(Color.dynamicText(theme: theme))
-                    .padding(12)
-                    .background(Color.dynamicSurface(theme: theme))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.dynamicBorder(theme: theme).opacity(0.2), lineWidth: 1)
-                    )
-                    .onChange(of: text) { _, newValue in
-                        if newValue.count > maxLength {
-                            text = String(newValue.prefix(maxLength))
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("What should your coach know?", text: $text, axis: .vertical)
+                        .lineLimit(3...6)
+                        .font(TrainingType.body())
+                        .foregroundColor(Color.dynamicText(theme: theme))
+                        .padding(12)
+                        .background(Color.dynamicSurface(theme: theme))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color.dynamicBorder(theme: theme).opacity(0.2), lineWidth: 1)
+                        )
+                        .onChange(of: text) { _, newValue in
+                            if newValue.count > maxLength {
+                                text = String(newValue.prefix(maxLength))
+                            }
                         }
-                    }
 
-                Text("\(text.count) / \(maxLength)")
-                    .font(TrainingType.caption())
-                    .monospacedDigit()
-                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                    Text("\(text.count) / \(maxLength)")
+                        .font(TrainingType.caption())
+                        .monospacedDigit()
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
             }
-            .padding(16)
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -687,6 +699,9 @@ struct SessionNoteSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(300)])
+        // 300 pt es el alto de apertura, no un techo. El campo crece hasta seis líneas y en
+        // talla de accesibilidad eso ya no cabe: sin `.large` ni scroll, el contador de
+        // caracteres quedaba cortado y no había forma de ver el final de lo escrito.
+        .presentationDetents([.height(300), .large])
     }
 }

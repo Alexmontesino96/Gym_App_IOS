@@ -156,6 +156,21 @@ extension Color {
         return Color(hex: readable) ?? Color.warningYellow
     }
 
+    /// El verde de acierto como TINTA, legible en los dos temas.
+    ///
+    /// El gemelo de `dynamicWarningText` para el otro lado del delta: `#4ADE80` sobre la tarjeta
+    /// clara `#F6F7FA` da 1,6:1, todavía peor que el amarillo. Un «+2.5 kg» en verde sobre fondo
+    /// claro es texto que hay que poder leer —es la cifra entera del delta de W6 y de S15—, no un
+    /// adorno. Mismo cálculo, mismo umbral de 4,5:1, mismo tono conservado.
+    static func dynamicSuccessText(theme: ThemeManager.AppTheme) -> Color {
+        guard theme == .light else { return Color.successGreen }
+        let readable = AccentContrast.readableHex(
+            accent: ThemeManager.successGreenHex,
+            onSurface: ThemeManager.lightSurfaceHex
+        )
+        return Color(hex: readable) ?? Color.successGreen
+    }
+
     static func dynamicTextTertiary(theme: ThemeManager.AppTheme) -> Color {
         switch theme {
         case .light: return Color.lightTextTertiary
@@ -333,6 +348,9 @@ extension ThemeManager {
     /// El mismo `#FFCC00` de `Color.warningYellow`, en texto, para poder oscurecerlo con el
     /// cálculo de contraste. Si cambia uno, cambia el otro.
     static let warningYellowHex = "#FFCC00"
+
+    /// El mismo `#4ADE80` de `Color.successGreen`, en texto. Si cambia uno, cambia el otro.
+    static let successGreenHex = "#4ADE80"
 
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard

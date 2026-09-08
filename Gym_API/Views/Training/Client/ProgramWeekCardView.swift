@@ -302,7 +302,7 @@ private struct DayPill: View {
         case .skipped:
             Text("·")
                 .font(TrainingType.icon(17, weight: .bold))
-                .foregroundColor(Color.warningYellow)
+                .foregroundColor(Color.dynamicWarningText(theme: theme))
         case .pending:
             Color.clear
         }
@@ -328,7 +328,7 @@ private struct DayPill: View {
         case .pending:
             Circle().stroke(Color.dynamicBorder(theme: theme).opacity(0.5), lineWidth: 1)
         case .skipped:
-            Circle().stroke(Color.warningYellow.opacity(0.4), lineWidth: 1)
+            Circle().stroke(Color.dynamicWarningText(theme: theme).opacity(0.4), lineWidth: 1)
         default:
             Circle().stroke(Color.clear, lineWidth: 0)
         }

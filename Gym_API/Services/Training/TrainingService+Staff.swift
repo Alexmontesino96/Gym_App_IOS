@@ -162,12 +162,18 @@ extension TrainingService {
     /// `is_rest: true`. La vista los pinta como descanso y el editor los crea al guardar.
     func fetchProgramDays(programId: Int, week: Int, expecting gymId: Int? = nil) async {
         let expected = gymId ?? GymService.shared.currentGymId
+        // Igual que `fetchWeek`: `stillCurrent` vigila el gimnasio, no la semana. Cambiar de
+        // semana varias veces seguidas —o volver del duplicador— podía dejar en pantalla los
+        // ejercicios de una semana que ya no es la seleccionada, y el entrenador editaría o
+        // duplicaría sobre el día equivocado sin ver ningún aviso.
+        programDaysRequestToken &+= 1
+        let token = programDaysRequestToken
         programDaysState = .loading
         guard let data = await get("/training/programs/\(programId)/days?week=\(week)") else {
-            if stillCurrent(expected) { programDaysState = .failed }
+            if stillCurrent(expected), token == programDaysRequestToken { programDaysState = .failed }
             return
         }
-        guard stillCurrent(expected) else { return }
+        guard stillCurrent(expected), token == programDaysRequestToken else { return }
         do {
             programDays = try decoder
                 .decode([TrainingDay].self, from: data)
@@ -324,7 +330,7 @@ extension TrainingService {
         guard stillCurrent(expected) else { return }
         do {
             let page = try decoder.decode([TrainingWorkoutLogSummary].self, from: data)
-            clientLogs = before == nil ? page : InboxCursor.merge(clientLogs, with: page)
+            clientLogs = before == nil ? page : InboxCursor.capped(InboxCursor.merge(clientLogs, with: page))
             clientLogsState = .loaded
         } catch {
             clientLogsState = .failed
@@ -437,7 +443,7 @@ extension TrainingService {
         guard stillCurrent(expected) else { return }
         do {
             let page = try decoder.decode([TrainingWorkoutLogSummary].self, from: data)
-            inbox = before == nil ? page : InboxCursor.merge(inbox, with: page)
+            inbox = before == nil ? page : InboxCursor.capped(InboxCursor.merge(inbox, with: page))
             inboxHasMore = InboxCursor.hasMore(page: page, limit: limit)
             inboxState = .loaded
         } catch {

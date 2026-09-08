@@ -187,15 +187,31 @@ final class TrainingService: ObservableObject {
         }
     }
 
+    /// Contador de peticiones de semana. Cada `fetchWeek` se queda con el suyo y solo escribe si
+    /// sigue siendo el último que salió.
+    ///
+    /// `stillCurrent` protege del cambio de GIMNASIO, no del cambio de SEMANA. Quien pasa tres
+    /// semanas seguidas con la flecha lanza tres peticiones y la primera puede contestar la
+    /// última: la cabecera diría «Week 4» y los días serían los de la 1, sin ningún error a la
+    /// vista. Es el escenario normal, no uno raro: el módulo está pensado para redes malas.
+    private var weekRequestToken = 0
+
+    /// El mismo contador para los días de programa del entrenador (`fetchProgramDays`, en
+    /// `TrainingService+Staff`). Vive aquí porque una `extension` no puede tener propiedades
+    /// almacenadas; `internal` para que la otra mitad del servicio lo alcance.
+    var programDaysRequestToken = 0
+
     /// `GET /training/me/week?week_number=`
     func fetchWeek(_ weekNumber: Int, expecting gymId: Int? = nil) async {
         let expected = gymId ?? GymService.shared.currentGymId
+        weekRequestToken &+= 1
+        let token = weekRequestToken
         weekState = .loading
         guard let data = await get("/training/me/week?week_number=\(weekNumber)") else {
-            if stillCurrent(expected) { weekState = .failed }
+            if stillCurrent(expected), token == weekRequestToken { weekState = .failed }
             return
         }
-        guard stillCurrent(expected) else { return }
+        guard stillCurrent(expected), token == weekRequestToken else { return }
         do {
             week = try decoder.decode(TrainingWeek.self, from: data)
             weekState = .loaded
@@ -259,12 +275,9 @@ final class TrainingService: ObservableObject {
         guard stillCurrent(expected) else { return }
         do {
             let page = try decoder.decode([TrainingWorkoutLogSummary].self, from: data)
-            if before == nil {
-                logs = page
-            } else {
-                let known = Set(logs.map(\.id))
-                logs.append(contentsOf: page.filter { !known.contains($0.id) })
-            }
+            // El tope es el mismo que en el buzón del entrenador: `TrainingService` vive toda
+            // la sesión y sin él la lista crece mientras la persona siga bajando.
+            logs = before == nil ? page : InboxCursor.capped(InboxCursor.merge(logs, with: page))
             logsState = .loaded
         } catch {
             logsState = .failed

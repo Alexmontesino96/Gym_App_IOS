@@ -147,7 +147,7 @@ struct LastLogCardView: View {
     }
 
     private func metrics(_ log: TrainingWorkoutLogSummary) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        TrainingMetricRow {
             TrainingMetricView(
                 value: TrainingFormat.duration(log.durationSeconds ?? 0),
                 label: "duration",

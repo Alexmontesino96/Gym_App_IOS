@@ -182,8 +182,15 @@ final class TrainingSyncCoordinator: ObservableObject {
         let report = await drainer.drain(
             entries,
             at: Date(),
-            send: { [weak self] entry in
-                guard let self else { return .transient(reason: "Could not sync") }
+            // `Send` está tipado `@Sendable`, y `TrainingService` es un `@MainActor class` que
+            // no conforma a `Sendable`: capturarlo fuerte aquí es el error que el propio
+            // `syncLogWithRetry` de más abajo dice evitar. Hoy no rompe en ejecución porque el
+            // acceso real ocurre dentro de `await self.send(...)`, que vuelve al actor
+            // principal, pero con concurrencia estricta no compilaría.
+            send: { [weak self, weak trainingService] entry in
+                guard let self, let trainingService else {
+                    return .transient(reason: "Could not sync")
+                }
                 return await self.send(entry, using: trainingService)
             },
             persist: { entry in await store.persist(entry) },

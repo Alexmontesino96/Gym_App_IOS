@@ -19,12 +19,19 @@ struct WorkspaceContext: Codable {
     let userContext: UserContextInfo
     let apiVersion: String
     let environment: String
+    /// Códigos de los módulos encendidos en este espacio (`training`, `stories`, `posts`…).
+    ///
+    /// Opcional porque un backend anterior a WP8 no manda la clave: con `nil` quien pregunta no
+    /// sabe nada, que es distinto de saber que está apagado. `GymService` falla cerrado en ese
+    /// caso, igual que hacía cuando la respuesta de módulos no llegaba.
+    let activeModules: [String]?
 
     enum CodingKeys: String, CodingKey {
         case workspace, terminology, features, navigation, branding, environment
         case quickActions = "quick_actions"
         case userContext = "user_context"
         case apiVersion = "api_version"
+        case activeModules = "active_modules"
     }
 }
 

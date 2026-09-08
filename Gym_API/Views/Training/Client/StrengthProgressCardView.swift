@@ -33,8 +33,8 @@ struct StrengthProgressCardView: View {
 
     private var deltaColor: Color {
         guard let delta = item.deltaKg else { return Color.dynamicTextTertiary(theme: theme) }
-        if delta > 0.1 { return Color.successGreen }
-        if delta < -0.1 { return Color.warningYellow }
+        if delta > 0.1 { return Color.dynamicSuccessText(theme: theme) }
+        if delta < -0.1 { return Color.dynamicWarningText(theme: theme) }
         return Color.dynamicTextTertiary(theme: theme)
     }
 

@@ -244,7 +244,7 @@ struct SessionSummaryView: View {
     // MARK: - Métricas
 
     private var metrics: some View {
-        HStack(alignment: .top, spacing: 12) {
+        TrainingMetricRow {
             TrainingMetricView(
                 value: counted("\(totalSets)", value: Double(totalSets)),
                 label: "sets",

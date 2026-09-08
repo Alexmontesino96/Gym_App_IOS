@@ -398,7 +398,7 @@ private struct DayRow: View {
         case .skipped:
             Text("Not logged")
                 .font(TrainingType.caption())
-                .foregroundColor(Color.warningYellow)
+                .foregroundColor(Color.dynamicWarningText(theme: theme))
         case .rest, .pending:
             EmptyView()
         }

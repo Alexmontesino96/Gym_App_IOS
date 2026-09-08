@@ -665,34 +665,63 @@ class GymService: ObservableObject {
     /// lista informativa en el explorador de gimnasios. El módulo de entrenamiento lo necesita
     /// para ocultar «To story» y «To feed» en espacios donde esos módulos nacen apagados
     /// (plan §7.2), en lugar de ofrecer un botón que devolvería 403.
+    ///
+    /// La fuente es `active_modules` de `/context/workspace`, la misma llamada que ya se hace al
+    /// entrar en un espacio. Antes se leía de `GET /gyms/{id}/details`: un endpoint PÚBLICO de
+    /// descubrimiento, sin caché y sin contexto de espacio, que traía horarios, planes de precio
+    /// y descripción para responder a una pregunta de una línea.
     @Published private(set) var currentGymModules: [String: Bool] = [:]
 
     private var modulesLoadedForGymId: Int?
+
+    /// ¿Ha llegado ya la lista? Distingue «no lo sé» de «no está encendido».
+    ///
+    /// Hace falta porque `active_modules` es una lista de códigos ENCENDIDOS: un módulo apagado
+    /// no aparece, igual que uno que no existe, así que sin este interruptor la ausencia de una
+    /// clave sería indistinguible de no haber preguntado todavía.
+    private var modulesKnown = false
 
     /// `true`/`false` si se sabe; `nil` mientras no haya llegado la respuesta.
     ///
     /// Quien lo consulta decide qué hacer con el `nil`. El módulo de entrenamiento **falla
     /// cerrado**: sin respuesta no enseña los botones de compartir.
+    ///
+    /// `active_modules` es una lista de códigos encendidos, así que un módulo que no aparece
+    /// está apagado —o no existe, que para quien pregunta significa lo mismo—. Por eso, con el
+    /// diccionario ya cargado, la ausencia de una clave es `false` y no `nil`.
     func isModuleEnabled(_ code: String) -> Bool? {
-        currentGymModules[code]
+        guard modulesKnown else { return nil }
+        return currentGymModules[code] ?? false
     }
 
     /// Carga los módulos del espacio actual una sola vez por gimnasio.
+    ///
+    /// Se apoya en `WorkspaceContextService`, que ya tiene su propia caché por gimnasio: si el
+    /// contexto está cargado no hay ni una petición más, y si no lo está esta es la misma que la
+    /// app haría de todas formas al entrar.
     func loadCurrentGymModulesIfNeeded() async {
         guard let gymId = currentGymId else { return }
         guard modulesLoadedForGymId != gymId else { return }
         modulesLoadedForGymId = gymId
 
-        guard let detail = await getGymDetails(gymId: gymId) else {
-            // Que falle no se cachea: al volver a entrar se reintenta.
+        let workspace = WorkspaceContextService.shared
+        if workspace.context == nil {
+            await workspace.fetchContext()
+        }
+
+        guard currentGymId == gymId else { return }
+        guard let codes = workspace.context?.activeModules else {
+            // Backend sin `active_modules`, o el contexto no cargó. No se cachea el fallo: al
+            // volver a entrar se reintenta, y hasta entonces `isModuleEnabled` devuelve `nil`,
+            // que es lo que hace que el módulo de entrenamiento falle cerrado.
             modulesLoadedForGymId = nil
             return
         }
-        guard currentGymId == gymId else { return }
         currentGymModules = Dictionary(
-            detail.modules.map { ($0.moduleName, $0.isEnabled) },
+            codes.map { ($0, true) },
             uniquingKeysWith: { first, _ in first }
         )
+        modulesKnown = true
     }
 
     #if DEBUG
@@ -701,6 +730,7 @@ class GymService: ObservableObject {
     func setModulesForGallery(_ modules: [String: Bool]) {
         currentGymModules = modules
         modulesLoadedForGymId = -1
+        modulesKnown = true
     }
     #endif
 
@@ -708,6 +738,7 @@ class GymService: ObservableObject {
     func clearModuleCache() {
         currentGymModules = [:]
         modulesLoadedForGymId = nil
+        modulesKnown = false
     }
 
     deinit {

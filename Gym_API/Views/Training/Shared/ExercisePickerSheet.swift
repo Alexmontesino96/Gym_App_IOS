@@ -84,6 +84,14 @@ struct ExercisePickerSheet: View {
                     await trainingService.fetchExercises(query: newValue.isEmpty ? nil : newValue)
                 }
             }
+            // Cerrar la hoja no cancelaba la búsqueda en vuelo: los 400 ms de espera o la
+            // petición seguían corriendo y al terminar escribían en `exercises` del servicio
+            // COMPARTIDO, con lo que la siguiente vez que se abriera el picker podía encontrarse
+            // el resultado de una búsqueda que ya nadie pidió.
+            .onDisappear {
+                searchTask?.cancel()
+                searchTask = nil
+            }
         }
         .task {
             if trainingService.exercises.isEmpty {

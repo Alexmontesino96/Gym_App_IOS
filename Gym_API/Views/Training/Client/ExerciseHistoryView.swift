@@ -180,7 +180,11 @@ struct ExerciseHistoryView: View {
                 Text(deltaText)
                     .font(TrainingType.caption())
                     .fontWeight(.semibold)
-                    .foregroundColor(delta >= 0 ? Color.successGreen : Color.warningYellow)
+                    .foregroundColor(
+                        delta >= 0
+                            ? Color.dynamicSuccessText(theme: theme)
+                            : Color.dynamicWarningText(theme: theme)
+                    )
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }

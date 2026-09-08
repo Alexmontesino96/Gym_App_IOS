@@ -10,6 +10,7 @@
 //
 //      xcrun simctl launch booted com.alexmontesino.gymapi -training-gallery s11
 //      xcrun simctl launch booted com.alexmontesino.gymapi -training-gallery s11 -reduce-motion 1
+//      xcrun simctl launch booted com.alexmontesino.gymapi -training-gallery s11-heavy
 //
 //  Lo que se pinta son las vistas de producción con datos de fixture. No hay una sola maqueta:
 //  si la captura enseña algo roto, está roto de verdad.
@@ -32,6 +33,9 @@ enum TrainingGalleryScenario: String, CaseIterable {
     case s11
     case s11Empty = "s11-empty"
     case s11Offline = "s11-offline"
+    /// La sesión más larga que el plan admite: 8 ejercicios y 30 series (aceptación de WP4).
+    /// Es la que se usa para medir el desplazamiento, no una pantalla del wireframe.
+    case s11Heavy = "s11-heavy"
     case s12
     case s12Empty = "s12-empty"
     case s15
@@ -164,7 +168,7 @@ struct TrainingGalleryView: View {
         switch scenario {
         case .w4, .w4Error, .w6, .w8, .coachAck, .group:
             widgetGallery
-        case .s11, .s11Empty, .s11Offline:
+        case .s11, .s11Empty, .s11Offline, .s11Heavy:
             sessionLog
         case .s12, .s12Empty:
             NavigationStack {
@@ -327,6 +331,7 @@ struct TrainingGalleryView: View {
     private var sessionLog: some View {
         let session: WorkoutSession = {
             if scenario == .s11Empty { return .freeWorkout(startedAt: Date().addingTimeInterval(-240)) }
+            if scenario == .s11Heavy { return Self.heavySession() }
             guard let day = trainingService.fixtureDay() else {
                 return .freeWorkout(startedAt: Date())
             }
@@ -355,6 +360,72 @@ struct TrainingGalleryView: View {
             onClose: {},
             onOpenHistory: { _, _ in }
         )
+    }
+
+    /// El día más cargado que el plan admite: **8 ejercicios y 30 series**.
+    ///
+    /// Existe para medir, no para enseñar: es el criterio de aceptación de WP4 («S11 con 30
+    /// series se desplaza a 60 fps»). Se construye a mano en vez de con un JSON porque lo que
+    /// se mide es el coste de pintar 30 `SetRowView` y 8 tarjetas de ejercicio, y ese coste no
+    /// depende de que los datos vengan de disco.
+    ///
+    /// El reparto es 4+4+4+4+4+4+3+3 = 30, con una superserie al principio y un ejercicio de
+    /// peso corporal, para que la lista no sea 30 filas idénticas.
+    private static func heavySession() -> WorkoutSession {
+        let plan: [(key: String, name: String, sets: Int, reps: String, load: Double?, superset: String?)] = [
+            ("barbell_back_squat", "Back squat", 4, "5", 102.5, nil),
+            ("barbell_bench_press", "Bench press", 4, "5", 82.5, "A"),
+            ("barbell_bent_over_row", "Barbell row", 4, "8", 65, "A"),
+            ("barbell_romanian_deadlift", "Romanian deadlift", 4, "8", 90, nil),
+            ("barbell_overhead_press", "Overhead press", 4, "6", 45, nil),
+            ("pull_up", "Pull-up", 4, "8", nil, nil),
+            ("dumbbell_lateral_raise", "Lateral raise", 3, "12", 10, nil),
+            ("cable_triceps_pushdown", "Triceps pushdown", 3, "12", 32.5, nil)
+        ]
+
+        let exercises = plan.enumerated().map { index, item in
+            TrainingDayExercise(
+                id: 900 + index,
+                dayId: 99,
+                exerciseKey: item.key,
+                exerciseName: item.name,
+                orderIndex: index,
+                supersetGroup: item.superset,
+                setsCount: item.sets,
+                reps: item.reps,
+                loadMode: item.load == nil ? .bodyweight : .weight,
+                loadValue: item.load,
+                rpeTarget: 8,
+                restSeconds: item.sets >= 4 ? 180 : 90
+            )
+        }
+
+        let day = TrainingDay(
+            id: 99,
+            programId: 7,
+            dayNumber: 18,
+            weekNumber: 3,
+            name: "Full body · heavy",
+            focus: "Everything",
+            exercises: exercises
+        )
+
+        var session = WorkoutSession(
+            day: day,
+            programId: 7,
+            scheduledDate: nil,
+            startedAt: Date().addingTimeInterval(-2714)
+        )
+        // La mitad marcada: es el estado real a media sesión, y es el que obliga a repintar las
+        // filas de arriba mientras se desplaza.
+        var marked = 0
+        for exercise in session.exercises {
+            for set in exercise.sets where marked < 15 {
+                session.markSet(exerciseId: exercise.id, setId: set.id, at: Date().addingTimeInterval(-90))
+                marked += 1
+            }
+        }
+        return session
     }
 
     private func fixtureSession() -> WorkoutSession {

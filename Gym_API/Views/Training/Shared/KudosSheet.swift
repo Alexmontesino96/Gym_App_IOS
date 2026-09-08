@@ -39,44 +39,9 @@ struct KudosSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                avatar
-                    .padding(.top, 24)
-
-                VStack(spacing: 4) {
-                    Text(member.name)
-                        .font(TrainingType.title2())
-                        .foregroundColor(Color.dynamicText(theme: theme))
-                        .multilineTextAlignment(.center)
-
-                    Text(subtitle)
-                        .font(TrainingType.subhead())
-                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                        .multilineTextAlignment(.center)
-                }
-                .accessibilityElement(children: .combine)
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(TrainingType.caption())
-                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if alreadySent {
-                    Text("Kudos sent")
-                        .font(TrainingType.headline())
-                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                        .frame(minHeight: 50)
-                } else {
-                    sendButton
-                }
-
-                Spacer(minLength: 0)
+            ScrollView(showsIndicators: false) {
+                content
             }
-            .padding(.horizontal, 20)
-            .frame(maxWidth: .infinity)
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -86,7 +51,54 @@ struct KudosSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(340)])
+        // El alto fijo es el tamaño en el que la hoja SE ABRE, no un techo: con `.large` de
+        // acompañante, en cuanto el texto crece a talla de accesibilidad la persona puede tirar
+        // de la hoja hacia arriba, y el `ScrollView` de dentro llega al botón aunque no lo haga.
+        // Con solo `.height(340)` y sin scroll, «Send kudos» quedaba fuera de la pantalla en
+        // AX5 y no había forma de llegar a él.
+        .presentationDetents([.height(340), .large])
+    }
+
+    private var content: some View {
+        VStack(spacing: 20) {
+            avatar
+                .padding(.top, 24)
+
+            VStack(spacing: 4) {
+                Text(member.name)
+                    .font(TrainingType.title2())
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .multilineTextAlignment(.center)
+
+                Text(subtitle)
+                    .font(TrainingType.subhead())
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    .multilineTextAlignment(.center)
+            }
+            .accessibilityElement(children: .combine)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(TrainingType.caption())
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if alreadySent {
+                Text("Kudos sent")
+                    .font(TrainingType.headline())
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    .frame(minHeight: 50)
+            } else {
+                sendButton
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity)
     }
 
     private var subtitle: String {

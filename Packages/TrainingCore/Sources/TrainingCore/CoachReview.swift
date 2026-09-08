@@ -351,4 +351,25 @@ public enum InboxCursor {
         }
         return result.sorted { $0.id > $1.id }
     }
+
+    /// Cuántas filas se conservan en memoria de una lista paginada.
+    ///
+    /// Diez páginas de veinte. Quien ha bajado diez páginas no va a subir a la primera sin
+    /// soltar el dedo, y si lo hace la lista se recarga desde arriba. El número existe porque
+    /// `TrainingService` es un singleton que vive toda la sesión: sin tope, `logs`, `clientLogs`
+    /// e `inbox` crecen mientras la persona siga bajando y solo se vacían al cambiar de espacio
+    /// o cerrar sesión.
+    public static let maxRetained = 200
+
+    /// Recorta una lista ya unida a las `limit` filas más recientes.
+    ///
+    /// Se quitan por el final, que es donde están los ids más pequeños: lo más viejo. Con menos
+    /// filas que el tope no hace nada y no copia el array.
+    public static func capped(
+        _ items: [TrainingWorkoutLogSummary],
+        to limit: Int = maxRetained
+    ) -> [TrainingWorkoutLogSummary] {
+        guard limit > 0, items.count > limit else { return items }
+        return Array(items.prefix(limit))
+    }
 }

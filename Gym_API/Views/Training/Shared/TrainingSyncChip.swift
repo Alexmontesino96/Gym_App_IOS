@@ -66,7 +66,7 @@ struct TrainingSyncChip: View {
     private var pendingChip: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(Color.warningYellow)
+                .fill(Color.dynamicWarningText(theme: theme))
                 .frame(width: 6, height: 6)
 
             Text("Pending sync")
@@ -86,7 +86,7 @@ struct TrainingSyncChip: View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.circle")
                 .font(TrainingType.caption())
-                .foregroundColor(Color.warningYellow)
+                .foregroundColor(Color.dynamicWarningText(theme: theme))
 
             Text(Self.failureText(count: count))
                 .font(TrainingType.caption())

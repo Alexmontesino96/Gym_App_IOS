@@ -348,66 +348,68 @@ struct RPEPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("How hard was that set?")
-                    .font(TrainingType.body())
-                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-
-                LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(1...10, id: \.self) { value in
-                        Button(action: {
-                            HapticManager.shared.play(.selection)
-                            onSelect(Double(value))
-                            dismiss()
-                        }) {
-                            Text("\(value)")
-                                .font(TrainingType.monoM())
-                                .monospacedDigit()
-                                .foregroundColor(
-                                    Int(current ?? 0) == value
-                                        ? Color.dynamicText(theme: theme)
-                                        : Color.dynamicTextSecondary(theme: theme)
-                                )
-                                .frame(maxWidth: .infinity, minHeight: 48)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12).fill(
-                                        Int(current ?? 0) == value
-                                            ? Color.dynamicSurface2(theme: theme)
-                                            : Color.clear
-                                    )
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12).stroke(
-                                        Color.dynamicBorder(theme: theme).opacity(Int(current ?? 0) == value ? 0.5 : 0.2),
-                                        lineWidth: 1
-                                    )
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("RPE \(value)")
-                        .accessibilityAddTraits(Int(current ?? 0) == value ? [.isButton, .isSelected] : .isButton)
-                    }
-                }
-
-                Button(action: {
-                    onSelect(nil)
-                    dismiss()
-                }) {
-                    Text("Clear")
-                        .font(TrainingType.caption())
-                        .fontWeight(.semibold)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("How hard was that set?")
+                        .font(TrainingType.body())
                         .foregroundColor(Color.dynamicTextSecondary(theme: theme))
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 44)
-                        .overlay(
-                            Capsule().stroke(Color.dynamicBorder(theme: theme).opacity(0.3), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
 
-                Spacer(minLength: 0)
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(1...10, id: \.self) { value in
+                            Button(action: {
+                                HapticManager.shared.play(.selection)
+                                onSelect(Double(value))
+                                dismiss()
+                            }) {
+                                Text("\(value)")
+                                    .font(TrainingType.monoM())
+                                    .monospacedDigit()
+                                    .foregroundColor(
+                                        Int(current ?? 0) == value
+                                            ? Color.dynamicText(theme: theme)
+                                            : Color.dynamicTextSecondary(theme: theme)
+                                    )
+                                    .frame(maxWidth: .infinity, minHeight: 48)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12).fill(
+                                            Int(current ?? 0) == value
+                                                ? Color.dynamicSurface2(theme: theme)
+                                                : Color.clear
+                                        )
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12).stroke(
+                                            Color.dynamicBorder(theme: theme).opacity(Int(current ?? 0) == value ? 0.5 : 0.2),
+                                            lineWidth: 1
+                                        )
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("RPE \(value)")
+                            .accessibilityAddTraits(Int(current ?? 0) == value ? [.isButton, .isSelected] : .isButton)
+                        }
+                    }
+
+                    Button(action: {
+                        onSelect(nil)
+                        dismiss()
+                    }) {
+                        Text("Clear")
+                            .font(TrainingType.caption())
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 44)
+                            .overlay(
+                                Capsule().stroke(Color.dynamicBorder(theme: theme).opacity(0.3), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
             }
-            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.dynamicBackground(theme: theme).ignoresSafeArea())
             .navigationTitle("RPE")
@@ -419,6 +421,9 @@ struct RPEPickerSheet: View {
                 }
             }
         }
-        .presentationDetents([.height(300)])
+        // El alto de apertura. Los diez botones son de 48 pt mínimo y crecen con la talla
+        // de letra: en AX5 las dos filas de la rejilla se comen los 300 pt y «Clear» quedaba
+        // fuera. Con `.large` y scroll siempre se llega.
+        .presentationDetents([.height(300), .large])
     }
 }
