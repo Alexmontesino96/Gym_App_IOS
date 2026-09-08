@@ -191,7 +191,7 @@ struct RecordsView: View {
     private var empty: some View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: "diamond")
-                .font(.system(size: 22, weight: .light))
+                .font(TrainingType.icon(22, weight: .light))
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 .accessibilityHidden(true)
 
@@ -239,10 +239,10 @@ private struct RecordRow: View {
         }) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: isConfirmed ? "diamond.fill" : "diamond")
-                    .font(.system(size: 11))
+                    .font(TrainingType.icon(11, weight: .regular))
                     .foregroundColor(
                         isConfirmed
-                            ? Color.dynamicAccent(theme: theme)
+                            ? Color.dynamicAccentText(theme: theme)
                             : Color.dynamicTextTertiary(theme: theme)
                     )
                     .padding(.top, 3)

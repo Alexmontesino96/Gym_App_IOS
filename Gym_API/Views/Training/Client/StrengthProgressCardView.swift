@@ -193,7 +193,7 @@ struct StrengthProgressCardView: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(TrainingType.icon(11, weight: .semibold))
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

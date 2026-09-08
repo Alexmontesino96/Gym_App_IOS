@@ -50,14 +50,14 @@ struct RestTimerBar: View {
                 Button(action: onOpenSettings) {
                     HStack(spacing: 6) {
                         Image(systemName: "timer")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(TrainingType.icon(13, weight: .semibold))
                             .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                         Text(label)
                             .font(TrainingType.monoL())
                             .monospacedDigit()
                             .foregroundColor(
                                 isFinalCountdown
-                                    ? Color.dynamicAccent(theme: theme)
+                                    ? Color.dynamicAccentText(theme: theme)
                                     : Color.dynamicText(theme: theme)
                             )
                             .lineLimit(1)
@@ -231,7 +231,7 @@ struct RestTimerSheet: View {
                 seconds = max(15, seconds - 15)
             }) {
                 Image(systemName: "minus")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(TrainingType.icon(16, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .frame(width: 56, height: 56)
             }
@@ -251,7 +251,7 @@ struct RestTimerSheet: View {
                 seconds = min(600, seconds + 15)
             }) {
                 Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(TrainingType.icon(16, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .frame(width: 56, height: 56)
             }

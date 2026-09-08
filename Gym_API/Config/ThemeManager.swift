@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import TrainingCore
 
 // MARK: - Theme Manager
 class ThemeManager: ObservableObject {
@@ -117,6 +118,27 @@ extension Color {
     static func dynamicAccent(theme: ThemeManager.AppTheme) -> Color {
         let hex = ThemeManager.accentHexFromDefaults(for: theme)
         return Color(hex: hex) ?? (theme == .light ? Color.lightAccentPrimary : Color.darkAccentPrimary)
+    }
+
+    /// El acento cuando se usa como TINTA: glifo o texto sobre una superficie.
+    ///
+    /// En oscuro es el acento tal cual. En claro, el acento se oscurece en HSB —conservando su
+    /// tono— hasta alcanzar 4,5:1 contra la superficie de tarjeta. El lima por defecto sobre
+    /// `#F6F7FA` daba 1,2:1: un check verde lima sobre una tarjeta clara no se ve, y eso es lo
+    /// que enseñaban las capturas de la revisión 1.
+    ///
+    /// **No** se usa para RELLENOS. El fondo lima de un botón está bien: la tinta de encima la
+    /// decide `accentInkForCurrentAccent`. Esto es para el otro caso.
+    static func dynamicAccentText(theme: ThemeManager.AppTheme) -> Color {
+        let accent = ThemeManager.accentHexFromDefaults(for: theme)
+        guard theme == .light else {
+            return Color(hex: accent) ?? Color.darkAccentPrimary
+        }
+        let readable = AccentContrast.readableHex(
+            accent: accent,
+            onSurface: ThemeManager.lightSurfaceHex
+        )
+        return Color(hex: readable) ?? Color.lightAccentPrimary
     }
 
     static func dynamicTextTertiary(theme: ThemeManager.AppTheme) -> Color {
@@ -288,6 +310,10 @@ extension ThemeManager {
         ]
         return nombres[hex.uppercased()] ?? hex
     }
+
+    /// `lightSurfacePrimary` en hexadecimal: RGB(246, 247, 250). Es la superficie sobre la que
+    /// viven los glifos de acento en tema claro, y la referencia de `dynamicAccentText`.
+    static let lightSurfaceHex = "#F6F7FA"
 
     static func accentHexFromDefaults(for theme: AppTheme) -> String {
         let defaults = UserDefaults.standard

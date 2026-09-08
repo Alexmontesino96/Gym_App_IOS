@@ -112,7 +112,7 @@ struct KudosSheet: View {
         .clipShape(Circle())
         .overlay(
             Circle()
-                .stroke(Color.dynamicAccent(theme: theme), lineWidth: 2)
+                .stroke(Color.dynamicAccentText(theme: theme), lineWidth: 2)
                 .opacity(alreadySent ? 1 : ringOpacity)
         )
         .overlay {
@@ -150,7 +150,7 @@ struct KudosSheet: View {
             }
             .frame(maxWidth: .infinity, minHeight: 50)
             .overlay(
-                Capsule().stroke(Color.dynamicAccent(theme: theme), lineWidth: 1.5)
+                Capsule().stroke(Color.dynamicAccentText(theme: theme), lineWidth: 1.5)
             )
         }
         .buttonStyle(.plain)

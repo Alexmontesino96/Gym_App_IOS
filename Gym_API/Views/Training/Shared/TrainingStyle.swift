@@ -45,6 +45,12 @@ enum TrainingType {
         min(UIFontMetrics.default.scaledValue(for: size), maxSize)
     }
 
+    /// Icono o glifo. Escala con Dynamic Type y tiene tope, igual que el texto: un símbolo
+    /// junto a una etiqueta que no crece con ella se queda pequeño y descolgado.
+    static func icon(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .cappedDynamicSystem(size: size, weight: weight, maxSize: size * 1.6)
+    }
+
     /// Alto de la fila de serie, que crece con el tipo pero no sin fin.
     static func rowHeight(_ base: CGFloat = 56) -> CGFloat {
         min(UIFontMetrics.default.scaledValue(for: base), base * 1.6)

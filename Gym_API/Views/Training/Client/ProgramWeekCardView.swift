@@ -93,7 +93,7 @@ struct ProgramWeekCardView: View {
                                 .font(TrainingType.caption())
                                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(TrainingType.icon(11, weight: .semibold))
                                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                         }
                     }
@@ -160,7 +160,9 @@ struct ProgramWeekCardView: View {
                 let planned = max(week.plannedCount, 1)
                 let fraction = min(1, Double(week.doneCount) / Double(planned))
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.dynamicSurface2(theme: theme))
+                    // El carril, no el relleno: en claro `surface/2` sobre la tarjeta es
+                    // invisible y la barra parecía vacía siempre.
+                    Capsule().fill(Color.dynamicBorder(theme: theme).opacity(0.35))
                     Capsule()
                         .fill(Color.dynamicAccent(theme: theme))
                         .frame(width: geo.size.width * fraction)
@@ -287,11 +289,11 @@ private struct DayPill: View {
         switch day.status {
         case .done:
             Image(systemName: "checkmark")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(Color.dynamicAccent(theme: theme))
+                .font(TrainingType.icon(13, weight: .bold))
+                .foregroundColor(Color.dynamicAccentText(theme: theme))
         case .today:
             Circle()
-                .fill(Color.dynamicAccent(theme: theme))
+                .fill(Color.dynamicAccentText(theme: theme))
                 .frame(width: 8, height: 8)
         case .rest:
             Text("–")
@@ -299,7 +301,7 @@ private struct DayPill: View {
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme).opacity(0.7))
         case .skipped:
             Text("·")
-                .font(.system(size: 17, weight: .bold))
+                .font(TrainingType.icon(17, weight: .bold))
                 .foregroundColor(Color.warningYellow)
         case .pending:
             Color.clear
@@ -322,7 +324,7 @@ private struct DayPill: View {
     private var border: some View {
         switch day.status {
         case .today:
-            Circle().stroke(Color.dynamicAccent(theme: theme), lineWidth: 1.5)
+            Circle().stroke(Color.dynamicAccentText(theme: theme), lineWidth: 1.5)
         case .pending:
             Circle().stroke(Color.dynamicBorder(theme: theme).opacity(0.5), lineWidth: 1)
         case .skipped:

@@ -221,7 +221,7 @@ private struct MemberAvatarButton: View {
             .overlay(
                 Circle().stroke(
                     member.kudosGiven
-                        ? Color.dynamicAccent(theme: theme)
+                        ? Color.dynamicAccentText(theme: theme)
                         : Color.dynamicSurface(theme: theme),
                     lineWidth: 2
                 )

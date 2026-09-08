@@ -23,6 +23,7 @@ struct WeeklyProgramView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var trainingService: TrainingService
     @Environment(\.trainingReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var selectedWeek: Int?
     @State private var showsProgramDetails = false
@@ -102,7 +103,7 @@ struct WeeklyProgramView: View {
                 GeometryReader { geo in
                     let fraction = min(1, Double(currentWeekNumber) / Double(totalWeeks))
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.dynamicSurface2(theme: theme))
+                        Capsule().fill(Color.dynamicBorder(theme: theme).opacity(0.35))
                         Capsule()
                             .fill(Color.dynamicAccent(theme: theme))
                             .frame(width: geo.size.width * fraction)
@@ -127,7 +128,7 @@ struct WeeklyProgramView: View {
         HStack(spacing: 8) {
             Button(action: { move(by: -1) }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(TrainingType.icon(13, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .trainingTouchTarget()
             }
@@ -137,17 +138,20 @@ struct WeeklyProgramView: View {
 
             Text(blockTitle)
                 .font(TrainingType.label())
-                .tracking(0.8)
+                // Menos tracking y un mínimo de escala más alto: al tamaño por defecto la línea
+                // «BLOCK 2 · UPPER STRENGTH · WEEKS 3–6» se partía en dos y el carrusel de
+                // semanas crecía el doble. En tamaños de accesibilidad sí puede ocupar dos.
+                .tracking(0.6)
                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.7)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .minimumScaleFactor(0.85)
                 .accessibilityAddTraits(.isHeader)
 
             Button(action: { move(by: 1) }) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(TrainingType.icon(13, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .trainingTouchTarget()
             }
@@ -383,8 +387,8 @@ private struct DayRow: View {
                     .font(TrainingType.caption())
                     .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                 Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color.dynamicAccent(theme: theme))
+                    .font(TrainingType.icon(11, weight: .bold))
+                    .foregroundColor(Color.dynamicAccentText(theme: theme))
             }
         case .today:
             Text("Today")

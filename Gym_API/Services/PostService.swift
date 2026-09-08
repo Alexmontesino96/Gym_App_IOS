@@ -345,7 +345,8 @@ class PostService: ObservableObject, PostServicing {
     }
 
     /// - Parameter workoutLogId: registro de entrenamiento etiquetado (plan §7.2). Viaja como
-    ///   `workout_log_id`, con la misma forma que `session_id` y `event_id`.
+    ///   `tagged_workout_log_id`, que es lo que espera `app/api/v1/endpoints/posts.py:52`. No
+    ///   sigue el patrón de `session_id` / `event_id` a propósito: el backend lo llama así.
     func createPost(caption: String? = nil, location: String? = nil, images: [UIImage], sessionId: Int? = nil, eventId: Int? = nil, workoutLogId: Int? = nil) async throws -> Post {
         print("🌐 [PostService] createPost() llamado")
         print("📊 [PostService] - Caption: '\(caption ?? "nil")'")
@@ -424,7 +425,7 @@ class PostService: ObservableObject, PostServicing {
         // Add workoutLogId for training log tagging (plan §7.2)
         if let workoutLogId = workoutLogId {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"workout_log_id\"\r\n\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"tagged_workout_log_id\"\r\n\r\n".data(using: .utf8)!)
             body.append("\(workoutLogId)\r\n".data(using: .utf8)!)
             print("📌 [PostService] Etiquetando registro de entrenamiento ID: \(workoutLogId)")
         }

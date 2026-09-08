@@ -152,7 +152,7 @@ struct TrainingDayDetailView: View {
                     .foregroundColor(Color.dynamicTextSecondary(theme: theme))
             } else {
                 Image(systemName: "quote.opening")
-                    .font(.system(size: 11))
+                    .font(TrainingType.icon(11, weight: .regular))
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
         }

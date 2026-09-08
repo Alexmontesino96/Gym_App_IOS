@@ -173,7 +173,7 @@ struct SessionLogView: View {
                 // módulo dicen «Close» o «Cancel»; esta era la excepción.
                 HStack(spacing: 4) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(TrainingType.icon(13, weight: .semibold))
                     Text("Close")
                         .font(TrainingType.caption())
                         .fontWeight(.semibold)
@@ -219,7 +219,7 @@ struct SessionLogView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(TrainingType.icon(15, weight: .semibold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .trainingTouchTarget()
             }
@@ -239,10 +239,10 @@ struct SessionLogView: View {
                         Button(action: { viewModel.selectExercise(at: index) }) {
                             HStack(spacing: 5) {
                                 Image(systemName: exercise.isComplete ? "circle.fill" : "circle")
-                                    .font(.system(size: 8))
+                                    .font(TrainingType.icon(8, weight: .regular))
                                     .foregroundColor(
                                         exercise.isComplete
-                                            ? Color.dynamicAccent(theme: theme)
+                                            ? Color.dynamicAccentText(theme: theme)
                                             : Color.dynamicTextTertiary(theme: theme)
                                     )
                                 Text(exercise.exerciseName)
@@ -409,7 +409,7 @@ struct SessionLogView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(TrainingType.icon(15, weight: .semibold))
                         .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                         .trainingTouchTarget()
                 }
@@ -433,7 +433,7 @@ struct SessionLogView: View {
     private func coachNoteBanner(_ text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "quote.opening")
-                .font(.system(size: 11))
+                .font(TrainingType.icon(11, weight: .regular))
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 .accessibilityHidden(true)
 
@@ -471,7 +471,7 @@ struct SessionLogView: View {
         Button(action: { viewModel.addSet(to: exercise.id) }) {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(TrainingType.icon(12, weight: .bold))
                 Text("Add set")
                     .font(TrainingType.caption())
                     .fontWeight(.semibold)
@@ -521,7 +521,7 @@ struct SessionLogView: View {
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(TrainingType.icon(12, weight: .bold))
                     Text("Add exercise")
                         .font(TrainingType.caption())
                         .fontWeight(.semibold)
@@ -571,7 +571,7 @@ struct SessionLogView: View {
                         .padding(.horizontal, 24)
                         .frame(minHeight: 50)
                         .overlay(
-                            Capsule().stroke(Color.dynamicAccent(theme: theme), lineWidth: 1.5)
+                            Capsule().stroke(Color.dynamicAccentText(theme: theme), lineWidth: 1.5)
                         )
                 }
                 .buttonStyle(.plain)

@@ -157,10 +157,10 @@ struct CoachAckCardView: View {
         Button(action: sendThanks) {
             HStack(spacing: 6) {
                 Image(systemName: thanked ? "heart.fill" : "heart")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(TrainingType.icon(15, weight: .semibold))
                     .foregroundColor(
                         thanked
-                            ? Color.dynamicAccent(theme: theme)
+                            ? Color.dynamicAccentText(theme: theme)
                             : Color.dynamicTextSecondary(theme: theme)
                     )
                     .scaleEffect(heartScale)

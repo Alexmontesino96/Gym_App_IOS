@@ -370,7 +370,7 @@ struct SessionSummaryView: View {
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 14))
+                    .font(TrainingType.icon(14, weight: .regular))
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
             .padding(14)

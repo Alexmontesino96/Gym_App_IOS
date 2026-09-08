@@ -33,10 +33,10 @@ struct PRBadge: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: isConfirmed ? "diamond.fill" : "diamond")
-                .font(.system(size: 10))
+                .font(TrainingType.icon(10, weight: .regular))
                 .foregroundColor(
                     isConfirmed
-                        ? Color.dynamicAccent(theme: theme)
+                        ? Color.dynamicAccentText(theme: theme)
                         : Color.dynamicTextTertiary(theme: theme)
                 )
 

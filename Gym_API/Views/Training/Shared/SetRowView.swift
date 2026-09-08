@@ -175,8 +175,8 @@ struct SetRowView: View {
 
                 if set.isDone {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Color.dynamicAccent(theme: theme))
+                        .font(TrainingType.icon(14, weight: .bold))
+                        .foregroundColor(Color.dynamicAccentText(theme: theme))
                         .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                 }
                 // La activa NO lleva glifo: un check a media opacidad sobre el relleno de acento
@@ -263,7 +263,7 @@ struct SetRowView: View {
                 onDecrease()
             }) {
                 Image(systemName: "minus")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(TrainingType.icon(13, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .frame(width: 44, height: 44)
             }
@@ -283,7 +283,7 @@ struct SetRowView: View {
                 onIncrease()
             }) {
                 Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(TrainingType.icon(13, weight: .bold))
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .frame(width: 44, height: 44)
             }

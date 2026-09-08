@@ -113,7 +113,7 @@ struct WorkoutStoryShareSheet: View {
                         }
                         .frame(maxWidth: .infinity, minHeight: 50)
                         .overlay(
-                            Capsule().stroke(Color.dynamicAccent(theme: theme), lineWidth: 1.5)
+                            Capsule().stroke(Color.dynamicAccentText(theme: theme), lineWidth: 1.5)
                         )
                     }
                     .buttonStyle(.plain)

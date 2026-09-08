@@ -41,10 +41,10 @@ struct RecordCelebrationCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: celebration.isConfirmed ? "diamond.fill" : "diamond")
-                    .font(.system(size: 11))
+                    .font(TrainingType.icon(11, weight: .regular))
                     .foregroundColor(
                         celebration.isConfirmed
-                            ? Color.dynamicAccent(theme: theme)
+                            ? Color.dynamicAccentText(theme: theme)
                             : Color.dynamicTextTertiary(theme: theme)
                     )
 

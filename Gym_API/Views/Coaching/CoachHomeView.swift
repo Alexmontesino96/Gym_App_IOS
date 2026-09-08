@@ -291,8 +291,8 @@ struct CoachHomeView: View {
         }) {
             HStack(spacing: 12) {
                 Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 16))
-                    .foregroundColor(Color.dynamicAccent(theme: theme))
+                    .font(TrainingType.icon(16, weight: .regular))
+                    .foregroundColor(Color.dynamicAccentText(theme: theme))
                     .frame(width: 36, height: 36)
                     .background(Color.dynamicSurface2(theme: theme))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -310,7 +310,7 @@ struct CoachHomeView: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(TrainingType.icon(12, weight: .regular))
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
             .padding(14)
@@ -426,25 +426,25 @@ struct CoachHomeView: View {
         Button(action: onOpenNutrition) {
             HStack(spacing: 12) {
                 Image(systemName: "fork.knife")
-                    .font(.system(size: 16))
-                    .foregroundColor(Color.dynamicAccent(theme: theme))
+                    .font(TrainingType.icon(16, weight: .regular))
+                    .foregroundColor(Color.dynamicAccentText(theme: theme))
                     .frame(width: 36, height: 36)
                     .background(Color.dynamicSurface2(theme: theme))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Nutrition")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(TrainingType.icon(14, weight: .semibold))
                         .foregroundColor(Color.dynamicText(theme: theme))
                     Text("Meal plans your coach shares with you")
-                        .font(.system(size: 11))
+                        .font(TrainingType.icon(11, weight: .regular))
                         .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 }
 
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(TrainingType.icon(12, weight: .regular))
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
             .padding(14)
@@ -561,29 +561,29 @@ private struct NoUpcomingSessionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("YOUR NEXT SESSION")
-                .font(.system(size: 11, weight: .semibold))
+                .font(TrainingType.icon(11, weight: .semibold))
                 .tracking(0.8)
                 .foregroundColor(Color.dynamicTextTertiary(theme: themeManager.currentTheme))
 
             Text("No session booked")
-                .font(.system(size: 20, weight: .bold))
+                .font(TrainingType.icon(20, weight: .bold))
                 .tracking(-0.4)
                 .foregroundColor(Color.dynamicText(theme: themeManager.currentTheme))
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("When your trainer schedules your next one, it shows up here with the day, time and place.")
-                .font(.system(size: 14, weight: .regular))
+                .font(TrainingType.icon(14, weight: .regular))
                 .foregroundColor(Color.dynamicTextSecondary(theme: themeManager.currentTheme))
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: onSeeSessions) {
                 HStack(spacing: 6) {
                     Text("See my sessions")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(TrainingType.icon(13, weight: .semibold))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(TrainingType.icon(11, weight: .semibold))
                 }
-                .foregroundColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+                .foregroundColor(Color.dynamicAccentText(theme: themeManager.currentTheme))
             }
             .buttonStyle(.plain)
             .padding(.top, 2)

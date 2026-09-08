@@ -134,7 +134,7 @@ struct LastLogCardView: View {
                         .font(TrainingType.caption())
                         .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(TrainingType.icon(11, weight: .semibold))
                         .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 }
             }
@@ -169,8 +169,8 @@ struct LastLogCardView: View {
     private func recordLine(log: TrainingWorkoutLogSummary, record: TrainingTopRecord) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "diamond.fill")
-                .font(.system(size: 10))
-                .foregroundColor(Color.dynamicAccent(theme: theme))
+                .font(TrainingType.icon(10, weight: .regular))
+                .foregroundColor(Color.dynamicAccentText(theme: theme))
 
             Text(recordText(log: log, record: record))
                 .font(TrainingType.caption())
