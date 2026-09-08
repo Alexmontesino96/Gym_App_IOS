@@ -378,13 +378,23 @@ struct ClientDetailView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Igual que en el panel: lo que merece un vistazo se tiñe, pero la cifra y la palabra están
-    /// siempre, así que el color no es la única señal.
+    /// Lo que merece un vistazo lleva el mismo `▲` que las desviaciones de S22.
+    ///
+    /// La cifra y la palabra están siempre, pero eso no basta: «Sleep 2» y «Sleep 4» se escriben
+    /// igual, y lo que distingue a uno del otro —que este merece que preguntes— viajaba SOLO en
+    /// el color, tanto en pantalla como en VoiceOver, que decía «Sleep 2 out of 5» y nada más.
+    /// Es el punto 5 del checklist, el mismo que obliga a que `▲` nunca vaya solo en S22: aquí
+    /// pasaba lo contrario, que la palabra iba sin el triángulo.
     @ViewBuilder
     private func scalePill(_ label: String, _ value: Int?, lowIsBad: Bool) -> some View {
         if let value {
             let alert = lowIsBad ? value <= 2 : value >= 4
             HStack(spacing: 4) {
+                if alert {
+                    Image(systemName: "triangle.fill")
+                        .font(TrainingType.icon(8, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
                 Text(label)
                     .font(TrainingType.label())
                 Text("\(value)")
@@ -397,11 +407,15 @@ struct ClientDetailView: View {
             .background(
                 Capsule().fill(
                     alert
-                        ? Color.warningYellow.opacity(0.14)
+                        ? Color.dynamicWarningText(theme: theme).opacity(0.14)
                         : Color.dynamicSurface2(theme: theme)
                 )
             )
-            .accessibilityLabel("\(label) \(value) out of 5")
+            .accessibilityLabel(
+                alert
+                    ? "\(label) \(value) out of 5, worth a look"
+                    : "\(label) \(value) out of 5"
+            )
         }
     }
 

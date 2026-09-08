@@ -140,12 +140,16 @@ struct WeeklyProgramView: View {
                 .font(TrainingType.label())
                 // Menos tracking y un mínimo de escala más alto: al tamaño por defecto la línea
                 // «BLOCK 2 · UPPER STRENGTH · WEEKS 3–6» se partía en dos y el carrusel de
-                // semanas crecía el doble. En tamaños de accesibilidad sí puede ocupar dos.
+                // semanas crecía el doble.
                 .tracking(0.6)
                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
-                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                // El umbral es xxxLarge, no `isAccessibilitySize`, que empieza en AX1: en
+                // xxxLarge la línea ya no cabe y salía «BLOCK 2 · UPPER STRENGTH · WEE…»,
+                // perdiendo el rango de semanas, que es justo lo que el pill viene a decir.
+                // Mismo error que tenía la fila de métricas de W8 y S18.
+                .lineLimit(dynamicTypeSize >= .xxxLarge ? 3 : 1)
                 .minimumScaleFactor(0.85)
                 .accessibilityAddTraits(.isHeader)
 
