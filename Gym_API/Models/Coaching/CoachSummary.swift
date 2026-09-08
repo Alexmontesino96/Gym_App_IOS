@@ -90,6 +90,21 @@ struct CoachNote: Equatable {
     let text: String
     let sentAt: Date
 
+    /// El día al que pertenece la nota («Today», «Thursday»), cuando viene del programa.
+    ///
+    /// El último mensaje del chat no tiene día al que apuntar: se anuncia con su antigüedad. Una
+    /// nota escrita para el jueves sí, y esa es toda la diferencia entre «hace 2d», que solo
+    /// dice cuándo la escribió, y «Thursday», que dice para cuándo es.
+    var scheduledDayLabel: String? = nil
+
+    /// Cuántos días de antigüedad tolera una nota derivada del chat antes de dejar de presidir
+    /// la home. Sin esto, un «llego 10 minutos tarde» de hace un mes sigue siendo lo primero
+    /// que el cliente lee al abrir la app, y el entrenador no tiene forma de saberlo.
+    static let maxChatNoteAgeInDays = 7
+
+    /// Lo que se pinta en la esquina de la tarjeta.
+    var badge: String { scheduledDayLabel ?? relativeAge }
+
     /// «40m», «3h», «2d». Corto a propósito: va en la esquina de una tarjeta.
     var relativeAge: String {
         let seconds = max(0, Date().timeIntervalSince(sentAt))

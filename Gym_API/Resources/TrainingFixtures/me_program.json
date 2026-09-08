@@ -59,7 +59,8 @@
           "Bench press",
           "Cable row",
           "Incline press"
-        ]
+        ],
+        "has_note": false
       },
       {
         "day_number": 16,
@@ -74,7 +75,8 @@
           "Back squat",
           "Romanian deadlift",
           "Leg press"
-        ]
+        ],
+        "has_note": false
       },
       {
         "day_number": 17,
@@ -85,7 +87,8 @@
         "status": "rest",
         "exercise_count": 0,
         "log_id": null,
-        "exercise_preview": []
+        "exercise_preview": [],
+        "has_note": false
       },
       {
         "day_number": 18,
@@ -100,7 +103,8 @@
           "Bench press",
           "Cable row",
           "Curl"
-        ]
+        ],
+        "has_note": false
       },
       {
         "day_number": 19,
@@ -115,7 +119,8 @@
           "Deadlift",
           "Front squat",
           "Calf raise"
-        ]
+        ],
+        "has_note": true
       },
       {
         "day_number": 20,
@@ -130,7 +135,8 @@
           "Row erg",
           "Farmer carry",
           "Plank"
-        ]
+        ],
+        "has_note": false
       },
       {
         "day_number": 21,
@@ -141,7 +147,8 @@
         "status": "rest",
         "exercise_count": 0,
         "log_id": null,
-        "exercise_preview": []
+        "exercise_preview": [],
+        "has_note": false
       }
     ]
   },
@@ -213,5 +220,14 @@
       ],
       "last_pr": "2026-09-21T22:12:04.000000Z"
     }
-  ]
+  ],
+  "next_note": {
+    "id": 77,
+    "user_id": 3,
+    "author_id": 44,
+    "date": "2026-09-25",
+    "day_id": 19,
+    "text": "Lower B: keep two reps in reserve on the last set. Your knee felt tight on Monday.",
+    "read_at": null
+  }
 }

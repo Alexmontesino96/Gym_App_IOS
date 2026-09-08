@@ -98,6 +98,23 @@ struct CoachHomeView: View {
             ?? trainingService.strengthSummary.first
     }
 
+    /// Qué nota preside la tarjeta del coach.
+    ///
+    /// Gana la nota que el entrenador escribió para un día concreto, aunque ese día sea el
+    /// jueves que viene: la eligió a propósito y sabe dónde se lee. El último mensaje del chat
+    /// es solo el respaldo, porque nadie lo fijó y puede ser un «voy de camino».
+    private var noteForCoachCard: CoachNote? {
+        if let scheduled = trainingService.myProgram?.nextNote {
+            let today = CalendarDate(date: Date(), in: .current)
+            return CoachNote(
+                text: scheduled.text,
+                sentAt: scheduled.date.startOfDay(in: .current),
+                scheduledDayLabel: scheduled.dayLabel(today: today)
+            )
+        }
+        return coachingService.coachNote
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -140,7 +157,7 @@ struct CoachHomeView: View {
                         state: coachingService.coachState,
                         onMessageCoach: onOpenCoachChat,
                         onRetry: { Task { await loadCoachAndNote(forceRefresh: true) } },
-                        note: coachingService.coachNote
+                        note: noteForCoachCard
                     )
 
                     if isTrainingEnabled {

@@ -19,12 +19,18 @@ public struct MyProgramResponse: Codable, Hashable, Sendable {
     public let lastLog: TrainingWorkoutLogSummary?
     public let coachActivity: TrainingCoachActivity?
     public let focusLifts: [StrengthSummaryItem]
+    /// La nota del entrenador más próxima, de hoy en adelante y dentro de una semana.
+    ///
+    /// Existe porque una nota escrita para el jueves no llegaba al cliente hasta el jueves: las
+    /// notas lejanas no mandan aviso a propósito, y hasta ahora tampoco se veían en ningún sitio.
+    public let nextNote: TrainingClientDayNote?
 
     public enum CodingKeys: String, CodingKey {
         case assignment, program, current, week, coach
         case lastLog = "last_log"
         case coachActivity = "coach_activity"
         case focusLifts = "focus_lifts"
+        case nextNote = "next_note"
     }
 
     public init(
@@ -35,7 +41,8 @@ public struct MyProgramResponse: Codable, Hashable, Sendable {
         coach: TrainingPerson? = nil,
         lastLog: TrainingWorkoutLogSummary? = nil,
         coachActivity: TrainingCoachActivity? = nil,
-        focusLifts: [StrengthSummaryItem] = []
+        focusLifts: [StrengthSummaryItem] = [],
+        nextNote: TrainingClientDayNote? = nil
     ) {
         self.assignment = assignment
         self.program = program
@@ -45,6 +52,7 @@ public struct MyProgramResponse: Codable, Hashable, Sendable {
         self.lastLog = lastLog
         self.coachActivity = coachActivity
         self.focusLifts = focusLifts
+        self.nextNote = nextNote
     }
 
     public init(from decoder: Decoder) throws {
@@ -57,6 +65,7 @@ public struct MyProgramResponse: Codable, Hashable, Sendable {
         lastLog = try container.decodeIfPresent(TrainingWorkoutLogSummary.self, forKey: .lastLog)
         coachActivity = try container.decodeIfPresent(TrainingCoachActivity.self, forKey: .coachActivity)
         focusLifts = try container.decodeIfPresent([StrengthSummaryItem].self, forKey: .focusLifts) ?? []
+        nextNote = try container.decodeIfPresent(TrainingClientDayNote.self, forKey: .nextNote)
     }
 
     /// El cliente tiene programa publicado y activo.

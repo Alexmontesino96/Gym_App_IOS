@@ -481,6 +481,9 @@ public struct TrainingWeekDay: Codable, Hashable, Identifiable, Sendable {
     public let logId: Int?
     /// Tres nombres de ejercicio para la vista de semana (S12).
     public let exercisePreview: [String]
+    /// El entrenador escribió una nota para este día. Solo el hecho: el texto se lee en el día
+    /// o en la tarjeta del coach, porque una fila de siete no tiene sitio para un párrafo.
+    public let hasNote: Bool
 
     public var id: Int { dayNumber }
 
@@ -492,6 +495,7 @@ public struct TrainingWeekDay: Codable, Hashable, Identifiable, Sendable {
         case exerciseCount = "exercise_count"
         case logId = "log_id"
         case exercisePreview = "exercise_preview"
+        case hasNote = "has_note"
     }
 
     public init(
@@ -503,7 +507,8 @@ public struct TrainingWeekDay: Codable, Hashable, Identifiable, Sendable {
         status: TrainingDayStatus = .pending,
         exerciseCount: Int = 0,
         logId: Int? = nil,
-        exercisePreview: [String] = []
+        exercisePreview: [String] = [],
+        hasNote: Bool = false
     ) {
         self.dayNumber = dayNumber
         self.date = date
@@ -514,6 +519,7 @@ public struct TrainingWeekDay: Codable, Hashable, Identifiable, Sendable {
         self.exerciseCount = exerciseCount
         self.logId = logId
         self.exercisePreview = exercisePreview
+        self.hasNote = hasNote
     }
 
     public init(from decoder: Decoder) throws {
@@ -527,6 +533,9 @@ public struct TrainingWeekDay: Codable, Hashable, Identifiable, Sendable {
         exerciseCount = try container.decodeIfPresent(Int.self, forKey: .exerciseCount) ?? 0
         logId = try container.decodeIfPresent(Int.self, forKey: .logId)
         exercisePreview = try container.decodeIfPresent([String].self, forKey: .exercisePreview) ?? []
+        // Ausente significa apagado, no desconocido: un backend anterior a este campo no tiene
+        // forma de saber si hay nota, y pintar el punto sin datos sería inventárselo.
+        hasNote = try container.decodeIfPresent(Bool.self, forKey: .hasNote) ?? false
     }
 
     public var weekNumber: Int { WeekMath.weekNumber(forDayNumber: dayNumber) }

@@ -253,7 +253,15 @@ final class CoachingService: ObservableObject {
                 .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 .sorted { $0.timestamp > $1.timestamp }
 
-            if let latest = fromCoach.first {
+            // Con tope de antigüedad. Esta nota NO la fija nadie: es el último mensaje que el
+            // entrenador escribió, así que un «llego 10 minutos tarde» se queda presidiendo la
+            // home del cliente hasta que él vuelva a escribir, y él no sabe que eso ocurre.
+            // Pasada una semana deja de ser una nota y es un residuo.
+            let cutoff = Calendar.current.date(
+                byAdding: .day, value: -CoachNote.maxChatNoteAgeInDays, to: Date()
+            ) ?? .distantPast
+
+            if let latest = fromCoach.first, latest.timestamp > cutoff {
                 coachNote = CoachNote(text: latest.text, sentAt: latest.timestamp)
             } else {
                 coachNote = nil

@@ -37,7 +37,7 @@ struct CoachCardView: View {
                 Spacer(minLength: 8)
 
                 if let note {
-                    Text(note.relativeAge)
+                    Text(note.badge)
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                 }

@@ -29,6 +29,10 @@ enum TrainingGalleryScenario: String, CaseIterable {
     case w6
     case w8
     case coachAck = "coachack"
+    /// La tarjeta del coach con una nota escrita para un día que todavía no ha llegado. Es el
+    /// único sitio donde se ve esa nota, y no se puede provocar sin backend: la fixture
+    /// `me_program.json` trae `next_note` para el día siguiente al de su «hoy».
+    case coachNote = "coachnote"
     case group
     case s11
     case s11Empty = "s11-empty"
@@ -166,7 +170,7 @@ struct TrainingGalleryView: View {
     @ViewBuilder
     private var content: some View {
         switch scenario {
-        case .w4, .w4Error, .w6, .w8, .coachAck, .group:
+        case .w4, .w4Error, .w6, .w8, .coachAck, .coachNote, .group:
             widgetGallery
         case .s11, .s11Empty, .s11Offline, .s11Heavy:
             sessionLog
@@ -252,6 +256,13 @@ struct TrainingGalleryView: View {
     /// El jueves del wireframe de S23.
     static let galleryNoteDate = CalendarDate(year: 2026, month: 9, day: 24)
 
+    /// El «hoy» del marco de las fixtures, que es el día en curso de `me_program.json`.
+    ///
+    /// Las capturas se hacen cualquier día, y la etiqueta de la nota («Today», «Tomorrow») se
+    /// calcula contra hoy: sin fijar esta fecha, la misma pantalla saldría distinta cada mañana
+    /// y la matriz de capturas dejaría de ser comparable.
+    static let galleryToday = CalendarDate(year: 2026, month: 9, day: 24)
+
     /// El check-in que la ficha del cliente reutiliza del panel del entrenador.
     static let galleryCheckIn = ClientCheckIn(
         client: ClientSummary(
@@ -307,6 +318,31 @@ struct TrainingGalleryView: View {
                     if let activity = trainingService.myProgram?.coachActivity {
                         CoachAckCardView(activity: activity, onReply: {}, onThank: { true })
                     }
+                case .coachNote:
+                    // La misma precedencia que aplica la home: si hay nota del programa, gana
+                    // sobre el último mensaje del chat, y se anuncia con su día.
+                    let scheduled = trainingService.myProgram?.nextNote
+                    CoachCardView(
+                        coach: CoachSummary(
+                            id: 44,
+                            fullName: "Marcus Hale",
+                            email: nil,
+                            pictureURL: nil,
+                            bio: "Strength and conditioning"
+                        ),
+                        state: .loaded,
+                        onMessageCoach: {},
+                        onRetry: {},
+                        note: scheduled.map {
+                            CoachNote(
+                                text: $0.text,
+                                sentAt: $0.date.startOfDay(in: .current),
+                                scheduledDayLabel: $0.dayLabel(
+                                    today: Self.galleryToday
+                                )
+                            )
+                        }
+                    )
                 case .group:
                     if let group = trainingService.groupToday {
                         GroupTodayCardView(

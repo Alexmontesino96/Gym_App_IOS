@@ -328,10 +328,20 @@ private struct DayRow: View {
                     .minimumScaleFactor(0.6)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(day.isRest ? "Rest" : (day.name ?? "Session"))
-                        .font(TrainingType.headline())
-                        .foregroundColor(Color.dynamicText(theme: theme))
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 6) {
+                        Text(day.isRest ? "Rest" : (day.name ?? "Session"))
+                            .font(TrainingType.headline())
+                            .foregroundColor(Color.dynamicText(theme: theme))
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        // Un icono y no un punto de color: el punto obliga a distinguir un tono
+                        // sobre la tarjeta, y aquí lo que hay que entender es «hay algo escrito».
+                        if day.hasNote {
+                            Image(systemName: "text.bubble.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                        }
+                    }
 
                     if let preview, !day.isRest {
                         Text(preview)
@@ -428,6 +438,11 @@ private struct DayRow: View {
         }
         if day.status != .done && !day.isRest {
             parts.append("Not started.")
+        }
+        // El icono de nota es información, no adorno: sin esto VoiceOver no la anuncia y quien
+        // navega con lector se pierde justo lo que su entrenador le escribió.
+        if day.hasNote {
+            parts.append("Has a note from your trainer.")
         }
         return parts.joined(separator: " ")
     }

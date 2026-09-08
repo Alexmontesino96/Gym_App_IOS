@@ -107,6 +107,28 @@ public struct TrainingClientDayNote: Codable, Hashable, Identifiable, Sendable {
     }
 
     public var isUnread: Bool { readAt == nil }
+
+    /// Cómo se anuncia el día de esta nota en la tarjeta del coach: «Today», «Tomorrow» o el
+    /// nombre del día. Nada de fechas con números: la nota vive dentro de la semana en curso y
+    /// «Thursday» se entiende sin traducir mentalmente un 11.
+    ///
+    /// `today` es un parámetro, y no `CalendarDate(date: Date(), in: .current)`, porque una
+    /// función que lee el reloj por dentro no se puede probar.
+    public func dayLabel(today: CalendarDate, locale: Locale = .current) -> String {
+        let distance = date.days(since: today)
+        if distance == 0 { return "Today" }
+        if distance == 1 { return "Tomorrow" }
+
+        // Más allá de una semana el nombre del día deja de ser único y engaña: «Thursday»
+        // podría ser el de dentro de dos semanas. Ahí sí gana la fecha.
+        guard distance > 1, distance <= 6 else { return date.iso }
+
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.dateFormat = "EEEE"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        return formatter.string(from: date.startOfDay(in: TimeZone(identifier: "UTC") ?? .current))
+    }
 }
 
 // MARK: - Acuse del coach sobre un registro
