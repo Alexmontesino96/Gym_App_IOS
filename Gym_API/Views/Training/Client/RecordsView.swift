@@ -382,7 +382,11 @@ private struct RecordDetailSheet: View {
                     }
 
                     HStack(spacing: 10) {
-                        if let onShare {
+                        // Plan §8.7: en un espacio de entrenador personal no se comparte, aunque
+                        // el módulo `stories` esté encendido; sin contexto del espacio tampoco
+                        // (falla cerrada). Se comprueba aquí además de en quien pasa el cierre
+                        // porque esta hoja se puede abrir desde más de un sitio.
+                        if let onShare, TrainingShareAvailability.isAvailable(module: "stories") {
                             Button(action: {
                                 HapticManager.shared.play(.light)
                                 onShare(record)
