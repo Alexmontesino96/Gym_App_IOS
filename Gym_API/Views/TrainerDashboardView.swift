@@ -26,6 +26,7 @@ struct TrainerDashboardView: View {
     @EnvironmentObject var classService: ClassService
     @EnvironmentObject var coachingService: CoachingService
     @EnvironmentObject var trainingService: TrainingService
+    @EnvironmentObject var healthService: HealthService
     @StateObject private var profileService = UserProfileService.shared
 
     /// Navegación de pestañas, que la posee TrainerMainTabView.
@@ -34,6 +35,8 @@ struct TrainerDashboardView: View {
 
     @State private var now = Date()
     @State private var path = NavigationPath()
+    /// El check-in que se está respondiendo (plan §8.5), aparte de cualquier otra hoja del panel.
+    @State private var replyTarget: ClientCheckIn?
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
@@ -78,6 +81,7 @@ struct TrainerDashboardView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     header
                     todaySection
+                    if isTrainingEnabled { needsAttentionSection }
                     if isTrainingEnabled { toReviewSection }
                     weekStrip
                     checkInsSection
@@ -93,6 +97,13 @@ struct TrainerDashboardView: View {
             }
             .task { await load() }
             .refreshable { await load(force: true) }
+            .sheet(item: $replyTarget) { item in
+                CheckInReplySheet(client: item.client, checkIn: item.checkIn) { updated in
+                    coachingService.applyCheckInReply(updated, clientId: item.client.id)
+                }
+                .environmentObject(themeManager)
+                .environmentObject(healthService)
+            }
             .onReceive(clock) { now = $0 }
             .onReceive(NotificationCenter.default.publisher(for: .trainingOpenLog)) { notification in
                 // Deep link `training/logs/{id}` del push «Dana finished Upper A» (plan §7.1).
@@ -108,6 +119,21 @@ struct TrainerDashboardView: View {
     /// Misma fuente que la home del cliente (`WorkspaceFeatures.training`, plan §8.2).
     private var isTrainingEnabled: Bool {
         workspaceContext.isFeatureEnabled(\.training)
+    }
+
+    // MARK: - Needs attention (visión §8.3, GET /clients/summary)
+
+    /// Va encima de «To review» a propósito: el buzón enseña lo que tus clientes hicieron; esto,
+    /// a quien no está haciendo nada, que es lo que hace perder clientes.
+    private var needsAttentionSection: some View {
+        NeedsAttentionSection(
+            onSeeAll: onGoToClients,
+            onOpenClient: { client in
+                path.append(TrainerTrainingRoute.clientDetail(
+                    TrainingClientRef(id: client.userId, name: client.fullName, pictureURL: client.pictureURL)
+                ))
+            }
+        )
     }
 
     // MARK: - To review (plan §6.2, GET /inbox)
@@ -441,6 +467,32 @@ struct TrainerDashboardView: View {
                 scalePill("Sleep", item.checkIn.sleep, lowIsBad: true)
                 scalePill("Soreness", item.checkIn.soreness, lowIsBad: false)
             }
+
+            if let reply = item.checkIn.coachReply?.trimmingCharacters(in: .whitespacesAndNewlines), !reply.isEmpty {
+                Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
+                Text("Your reply")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                Text(reply)
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                HapticManager.shared.play(.selection)
+                replyTarget = item
+            } label: {
+                Text(item.checkIn.coachReply == nil ? "Reply" : "Edit reply")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .overlay(Capsule().stroke(Color.dynamicBorder(theme: theme).opacity(0.4), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens a text field to reply to \(item.client.displayName)'s check-in.")
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -556,7 +608,8 @@ struct TrainerDashboardView: View {
         async let stats: Void = loadStats(force: force)
         async let sessions: Void = classService.loadSessionsForDateIfNeeded(date: Date())
         async let inbox: Void = loadInbox()
-        _ = await (stats, sessions, inbox)
+        async let attention: Void = loadClientsSummary()
+        _ = await (stats, sessions, inbox, attention)
 
         // El roster necesita las sesiones ya cargadas; los check-ins, la lista de clientes.
         async let roster: Void = coachingService.loadTodayRoster(from: classService.sessions)
@@ -568,6 +621,13 @@ struct TrainerDashboardView: View {
     private func loadInbox() async {
         guard isTrainingEnabled else { return }
         await trainingService.fetchInbox()
+    }
+
+    /// Falla cerrado igual que el buzón: sin el módulo, la ruta responde 403 y la sección ni se
+    /// pinta, así que tampoco se pide.
+    private func loadClientsSummary() async {
+        guard isTrainingEnabled else { return }
+        await trainingService.fetchClientsSummary()
     }
 
     private func loadStats(force: Bool) async {

@@ -88,8 +88,11 @@ final class TrainingService: ObservableObject {
     @Published var inboxHasMore = false
     /// `GET /clients/{id}/day-notes?recent=5`: la lista RECENT de S23.
     @Published var recentDayNotes: [TrainingClientDayNote] = []
+    /// `GET /clients/summary`: el triage de la mañana (visión §8.3). Nulo mientras no ha llegado.
+    @Published private(set) var clientsSummary: TrainingClientsSummary?
 
     @Published var programsState: LoadState = .idle
+    @Published private(set) var clientsSummaryState: LoadState = .idle
     @Published var programDetailState: LoadState = .idle
     @Published var programDaysState: LoadState = .idle
     @Published var clientProgramsState: LoadState = .idle
@@ -470,6 +473,40 @@ final class TrainingService: ObservableObject {
         } catch {
             groupState = .failed
             report(error, endpoint: "group/today")
+        }
+    }
+
+    // MARK: - Lectura · triage del entrenador (visión §8.3)
+
+    /// `GET /training/clients/summary`. Quién falló, quién lleva días callado, quién debe el
+    /// check-in y a quién no se le ha revisado nada.
+    ///
+    /// Vive aquí y no en `TrainingService+Staff.swift` porque escribe una propiedad con
+    /// `private(set)`, y Swift ampara ese modificador al FICHERO. Sigue el mismo patrón que el
+    /// resto de lecturas: `LoadState` propio, `stillCurrent` contra el espacio esperado y ni un
+    /// toque a `saveErrorMessage`, que es de las escrituras.
+    ///
+    /// El servidor ya manda la lista ordenada (razones ↓, `days_silent` ↓, nombre): la interfaz
+    /// no reordena nada, solo corta.
+    func fetchClientsSummary(expecting gymId: Int? = nil) async {
+        #if DEBUG
+        // La galería ya tiene el fixture puesto; salir a la red lo machacaría con un error.
+        if isGalleryMode { return }
+        #endif
+        let expected = gymId ?? GymService.shared.currentGymId
+        clientsSummaryState = .loading
+
+        guard let data = await get("/training/clients/summary") else {
+            if stillCurrent(expected) { clientsSummaryState = .failed }
+            return
+        }
+        guard stillCurrent(expected) else { return }
+        do {
+            clientsSummary = try decoder.decode(TrainingClientsSummary.self, from: data)
+            clientsSummaryState = .loaded
+        } catch {
+            clientsSummaryState = .failed
+            report(error, endpoint: "clients/summary")
         }
     }
 

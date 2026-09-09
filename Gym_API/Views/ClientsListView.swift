@@ -29,15 +29,61 @@ struct ClientsListView: View {
     @State private var searchText = ""
     @State private var showingInvite = false
     @State private var path = NavigationPath()
+    @State private var filter: ClientsFilter = .all
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
+    /// El filtro de la visión §8.3. «All» es lo de siempre; «Needs attention» deja solo a quien
+    /// el servidor ha marcado con alguna razón.
+    private enum ClientsFilter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case needsAttention = "Needs attention"
+
+        var id: String { rawValue }
+    }
+
+    /// El módulo puede estar apagado en el espacio: sin él no hay resumen, y sin resumen no hay
+    /// ni segunda línea ni filtro. Falla cerrado, como el resto del módulo.
+    private var isTrainingEnabled: Bool {
+        workspaceContext.isFeatureEnabled(\.training)
+    }
+
+    private var summary: TrainingClientsSummary? {
+        isTrainingEnabled ? trainingService.clientsSummary : nil
+    }
+
+    private func attentionSummary(for client: ClientSummary) -> TrainingClientSummary? {
+        summary?.client(withId: client.id)
+    }
+
+    /// El orden de severidad lo decide el SERVIDOR (razones ↓, `days_silent` ↓, nombre). Aquí
+    /// solo se respeta: reordenar en el teléfono daría dos listas distintas para los mismos datos.
+    private var attentionOrder: [Int: Int] {
+        guard let flagged = summary?.needingAttention else { return [:] }
+        return Dictionary(uniqueKeysWithValues: flagged.enumerated().map { ($0.element.userId, $0.offset) })
+    }
+
     private var filteredClients: [ClientSummary] {
-        guard !searchText.isEmpty else { return coachingService.clients }
-        return coachingService.clients.filter { client in
-            client.displayName.localizedCaseInsensitiveContains(searchText)
-                || (client.email?.localizedCaseInsensitiveContains(searchText) ?? false)
+        var clients = coachingService.clients
+
+        if !searchText.isEmpty {
+            clients = clients.filter { client in
+                client.displayName.localizedCaseInsensitiveContains(searchText)
+                    || (client.email?.localizedCaseInsensitiveContains(searchText) ?? false)
+            }
         }
+
+        guard filter == .needsAttention, summary != nil else { return clients }
+        let order = attentionOrder
+        return clients
+            .filter { order[$0.id] != nil }
+            .sorted { (order[$0.id] ?? .max) < (order[$1.id] ?? .max) }
+    }
+
+    /// Cuántos hay marcados, para la píldora del filtro. Nulo mientras el resumen no ha llegado:
+    /// un cero afirmaría que nadie necesita nada.
+    private var attentionCount: Int? {
+        summary?.needingAttention.count
     }
 
     var body: some View {
@@ -47,6 +93,7 @@ struct ClientsListView: View {
 
                 if !coachingService.clients.isEmpty {
                     searchBar
+                    if isTrainingEnabled { filterPicker }
                 }
 
                 content
@@ -68,8 +115,8 @@ struct ClientsListView: View {
             .navigationDestination(for: TrainerTrainingRoute.self) { route in
                 TrainerTrainingDestination(route: route, path: $path, onMessage: onGoToMessages)
             }
-            .task { await coachingService.loadClients() }
-            .refreshable { await coachingService.loadClients(forceRefresh: true) }
+            .task { await load() }
+            .refreshable { await load(force: true) }
             .sheet(isPresented: $showingInvite, onDismiss: {
                 // El cliente puede haber canjeado ya; se refresca para que aparezca.
                 Task { await coachingService.loadClients(forceRefresh: true) }
@@ -146,6 +193,53 @@ struct ClientsListView: View {
         .padding(.bottom, 12)
     }
 
+    // MARK: - Carga
+
+    /// La pertenencia y el triage se piden a la vez: la fila necesita las dos cosas y esperar
+    /// una detrás de otra dejaría la segunda línea vacía medio segundo.
+    private func load(force: Bool = false) async {
+        async let clients: Void = coachingService.loadClients(forceRefresh: force)
+        async let attention: Void = loadClientsSummary()
+        _ = await (clients, attention)
+    }
+
+    /// Falla cerrado: sin el módulo, la ruta responde 403 y no hay nada que pedir.
+    private func loadClientsSummary() async {
+        guard isTrainingEnabled else { return }
+        await trainingService.fetchClientsSummary()
+    }
+
+    // MARK: - Filtro (visión §8.3)
+
+    /// «Needs attention (3)» cuando se sabe cuántos son; solo el nombre mientras no ha llegado
+    /// el resumen.
+    private func label(for option: ClientsFilter) -> String {
+        guard option == .needsAttention, let attentionCount, attentionCount > 0 else { return option.rawValue }
+        return "\(option.rawValue) (\(attentionCount))"
+    }
+
+    private var filterPicker: some View {
+        VStack(spacing: 8) {
+            Picker("Filter", selection: $filter) {
+                ForEach(ClientsFilter.allCases) { option in
+                    Text(label(for: option)).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            // El resumen no cargó: se dice, y la lista sigue estando entera debajo.
+            if trainingService.clientsSummaryState == .failed && summary == nil {
+                TrainingRetryRow(
+                    message: "Couldn't load who needs attention.",
+                    retryTitle: "Retry",
+                    onRetry: { Task { await trainingService.fetchClientsSummary() } }
+                )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
     // MARK: - Contenido
 
     @ViewBuilder
@@ -169,7 +263,7 @@ struct ClientsListView: View {
             LazyVStack(spacing: 10) {
                 ForEach(filteredClients) { client in
                     NavigationLink(value: TrainerTrainingRoute.clientDetail(TrainingClientRef(client: client))) {
-                        ClientRowView(client: client)
+                        ClientRowView(client: client, summary: attentionSummary(for: client))
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Opens the client's programs and logs.")
@@ -224,25 +318,59 @@ struct ClientsListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// El filtro está puesto y no queda nadie: la buena noticia, no un error. Con una búsqueda
+    /// escrita no aplica: ahí el vacío es de la búsqueda, y decir «everyone's on track» mentiría.
+    private var isAllClearEmpty: Bool {
+        filter == .needsAttention && searchText.isEmpty && summary != nil && !coachingService.clients.isEmpty
+    }
+
+    private var emptyIcon: String {
+        if isAllClearEmpty { return "checkmark.circle" }
+        return searchText.isEmpty ? "person.2" : "magnifyingglass"
+    }
+
+    private var emptyTitle: String {
+        if isAllClearEmpty { return "Everyone's on track" }
+        return searchText.isEmpty ? "No clients yet" : "No results"
+    }
+
+    private var emptyMessage: String {
+        if isAllClearEmpty {
+            return "Nobody has missed a session, gone quiet or left a check-in pending."
+        }
+        return searchText.isEmpty
+            ? "Create an invitation code and share it with your first client."
+            : "Try another name or email."
+    }
+
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: searchText.isEmpty ? "person.2" : "magnifyingglass")
+            Image(systemName: emptyIcon)
                 .font(.system(size: 36, weight: .light))
                 .foregroundColor(Color.dynamicTextTertiary(theme: theme))
 
-            Text(searchText.isEmpty ? "No clients yet" : "No results")
+            Text(emptyTitle)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(Color.dynamicText(theme: theme))
 
-            Text(searchText.isEmpty
-                 ? "Create an invitation code and share it with your first client."
-                 : "Try another name or email.")
+            Text(emptyMessage)
                 .font(.system(size: 14))
                 .foregroundColor(Color.dynamicTextSecondary(theme: theme))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if searchText.isEmpty {
+            if isAllClearEmpty {
+                Button { filter = .all } label: {
+                    Text("Show all clients")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(ThemeManager.accentInkForCurrentAccent(theme: theme))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.dynamicAccent(theme: theme)))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            } else if searchText.isEmpty {
                 Button { showingInvite = true } label: {
                     Text("Invite a client")
                         .font(.system(size: 14, weight: .semibold))
@@ -264,6 +392,9 @@ struct ClientsListView: View {
 
 private struct ClientRowView: View {
     let client: ClientSummary
+    /// Lo que el triage sabe de este cliente. Nulo con el módulo apagado o mientras carga: la
+    /// fila vuelve entonces a ser la de siempre, sin inventarse un estado.
+    var summary: TrainingClientSummary?
 
     @EnvironmentObject var themeManager: ThemeManager
 
@@ -273,6 +404,25 @@ private struct ClientRowView: View {
         guard let joined = client.joinedAt else { return nil }
         let formatter = DateFormatter.localized(template: "MMMyyyy")
         return "Since \(formatter.string(from: joined))"
+    }
+
+    /// La segunda línea: «Trained yesterday · 71% adherence». Sin resumen, lo de antes.
+    private var secondLine: String? {
+        summary?.statusLine ?? client.email ?? joinedText
+    }
+
+    /// Solo quien tiene razones lleva chips. Al que va bien no se le pone nada: la ausencia de
+    /// marca es la buena noticia (visión §8.3).
+    private var attentionTexts: [String] {
+        summary?.attentionTexts ?? []
+    }
+
+    /// Lo que oye VoiceOver: nombre, cómo va y por qué mirarlo, en una sola frase.
+    private var accessibilityText: String {
+        var parts = [client.displayName]
+        if let secondLine, !secondLine.isEmpty { parts.append(secondLine) }
+        if let summary, summary.needsAttention { parts.append(summary.attentionText) }
+        return parts.joined(separator: ". ")
     }
 
     var body: some View {
@@ -285,22 +435,28 @@ private struct ClientRowView: View {
                     .foregroundColor(Color.dynamicText(theme: theme))
                     .lineLimit(1)
 
-                if let detail = client.email ?? joinedText {
-                    Text(detail)
+                if let secondLine {
+                    Text(secondLine)
                         .font(.system(size: 12))
                         .foregroundColor(Color.dynamicTextTertiary(theme: theme))
                         .lineLimit(1)
+                }
+
+                if !attentionTexts.isEmpty {
+                    attentionChips
                 }
             }
 
             Spacer(minLength: 0)
 
-            if let joinedText, client.email != nil {
+            if summary == nil, let joinedText, client.email != nil {
                 Text(joinedText)
                     .font(.system(size: 11))
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
         .padding(14)
         .background(Color.dynamicSurface(theme: theme))
         .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -308,6 +464,33 @@ private struct ClientRowView: View {
             RoundedRectangle(cornerRadius: 22)
                 .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
         )
+    }
+
+    /// Tres caben en la fila con el tipo grande; el resto se cuenta. VoiceOver las lee todas,
+    /// que para eso `accessibilityText` no recorta.
+    private static let maxChips = 3
+
+    /// Las razones, una píldora cada una, en la tinta de aviso del tema (nunca `warningYellow`
+    /// crudo: en tema claro no se lee).
+    private var attentionChips: some View {
+        HStack(spacing: 6) {
+            ForEach(attentionTexts.prefix(Self.maxChips), id: \.self) { text in
+                Text(text)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Color.dynamicWarningText(theme: theme))
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.dynamicWarningText(theme: theme).opacity(0.14)))
+            }
+
+            if attentionTexts.count > Self.maxChips {
+                Text("+\(attentionTexts.count - Self.maxChips)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            }
+        }
+        .padding(.top, 2)
     }
 
     private var avatar: some View {
