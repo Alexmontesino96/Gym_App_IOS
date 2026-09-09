@@ -25,6 +25,7 @@ struct WorkspaceContext: Codable {
     /// sabe nada, que es distinto de saber que está apagado. `GymService` falla cerrado en ese
     /// caso, igual que hacía cuando la respuesta de módulos no llegaba.
     let activeModules: [String]?
+    var ptEvents: PTEventsState?
 
     enum CodingKeys: String, CodingKey {
         case workspace, terminology, features, navigation, branding, environment
@@ -32,6 +33,7 @@ struct WorkspaceContext: Codable {
         case userContext = "user_context"
         case apiVersion = "api_version"
         case activeModules = "active_modules"
+        case ptEvents = "pt_events"
     }
 }
 

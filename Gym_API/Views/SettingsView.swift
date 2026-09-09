@@ -10,6 +10,7 @@ struct SettingsView: View {
     @ObservedObject private var membershipService = MembershipService.shared
     @StateObject private var oneSignalService = OneSignalService.shared
     @StateObject private var gymService = GymService.shared
+    @ObservedObject private var workspaceContext = WorkspaceContextService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showingMyGym = false
     // Removed bulk registration from Settings; entry now only from event actions
@@ -37,6 +38,14 @@ struct SettingsView: View {
                         
                         // Settings Sections
                         VStack(spacing: 16) {
+                            if isPTAdmin {
+                                NavigationLink {
+                                    CoachingEventsSettingsView()
+                                } label: {
+                                    CoachingEventsSettingsRow(isEnabled: workspaceContext.showsPTEvents)
+                                }
+                                .buttonStyle(.plain)
+                            }
                             // Gym Section
                             GymSection(
                                 gymService: gymService,
@@ -85,6 +94,7 @@ struct SettingsView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .task { await workspaceContext.fetchContext(forceRefresh: true) }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { dismiss() }) {
@@ -136,6 +146,11 @@ struct SettingsView: View {
             }
         }
         
+    }
+
+    private var isPTAdmin: Bool {
+        (workspaceContext.isPersonalTrainer || gymService.currentGym?.type == "personal_trainer")
+            && RolePermissions.isAdminLevel(gymService.currentGym?.userRoleInGym)
     }
 }
 

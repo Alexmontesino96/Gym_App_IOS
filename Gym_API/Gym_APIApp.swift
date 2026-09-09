@@ -18,7 +18,7 @@ struct Gym_APIApp: App {
         // pide el permiso de notificaciones en el arranque: el diálogo del sistema saldría encima
         // de cada captura. Pedir autorización PROVISIONAL no abre ningún diálogo y deja el estado
         // fuera de `notDetermined`, que es lo que dispara el prompt.
-        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+        if TrainingGalleryScenario.fromLaunchArguments() != nil || CoachingEventsGalleryView.isActive {
             UNUserNotificationCenter.current().requestAuthorization(
                 options: [.alert, .sound, .badge, .provisional]
             ) { _, _ in }
@@ -56,7 +56,7 @@ struct Gym_APIApp: App {
                     // En la galería de revisión no hay sesión ni permisos que pedir: arrancar
                     // OneSignal pintaría el diálogo del sistema encima de cada captura, y
                     // `checkAuthStatus()` limpiaría los fixtures al no encontrar credenciales.
-                    if TrainingGalleryScenario.fromLaunchArguments() != nil {
+                    if TrainingGalleryScenario.fromLaunchArguments() != nil || CoachingEventsGalleryView.isActive {
                         AppEnvironment.validateConfiguration()
                         return
                     }
@@ -88,7 +88,7 @@ struct Gym_APIApp: App {
     /// apariencia del simulador.
     private var preferredScheme: ColorScheme? {
         #if DEBUG
-        if TrainingGalleryScenario.fromLaunchArguments() != nil { return nil }
+        if TrainingGalleryScenario.fromLaunchArguments() != nil || CoachingEventsGalleryView.isActive { return nil }
         #endif
         return serviceContainer.themeManager.currentTheme == .dark ? .dark : .light
     }
@@ -109,7 +109,9 @@ struct Gym_APIApp: App {
     @ViewBuilder
     private var rootView: some View {
         #if DEBUG
-        if let scenario = TrainingGalleryScenario.fromLaunchArguments() {
+        if CoachingEventsGalleryView.isActive {
+            CoachingEventsGalleryView()
+        } else if let scenario = TrainingGalleryScenario.fromLaunchArguments() {
             TrainingGalleryView(scenario: scenario)
         } else {
             AuthenticatedView()

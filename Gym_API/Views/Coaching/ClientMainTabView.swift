@@ -17,6 +17,8 @@ import SwiftUI
 
 struct ClientMainTabView: View {
     @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var workspaceContext: WorkspaceContextService
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var profileService = UserProfileService.shared
     @StateObject private var unreadCountService = UnreadCountService.shared
 
@@ -26,7 +28,7 @@ struct ClientMainTabView: View {
     @State private var pendingEventChat: Event?
 
     private enum Tab: Hashable {
-        case home, sessions, messages, profile
+        case home, sessions, events, messages, profile
     }
 
     var body: some View {
@@ -56,6 +58,15 @@ struct ClientMainTabView: View {
             }
             .tag(Tab.sessions)
 
+            if workspaceContext.showsPTEvents {
+                CoachingEventsView(isCoach: false)
+                    .tabItem {
+                        Image(systemName: selectedTab == .events ? "calendar.circle.fill" : "calendar.circle")
+                        Text("Events")
+                    }
+                    .tag(Tab.events)
+            }
+
             AnimatedTabContent(isSelected: selectedTab == .messages) {
                 SocialFeedView(pendingEventChat: $pendingEventChat, showsFeed: false, initialTab: .chats, singleContact: true)
             }
@@ -76,6 +87,12 @@ struct ClientMainTabView: View {
             .tag(Tab.profile)
         }
         .accentColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+        .onChange(of: workspaceContext.showsPTEvents) { _, enabled in
+            if !enabled && selectedTab == .events { selectedTab = .home }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await workspaceContext.fetchContext(forceRefresh: true) } }
+        }
         .onChange(of: selectedTab) { _, _ in
             HapticManager.shared.buttonTap()
         }

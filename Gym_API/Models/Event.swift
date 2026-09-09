@@ -608,6 +608,16 @@ struct EventParticipationWithEvent: Codable, Identifiable {
     let registeredAt: Date
     let updatedAt: Date
     let event: EventInParticipation
+    var paymentStatus: PaymentStatus? = nil
+
+    var isConfirmed: Bool {
+        ["REGISTERED", "ATTENDED"].contains(status.uppercased())
+            && (paymentStatus == nil || paymentStatus == .paid)
+    }
+
+    var hasActiveBooking: Bool {
+        ["REGISTERED", "ATTENDED", "WAITLIST", "PENDING_PAYMENT"].contains(status.uppercased())
+    }
     
     enum CodingKeys: String, CodingKey {
         case id, status, attended, event
@@ -615,6 +625,7 @@ struct EventParticipationWithEvent: Codable, Identifiable {
         case memberId = "member_id"
         case registeredAt = "registered_at"
         case updatedAt = "updated_at"
+        case paymentStatus = "payment_status"
     }
 }
 

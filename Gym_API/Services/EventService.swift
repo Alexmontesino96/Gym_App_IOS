@@ -20,6 +20,8 @@ class EventService: ObservableObject {
     @Published var userRegistrationStatus: [Int: Bool] = [:]
     // MIGRADO A UserDataCacheService - ya no se necesita caché local
     @Published var userParticipations: [EventParticipation] = []
+    @Published private(set) var myEventParticipations: [EventParticipationWithEvent] = []
+    @Published private(set) var myParticipationsLoaded = false
     @Published var isCreatingEvent = false
     @Published var createEventErrorMessage: String?
     @Published var deleteEventSuccessMessage: String?
@@ -496,6 +498,8 @@ class EventService: ObservableObject {
     // MARK: - Update User Registration Status (Private)
     private func updateUserRegistrationStatus(from participations: [EventParticipationWithEvent]) {
         updateOnMainThread {
+            self.myEventParticipations = participations
+            self.myParticipationsLoaded = true
             // Actualizar el estado de registro para cada evento
             self.userRegistrationStatus.removeAll()
 
@@ -503,10 +507,7 @@ class EventService: ObservableObject {
             var registeredEvents: [Int] = []
             var pendingPaymentEvents: [Int] = []
             for participation in participations {
-                // Considerar "registrado" si el estado es REGISTERED o ATTENDED
-                // NOTA: EventParticipationWithEvent no tiene paymentStatus,
-                // pero checkUserRegistrationFromParticipations() lo maneja con EventParticipation
-                let isRegistered = participation.status == "REGISTERED" || participation.status == "ATTENDED"
+                let isRegistered = participation.isConfirmed
 
                 self.userRegistrationStatus[participation.eventId] = isRegistered
                 if isRegistered {
@@ -1286,6 +1287,8 @@ class EventService: ObservableObject {
         updateOnMainThread {
             self.events = []
             self.userParticipations = []
+            self.myEventParticipations = []
+            self.myParticipationsLoaded = false
             self.eventDetail = nil
             self.eventParticipations = []
             self.userRegistrationStatus = [:]

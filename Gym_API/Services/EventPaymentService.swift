@@ -330,6 +330,11 @@ class EventPaymentService: ObservableObject {
 
         defer { isProcessingPayment = false }
 
+        guard let gymId = GymService.shared.currentGymId else {
+            paymentError = "Select a workspace before continuing."
+            return nil
+        }
+
         guard let authService = authService,
               let token = await authService.getValidAccessToken() else {
             paymentError = "No se encontró token de autorización"
@@ -344,6 +349,7 @@ class EventPaymentService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -388,6 +394,11 @@ class EventPaymentService: ObservableObject {
 
         defer { isProcessingRefund = false }
 
+        guard let gymId = GymService.shared.currentGymId else {
+            paymentError = "Select a workspace before continuing."
+            return nil
+        }
+
         guard let authService = authService,
               let token = await authService.getValidAccessToken() else {
             paymentError = "No se encontró token de autorización"
@@ -402,6 +413,7 @@ class EventPaymentService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)

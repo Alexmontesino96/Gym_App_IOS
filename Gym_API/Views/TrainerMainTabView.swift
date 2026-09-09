@@ -10,6 +10,7 @@ import SwiftUI
 struct TrainerMainTabView: View {
     @EnvironmentObject var workspaceContext: WorkspaceContextService
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
     @State private var previousTab = 0
 
@@ -38,11 +39,14 @@ struct TrainerMainTabView: View {
             }
             .tag(1)
 
-            // La pestaña de agenda se retiró: eran 569 líneas de interfaz sin backend detrás,
-            // con un formulario cuyo botón «Save» descartaba lo que el usuario acababa de
-            // escribir. Vuelve en el tramo 6 del módulo de entrenamiento, cuando exista la
-            // entidad de cita. El hueco del tag 2 se deja a propósito para no renumerar el
-            // resto de pestañas ni la preferencia guardada de nadie.
+            if workspaceContext.showsPTEvents {
+                CoachingEventsView(isCoach: true)
+                    .tabItem {
+                        Image(systemName: selectedTab == 2 ? "calendar.circle.fill" : "calendar.circle")
+                        Text("Events")
+                    }
+                    .tag(2)
+            }
 
             // Social (Messages + Feed)
             AnimatedTabContent(isSelected: selectedTab == 3) {
@@ -50,7 +54,7 @@ struct TrainerMainTabView: View {
             }
             .tabItem {
                 Image(systemName: selectedTab == 3 ? "message.fill" : "message")
-                Text("Social")
+                Text("Messages")
             }
             .tag(3)
 
@@ -67,6 +71,12 @@ struct TrainerMainTabView: View {
         // Antes fijaba rojo o cian e ignoraba el acento que el entrenador elige en el tema,
         // que es justo lo que hace suya la app en un producto de marca personal.
         .accentColor(Color.dynamicAccent(theme: themeManager.currentTheme))
+        .onChange(of: workspaceContext.showsPTEvents) { _, enabled in
+            if !enabled && selectedTab == 2 { selectedTab = 0 }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await workspaceContext.fetchContext(forceRefresh: true) } }
+        }
         .onChange(of: selectedTab) { oldValue, newValue in
             handleTabChange(from: oldValue, to: newValue)
         }

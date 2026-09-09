@@ -17,6 +17,11 @@ struct CreateEventRequest: Codable {
     let maxParticipants: Int
     let status: String
     let firstMessageChat: String
+    var isPaid: Bool? = nil
+    var priceCents: Int? = nil
+    var currency: String? = nil
+    var refundPolicy: RefundPolicyType? = nil
+    var refundDeadlineHours: Int? = nil
     
     enum CodingKeys: String, CodingKey {
         case title, description, location, status
@@ -24,6 +29,11 @@ struct CreateEventRequest: Codable {
         case endTime = "end_time"
         case maxParticipants = "max_participants"
         case firstMessageChat = "first_message_chat"
+        case isPaid = "is_paid"
+        case priceCents = "price_cents"
+        case currency
+        case refundPolicy = "refund_policy"
+        case refundDeadlineHours = "refund_deadline_hours"
     }
     
     init(

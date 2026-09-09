@@ -113,7 +113,7 @@ class ServiceContainer: ObservableObject {
         // La galería de revisión visual solo necesita el módulo de entrenamiento. Arrancar el
         // resto (chat, contadores, push) en una app sin sesión pinta el diálogo de permiso de
         // notificaciones del sistema encima de cada captura y ensucia la revisión.
-        if TrainingGalleryScenario.fromLaunchArguments() != nil {
+        if TrainingGalleryScenario.fromLaunchArguments() != nil || CoachingEventsGalleryView.isActive {
             trainingService.configure(authService: authService, gymService: gymService)
             HTTPClient.shared.authService = authService
             isInitialized = true

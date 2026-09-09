@@ -28,6 +28,12 @@ class WorkspaceContextService: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingStats = false
     @Published var errorMessage: String?
+    @Published private(set) var isSavingEvents = false
+    @Published var eventsSettingsError: String?
+    private var eventsRequestVersion = UUID()
+    #if DEBUG
+    @Published var galleryPTEvents: PTEventsState?
+    #endif
 
     // MARK: - Cache Properties
     private var lastContextRefresh: Date?
@@ -42,6 +48,19 @@ class WorkspaceContextService: ObservableObject {
 
     var isPersonalTrainer: Bool {
         context?.workspace.isPersonalTrainer ?? false
+    }
+
+    var ptEvents: PTEventsState? {
+        #if DEBUG
+        if CoachingEventsGalleryView.isActive { return galleryPTEvents }
+        #endif
+        guard let gymId = GymService.shared.currentGymId,
+              context?.workspace.id == gymId, context?.ptEvents?.gymId == gymId else { return nil }
+        return context?.ptEvents
+    }
+
+    var showsPTEvents: Bool {
+        ptEvents?.available == true && ptEvents?.enabled == true
     }
 
     var workspaceType: String {
@@ -72,8 +91,12 @@ class WorkspaceContextService: ObservableObject {
 
     /// Obtiene el contexto del workspace actual desde la API
     func fetchContext(forceRefresh: Bool = false) async {
+        #if DEBUG
+        if CoachingEventsGalleryView.isActive { return }
+        #endif
         // Check cache
         let currentGymId = GymService.shared.currentGymId
+        let requestVersion = eventsRequestVersion
 
         if !forceRefresh,
            let lastRefresh = lastContextRefresh,
@@ -93,7 +116,9 @@ class WorkspaceContextService: ObservableObject {
             return
         }
 
-        guard let request = await HTTPClient.shared.makeRequest(url: url, method: "GET", includeGymHeader: true) else {
+        guard let request = await HTTPClient.shared.makeRequest(
+            url: url, method: "GET", includeGymHeader: true, gymId: currentGymId
+        ) else {
             errorMessage = "Failed to create authenticated request"
             isLoading = false
             return
@@ -101,14 +126,23 @@ class WorkspaceContextService: ObservableObject {
 
         do {
             let (data, response) = try await session.data(for: request)
+            guard requestVersion == eventsRequestVersion, currentGymId == GymService.shared.currentGymId else {
+                isLoading = false
+                return
+            }
 
             if let httpResponse = response as? HTTPURLResponse {
                 print("📡 Response status for workspace context: \(httpResponse.statusCode)")
 
                 if httpResponse.statusCode == 200 {
                     let decoder = JSONDecoder()
-
-                    self.context = try decoder.decode(WorkspaceContext.self, from: data)
+                    let fetched = try decoder.decode(WorkspaceContext.self, from: data)
+                    guard currentGymId == GymService.shared.currentGymId,
+                          fetched.workspace.id == currentGymId else {
+                        isLoading = false
+                        return
+                    }
+                    self.context = fetched
                     self.lastContextRefresh = Date()
                     self.loadedContextGymId = currentGymId
 
@@ -130,6 +164,10 @@ class WorkspaceContextService: ObservableObject {
                 }
             }
         } catch {
+            guard requestVersion == eventsRequestVersion, currentGymId == GymService.shared.currentGymId else {
+                isLoading = false
+                return
+            }
             print("❌ Error fetching workspace context: \(error)")
             errorMessage = "Network error: \(error.localizedDescription)"
 
@@ -141,6 +179,56 @@ class WorkspaceContextService: ObservableObject {
     }
 
     // MARK: - Fetch Stats
+
+    /// Persist the workspace-wide choice. A failed write leaves the switch in its saved state.
+    func setPTEventsEnabled(_ enabled: Bool) async {
+        #if DEBUG
+        if CoachingEventsGalleryView.isActive, let state = galleryPTEvents {
+            galleryPTEvents = PTEventsState(gymId: state.gymId, available: state.available, enabled: enabled,
+                                           canManage: state.canManage, canSellTickets: state.canSellTickets,
+                                           currency: state.currency)
+            return
+        }
+        #endif
+        guard !isSavingEvents, ptEvents?.canManage == true,
+              let gymId = GymService.shared.currentGymId,
+              let url = URL(string: "\(baseURL)/context/workspace/events") else { return }
+        let version = UUID()
+        eventsRequestVersion = version
+        isSavingEvents = true
+        eventsSettingsError = nil
+        defer {
+            if eventsRequestVersion == version { isSavingEvents = false }
+        }
+        guard var request = await HTTPClient.shared.makeRequest(url: url, method: "PUT", includeGymHeader: true),
+              GymService.shared.currentGymId == gymId else {
+            if eventsRequestVersion == version {
+                eventsSettingsError = "Couldn't save your changes. Please sign in again and retry."
+            }
+            return
+        }
+        request.setValue("\(gymId)", forHTTPHeaderField: "X-Gym-ID")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(["enabled": enabled])
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard eventsRequestVersion == version, GymService.shared.currentGymId == gymId else { return }
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                let error = try? JSONDecoder().decode(PTEventsAPIError.self, from: data)
+                eventsSettingsError = error?.detail ?? "Couldn't save your changes. Please try again."
+                return
+            }
+            let saved = try JSONDecoder().decode(PTEventsState.self, from: data)
+            guard saved.gymId == gymId, context?.workspace.id == gymId else { return }
+            context?.ptEvents = saved
+            saveContextToCache()
+        } catch {
+            guard eventsRequestVersion == version, GymService.shared.currentGymId == gymId else { return }
+            eventsSettingsError = "Couldn't save your changes. Check your connection and try again."
+        }
+    }
+
+    private struct PTEventsAPIError: Decodable { let detail: String }
 
     /// Obtiene las estadísticas del workspace actual
     func fetchStats(forceRefresh: Bool = false) async {
@@ -272,6 +360,9 @@ class WorkspaceContextService: ObservableObject {
 
     /// Limpia el contexto y cache
     func clearContext() {
+        eventsRequestVersion = UUID()
+        isSavingEvents = false
+        eventsSettingsError = nil
         context = nil
         stats = nil
         lastContextRefresh = nil
