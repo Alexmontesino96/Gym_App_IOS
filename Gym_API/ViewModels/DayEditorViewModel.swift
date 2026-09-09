@@ -74,6 +74,16 @@ final class DayEditorViewModel: ObservableObject {
     /// El porcentaje de 1RM se mueve de 5 en 5.
     static let percentStep = 5.0
     static let repsRange = 1...50
+    /// El tiempo de una serie se ajusta de cinco en cinco segundos, hasta una hora.
+    static let durationStep = 5
+    static let durationRange = 0...3600
+    /// La distancia, de diez en diez metros, hasta 42 km. Es la maratón; más no es una serie.
+    static let distanceStep: Double = 10
+    static let distanceRange: ClosedRange<Double> = 0...42_195
+    /// Objetivos con los que entra un ejercicio al cambiar de medida: 45 segundos y 400 metros
+    /// son la prescripción más frecuente de cada una, y se cambian en dos toques.
+    static let defaultDurationSeconds = 45
+    static let defaultDistanceMeters: Double = 400
 
     // MARK: - Init
 
@@ -139,13 +149,18 @@ final class DayEditorViewModel: ObservableObject {
     // MARK: - Lista
 
     func add(_ item: ExerciseCatalogItem) {
+        // Un ejercicio de cardio entra midiéndose en tiempo (contrato §8.1): nadie prescribe
+        // «Rowing 3 × 5». Con cualquier otra categoría, repeticiones, como siempre.
+        let measure = TrainingMeasure.default(for: item.category)
         var input = DayExerciseInput(
             exerciseKey: item.exerciseKey,
             exerciseName: item.name,
             exerciseId: item.id,
             orderIndex: exercises.count,
             setsCount: 3,
-            reps: "5",
+            reps: measure == .reps ? "5" : "",
+            measure: measure,
+            durationSeconds: measure == .duration ? Self.defaultDurationSeconds : nil,
             loadMode: item.category == .strength ? .weight : .bodyweight,
             restSeconds: item.defaultRestSeconds
         )
@@ -255,6 +270,42 @@ final class DayEditorViewModel: ObservableObject {
         update(id) { exercise in
             let next = exercise.restSeconds + steps * Self.restStep
             exercise.restSeconds = min(max(Self.restRange.lowerBound, next), Self.restRange.upperBound)
+        }
+    }
+
+    /// Cambia con qué se mide el ejercicio y le pone un objetivo de partida.
+    ///
+    /// El objetivo de la medida anterior NO se borra por si vuelve: quien pasa de tiempo a
+    /// distancia y se arrepiente recupera sus 45 segundos. Lo que sí se limpia son los ajustes
+    /// por serie de la medida que se abandona, que ya no tienen contra qué medirse.
+    func setMeasure(id: UUID, measure: TrainingMeasure) {
+        update(id) { exercise in
+            guard exercise.measure != measure else { return }
+            exercise.measure = measure
+            switch measure {
+            case .reps:
+                if exercise.reps.trimmingCharacters(in: .whitespaces).isEmpty { exercise.reps = "5" }
+            case .duration:
+                if exercise.durationSeconds == nil { exercise.durationSeconds = Self.defaultDurationSeconds }
+            case .distance:
+                if exercise.distanceMeters == nil { exercise.distanceMeters = Self.defaultDistanceMeters }
+            }
+        }
+    }
+
+    func adjustDuration(id: UUID, by steps: Int) {
+        update(id) { exercise in
+            let next = (exercise.durationSeconds ?? 0) + steps * Self.durationStep
+            let clamped = min(max(Self.durationRange.lowerBound, next), Self.durationRange.upperBound)
+            exercise.durationSeconds = clamped == 0 ? nil : clamped
+        }
+    }
+
+    func adjustDistance(id: UUID, by steps: Int) {
+        update(id) { exercise in
+            let next = (exercise.distanceMeters ?? 0) + Double(steps) * Self.distanceStep
+            let clamped = min(max(Self.distanceRange.lowerBound, next), Self.distanceRange.upperBound)
+            exercise.distanceMeters = clamped == 0 ? nil : clamped
         }
     }
 

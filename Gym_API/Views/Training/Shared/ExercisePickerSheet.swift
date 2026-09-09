@@ -39,6 +39,12 @@ struct ExercisePickerSheet: View {
     /// que enciende la sección «Recently used with Dana»; en las pantallas del cliente es nulo y
     /// la hoja se comporta exactamente como antes.
     var recentForClient: TrainingClientRef?
+    /// Qué se hace con el ejercicio elegido.
+    ///
+    /// La MEDIDA con la que entra no se decide aquí: la resuelve `TrainingMeasure.default(for:)`
+    /// a partir de la categoría del catálogo, y así el editor del entrenador (S21) y la sesión
+    /// del cliente (S11) coinciden sin repetir la regla. Un ejercicio de `cardio` entra
+    /// midiéndose en tiempo (contrato §8.1); cualquier otro, en repeticiones.
     let onSelect: (ExerciseCatalogItem) -> Void
 
     @EnvironmentObject var themeManager: ThemeManager

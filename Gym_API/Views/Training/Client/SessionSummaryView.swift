@@ -71,6 +71,41 @@ struct SessionSummaryView: View {
     }
 
     private var totalSets: Int { log?.totalSets ?? session?.completedSetCount ?? 0 }
+
+    /// Segundos de trabajo de las series por tiempo (contrato §8.1).
+    ///
+    /// De la sesión local se suman las series marcadas; del registro del servidor, las series
+    /// que vienen con `measure = duration`. Cero significa que no hubo ninguna, y entonces la
+    /// línea no aparece: una cifra a cero es una pregunta sin respuesta.
+    private var timedSeconds: Int {
+        if let log {
+            return log.sets.filter { $0.measure == .duration }.reduce(0) { $0 + ($1.durationSeconds ?? 0) }
+        }
+        return session?.completedDurationSeconds ?? 0
+    }
+
+    /// Lo que la persona dijo de cada ejercicio (contrato §8.2), con su nombre delante.
+    private var feedbackItems: [(name: String, feedback: TrainingExerciseFeedback)] {
+        let entries: [TrainingExerciseFeedback]
+        var names: [String: String] = [:]
+        if let log {
+            entries = log.exerciseFeedback
+            for set in log.sets where names[set.exerciseKey] == nil {
+                names[set.exerciseKey] = set.exerciseName
+            }
+            for exercise in log.prescription where names[exercise.exerciseKey] == nil {
+                names[exercise.exerciseKey] = exercise.exerciseName
+            }
+        } else if let session {
+            entries = session.exerciseFeedback
+            for exercise in session.exercises where names[exercise.exerciseKey] == nil {
+                names[exercise.exerciseKey] = exercise.exerciseName
+            }
+        } else {
+            entries = []
+        }
+        return entries.map { (names[$0.exerciseKey] ?? $0.exerciseKey, $0) }
+    }
     private var totalVolumeKg: Double { log?.totalVolumeKg ?? session?.totalVolumeKg ?? 0 }
     private var averageRPE: Double? { log?.sessionRPE ?? session?.averageRPE }
     private var isPartial: Bool { log?.isPartial ?? session?.isPartial ?? false }
@@ -99,8 +134,12 @@ struct SessionSummaryView: View {
     }
 
     private var canShare: Bool { networkMonitor.isConnected }
-    private var storiesEnabled: Bool { gymService.isModuleEnabled("stories") == true }
-    private var postsEnabled: Bool { gymService.isModuleEnabled("posts") == true }
+    // Plan §8.7: una sola función decide. En un espacio de entrenador personal no se comparte
+    // aunque `stories`/`posts` estén encendidos, y sin contexto del espacio tampoco (falla
+    // cerrada). `gymService` sigue como `@EnvironmentObject` para que la vista se repinte cuando
+    // el contexto termine de cargar.
+    private var storiesEnabled: Bool { TrainingShareAvailability.isAvailable(module: "stories") }
+    private var postsEnabled: Bool { TrainingShareAvailability.isAvailable(module: "posts") }
     private var showsShareSection: Bool { storiesEnabled || postsEnabled }
 
     private var isReadOnly: Bool {
@@ -121,6 +160,14 @@ struct SessionSummaryView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         header
                         metrics
+
+                        if timedSeconds > 0 {
+                            timedWorkLine
+                        }
+
+                        if !feedbackItems.isEmpty {
+                            feedbackSection
+                        }
 
                         if let celebration {
                             RecordCelebrationCard(
@@ -263,6 +310,37 @@ struct SessionSummaryView: View {
                 large: true,
                 spoken: averageRPE.map { "Average RPE \(Celebration.number($0))" } ?? "Average RPE not recorded"
             )
+        }
+    }
+
+    /// «4:30 of timed work». Va debajo de las métricas y no dentro: la fila de tres cifras es
+    /// la misma en todas las sesiones, y meter una cuarta que solo aparece a veces la descuadra.
+    private var timedWorkLine: some View {
+        Text("\(Celebration.durationText(timedSeconds)) of timed work")
+            .font(TrainingType.subhead())
+            .monospacedDigit()
+            .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+            .accessibilityLabel("\(Celebration.spokenDuration(timedSeconds)) of timed work.")
+    }
+
+    // MARK: - Feedback por ejercicio
+
+    private var feedbackSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TrainingEyebrow(text: "How it felt")
+
+            ForEach(feedbackItems, id: \.feedback.exerciseKey) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.name)
+                        .font(TrainingType.caption())
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ExerciseFeedbackChip(flag: item.feedback.flag, note: item.feedback.note)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+            }
         }
     }
 

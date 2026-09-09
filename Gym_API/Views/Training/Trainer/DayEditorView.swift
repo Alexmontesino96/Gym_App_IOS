@@ -266,16 +266,24 @@ struct DayEditorView: View {
                     onIncrement: { model.adjustSets(id: exercise.localId, by: 1) }
                 )
 
-                TrainerTextField(
-                    label: "Reps",
-                    text: repsBinding(exercise),
-                    placeholder: "5",
-                    spokenValue: spokenReps(exercise.reps),
-                    onDecrement: { model.adjustReps(id: exercise.localId, by: -1) },
-                    onIncrement: { model.adjustReps(id: exercise.localId, by: 1) },
-                    steppersEnabled: model.repsAreNumeric(exercise.reps)
-                )
+                // El menú de la medida va al lado de «Sets» porque es lo que decide qué campo
+                // aparece justo debajo: leerlo después del campo obligaría a volver atrás.
+                TrainerMenuField(label: "Measure", value: exercise.measure.title) {
+                    ForEach(TrainingMeasure.allMeasures, id: \.self) { measure in
+                        Button {
+                            model.setMeasure(id: exercise.localId, measure: measure)
+                        } label: {
+                            if measure == exercise.measure {
+                                Label(measure.title, systemImage: "checkmark")
+                            } else {
+                                Text(measure.title)
+                            }
+                        }
+                    }
+                }
             }
+
+            measureField(exercise)
 
             // Dos campos por fila y nunca tres: con tres, cada valor se queda en veinte puntos
             // de ancho y «2:00» se corta a «2:…». El stepper de carga se queda en su sitio
@@ -365,6 +373,47 @@ struct DayEditorView: View {
                 if model.moveDown(id: exercise.localId) { HapticManager.shared.play(.selection) }
             }
             Button("Remove") { remove(exercise) }
+        }
+    }
+
+    // MARK: - Campo de la medida
+
+    /// Repeticiones, tiempo o distancia (contrato §8.1). Es un campo y no tres: lo que no se
+    /// mide no se enseña, para que nadie escriba 45 segundos en un ejercicio de repeticiones y
+    /// se pregunte por qué el cliente no los ve.
+    @ViewBuilder
+    private func measureField(_ exercise: DayExerciseInput) -> some View {
+        switch exercise.measure {
+        case .reps:
+            TrainerTextField(
+                label: "Reps",
+                text: repsBinding(exercise),
+                placeholder: "5",
+                spokenValue: spokenReps(exercise.reps),
+                onDecrement: { model.adjustReps(id: exercise.localId, by: -1) },
+                onIncrement: { model.adjustReps(id: exercise.localId, by: 1) },
+                steppersEnabled: model.repsAreNumeric(exercise.reps)
+            )
+
+        case .duration:
+            TrainerStepperField(
+                label: "Time",
+                value: Celebration.durationText(exercise.durationSeconds ?? 0),
+                spokenValue: exercise.durationSeconds.map { Celebration.spokenDuration($0) } ?? "No target",
+                onDecrement: { model.adjustDuration(id: exercise.localId, by: -1) },
+                onIncrement: { model.adjustDuration(id: exercise.localId, by: 1) }
+            )
+
+        case .distance:
+            TrainerStepperField(
+                label: "Distance",
+                value: exercise.distanceMeters
+                    .map { Celebration.distanceText(meters: $0) } ?? NumberFormat.placeholder,
+                spokenValue: exercise.distanceMeters
+                    .map { Celebration.spokenDistance(meters: $0) } ?? "No target",
+                onDecrement: { model.adjustDistance(id: exercise.localId, by: -1) },
+                onIncrement: { model.adjustDistance(id: exercise.localId, by: 1) }
+            )
         }
     }
 

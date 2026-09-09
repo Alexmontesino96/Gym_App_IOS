@@ -160,6 +160,10 @@ public struct TrainingSetOverride: Codable, Hashable, Sendable {
     public let loadValue: Double?
     public let rpeTarget: Double?
     public let restSeconds: Int?
+    /// Objetivo de esta serie cuando el ejercicio se mide en tiempo (contrato §8.1).
+    public let durationSeconds: Int?
+    /// Objetivo de esta serie cuando el ejercicio se mide en distancia, en metros.
+    public let distanceMeters: Double?
 
     public enum CodingKeys: String, CodingKey {
         case reps
@@ -167,6 +171,8 @@ public struct TrainingSetOverride: Codable, Hashable, Sendable {
         case loadValue = "load_value"
         case rpeTarget = "rpe_target"
         case restSeconds = "rest_seconds"
+        case durationSeconds = "duration_seconds"
+        case distanceMeters = "distance_m"
     }
 
     public init(
@@ -174,13 +180,17 @@ public struct TrainingSetOverride: Codable, Hashable, Sendable {
         reps: String? = nil,
         loadValue: Double? = nil,
         rpeTarget: Double? = nil,
-        restSeconds: Int? = nil
+        restSeconds: Int? = nil,
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil
     ) {
         self.setNumber = setNumber
         self.reps = reps
         self.loadValue = loadValue
         self.rpeTarget = rpeTarget
         self.restSeconds = restSeconds
+        self.durationSeconds = durationSeconds
+        self.distanceMeters = distanceMeters
     }
 }
 
@@ -196,8 +206,14 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
     public let orderIndex: Int
     public let supersetGroup: String?
     public let setsCount: Int
-    /// Texto libre del contrato: "5", "8-10", "AMRAP".
+    /// Texto libre del contrato: "5", "8-10", "AMRAP". Se ignora si `measure` no es `reps`.
     public let reps: String
+    /// Con qué se mide la serie (contrato §8.1). Todo lo anterior a este campo es `reps`.
+    public let measure: TrainingMeasure
+    /// Objetivo en segundos cuando `measure == .duration`.
+    public let durationSeconds: Int?
+    /// Objetivo en metros cuando `measure == .distance`.
+    public let distanceMeters: Double?
     public let loadMode: TrainingLoadMode
     /// Kilos si `load_mode == .weight`, porcentaje si `.percent1RM`, nulo en el resto.
     public let loadValue: Double?
@@ -209,7 +225,7 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
     public let lastPerformance: TrainingLastPerformance?
 
     public enum CodingKeys: String, CodingKey {
-        case id, reps, notes
+        case id, reps, notes, measure
         case dayId = "day_id"
         case exerciseId = "exercise_id"
         case exerciseKey = "exercise_key"
@@ -217,6 +233,8 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
         case orderIndex = "order_index"
         case supersetGroup = "superset_group"
         case setsCount = "sets_count"
+        case durationSeconds = "duration_seconds"
+        case distanceMeters = "distance_m"
         case loadMode = "load_mode"
         case loadValue = "load_value"
         case rpeTarget = "rpe_target"
@@ -235,6 +253,9 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
         supersetGroup: String? = nil,
         setsCount: Int,
         reps: String,
+        measure: TrainingMeasure = .reps,
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil,
         loadMode: TrainingLoadMode = .weight,
         loadValue: Double? = nil,
         rpeTarget: Double? = nil,
@@ -252,6 +273,9 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
         self.supersetGroup = supersetGroup
         self.setsCount = setsCount
         self.reps = reps
+        self.measure = measure
+        self.durationSeconds = durationSeconds
+        self.distanceMeters = distanceMeters
         self.loadMode = loadMode
         self.loadValue = loadValue
         self.rpeTarget = rpeTarget
@@ -272,6 +296,9 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
         supersetGroup = try container.decodeIfPresent(String.self, forKey: .supersetGroup)
         setsCount = try container.decodeIfPresent(Int.self, forKey: .setsCount) ?? 1
         reps = try container.decodeIfPresent(String.self, forKey: .reps) ?? ""
+        measure = try container.decodeIfPresent(TrainingMeasure.self, forKey: .measure) ?? .reps
+        durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        distanceMeters = try container.decodeIfPresent(Double.self, forKey: .distanceMeters)
         loadMode = try container.decodeIfPresent(TrainingLoadMode.self, forKey: .loadMode) ?? .weight
         loadValue = try container.decodeIfPresent(Double.self, forKey: .loadValue)
         rpeTarget = try container.decodeIfPresent(Double.self, forKey: .rpeTarget)
@@ -303,6 +330,19 @@ public struct TrainingDayExercise: Codable, Hashable, Identifiable, Sendable {
 
     public func rpeTarget(forSet setNumber: Int) -> Double? {
         override(forSet: setNumber)?.rpeTarget ?? rpeTarget
+    }
+
+    /// Segundos prescritos de una serie, ya resuelto el override. Nulo si el ejercicio no se
+    /// mide en tiempo: un objetivo de duración en un ejercicio de repeticiones no significa nada.
+    public func durationSeconds(forSet setNumber: Int) -> Int? {
+        guard measure == .duration else { return nil }
+        return override(forSet: setNumber)?.durationSeconds ?? durationSeconds
+    }
+
+    /// Metros prescritos de una serie, ya resuelto el override.
+    public func distanceMeters(forSet setNumber: Int) -> Double? {
+        guard measure == .distance else { return nil }
+        return override(forSet: setNumber)?.distanceMeters ?? distanceMeters
     }
 
     /// `true` cuando las reps no son un número: "AMRAP", "8-10"…

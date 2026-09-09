@@ -45,6 +45,8 @@ struct SessionLogView: View {
     @State private var showsRestSheet = false
     @State private var showsNoteEditor = false
     @State private var noteDraft = ""
+    /// Ejercicio cuyo «How did this feel?» está abierto.
+    @State private var feedbackTarget: FeedbackTarget?
 
     /// Foco de VoiceOver del aviso de primera vez.
     ///
@@ -151,6 +153,18 @@ struct SessionLogView: View {
                 viewModel.addNote(text)
             }
             .environmentObject(themeManager)
+        }
+        .sheet(item: $feedbackTarget) { target in
+            if let exercise = session.exercise(id: target.id) {
+                ExerciseFeedbackSheet(
+                    exerciseName: exercise.exerciseName,
+                    currentFlag: exercise.feedbackFlag,
+                    currentNote: exercise.feedbackNote
+                ) { flag, note in
+                    viewModel.setFeedback(exerciseId: target.id, flag: flag, note: note)
+                }
+                .environmentObject(themeManager)
+            }
         }
         .confirmationDialog(
             "Leave without finishing? Your sets are saved.",
@@ -303,7 +317,7 @@ struct SessionLogView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     exerciseHeader(exercise)
 
-                    SetTableHeader()
+                    SetTableHeader(measure: exercise.measure)
 
                     ForEach(exercise.sets) { set in
                         SetRowView(
@@ -323,6 +337,20 @@ struct SessionLogView: View {
                             },
                             onChangeReps: { value in
                                 viewModel.updateSet(exerciseId: exercise.id, setId: set.id, reps: value)
+                            },
+                            onChangeDuration: { value in
+                                viewModel.updateSet(
+                                    exerciseId: exercise.id,
+                                    setId: set.id,
+                                    durationSeconds: .some(value)
+                                )
+                            },
+                            onChangeDistance: { value in
+                                viewModel.updateSet(
+                                    exerciseId: exercise.id,
+                                    setId: set.id,
+                                    distanceMeters: .some(value)
+                                )
                             },
                             onEditRPE: {
                                 rpeTarget = (exercise.id, set.id, set.rpe)
@@ -401,6 +429,11 @@ struct SessionLogView: View {
                         Label("Swap exercise", systemImage: "arrow.triangle.2.circlepath")
                     }
                     Button {
+                        feedbackTarget = FeedbackTarget(id: exercise.id)
+                    } label: {
+                        Label("How did this feel?", systemImage: "hand.raised")
+                    }
+                    Button {
                         onOpenHistory(exercise.exerciseKey, exercise.exerciseName)
                     } label: {
                         Label("View history", systemImage: "chart.line.uptrend.xyaxis")
@@ -434,6 +467,16 @@ struct SessionLogView: View {
 
             if let notes = exercise.notes, !notes.isEmpty {
                 noteLine(notes)
+            }
+
+            // Lo que la persona ya contestó, a la vista y a un toque de cambiarse: sin esto,
+            // «How did this feel?» es un menú que no se sabe si llegó a guardar algo.
+            if let flag = exercise.feedbackFlag {
+                Button(action: { feedbackTarget = FeedbackTarget(id: exercise.id) }) {
+                    ExerciseFeedbackChip(flag: flag, note: exercise.feedbackNote)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Changes how this exercise felt.")
             }
         }
         .padding(.horizontal, 16)
@@ -634,6 +677,14 @@ struct SessionLogView: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
     }
+}
+
+// MARK: - Objetivo de la hoja de feedback
+
+/// `sheet(item:)` pide `Identifiable` y un `UUID` suelto no lo es. Envolverlo es más barato que
+/// conformar `UUID` en todo el objetivo, que afectaría a pantallas que no son de este módulo.
+private struct FeedbackTarget: Identifiable {
+    let id: UUID
 }
 
 // MARK: - Nota de la sesión

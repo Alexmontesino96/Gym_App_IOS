@@ -31,6 +31,10 @@ public enum SetDeviation: String, Hashable, Sendable, CaseIterable {
     case belowLoad = "below load"
     /// Menos repeticiones que las prescritas.
     case belowReps = "below reps"
+    /// Menos tiempo que el prescrito, en un ejercicio por duración (contrato §8.1).
+    case belowTime = "below time"
+    /// Menos distancia que la prescrita.
+    case belowDistance = "below distance"
 
     public var text: String { rawValue }
 
@@ -40,6 +44,8 @@ public enum SetDeviation: String, Hashable, Sendable, CaseIterable {
         case .aboveTarget: return "Above the target RPE of \(target)."
         case .belowLoad: return "Below the prescribed load of \(target)."
         case .belowReps: return "Below the prescribed \(target) reps."
+        case .belowTime: return "Below the prescribed \(target)."
+        case .belowDistance: return "Below the prescribed \(target)."
         }
     }
 }
@@ -111,6 +117,13 @@ public enum CoachReview {
     /// Tolerancia de RPE: el RPE se registra en pasos de 0,5 y el objetivo también.
     public static let rpeTolerance: Double = 0.25
 
+    /// Tolerancia de tiempo: un segundo. Nadie suelta un plank exactamente en el 45,000, y
+    /// marcar «below time» por un segundo convierte la señal en ruido.
+    public static let durationToleranceSeconds = 1
+
+    /// Tolerancia de distancia: un metro, por lo mismo.
+    public static let distanceToleranceMeters: Double = 1
+
     /// Evalúa una serie contra su prescripción.
     ///
     /// Orden de prioridad, y solo una desviación por serie: primero el esfuerzo (RPE), luego la
@@ -139,11 +152,30 @@ public enum CoachReview {
             return ReviewedSet(setLog: set, deviation: .belowLoad, targetValue: target)
         }
 
-        let reps = prescription.reps(forSet: set.setNumber)
-        if !reps.uppercased().contains("AMRAP"),
-           let target = minimumReps(in: reps),
-           set.reps < target {
-            return ReviewedSet(setLog: set, deviation: .belowReps, targetValue: Double(target))
+        // Lo que se compara después depende de con qué se mide el ejercicio: comparar
+        // repeticiones en un plank acusaría a alguien de no hacer algo que nadie le pidió.
+        switch prescription.measure {
+        case .duration:
+            if let target = prescription.durationSeconds(forSet: set.setNumber),
+               let done = set.durationSeconds,
+               done < target - durationToleranceSeconds {
+                return ReviewedSet(setLog: set, deviation: .belowTime, targetValue: Double(target))
+            }
+
+        case .distance:
+            if let target = prescription.distanceMeters(forSet: set.setNumber),
+               let done = set.distanceMeters,
+               done < target - distanceToleranceMeters {
+                return ReviewedSet(setLog: set, deviation: .belowDistance, targetValue: target)
+            }
+
+        case .reps:
+            let reps = prescription.reps(forSet: set.setNumber)
+            if !reps.uppercased().contains("AMRAP"),
+               let target = minimumReps(in: reps),
+               set.reps < target {
+                return ReviewedSet(setLog: set, deviation: .belowReps, targetValue: Double(target))
+            }
         }
 
         return ReviewedSet(setLog: set)

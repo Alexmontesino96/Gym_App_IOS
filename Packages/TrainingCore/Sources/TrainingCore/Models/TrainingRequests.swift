@@ -20,14 +20,20 @@ public struct SetLogSyncRequest: Codable, Hashable, Sendable {
     public let exerciseId: Int?
     public let orderIndex: Int
     public let setNumber: Int
+    /// Con `measure ≠ reps` viaja 0 y el servidor guarda 0 (contrato §8.1).
     public let reps: Int
+    public let measure: TrainingMeasure
+    public let durationSeconds: Int?
+    public let distanceMeters: Double?
     public let weightKg: Double?
     public let rpe: Double?
     public let isWarmup: Bool
     public let completedAt: Date
 
     public enum CodingKeys: String, CodingKey {
-        case reps, rpe
+        case reps, rpe, measure
+        case durationSeconds = "duration_seconds"
+        case distanceMeters = "distance_m"
         case clientUUID = "client_uuid"
         case exerciseKey = "exercise_key"
         case exerciseName = "exercise_name"
@@ -49,6 +55,9 @@ public struct SetLogSyncRequest: Codable, Hashable, Sendable {
         orderIndex: Int,
         setNumber: Int,
         reps: Int,
+        measure: TrainingMeasure = .reps,
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil,
         weightKg: Double? = nil,
         rpe: Double? = nil,
         isWarmup: Bool = false,
@@ -61,11 +70,41 @@ public struct SetLogSyncRequest: Codable, Hashable, Sendable {
         self.exerciseId = exerciseId
         self.orderIndex = orderIndex
         self.setNumber = setNumber
-        self.reps = reps
+        // El contrato es explícito: fuera de `reps`, las repeticiones viajan a cero.
+        self.reps = measure == .reps ? reps : 0
+        self.measure = measure
+        self.durationSeconds = measure == .duration ? durationSeconds : nil
+        self.distanceMeters = measure == .distance ? distanceMeters : nil
         self.weightKg = weightKg
         self.rpe = rpe
         self.isWarmup = isWarmup
         self.completedAt = completedAt
+    }
+
+    /// Decodificación tolerante y **no** la sintetizada.
+    ///
+    /// Este cuerpo se lee de dos sitios: del fixture del contrato y del OUTBOX EN DISCO. Una
+    /// entrada encolada por la versión anterior no lleva `measure`, y con el decodificador
+    /// sintetizado (que exige la clave de un campo no opcional) una sesión pendiente se
+    /// volvería ilegible al actualizar la app: media hora de la vida de alguien perdida por
+    /// un campo nuevo.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        clientUUID = try container.decode(UUID.self, forKey: .clientUUID)
+        exerciseKey = try container.decodeIfPresent(String.self, forKey: .exerciseKey) ?? ""
+        exerciseName = try container.decodeIfPresent(String.self, forKey: .exerciseName)
+        dayExerciseId = try container.decodeIfPresent(Int.self, forKey: .dayExerciseId)
+        exerciseId = try container.decodeIfPresent(Int.self, forKey: .exerciseId)
+        orderIndex = try container.decodeIfPresent(Int.self, forKey: .orderIndex) ?? 0
+        setNumber = try container.decodeIfPresent(Int.self, forKey: .setNumber) ?? 1
+        reps = try container.decodeIfPresent(Int.self, forKey: .reps) ?? 0
+        measure = try container.decodeIfPresent(TrainingMeasure.self, forKey: .measure) ?? .reps
+        durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        distanceMeters = try container.decodeIfPresent(Double.self, forKey: .distanceMeters)
+        weightKg = try container.decodeIfPresent(Double.self, forKey: .weightKg)
+        rpe = try container.decodeIfPresent(Double.self, forKey: .rpe)
+        isWarmup = try container.decodeIfPresent(Bool.self, forKey: .isWarmup) ?? false
+        completedAt = try container.decode(Date.self, forKey: .completedAt)
     }
 }
 
@@ -83,9 +122,13 @@ public struct WorkoutLogSyncRequest: Codable, Hashable, Sendable {
     public let feeling: Int?
     public let notes: String?
     public let sets: [SetLogSyncRequest]
+    /// Conjunto COMPLETO del registro: al sincronizar reemplaza lo que hubiera (contrato §8.2).
+    /// Por eso viaja siempre, incluso vacío: vacío significa «el cliente no dijo nada».
+    public let exerciseFeedback: [TrainingExerciseFeedback]
 
     public enum CodingKeys: String, CodingKey {
         case title, status, notes, feeling, sets
+        case exerciseFeedback = "exercise_feedback"
         case clientUUID = "client_uuid"
         case dayId = "day_id"
         case programId = "program_id"
@@ -107,7 +150,8 @@ public struct WorkoutLogSyncRequest: Codable, Hashable, Sendable {
         sessionRPE: Double? = nil,
         feeling: Int? = nil,
         notes: String? = nil,
-        sets: [SetLogSyncRequest]
+        sets: [SetLogSyncRequest],
+        exerciseFeedback: [TrainingExerciseFeedback] = []
     ) {
         self.clientUUID = clientUUID
         self.dayId = dayId
@@ -121,6 +165,26 @@ public struct WorkoutLogSyncRequest: Codable, Hashable, Sendable {
         self.feeling = feeling
         self.notes = notes
         self.sets = sets
+        self.exerciseFeedback = exerciseFeedback
+    }
+
+    /// Tolerante por la misma razón que `SetLogSyncRequest`: esto se relee del outbox.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        clientUUID = try container.decode(UUID.self, forKey: .clientUUID)
+        dayId = try container.decodeIfPresent(Int.self, forKey: .dayId)
+        programId = try container.decodeIfPresent(Int.self, forKey: .programId)
+        scheduledDate = try container.decodeIfPresent(CalendarDate.self, forKey: .scheduledDate)
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Workout"
+        status = try container.decodeIfPresent(WorkoutLogStatus.self, forKey: .status) ?? .inProgress
+        startedAt = try container.decode(Date.self, forKey: .startedAt)
+        completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
+        sessionRPE = try container.decodeIfPresent(Double.self, forKey: .sessionRPE)
+        feeling = try container.decodeIfPresent(Int.self, forKey: .feeling)
+        notes = try container.decodeIfPresent(String.self, forKey: .notes)
+        sets = try container.decodeIfPresent([SetLogSyncRequest].self, forKey: .sets) ?? []
+        exerciseFeedback = try container
+            .decodeIfPresent([TrainingExerciseFeedback].self, forKey: .exerciseFeedback) ?? []
     }
 
     public var isFinal: Bool { status == .completed }

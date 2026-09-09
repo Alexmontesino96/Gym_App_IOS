@@ -14,9 +14,10 @@ import TrainingCore
 
 enum TrainingPrescription {
 
-    /// «4 × 5 @ RPE 8 · rest 2:00» / «3 × 8-10 · 60% · rest 1:30».
+    /// «4 × 5 @ RPE 8 · rest 2:00» / «3 × 8-10 · 60% · rest 1:30» / «3 × 45s · rest 1:00» /
+    /// «4 × 400 m».
     static func text(for exercise: TrainingDayExercise, unit: WeightUnit, includeRest: Bool = true) -> String {
-        var parts = ["\(exercise.setsCount) × \(exercise.reps)"]
+        var parts = ["\(exercise.setsCount) × \(target(for: exercise))"]
 
         switch exercise.loadMode {
         case .weight:
@@ -43,9 +44,24 @@ enum TrainingPrescription {
         return text
     }
 
+    /// El objetivo de cada serie según con qué se mida (contrato §8.1): «5», «45s», «400 m».
+    /// Sin objetivo escrito se enseña un guion y no un «3 × » a medias.
+    static func target(for exercise: TrainingDayExercise) -> String {
+        switch exercise.measure {
+        case .reps:
+            return exercise.reps.isEmpty ? NumberFormat.placeholder : exercise.reps
+        case .duration:
+            guard let seconds = exercise.durationSeconds, seconds > 0 else { return NumberFormat.placeholder }
+            return Celebration.compactDurationText(seconds)
+        case .distance:
+            guard let meters = exercise.distanceMeters, meters > 0 else { return NumberFormat.placeholder }
+            return Celebration.distanceText(meters: meters)
+        }
+    }
+
     /// «4 sets of 5 reps at RPE 8. Rest 2 minutes.»
     static func spoken(for exercise: TrainingDayExercise, unit: WeightUnit) -> String {
-        var text = "\(exercise.setsCount) set\(exercise.setsCount == 1 ? "" : "s") of \(spokenReps(exercise.reps))"
+        var text = "\(exercise.setsCount) set\(exercise.setsCount == 1 ? "" : "s") of \(spokenTarget(for: exercise))"
 
         switch exercise.loadMode {
         case .weight:
@@ -86,6 +102,18 @@ enum TrainingPrescription {
         var text = "\(minutes) minute\(minutes == 1 ? "" : "s")"
         if rest > 0 { text += " \(rest) seconds" }
         return text
+    }
+
+    /// Lo que se dice en voz alta del objetivo: «5 reps», «45 seconds», «400 meters».
+    private static func spokenTarget(for exercise: TrainingDayExercise) -> String {
+        switch exercise.measure {
+        case .reps:
+            return spokenReps(exercise.reps)
+        case .duration:
+            return Celebration.spokenDuration(exercise.durationSeconds ?? 0)
+        case .distance:
+            return Celebration.spokenDistance(meters: exercise.distanceMeters ?? 0)
+        }
     }
 
     private static func spokenReps(_ reps: String) -> String {

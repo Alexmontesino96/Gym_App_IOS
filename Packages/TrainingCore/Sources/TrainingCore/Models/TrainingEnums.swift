@@ -58,6 +58,42 @@ public enum TrainingProgramVisibility: String, TrainingCodableEnum {
 
 // MARK: - Prescripción
 
+/// Con qué se mide una serie (contrato §8.1).
+///
+/// `reps` es el valor por defecto de todas las filas que existían antes: un servidor que no
+/// mande el campo describe exactamente lo que describía ayer. Con `duration` el objetivo es
+/// `duration_seconds` y las repeticiones se ignoran; con `distance`, `distance_m`. La carga
+/// (`load_mode` / `load_value`) sigue valiendo para las tres: un farmer carry tiene tiempo y peso.
+public enum TrainingMeasure: String, TrainingCodableEnum {
+    case reps
+    case duration
+    case distance
+
+    public static var fallback: TrainingMeasure { .reps }
+
+    /// Los tres, en el orden en que se ofrecen en el menú «Measure» del editor.
+    public static let allMeasures: [TrainingMeasure] = [.reps, .duration, .distance]
+
+    /// Con la que entra un ejercicio del catálogo: el cardio se mide en tiempo, todo lo demás
+    /// en repeticiones. Es una propuesta, no una atadura: el entrenador la cambia en un toque.
+    public static func `default`(for category: ExerciseCategory) -> TrainingMeasure {
+        category == .cardio ? .duration : .reps
+    }
+
+    /// Etiqueta del selector: `Reps` / `Time` / `Distance` (contrato §8.1).
+    public var title: String {
+        switch self {
+        case .reps: return "Reps"
+        case .duration: return "Time"
+        case .distance: return "Distance"
+        }
+    }
+
+    /// Volumen y 1RM estimado solo existen para repeticiones. Un plank no tiene tonelaje y un
+    /// 400 m no tiene 1RM; inventárselos ensuciaría el histórico de fuerza de la persona.
+    public var countsTowardsVolume: Bool { self == .reps }
+}
+
 public enum TrainingLoadMode: String, TrainingCodableEnum {
     /// `load_value` en kilos.
     case weight
@@ -95,6 +131,50 @@ public enum WorkoutLogStatus: String, TrainingCodableEnum {
     case completed
 
     public static var fallback: WorkoutLogStatus { .inProgress }
+}
+
+/// Lo que el cliente dice de un ejercicio al terminarlo (contrato §8.2).
+///
+/// Cuatro respuestas y nada más: son las que un entrenador puede leer de un vistazo y las
+/// únicas que el servidor acepta. `unknown` no se ofrece ni se envía: existe para que un flag
+/// que este cliente todavía no conoce no tumbe la pantalla al decodificar.
+public enum TrainingFeedbackFlag: String, TrainingCodableEnum {
+    case pain
+    case tooEasy = "too_easy"
+    case tooHard = "too_hard"
+    case skipped
+    case unknown
+
+    public static var fallback: TrainingFeedbackFlag { .unknown }
+
+    /// Los cuatro que se pueden elegir, en el orden de la hoja.
+    public static let selectable: [TrainingFeedbackFlag] = [.pain, .tooEasy, .tooHard, .skipped]
+
+    /// Texto del chip y del botón: «Pain», «Too easy», «Too hard», «Skipped».
+    public var title: String {
+        switch self {
+        case .pain: return "Pain"
+        case .tooEasy: return "Too easy"
+        case .tooHard: return "Too hard"
+        case .skipped: return "Skipped"
+        case .unknown: return ""
+        }
+    }
+
+    /// SF Symbol del chip. Nunca es lo único que distingue un flag de otro: al lado va la palabra.
+    public var systemImage: String {
+        switch self {
+        case .pain: return "exclamationmark.triangle"
+        case .tooEasy: return "arrow.down"
+        case .tooHard: return "arrow.up"
+        case .skipped: return "minus.circle"
+        case .unknown: return "questionmark"
+        }
+    }
+
+    /// `pain` es el único que el entrenador tiene que ver antes que nada: se pinta con la tinta
+    /// de aviso del tema (`Color.dynamicWarningText`), no con un amarillo crudo.
+    public var isAlarming: Bool { self == .pain }
 }
 
 public enum PersonalRecordKind: String, TrainingCodableEnum {

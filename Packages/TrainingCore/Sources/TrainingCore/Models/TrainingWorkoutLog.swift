@@ -28,7 +28,11 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
     public let exerciseName: String
     public let orderIndex: Int
     public let setNumber: Int
+    /// Con `measure ≠ reps` el contrato manda 0 y el servidor guarda 0 (§8.1).
     public let reps: Int
+    public let measure: TrainingMeasure
+    public let durationSeconds: Int?
+    public let distanceMeters: Double?
     public let weightKg: Double?
     public let rpe: Double?
     public let isWarmup: Bool
@@ -39,7 +43,9 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
     public let prKind: PersonalRecordKind?
 
     public enum CodingKeys: String, CodingKey {
-        case id, reps, rpe
+        case id, reps, rpe, measure
+        case durationSeconds = "duration_seconds"
+        case distanceMeters = "distance_m"
         case clientUUID = "client_uuid"
         case workoutLogId = "workout_log_id"
         case dayExerciseId = "day_exercise_id"
@@ -67,6 +73,9 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
         orderIndex: Int = 0,
         setNumber: Int,
         reps: Int,
+        measure: TrainingMeasure = .reps,
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil,
         weightKg: Double? = nil,
         rpe: Double? = nil,
         isWarmup: Bool = false,
@@ -85,6 +94,9 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
         self.orderIndex = orderIndex
         self.setNumber = setNumber
         self.reps = reps
+        self.measure = measure
+        self.durationSeconds = durationSeconds
+        self.distanceMeters = distanceMeters
         self.weightKg = weightKg
         self.rpe = rpe
         self.isWarmup = isWarmup
@@ -106,6 +118,9 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
         orderIndex = try container.decodeIfPresent(Int.self, forKey: .orderIndex) ?? 0
         setNumber = try container.decodeIfPresent(Int.self, forKey: .setNumber) ?? 1
         reps = try container.decodeIfPresent(Int.self, forKey: .reps) ?? 0
+        measure = try container.decodeIfPresent(TrainingMeasure.self, forKey: .measure) ?? .reps
+        durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        distanceMeters = try container.decodeIfPresent(Double.self, forKey: .distanceMeters)
         weightKg = try container.decodeIfPresent(Double.self, forKey: .weightKg)
         rpe = try container.decodeIfPresent(Double.self, forKey: .rpe)
         isWarmup = try container.decodeIfPresent(Bool.self, forKey: .isWarmup) ?? false
@@ -115,10 +130,51 @@ public struct TrainingSetLog: Codable, Hashable, Identifiable, Sendable {
         prKind = try container.decodeIfPresent(PersonalRecordKind.self, forKey: .prKind)
     }
 
-    /// Volumen de la serie. Las de calentamiento no cuentan.
+    /// Volumen de la serie. Las de calentamiento no cuentan, y las que no se miden en
+    /// repeticiones tampoco: un plank de 45 s con chaleco no son «45 × 10 kg» de tonelaje.
     public var volumeKg: Double {
-        guard !isWarmup, let weightKg else { return 0 }
+        guard measure.countsTowardsVolume, !isWarmup, let weightKg else { return 0 }
         return weightKg * Double(reps)
+    }
+}
+
+// MARK: - Feedback por ejercicio (contrato §8.2)
+
+/// Lo que el cliente dice de un ejercicio entero: un flag y, si quiere, una nota corta.
+///
+/// Va por `exercise_key` y no por `day_exercise_id`: el cliente puede haber cambiado el
+/// ejercicio a mitad de sesión, y lo que quiere contar es de lo que hizo, no de lo que le
+/// pusieron. El conjunto se **reemplaza** entero en cada sincronización, así que reenviar el
+/// mismo registro deja el mismo estado.
+public struct TrainingExerciseFeedback: Codable, Hashable, Identifiable, Sendable {
+
+    public let exerciseKey: String
+    public let flag: TrainingFeedbackFlag
+    public let note: String?
+
+    public var id: String { exerciseKey }
+
+    /// El servidor recorta a 280; la app no manda más para no perder el final sin avisar.
+    public static let maxNoteLength = 280
+
+    public enum CodingKeys: String, CodingKey {
+        case flag, note
+        case exerciseKey = "exercise_key"
+    }
+
+    public init(exerciseKey: String, flag: TrainingFeedbackFlag, note: String? = nil) {
+        self.exerciseKey = exerciseKey
+        self.flag = flag
+        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.note = (trimmed?.isEmpty ?? true) ? nil : String(trimmed!.prefix(Self.maxNoteLength))
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        exerciseKey = try container.decodeIfPresent(String.self, forKey: .exerciseKey) ?? ""
+        flag = try container.decodeIfPresent(TrainingFeedbackFlag.self, forKey: .flag) ?? .unknown
+        let raw = try container.decodeIfPresent(String.self, forKey: .note)
+        note = (raw?.isEmpty ?? true) ? nil : raw
     }
 }
 
@@ -160,9 +216,12 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
     /// entreno libre no tiene contra qué compararse. Es lo que permite a S22 decir «above
     /// target» sin ir a buscar el programa, que además pudo cambiar desde entonces.
     public let prescription: [TrainingDayExercise]
+    /// Lo que el cliente dijo de cada ejercicio (contrato §8.2). Vacío mientras no diga nada.
+    public let exerciseFeedback: [TrainingExerciseFeedback]
 
     public enum CodingKeys: String, CodingKey {
         case id, status, title, notes, feeling, sets, prescription
+        case exerciseFeedback = "exercise_feedback"
         case gymId = "gym_id"
         case userId = "user_id"
         case programId = "program_id"
@@ -212,7 +271,8 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         coachCongratulated: Bool = false,
         clientThanked: Bool = false,
         sets: [TrainingSetLog] = [],
-        prescription: [TrainingDayExercise] = []
+        prescription: [TrainingDayExercise] = [],
+        exerciseFeedback: [TrainingExerciseFeedback] = []
     ) {
         self.id = id
         self.gymId = gymId
@@ -241,6 +301,7 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         self.clientThanked = clientThanked
         self.sets = sets
         self.prescription = prescription
+        self.exerciseFeedback = exerciseFeedback
     }
 
     public init(from decoder: Decoder) throws {
@@ -272,6 +333,8 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
         clientThanked = try container.decodeIfPresent(Bool.self, forKey: .clientThanked) ?? false
         sets = try container.decodeIfPresent([TrainingSetLog].self, forKey: .sets) ?? []
         prescription = try container.decodeIfPresent([TrainingDayExercise].self, forKey: .prescription) ?? []
+        exerciseFeedback = try container
+            .decodeIfPresent([TrainingExerciseFeedback].self, forKey: .exerciseFeedback) ?? []
     }
 
     public var isReviewed: Bool { reviewedAt != nil }
@@ -283,6 +346,49 @@ public struct TrainingWorkoutLog: Codable, Hashable, Identifiable, Sendable {
     /// La marca más destacable de la sesión, para la tarjeta de S18.
     public var topPersonalRecord: TrainingSetLog? {
         personalRecordSets.max { ($0.e1rmKg ?? $0.weightKg ?? 0) < ($1.e1rmKg ?? $1.weightKg ?? 0) }
+    }
+
+    /// Lo que el cliente dijo de un ejercicio, si dijo algo.
+    public func feedback(forExerciseKey key: String) -> TrainingExerciseFeedback? {
+        exerciseFeedback.first { $0.exerciseKey == key }
+    }
+
+    /// Alguien reportó dolor. Es lo primero que un entrenador tiene que ver de un registro.
+    public var hasPainFeedback: Bool { exerciseFeedback.contains { $0.flag == .pain } }
+
+    /// Copia con otro conjunto de feedback. La usa la galería DEBUG para pintar un registro con
+    /// dolor sin tener que tocar el fixture, que además comparten los tests del paquete.
+    public func replacingExerciseFeedback(_ feedback: [TrainingExerciseFeedback]) -> TrainingWorkoutLog {
+        TrainingWorkoutLog(
+            id: id,
+            gymId: gymId,
+            userId: userId,
+            programId: programId,
+            dayId: dayId,
+            scheduledDate: scheduledDate,
+            clientUUID: clientUUID,
+            status: status,
+            title: title,
+            startedAt: startedAt,
+            completedAt: completedAt,
+            receivedAt: receivedAt,
+            durationSeconds: durationSeconds,
+            sessionRPE: sessionRPE,
+            feeling: feeling,
+            notes: notes,
+            totalSets: totalSets,
+            totalVolumeKg: totalVolumeKg,
+            prCount: prCount,
+            isPartial: isPartial,
+            reviewedAt: reviewedAt,
+            reviewedBy: reviewedBy,
+            coachComment: coachComment,
+            coachCongratulated: coachCongratulated,
+            clientThanked: clientThanked,
+            sets: sets,
+            prescription: prescription,
+            exerciseFeedback: feedback
+        )
     }
 }
 

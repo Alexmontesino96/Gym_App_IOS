@@ -187,12 +187,17 @@ public struct OutboxEntry: Codable, Hashable, Identifiable, Sendable {
                     orderIndex: set.orderIndex,
                     setNumber: set.setNumber,
                     reps: set.reps,
+                    measure: set.measure,
+                    durationSeconds: set.durationSeconds,
+                    distanceMeters: set.distanceMeters,
                     weightKg: set.weightKg,
                     rpe: set.rpe,
                     isWarmup: set.isWarmup,
                     completedAt: set.completedAt
                 )
-            }
+            },
+            // El feedback es del ejercicio, no del día: perder el día no lo invalida.
+            exerciseFeedback: payload.exerciseFeedback
         )
         didRetryAsFreeWorkout = true
         updatedAt = date

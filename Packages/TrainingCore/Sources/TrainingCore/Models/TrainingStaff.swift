@@ -343,6 +343,10 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
     public var supersetGroup: String?
     public var setsCount: Int
     public var reps: String
+    /// Con qué se mide (contrato §8.1). Por defecto `reps`, como todo lo que ya estaba escrito.
+    public var measure: TrainingMeasure
+    public var durationSeconds: Int?
+    public var distanceMeters: Double?
     public var loadMode: TrainingLoadMode
     public var loadValue: Double?
     public var rpeTarget: Double?
@@ -353,7 +357,9 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
     public var id: UUID { localId }
 
     public enum CodingKeys: String, CodingKey {
-        case reps, notes
+        case reps, notes, measure
+        case durationSeconds = "duration_seconds"
+        case distanceMeters = "distance_m"
         case exerciseKey = "exercise_key"
         case exerciseName = "exercise_name"
         case exerciseId = "exercise_id"
@@ -376,6 +382,9 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
         supersetGroup: String? = nil,
         setsCount: Int = 3,
         reps: String = "5",
+        measure: TrainingMeasure = .reps,
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil,
         loadMode: TrainingLoadMode = .weight,
         loadValue: Double? = nil,
         rpeTarget: Double? = nil,
@@ -391,6 +400,9 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
         self.supersetGroup = supersetGroup
         self.setsCount = setsCount
         self.reps = reps
+        self.measure = measure
+        self.durationSeconds = durationSeconds
+        self.distanceMeters = distanceMeters
         self.loadMode = loadMode
         self.loadValue = loadValue
         self.rpeTarget = rpeTarget
@@ -410,6 +422,9 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
             supersetGroup: exercise.supersetGroup,
             setsCount: exercise.setsCount,
             reps: exercise.reps,
+            measure: exercise.measure,
+            durationSeconds: exercise.durationSeconds,
+            distanceMeters: exercise.distanceMeters,
             loadMode: exercise.loadMode,
             loadValue: exercise.loadValue,
             rpeTarget: exercise.rpeTarget,
@@ -429,6 +444,9 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
         supersetGroup = try container.decodeIfPresent(String.self, forKey: .supersetGroup)
         setsCount = try container.decodeIfPresent(Int.self, forKey: .setsCount) ?? 1
         reps = try container.decodeIfPresent(String.self, forKey: .reps) ?? ""
+        measure = try container.decodeIfPresent(TrainingMeasure.self, forKey: .measure) ?? .reps
+        durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        distanceMeters = try container.decodeIfPresent(Double.self, forKey: .distanceMeters)
         loadMode = try container.decodeIfPresent(TrainingLoadMode.self, forKey: .loadMode) ?? .weight
         loadValue = try container.decodeIfPresent(Double.self, forKey: .loadValue)
         rpeTarget = try container.decodeIfPresent(Double.self, forKey: .rpeTarget)
@@ -448,6 +466,9 @@ public struct DayExerciseInput: Codable, Hashable, Identifiable, Sendable {
             supersetGroup: supersetGroup,
             setsCount: setsCount,
             reps: reps,
+            measure: measure,
+            durationSeconds: durationSeconds,
+            distanceMeters: distanceMeters,
             loadMode: loadMode,
             loadValue: loadValue,
             rpeTarget: rpeTarget,

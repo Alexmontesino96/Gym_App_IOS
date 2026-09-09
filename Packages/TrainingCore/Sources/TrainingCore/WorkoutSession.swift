@@ -23,6 +23,10 @@ public struct SessionSet: Identifiable, Hashable, Sendable {
     public let id: UUID
     public var setNumber: Int
     public var reps: Int
+    /// Lo ejecutado cuando el ejercicio se mide en tiempo. Precargado con el objetivo.
+    public var durationSeconds: Int?
+    /// Lo ejecutado cuando el ejercicio se mide en distancia, en metros.
+    public var distanceMeters: Double?
     public var weightKg: Double?
     public var rpe: Double?
     public var isWarmup: Bool
@@ -41,6 +45,8 @@ public struct SessionSet: Identifiable, Hashable, Sendable {
         id: UUID = UUID(),
         setNumber: Int,
         reps: Int = 0,
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil,
         weightKg: Double? = nil,
         rpe: Double? = nil,
         isWarmup: Bool = false,
@@ -53,6 +59,8 @@ public struct SessionSet: Identifiable, Hashable, Sendable {
         self.id = id
         self.setNumber = setNumber
         self.reps = reps
+        self.durationSeconds = durationSeconds
+        self.distanceMeters = distanceMeters
         self.weightKg = weightKg
         self.rpe = rpe
         self.isWarmup = isWarmup
@@ -98,10 +106,16 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
     public var orderIndex: Int
     public var supersetGroup: String?
     public var loadMode: TrainingLoadMode
+    /// Con qué se miden las series de este ejercicio (contrato §8.1).
+    public var measure: TrainingMeasure
     /// Series prescritas por el entrenador. No cambia al añadir series: es el denominador de
     /// «sesión parcial» (plan §4.2).
     public var prescribedSetCount: Int
     public var prescribedReps: String?
+    /// Objetivo prescrito de una serie por tiempo, para la línea «3 × 45s».
+    public var prescribedDurationSeconds: Int?
+    /// Objetivo prescrito de una serie por distancia, para la línea «4 × 400 m».
+    public var prescribedDistanceMeters: Double?
     public var prescribedRPE: Double?
     public var restSeconds: Int
     public var notes: String?
@@ -110,6 +124,10 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
     public var isSwapped: Bool
     /// El cliente lo añadió (entreno libre o «+ Add exercise»).
     public var isExtra: Bool
+    /// Lo que el cliente respondió a «How did this feel?» (contrato §8.2). Nulo = no dijo nada.
+    public var feedbackFlag: TrainingFeedbackFlag?
+    /// La nota que acompaña al flag, como mucho 280 caracteres.
+    public var feedbackNote: String?
     public var sets: [SessionSet]
 
     public init(
@@ -121,14 +139,19 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
         orderIndex: Int = 0,
         supersetGroup: String? = nil,
         loadMode: TrainingLoadMode = .weight,
+        measure: TrainingMeasure = .reps,
         prescribedSetCount: Int = 0,
         prescribedReps: String? = nil,
+        prescribedDurationSeconds: Int? = nil,
+        prescribedDistanceMeters: Double? = nil,
         prescribedRPE: Double? = nil,
         restSeconds: Int = RestTimer.defaultSeconds,
         notes: String? = nil,
         lastPerformance: TrainingLastPerformance? = nil,
         isSwapped: Bool = false,
         isExtra: Bool = false,
+        feedbackFlag: TrainingFeedbackFlag? = nil,
+        feedbackNote: String? = nil,
         sets: [SessionSet] = []
     ) {
         self.id = id
@@ -139,14 +162,19 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
         self.orderIndex = orderIndex
         self.supersetGroup = supersetGroup
         self.loadMode = loadMode
+        self.measure = measure
         self.prescribedSetCount = prescribedSetCount
         self.prescribedReps = prescribedReps
+        self.prescribedDurationSeconds = prescribedDurationSeconds
+        self.prescribedDistanceMeters = prescribedDistanceMeters
         self.prescribedRPE = prescribedRPE
         self.restSeconds = restSeconds
         self.notes = notes
         self.lastPerformance = lastPerformance
         self.isSwapped = isSwapped
         self.isExtra = isExtra
+        self.feedbackFlag = feedbackFlag
+        self.feedbackNote = feedbackNote
         self.sets = sets
     }
 
@@ -156,12 +184,18 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
         let suggested = dayExercise.lastPerformance?.suggestedWeightKg
             ?? (dayExercise.loadMode == .weight ? dayExercise.loadValue : nil)
 
+        let measure = dayExercise.measure
+
         let sets: [SessionSet] = (1...max(1, dayExercise.setsCount)).map { number in
-            let reps = Self.firstNumber(in: dayExercise.reps(forSet: number)) ?? 0
+            // Fuera de `reps`, las repeticiones no significan nada y viajan a cero; lo que se
+            // precarga es el objetivo de la serie, que es lo que la persona va a confirmar.
+            let reps = measure == .reps ? (Self.firstNumber(in: dayExercise.reps(forSet: number)) ?? 0) : 0
             let prescribedLoad = dayExercise.loadMode == .weight ? dayExercise.loadValue(forSet: number) : nil
             return SessionSet(
                 setNumber: number,
                 reps: reps,
+                durationSeconds: dayExercise.durationSeconds(forSet: number),
+                distanceMeters: dayExercise.distanceMeters(forSet: number),
                 weightKg: prescribedLoad ?? suggested,
                 rpe: nil,
                 isWarmup: false,
@@ -181,8 +215,11 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
             orderIndex: dayExercise.orderIndex,
             supersetGroup: dayExercise.supersetGroup,
             loadMode: dayExercise.loadMode,
+            measure: measure,
             prescribedSetCount: max(1, dayExercise.setsCount),
             prescribedReps: dayExercise.reps,
+            prescribedDurationSeconds: dayExercise.durationSeconds,
+            prescribedDistanceMeters: dayExercise.distanceMeters,
             prescribedRPE: dayExercise.rpeTarget,
             restSeconds: dayExercise.restSeconds,
             notes: dayExercise.notes,
@@ -192,6 +229,9 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
     }
 
     /// Ejercicio libre: una serie vacía y nada prescrito.
+    ///
+    /// Un ejercicio de categoría `cardio` entra midiéndose en tiempo (contrato §8.1): quien
+    /// añade un remo no quiere teclear repeticiones, quiere teclear minutos.
     public init(catalogItem: ExerciseCatalogItem, orderIndex: Int, initialSetCount: Int = 1) {
         let sets = (1...max(1, initialSetCount)).map { SessionSet(setNumber: $0, isExtra: true) }
         self.init(
@@ -200,6 +240,7 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
             exerciseName: catalogItem.name,
             orderIndex: orderIndex,
             loadMode: .weight,
+            measure: TrainingMeasure.default(for: catalogItem.category),
             prescribedSetCount: 0,
             restSeconds: catalogItem.defaultRestSeconds,
             isExtra: true,
@@ -217,12 +258,29 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
     /// hace scroll al marcar la anterior.
     public var activeSet: SessionSet? { sets.first { !$0.isDone } }
 
-    public var volumeKg: Double { sets.reduce(0) { $0 + $1.volumeKg } }
+    /// Volumen del ejercicio. Solo cuenta lo que se mide en repeticiones (contrato §8.1).
+    public var volumeKg: Double {
+        guard measure.countsTowardsVolume else { return 0 }
+        return sets.reduce(0) { $0 + $1.volumeKg }
+    }
 
-    /// «4 × 5 @ RPE 8 · rest 2:00». Sin prescripción (entreno libre) no hay línea que enseñar.
+    /// Segundos de trabajo marcados en un ejercicio por tiempo. Es lo que suma S18.
+    public var completedDurationSeconds: Int {
+        guard measure == .duration else { return 0 }
+        return sets.filter(\.isDone).reduce(0) { $0 + ($1.durationSeconds ?? 0) }
+    }
+
+    /// El feedback del ejercicio, si el cliente respondió algo que se pueda enviar.
+    public var feedback: TrainingExerciseFeedback? {
+        guard let feedbackFlag, feedbackFlag != .unknown else { return nil }
+        return TrainingExerciseFeedback(exerciseKey: exerciseKey, flag: feedbackFlag, note: feedbackNote)
+    }
+
+    /// «4 × 5 @ RPE 8 · rest 2:00», «3 × 45s · rest 1:00», «4 × 400 m».
+    /// Sin prescripción (entreno libre) no hay línea que enseñar.
     public var prescriptionText: String? {
-        guard prescribedSetCount > 0, let prescribedReps else { return nil }
-        var text = "\(prescribedSetCount) × \(prescribedReps)"
+        guard prescribedSetCount > 0, let target = prescribedTargetText else { return nil }
+        var text = "\(prescribedSetCount) × \(target)"
         if let prescribedRPE {
             text += " @ RPE \(Self.trimmed(prescribedRPE))"
         }
@@ -230,6 +288,22 @@ public struct SessionExercise: Identifiable, Hashable, Sendable {
             text += " · rest \(RestTimer.clock(TimeInterval(restSeconds)))"
         }
         return text
+    }
+
+    /// El objetivo de una serie según la medida: «5», «45s» o «400 m». Nulo si no hay ninguno,
+    /// que es lo que impide pintar «3 × » a secas.
+    public var prescribedTargetText: String? {
+        switch measure {
+        case .reps:
+            guard let prescribedReps, !prescribedReps.isEmpty else { return nil }
+            return prescribedReps
+        case .duration:
+            guard let seconds = prescribedDurationSeconds, seconds > 0 else { return nil }
+            return Celebration.compactDurationText(seconds)
+        case .distance:
+            guard let meters = prescribedDistanceMeters, meters > 0 else { return nil }
+            return Celebration.distanceText(meters: meters)
+        }
     }
 
     /// Descanso de una serie concreta: manda el `set_override` si lo hay, si no el del ejercicio,
@@ -462,6 +536,43 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
         )
     }
 
+    // MARK: - Feedback por ejercicio (contrato §8.2)
+
+    /// Lo que el cliente ha dicho de cada ejercicio, en el orden de la sesión. Es el conjunto
+    /// COMPLETO que viaja en cada sincronización: el servidor reemplaza con esto.
+    public var exerciseFeedback: [TrainingExerciseFeedback] {
+        exercises.compactMap(\.feedback)
+    }
+
+    /// Segundos de trabajo de las series por tiempo ya marcadas. La cifra de S18.
+    public var completedDurationSeconds: Int {
+        exercises.reduce(0) { $0 + $1.completedDurationSeconds }
+    }
+
+    /// Guarda o borra la respuesta a «How did this feel?» de un ejercicio.
+    ///
+    /// `flag` nulo borra la respuesta entera, nota incluida: el flag es lo que le da sentido a
+    /// la nota, y una nota huérfana no la admite el contrato.
+    @discardableResult
+    public mutating func setFeedback(
+        exerciseId: UUID,
+        flag: TrainingFeedbackFlag?,
+        note: String? = nil
+    ) -> Bool {
+        guard let index = exercises.firstIndex(where: { $0.id == exerciseId }) else { return false }
+        guard let flag, flag != .unknown else {
+            exercises[index].feedbackFlag = nil
+            exercises[index].feedbackNote = nil
+            return true
+        }
+        exercises[index].feedbackFlag = flag
+        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        exercises[index].feedbackNote = trimmed.isEmpty
+            ? nil
+            : String(trimmed.prefix(TrainingExerciseFeedback.maxNoteLength))
+        return true
+    }
+
     /// Deshacer. Quien llama tiene que cancelar el cronómetro si estaba corriendo (UX §5 S11).
     @discardableResult
     public mutating func undoSet(exerciseId: UUID, setId: UUID) -> Bool {
@@ -479,6 +590,8 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
         exerciseId: UUID,
         setId: UUID,
         reps: Int? = nil,
+        durationSeconds: Int?? = nil,
+        distanceMeters: Double?? = nil,
         weightKg: Double?? = nil,
         rpe: Double?? = nil,
         isWarmup: Bool? = nil
@@ -486,6 +599,12 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
         guard let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseId }),
               let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setId }) else { return false }
         if let reps { exercises[exerciseIndex].sets[setIndex].reps = max(0, reps) }
+        if let durationSeconds {
+            exercises[exerciseIndex].sets[setIndex].durationSeconds = durationSeconds.map { max(0, $0) }
+        }
+        if let distanceMeters {
+            exercises[exerciseIndex].sets[setIndex].distanceMeters = distanceMeters.map { max(0, $0) }
+        }
         if let weightKg { exercises[exerciseIndex].sets[setIndex].weightKg = weightKg }
         if let rpe { exercises[exerciseIndex].sets[setIndex].rpe = rpe }
         if let isWarmup { exercises[exerciseIndex].sets[setIndex].isWarmup = isWarmup }
@@ -501,6 +620,8 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
         let newSet = SessionSet(
             setNumber: (template?.setNumber ?? 0) + 1,
             reps: template?.reps ?? 0,
+            durationSeconds: template?.durationSeconds,
+            distanceMeters: template?.distanceMeters,
             weightKg: template?.weightKg,
             rpe: nil,
             isWarmup: template?.isWarmup ?? false,
@@ -547,8 +668,13 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
             orderIndex: original.orderIndex,
             supersetGroup: original.supersetGroup,
             loadMode: original.loadMode,
+            // La medida es del hueco de la sesión, no del movimiento: quien cambia un plank por
+            // un hollow hold sigue midiendo tiempo.
+            measure: original.measure,
             prescribedSetCount: doneSets.isEmpty ? original.prescribedSetCount : pendingSets.count,
             prescribedReps: original.prescribedReps,
+            prescribedDurationSeconds: original.prescribedDurationSeconds,
+            prescribedDistanceMeters: original.prescribedDistanceMeters,
             prescribedRPE: original.prescribedRPE,
             restSeconds: catalogItem.defaultRestSeconds > 0 ? catalogItem.defaultRestSeconds : original.restSeconds,
             notes: original.notes,
@@ -561,6 +687,8 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
                 SessionSet(
                     setNumber: position + 1,
                     reps: set.reps,
+                    durationSeconds: set.durationSeconds,
+                    distanceMeters: set.distanceMeters,
                     weightKg: nil,
                     rpe: nil,
                     isWarmup: set.isWarmup,
@@ -609,7 +737,9 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
     /// La mejor serie de un ejercicio **dentro de esta sesión**. Se llama «Best set so far».
     public func bestSetSoFar(forExerciseKey key: String) -> BestSetSoFar? {
         let candidates = exercises
-            .filter { $0.exerciseKey == key }
+            // Una serie por tiempo o por distancia no compite por «mejor serie»: no tiene 1RM
+            // estimado ni volumen con el que compararse (contrato §8.1).
+            .filter { $0.exerciseKey == key && $0.measure == .reps }
             .flatMap(\.sets)
             .filter { $0.isDone && !$0.isWarmup && $0.reps > 0 }
             .map {
@@ -665,6 +795,9 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
                     orderIndex: exercise.orderIndex,
                     setNumber: set.setNumber,
                     reps: set.reps,
+                    measure: exercise.measure,
+                    durationSeconds: set.durationSeconds,
+                    distanceMeters: set.distanceMeters,
                     weightKg: set.weightKg,
                     rpe: set.rpe,
                     isWarmup: set.isWarmup,
@@ -685,7 +818,8 @@ public struct WorkoutSession: Identifiable, Hashable, Sendable {
             sessionRPE: sessionRPE,
             feeling: feeling,
             notes: notes,
-            sets: sets
+            sets: sets,
+            exerciseFeedback: exerciseFeedback
         )
     }
 

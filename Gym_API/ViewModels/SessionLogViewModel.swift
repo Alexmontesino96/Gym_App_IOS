@@ -172,8 +172,24 @@ final class SessionLogViewModel: ObservableObject {
         enqueue()
     }
 
-    func updateSet(exerciseId: UUID, setId: UUID, reps: Int? = nil, weightKg: Double?? = nil, rpe: Double?? = nil) {
-        guard session.updateSet(exerciseId: exerciseId, setId: setId, reps: reps, weightKg: weightKg, rpe: rpe) else { return }
+    func updateSet(
+        exerciseId: UUID,
+        setId: UUID,
+        reps: Int? = nil,
+        durationSeconds: Int?? = nil,
+        distanceMeters: Double?? = nil,
+        weightKg: Double?? = nil,
+        rpe: Double?? = nil
+    ) {
+        guard session.updateSet(
+            exerciseId: exerciseId,
+            setId: setId,
+            reps: reps,
+            durationSeconds: durationSeconds,
+            distanceMeters: distanceMeters,
+            weightKg: weightKg,
+            rpe: rpe
+        ) else { return }
         enqueue()
     }
 
@@ -221,6 +237,16 @@ final class SessionLogViewModel: ObservableObject {
 
     func removeExercise(id: UUID) {
         guard session.removeExercise(id: id) else { return }
+        enqueue()
+    }
+
+    /// «How did this feel?»: guarda el flag y la nota del ejercicio y los encola.
+    ///
+    /// Va por el outbox como el resto del registro (contrato §8.2): esta pantalla no llama a
+    /// la red ni cuando hay cobertura.
+    func setFeedback(exerciseId: UUID, flag: TrainingFeedbackFlag?, note: String?) {
+        guard session.setFeedback(exerciseId: exerciseId, flag: flag, note: note) else { return }
+        HapticManager.shared.play(.selection)
         enqueue()
     }
 

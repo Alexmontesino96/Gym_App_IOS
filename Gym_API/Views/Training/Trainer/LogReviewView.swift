@@ -61,6 +61,22 @@ struct LogReviewView: View {
         return CoachReview.group(sets: log.sets, prescription: log.prescription)
     }
 
+    /// Feedback de ejercicios que NO tienen ninguna serie registrada.
+    ///
+    /// Es justo el caso de «Skipped», y el que más falta hace ver: sin esto, decir «me lo
+    /// salté» equivale a no decir nada, porque el ejercicio no aparece en la lista.
+    private var feedbackWithoutSets: [(name: String, feedback: TrainingExerciseFeedback)] {
+        guard let log else { return [] }
+        let logged = Set(exercises.map(\.exerciseKey))
+        let names = Dictionary(
+            log.prescription.map { ($0.exerciseKey, $0.exerciseName) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return log.exerciseFeedback
+            .filter { !logged.contains($0.exerciseKey) && $0.flag != .unknown }
+            .map { (names[$0.exerciseKey] ?? $0.exerciseKey, $0) }
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
@@ -70,6 +86,9 @@ struct LogReviewView: View {
                         recordCard(log: log, record: record)
                     }
                     exerciseList
+                    if !feedbackWithoutSets.isEmpty {
+                        untouchedExercises
+                    }
                     if let note = log.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
                         clientNote(note)
                     }
@@ -261,6 +280,10 @@ struct LogReviewView: View {
                 }
             }
 
+            if let feedback = log?.feedback(forExerciseKey: exercise.exerciseKey) {
+                ExerciseFeedbackChip(flag: feedback.flag, note: feedback.note)
+            }
+
             if exercise.isCompact {
                 compactSets(exercise)
             } else {
@@ -365,6 +388,27 @@ struct LogReviewView: View {
         .frame(minHeight: 32)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenSetRow(reviewed))
+    }
+
+    /// Los ejercicios de los que solo hay una respuesta y ninguna serie.
+    private var untouchedExercises: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TrainingEyebrow(text: "Not logged")
+
+            ForEach(feedbackWithoutSets, id: \.feedback.exerciseKey) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.name)
+                        .font(TrainingType.headline())
+                        .foregroundColor(Color.dynamicText(theme: theme))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ExerciseFeedbackChip(flag: item.feedback.flag, note: item.feedback.note)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .trainingCard(theme: theme)
     }
 
     // MARK: - Nota del cliente
@@ -485,10 +529,24 @@ struct LogReviewView: View {
 
     // MARK: - Texto
 
-    /// «185 × 5» / «5 reps» cuando no hubo peso.
+    /// «185 × 5» / «5 reps» cuando no hubo peso / «0:45» / «400 m» según con qué se mida
+    /// la serie (contrato §8.1). Con carga y tiempo a la vez —un farmer carry— se escriben
+    /// los dos: «70 × 0:40».
     private func setSummary(_ set: TrainingSetLog) -> String {
-        guard let weight = set.weightKg else { return "\(set.reps) reps" }
-        return "\(NumberFormat.trimmedDecimal(unit.loadValue(kilograms: weight))) × \(set.reps)"
+        let measured = measuredText(set)
+        guard let weight = set.weightKg else { return measured }
+        return "\(NumberFormat.trimmedDecimal(unit.loadValue(kilograms: weight))) × \(measured)"
+    }
+
+    private func measuredText(_ set: TrainingSetLog) -> String {
+        switch set.measure {
+        case .reps:
+            return set.weightKg == nil ? "\(set.reps) reps" : "\(set.reps)"
+        case .duration:
+            return Celebration.durationText(set.durationSeconds ?? 0)
+        case .distance:
+            return Celebration.distanceText(meters: set.distanceMeters ?? 0)
+        }
     }
 
     private func spokenSet(_ set: TrainingSetLog) -> String {
@@ -497,7 +555,14 @@ struct LogReviewView: View {
             let value = NumberFormat.trimmedDecimal(unit.loadValue(kilograms: weight))
             parts.append("\(value) \(unit == .pounds ? "pounds" : "kilograms")")
         }
-        parts.append("\(set.reps) rep\(set.reps == 1 ? "" : "s")")
+        switch set.measure {
+        case .reps:
+            parts.append("\(set.reps) rep\(set.reps == 1 ? "" : "s")")
+        case .duration:
+            parts.append(Celebration.spokenDuration(set.durationSeconds ?? 0))
+        case .distance:
+            parts.append(Celebration.spokenDistance(meters: set.distanceMeters ?? 0))
+        }
         if let rpe = set.rpe { parts.append("RPE \(Celebration.number(rpe))") }
         return parts.joined(separator: ", ")
     }
@@ -518,6 +583,10 @@ struct LogReviewView: View {
         case .belowLoad:
             let converted = unit.loadValue(kilograms: value)
             return "\(NumberFormat.trimmedDecimal(converted)) \(unit == .pounds ? "pounds" : "kilograms")"
+        case .belowTime:
+            return Celebration.spokenDuration(Int(value))
+        case .belowDistance:
+            return Celebration.spokenDistance(meters: value)
         default:
             return Celebration.number(value)
         }

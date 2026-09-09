@@ -28,6 +28,10 @@ struct SetRowView: View {
     let onToggle: () -> Void
     let onChangeWeight: (Double?) -> Void
     let onChangeReps: (Int) -> Void
+    /// Segundos de una serie por tiempo. Nulo borra la cifra.
+    var onChangeDuration: (Int?) -> Void = { _ in }
+    /// Metros de una serie por distancia.
+    var onChangeDistance: (Double?) -> Void = { _ in }
     let onEditRPE: () -> Void
     let onRemove: () -> Void
 
@@ -47,6 +51,51 @@ struct SetRowView: View {
     private var rpeText: String {
         guard let rpe = set.rpe else { return "–" }
         return Celebration.number(rpe)
+    }
+
+    private var measure: TrainingMeasure { exercise.measure }
+
+    /// La columna del medio: repeticiones, mm:ss o metros (contrato §8.1).
+    private var measureText: String {
+        switch measure {
+        case .reps:
+            return "\(set.reps)"
+        case .duration:
+            return Celebration.durationText(set.durationSeconds ?? 0)
+        case .distance:
+            guard let meters = set.distanceMeters else { return NumberFormat.placeholder }
+            return Celebration.distanceText(meters: meters)
+        }
+    }
+
+    /// Encabezado de esa columna y etiqueta de su stepper.
+    private var measureLabel: String {
+        switch measure {
+        case .reps: return "Reps"
+        case .duration: return "Time"
+        case .distance: return "Distance"
+        }
+    }
+
+    /// El escalón de cada medida: cinco segundos y diez metros son con lo que se habla en un
+    /// gimnasio, igual que los 2,5 kg de un disco.
+    private static let durationStep = 5
+    private static let distanceStep: Double = 10
+
+    /// Ancho de la columna del medio. «10:00» no cabe en los 44 pt de «12».
+    private var measureColumnWidth: CGFloat { measure == .reps ? 44 : 62 }
+
+    private func changeMeasure(by steps: Int) {
+        switch measure {
+        case .reps:
+            onChangeReps(max(0, set.reps + steps))
+        case .duration:
+            let next = max(0, (set.durationSeconds ?? 0) + steps * Self.durationStep)
+            onChangeDuration(next == 0 ? nil : next)
+        case .distance:
+            let next = max(0, (set.distanceMeters ?? 0) + Double(steps) * Self.distanceStep)
+            onChangeDistance(next == 0 ? nil : next)
+        }
     }
 
     var body: some View {
@@ -71,10 +120,10 @@ struct SetRowView: View {
         .accessibilityValue("\(exercise.rowValue(for: set, unit: unit.trainingUnit)). \(state.spokenState)")
         .accessibilityAction(named: Text(set.isDone ? "Undo" : "Mark done"), onToggle)
         .accessibilityAction(named: Text("Set RPE"), onEditRPE)
-        // Sin estas dos, las repeticiones no se pueden cambiar con VoiceOver: el `editingBar`
-        // está oculto y el ajuste por deslizamiento lo ocupa el peso.
-        .accessibilityAction(named: Text("Increase reps")) { onChangeReps(set.reps + 1) }
-        .accessibilityAction(named: Text("Decrease reps")) { onChangeReps(max(0, set.reps - 1)) }
+        // Sin estas dos, la medida de la serie no se puede cambiar con VoiceOver: el
+        // `editingBar` está oculto y el ajuste por deslizamiento lo ocupa el peso.
+        .accessibilityAction(named: Text("Increase \(measureLabel.lowercased())")) { changeMeasure(by: 1) }
+        .accessibilityAction(named: Text("Decrease \(measureLabel.lowercased())")) { changeMeasure(by: -1) }
         .accessibilityAction(named: Text("Remove set"), onRemove)
         .accessibilityAdjustableAction { direction in
             // Con VoiceOver, deslizar arriba y abajo cambia el peso al escalón de la unidad.
@@ -105,11 +154,11 @@ struct SetRowView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
-            Text("\(set.reps)")
+            Text(measureText)
                 .font(TrainingType.monoM())
                 .monospacedDigit()
                 .foregroundColor(Color.dynamicText(theme: theme))
-                .frame(width: 44, alignment: .trailing)
+                .frame(width: measureColumnWidth, alignment: .trailing)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
 
@@ -137,7 +186,7 @@ struct SetRowView: View {
                     .monospacedDigit()
                     .foregroundColor(Color.dynamicTextTertiary(theme: theme))
 
-                Text("\(weightText) × \(set.reps)")
+                Text("\(weightText) × \(measureText)")
                     .font(TrainingType.monoM())
                     .monospacedDigit()
                     .foregroundColor(Color.dynamicText(theme: theme))
@@ -215,10 +264,10 @@ struct SetRowView: View {
             )
 
             stepper(
-                label: "Reps",
-                value: "\(set.reps)",
-                onDecrease: { onChangeReps(max(0, set.reps - 1)) },
-                onIncrease: { onChangeReps(set.reps + 1) }
+                label: measureLabel,
+                value: measureText,
+                onDecrease: { changeMeasure(by: -1) },
+                onIncrease: { changeMeasure(by: 1) }
             )
 
             Button(action: onEditRPE) {
@@ -301,10 +350,21 @@ struct SetRowView: View {
 
 struct SetTableHeader: View {
 
+    /// Con qué se mide el ejercicio: la tercera columna se llama «REPS», «TIME» o «DISTANCE».
+    var measure: TrainingMeasure = .reps
+
     @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
+
+    private var measureTitle: String {
+        switch measure {
+        case .reps: return "REPS"
+        case .duration: return "TIME"
+        case .distance: return "DISTANCE"
+        }
+    }
 
     var body: some View {
         if !dynamicTypeSize.isAccessibilitySize {
@@ -313,8 +373,8 @@ struct SetTableHeader: View {
                     .frame(width: 22, alignment: .leading)
                 Text("WEIGHT")
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                Text("REPS")
-                    .frame(width: 44, alignment: .trailing)
+                Text(measureTitle)
+                    .frame(width: measure == .reps ? 44 : 62, alignment: .trailing)
                 Text("RPE")
                     .frame(width: 34, alignment: .trailing)
                 Color.clear.frame(width: 44, height: 1)

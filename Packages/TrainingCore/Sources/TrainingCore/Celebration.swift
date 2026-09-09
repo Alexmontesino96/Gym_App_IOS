@@ -123,6 +123,54 @@ public enum Celebration {
         return "\(word) \(number(rounded)) \(unit.symbol)"
     }
 
+    // MARK: Medida de la serie (contrato §8.1)
+
+    /// «1:30» / «0:45». Es el formato del CAMPO de una serie por tiempo: siempre minutos y
+    /// segundos, para que la cifra no cambie de forma mientras se teclea. Reusa el mismo reloj
+    /// que el cronómetro de descanso, que es donde ya vivía este formato.
+    public static func durationText(_ seconds: Int) -> String {
+        RestTimer.clock(TimeInterval(max(0, seconds)))
+    }
+
+    /// «45s» / «1:30». El de una PRESCRIPCIÓN, donde lo que se lee es «3 × 45s» y escribir
+    /// «0:45» ahí sobra.
+    public static func compactDurationText(_ seconds: Int) -> String {
+        let value = max(0, seconds)
+        return value < 60 ? "\(value)s" : durationText(value)
+    }
+
+    /// «400 m» / «1.5 km». A partir de mil metros se pasa a kilómetros: un 5000 escrito en
+    /// metros se lee como un número de teléfono.
+    public static func distanceText(meters: Double) -> String {
+        guard meters.isFinite else { return "—" }
+        let value = max(0, meters)
+        if value >= 1000 { return "\(number(value / 1000)) km" }
+        return "\(number(value)) m"
+    }
+
+    /// «45 seconds» / «1 minute 30 seconds», dicho entero para VoiceOver (UX §1.8).
+    public static func spokenDuration(_ seconds: Int) -> String {
+        let total = max(0, seconds)
+        let minutes = total / 60
+        let rest = total % 60
+        if minutes == 0 { return "\(rest) second\(rest == 1 ? "" : "s")" }
+        var text = "\(minutes) minute\(minutes == 1 ? "" : "s")"
+        if rest > 0 { text += " \(rest) second\(rest == 1 ? "" : "s")" }
+        return text
+    }
+
+    /// «400 meters» / «1.5 kilometers».
+    public static func spokenDistance(meters: Double) -> String {
+        guard meters.isFinite else { return "no distance" }
+        let value = max(0, meters)
+        if value >= 1000 {
+            let kilometers = number(value / 1000)
+            return "\(kilometers) kilometer\(kilometers == "1" ? "" : "s")"
+        }
+        let text = number(value)
+        return "\(text) meter\(text == "1" ? "" : "s")"
+    }
+
     /// Sin decimales cuando el valor es entero: «185», no «185.0».
     public static func number(_ value: Double) -> String {
         let rounded = (value * 10).rounded() / 10
@@ -292,15 +340,25 @@ public extension SessionExercise {
     }
 
     /// Valor de VoiceOver de una fila: «185 pounds, 5 reps, RPE not set».
+    ///
+    /// Con una serie por tiempo o por distancia lo que se dice es lo que se midió («45 seconds»,
+    /// «400 meters»); el peso sigue delante cuando lo hay, porque un farmer carry lo tiene.
     func rowValue(for set: SessionSet, unit: TrainingWeightUnit) -> String {
         var parts: [String] = []
         if let weight = set.weightKg {
             let value = Celebration.number(unit.fromKilograms(OneRepMax.roundToStep(kilograms: weight, unit: unit)))
             parts.append("\(value) \(unit == .pounds ? "pounds" : "kilograms")")
-        } else {
+        } else if measure == .reps {
             parts.append("bodyweight")
         }
-        parts.append(set.reps == 1 ? "1 rep" : "\(set.reps) reps")
+        switch measure {
+        case .reps:
+            parts.append(set.reps == 1 ? "1 rep" : "\(set.reps) reps")
+        case .duration:
+            parts.append(Celebration.spokenDuration(set.durationSeconds ?? 0))
+        case .distance:
+            parts.append(Celebration.spokenDistance(meters: set.distanceMeters ?? 0))
+        }
         if let rpe = set.rpe {
             parts.append("RPE \(Celebration.number(rpe))")
         } else {

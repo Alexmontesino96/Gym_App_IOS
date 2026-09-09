@@ -148,6 +148,12 @@ struct TrainingGalleryView: View {
             themeManager.currentTheme = colorScheme == .dark ? .dark : .light
             gymService.setModulesForGallery(["stories": true, "posts": true, "training": true])
             trainingService.loadFixtures(for: scenario)
+            // El registro de revisión con un «pain» encima. El fixture no lo trae, y tocarlo
+            // cambiaría también los tests del paquete, que leen los mismos ficheros.
+            if scenario == .s22 || scenario == .s22PersonalRecord,
+               let log = trainingService.selectedLog {
+                trainingService.selectedLog = log.replacingExerciseFeedback(Self.galleryFeedback)
+            }
             if scenario == .clientDetail {
                 coachingService.setCheckInsForGallery([Self.galleryCheckIn])
             }
@@ -253,6 +259,18 @@ struct TrainingGalleryView: View {
     /// textos lo llevan dentro («Note for Dana», «Recently used with Dana», «Sent to Dana»).
     static let galleryClient = TrainingClientRef(id: 2, name: "Dana Reyes")
 
+    /// El feedback que pinta S22: un dolor con nota y un ejercicio que no se llegó a hacer.
+    /// La clave del segundo no está entre las series del fixture a propósito: es lo que enseña
+    /// la sección «Not logged».
+    static let galleryFeedback = [
+        TrainingExerciseFeedback(
+            exerciseKey: "barbell_bench_press",
+            flag: .pain,
+            note: "Right shoulder on the last set."
+        ),
+        TrainingExerciseFeedback(exerciseKey: "cable_triceps_pushdown", flag: .skipped)
+    ]
+
     /// El jueves del wireframe de S23.
     static let galleryNoteDate = CalendarDate(year: 2026, month: 9, day: 24)
 
@@ -281,7 +299,10 @@ struct TrainingGalleryView: View {
             notes: "Slept badly on Tuesday, otherwise good week.",
             weight: 63.5,
             measurementId: nil,
-            createdAt: CalendarDate(year: 2026, month: 9, day: 22).startOfDay(in: .current)
+            createdAt: CalendarDate(year: 2026, month: 9, day: 22).startOfDay(in: .current),
+            coachReply: nil,
+            coachReplyAt: nil,
+            coachReplyBy: nil
         )
     )
 
@@ -377,6 +398,9 @@ struct TrainingGalleryView: View {
                 scheduledDate: day.coachNote?.date,
                 startedAt: Date().addingTimeInterval(-1934)
             )
+            // Un ejercicio por tiempo al final del día: es la única forma de que la captura
+            // enseñe la columna «TIME» y el campo mm:ss de la fila (contrato §8.1).
+            session.exercises.append(SessionExercise(dayExercise: Self.galleryPlank))
             // Seis series marcadas, como el wireframe («32:14 · 6 of 18 sets»).
             var marked = 0
             for exercise in session.exercises {
@@ -397,6 +421,24 @@ struct TrainingGalleryView: View {
             onOpenHistory: { _, _ in }
         )
     }
+
+    /// El ejercicio por tiempo del escenario s11: «Plank 3 × 45s», con la tercera serie a un
+    /// minuto por un `set_override`.
+    static let galleryPlank = TrainingDayExercise(
+        id: 620,
+        dayId: 88,
+        exerciseId: 77,
+        exerciseKey: "front_plank",
+        exerciseName: "Plank",
+        orderIndex: 9,
+        setsCount: 3,
+        reps: "",
+        measure: .duration,
+        durationSeconds: 45,
+        loadMode: .bodyweight,
+        restSeconds: 60,
+        setOverrides: [TrainingSetOverride(setNumber: 3, durationSeconds: 60)]
+    )
 
     /// El día más cargado que el plan admite: **8 ejercicios y 30 series**.
     ///
