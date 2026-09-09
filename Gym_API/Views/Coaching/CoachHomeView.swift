@@ -41,6 +41,7 @@ struct CoachHomeView: View {
     let onOpenProfile: () -> Void
 
     @State private var showingCheckIn = false
+    @State private var showIntakeSheet = false
 
     // MARK: - Navegación del módulo de entrenamiento
     @State private var path: [TrainingRoute] = []
@@ -160,6 +161,13 @@ struct CoachHomeView: View {
                         note: noteForCoachCard
                     )
 
+                    // Plan §8.4: solo se enseña cuando la carga terminó y de verdad no hay
+                    // intake. Un fallo de red no es «no hay intake»: sería pedir el mismo
+                    // formulario dos veces a quien ya lo mandó.
+                    if healthService.intakeState == .loaded, healthService.myIntake == nil {
+                        TellYourCoachCard(onStart: { showIntakeSheet = true })
+                    }
+
                     if isTrainingEnabled {
                         trainingSection
                     } else {
@@ -205,6 +213,11 @@ struct CoachHomeView: View {
             .sheet(item: $shareFeedLogId) { logId in
                 CreatePostView(taggedWorkoutLogId: logId.value)
                     .environmentObject(themeManager)
+            }
+            .sheet(isPresented: $showIntakeSheet) {
+                IntakeFlowView()
+                    .environmentObject(themeManager)
+                    .environmentObject(healthService)
             }
             .fullScreenCover(item: $cover) { cover in
                 coverView(cover)
@@ -270,14 +283,17 @@ struct CoachHomeView: View {
                 cover = .sessionSummary(logId: id)
             },
             onStartWorkout: { cover = .sessionLog(dayId: nil) },
-            onShareToStory: {
+            // Plan §8.7: `LastLogCardView` esconde la acción cuando el cierre llega nulo, así
+            // que aquí basta con no pasarlo. En un espacio de entrenador personal no se comparte
+            // aunque `stories`/`posts` estén encendidos, y sin contexto tampoco (falla cerrada).
+            onShareToStory: TrainingShareAvailability.isAvailable(module: "stories") ? {
                 guard let id = lastLogId else { return }
                 shareStoryLogId = IdentifiableInt(value: id)
-            },
-            onShareToFeed: {
+            } : nil,
+            onShareToFeed: TrainingShareAvailability.isAvailable(module: "posts") ? {
                 guard let id = lastLogId else { return }
                 shareFeedLogId = IdentifiableInt(value: id)
-            },
+            } : nil,
             onViewProgramDay: {
                 guard let dayId = trainingService.myProgram?.today?.dayId else { return }
                 path.append(.day(id: dayId))
@@ -399,10 +415,12 @@ struct CoachHomeView: View {
                 onOpenHistory: { key, name in
                     path.append(.exerciseHistory(key: key, name: name))
                 },
-                onShare: { record in
+                // Plan §8.7: misma regla que en la tarjeta del último registro. `RecordsView`
+                // vuelve a comprobarla por su cuenta, porque se puede abrir desde otro sitio.
+                onShare: TrainingShareAvailability.isAvailable(module: "stories") ? { record in
                     guard let logId = record.set?.workoutLogId else { return }
                     shareStoryLogId = IdentifiableInt(value: logId)
-                }
+                } : nil
             )
         }
     }
@@ -435,8 +453,22 @@ struct CoachHomeView: View {
             state: healthService.weightState,
             onCheckIn: { showingCheckIn = true },
             onRetry: { Task { await healthService.loadAll() } },
-            compact: compact
+            compact: compact,
+            coachReply: coachReplyForCurrentCheckIn,
+            coachName: coachingService.coach?.fullName,
+            coachInitials: coachingService.coach?.initials,
+            coachPictureURL: coachingService.coach?.pictureURL
         )
+    }
+
+    /// Solo se enseña la respuesta si es del check-in que la tarjeta está pintando ahora mismo:
+    /// una respuesta de hace tres semanas colgada de la cifra de hoy contaría una historia falsa.
+    private var coachReplyForCurrentCheckIn: String? {
+        guard let checkIn = healthService.latestCheckIn,
+              Calendar.current.isDate(checkIn.weekStart, equalTo: Date(), toGranularity: .weekOfYear) else {
+            return nil
+        }
+        return checkIn.coachReply
     }
 
     private var nutritionRow: some View {
@@ -479,9 +511,10 @@ struct CoachHomeView: View {
     private func loadClientData(forceRefresh: Bool = false) async {
         async let coach: Void = loadCoachAndNote(forceRefresh: forceRefresh)
         async let health: Void = healthService.loadAll()
+        async let intake: Void = healthService.fetchMyIntake()
         async let sessions: Void = classService.loadSessionsForDateIfNeeded(date: Date())
         async let training: Void = loadTrainingIfEnabled()
-        _ = await (coach, health, sessions, training)
+        _ = await (coach, health, intake, sessions, training)
     }
 
     private func loadTrainingIfEnabled() async {
@@ -566,6 +599,57 @@ private struct SessionLogCoordinatorView: View {
 struct IdentifiableInt: Identifiable, Hashable {
     let value: Int
     var id: Int { value }
+}
+
+// MARK: - Intake (plan §8.4)
+
+/// «Tell your coach about you». Desaparece sola en cuanto `healthService.myIntake` deja de ser
+/// `nil`, porque la propia condición en `body` deja de pintarla: no hace falta que esta vista
+/// sepa nada de cuándo ocultarse.
+private struct TellYourCoachCard: View {
+    let onStart: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+
+    private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        Button(action: onStart) {
+            HStack(spacing: 12) {
+                Image(systemName: "person.text.rectangle")
+                    .font(TrainingType.icon(16, weight: .regular))
+                    .foregroundColor(Color.dynamicAccentText(theme: theme))
+                    .frame(width: 36, height: 36)
+                    .background(Color.dynamicSurface2(theme: theme))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Tell your coach about you")
+                        .font(TrainingType.headline())
+                        .foregroundColor(Color.dynamicText(theme: theme))
+                    Text("Goals, availability, and a quick health check — takes two minutes")
+                        .font(TrainingType.caption())
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(TrainingType.icon(12, weight: .regular))
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.dynamicSurface(theme: theme))
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Color.dynamicBorder(theme: theme).opacity(0.15), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens a short form for your coach: goals, availability, and a health check.")
+    }
 }
 
 // MARK: - Estados vacíos honestos

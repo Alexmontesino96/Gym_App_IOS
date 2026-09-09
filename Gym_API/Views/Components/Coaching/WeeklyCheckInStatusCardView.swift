@@ -30,6 +30,13 @@ struct WeeklyCheckInStatusCardView: View {
     /// dice nada que la cifra y la variación no digan mejor.
     var compact: Bool = false
 
+    /// Respuesta del entrenador al check-in de ESTA semana (plan §8.5). `nil` si no ha
+    /// contestado, o si el check-in que se está mostrando no es el de esta semana.
+    var coachReply: String? = nil
+    var coachName: String? = nil
+    var coachInitials: String? = nil
+    var coachPictureURL: String? = nil
+
     @EnvironmentObject var themeManager: ThemeManager
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
@@ -118,7 +125,64 @@ struct WeeklyCheckInStatusCardView: View {
             }
 
             statusRow
+
+            if !compact, let coachReply, !coachReply.isEmpty {
+                coachReplyRow(coachReply)
+            }
         }
+    }
+
+    /// La respuesta lleva la cara del entrenador, no solo el texto: es lo que la distingue de
+    /// una nota del sistema y confirma que la leyó una persona (plan §8.5).
+    private func coachReplyRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            coachAvatar
+            VStack(alignment: .leading, spacing: 2) {
+                if let coachName, !coachName.isEmpty {
+                    Text(coachName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                }
+                Text(text)
+                    .font(.system(size: 13))
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(Color.dynamicSurface2(theme: theme))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(coachName ?? "Your coach") replied: \(text)")
+    }
+
+    private var coachAvatar: some View {
+        Group {
+            if let picture = coachPictureURL, !picture.isEmpty {
+                OptimizedAsyncImage(
+                    url: picture,
+                    displaySize: CGSize(width: 24, height: 24),
+                    placeholder: { AnyView(coachInitialsCircle) },
+                    errorView: { AnyView(coachInitialsCircle) }
+                )
+                .frame(width: 24, height: 24)
+                .clipShape(Circle())
+            } else {
+                coachInitialsCircle
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var coachInitialsCircle: some View {
+        ZStack {
+            Circle().fill(Color.dynamicAccent(theme: theme))
+            Text(coachInitials ?? "?")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Color.accentInk)
+        }
+        .frame(width: 24, height: 24)
     }
 
     private var statusRow: some View {

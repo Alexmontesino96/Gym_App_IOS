@@ -31,8 +31,12 @@ struct ClientDetailView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var trainingService: TrainingService
     @EnvironmentObject var coachingService: CoachingService
+    @EnvironmentObject var healthService: HealthService
 
     @State private var sheet: TrainerTrainingSheet?
+    /// El check-in al que se está respondiendo. Va aparte de `sheet`: esa hoja es del módulo de
+    /// entrenamiento y esta pertenece a salud, con su propio EnvironmentObject.
+    @State private var replyTarget: ClientCheckIn?
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
     private var unit: WeightUnit { WeightUnitPreference.current }
@@ -48,6 +52,7 @@ struct ClientDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
                 programSection
+                intakeSection
                 logsSection
                 checkInsSection
             }
@@ -62,6 +67,13 @@ struct ClientDetailView: View {
         .refreshable { await load() }
         .sheet(item: $sheet) { item in
             sheetView(item)
+        }
+        .sheet(item: $replyTarget) { item in
+            CheckInReplySheet(client: item.client, checkIn: item.checkIn) { updated in
+                coachingService.applyCheckInReply(updated, clientId: item.client.id)
+            }
+            .environmentObject(themeManager)
+            .environmentObject(healthService)
         }
     }
 
@@ -269,6 +281,94 @@ struct ClientDetailView: View {
         .trainingCard(theme: theme)
     }
 
+    // MARK: - Intake (plan §8.4)
+
+    @ViewBuilder
+    private var intakeSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TrainingEyebrow(text: "Intake")
+
+            switch healthService.clientIntakeState {
+            case .idle, .loading:
+                VStack(alignment: .leading, spacing: 8) {
+                    TrainingSkeletonBar(width: 200, height: 16)
+                    TrainingSkeletonBar(width: 150, height: 12)
+                }
+                .trainingCard(theme: theme)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Loading intake")
+            case .failed:
+                TrainingRetryRow(
+                    message: "Couldn't load the intake.",
+                    retryTitle: "Retry",
+                    onRetry: { Task { await healthService.fetchClientIntake(userId: client.id) } }
+                )
+                .trainingCard(theme: theme)
+            case .loaded:
+                if let intake = healthService.clientIntake {
+                    intakeCard(intake)
+                } else {
+                    Text("No intake yet.")
+                        .font(TrainingType.body())
+                        .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                        .trainingCard(theme: theme)
+                }
+            }
+        }
+    }
+
+    private func intakeCard(_ intake: ClientIntake) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(intake.goals)
+                .font(TrainingType.body())
+                .foregroundColor(Color.dynamicText(theme: theme))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(intake.experience.label)
+                .font(TrainingType.caption())
+                .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+
+            if !intake.availableDays.isEmpty {
+                Text("Available: \(intakeDaysLabel(intake.availableDays))")
+                    .font(TrainingType.caption())
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+            }
+
+            if let injuries = intake.injuries?.trimmingCharacters(in: .whitespacesAndNewlines), !injuries.isEmpty {
+                Text("Injuries: \(injuries)")
+                    .font(TrainingType.caption())
+                    .foregroundColor(Color.dynamicTextSecondary(theme: theme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if intake.parqFlagged {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(TrainingType.icon(11, weight: .semibold))
+                    Text("PAR-Q flagged · \(intake.parq.flaggedKeys.count) "
+                         + (intake.parq.flaggedKeys.count == 1 ? "item" : "items"))
+                        .font(TrainingType.caption())
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(Color.dynamicWarningText(theme: theme))
+            }
+
+            if let waiverDate = intake.waiverAcceptedAt {
+                Text("Waiver signed \(TrainingFormat.dayMonth(waiverDate))")
+                    .font(TrainingType.caption())
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+            }
+        }
+        .trainingCard(theme: theme, padding: 14)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// «Mon, Wed, Fri» a partir de las claves en el orden en que llegan del servidor.
+    private func intakeDaysLabel(_ days: [String]) -> String {
+        let order = ["mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"]
+        return days.compactMap { order[$0] }.joined(separator: ", ")
+    }
+
     // MARK: - Registros recientes
 
     private var logsSection: some View {
@@ -373,9 +473,34 @@ struct ClientDetailView: View {
                 scalePill("Sleep", item.checkIn.sleep, lowIsBad: true)
                 scalePill("Soreness", item.checkIn.soreness, lowIsBad: false)
             }
+
+            if let reply = item.checkIn.coachReply?.trimmingCharacters(in: .whitespacesAndNewlines), !reply.isEmpty {
+                Divider().background(Color.dynamicBorder(theme: theme).opacity(0.15))
+                Text("Your reply")
+                    .font(TrainingType.label())
+                    .foregroundColor(Color.dynamicTextTertiary(theme: theme))
+                Text(reply)
+                    .font(TrainingType.body())
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button {
+                HapticManager.shared.play(.selection)
+                replyTarget = item
+            } label: {
+                Text(item.checkIn.coachReply == nil ? "Reply" : "Edit reply")
+                    .font(TrainingType.caption())
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color.dynamicText(theme: theme))
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .overlay(Capsule().stroke(Color.dynamicBorder(theme: theme).opacity(0.4), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens a text field to reply to \(item.client.displayName)'s check-in.")
         }
         .trainingCard(theme: theme, padding: 14)
-        .accessibilityElement(children: .combine)
     }
 
     /// Lo que merece un vistazo lleva el mismo `▲` que las desviaciones de S22.
@@ -442,7 +567,8 @@ struct ClientDetailView: View {
     private func load() async {
         async let programs: Void = trainingService.fetchClientPrograms(userId: client.id)
         async let logs: Void = trainingService.fetchClientLogs(userId: client.id, limit: 10)
-        _ = await (programs, logs)
+        async let intake: Void = healthService.fetchClientIntake(userId: client.id)
+        _ = await (programs, logs, intake)
 
         // Los check-ins ya los carga el panel; si aún no se han pedido en esta sesión, se piden.
         if coachingService.recentCheckIns.isEmpty && coachingService.checkInsState != .loading {

@@ -44,6 +44,17 @@ final class HealthService: ObservableObject {
     @Published var latestCheckIn: WeeklyCheckIn?
     @Published var checkInState: LoadState = .idle
 
+    /// Intake del propio cliente (8.4). `nil` con `intakeState == .loaded` es «no lo ha
+    /// rellenado todavía»; `nil` con `.failed` es «no se pudo consultar», y son cosas
+    /// distintas: la tarjeta «Tell your coach about you» solo se enseña en el primer caso.
+    @Published var myIntake: ClientIntake?
+    @Published var intakeState: LoadState = .idle
+
+    /// Intake de UN cliente, visto por el personal en su ficha. Un solo hueco, como
+    /// `clientPrograms` en `TrainingService`: la pantalla pide uno cada vez que abre a alguien.
+    @Published var clientIntake: ClientIntake?
+    @Published var clientIntakeState: LoadState = .idle
+
     // MARK: - Dependencias
     weak var authService: AuthServiceDirect?
     weak var gymService: GymService?
@@ -279,6 +290,130 @@ final class HealthService: ObservableObject {
         checkInState = .loaded
     }
 
+    // MARK: - Intake del cliente (8.4)
+
+    /// Carga el intake del cliente autenticado. Un 404 es «no lo ha rellenado» y se guarda como
+    /// éxito con `myIntake = nil`; solo un fallo de transporte deja `intakeState = .failed`, que
+    /// es lo que decide si `CoachHomeView` enseña la tarjeta de invitación.
+    func fetchMyIntake() async {
+        intakeState = .loading
+        let result = await getIntake(path: "/health/intake")
+        switch result {
+        case .notFound:
+            myIntake = nil
+            intakeState = .loaded
+        case .loaded(let intake):
+            myIntake = intake
+            intakeState = .loaded
+        case .failed:
+            intakeState = .failed
+        }
+    }
+
+    /// Envía (o reemplaza) el intake del cliente autenticado. `PUT` es upsert en el servidor.
+    @discardableResult
+    func submitIntake(_ request: ClientIntakeRequest) async -> Bool {
+        guard !isSaving else { return false }
+        isSaving = true
+        saveErrorMessage = nil
+        defer { isSaving = false }
+
+        guard let data = await send("/health/intake", method: "PUT", body: request) else {
+            return false
+        }
+        if let intake = try? decoder.decode(ClientIntake.self, from: data) {
+            myIntake = intake
+            intakeState = .loaded
+        } else {
+            Logger.shared.error("HealthService: intake guardado con cuerpo no decodificable", category: .network)
+        }
+        return true
+    }
+
+    /// Carga el intake de UN cliente, para la ficha del entrenador. Mismo tratamiento del 404
+    /// que `fetchMyIntake`: «no lo ha rellenado» no es un error.
+    func fetchClientIntake(userId: Int) async {
+        clientIntakeState = .loading
+        let result = await getIntake(path: "/health/clients/\(userId)/intake")
+        switch result {
+        case .notFound:
+            clientIntake = nil
+            clientIntakeState = .loaded
+        case .loaded(let intake):
+            clientIntake = intake
+            clientIntakeState = .loaded
+        case .failed:
+            clientIntakeState = .failed
+        }
+    }
+
+    private enum IntakeFetch {
+        case loaded(ClientIntake)
+        case notFound
+        case failed
+    }
+
+    /// `get()` no distingue «404» de «fallo de red»: los dos devuelven `nil`. Aquí sí hace
+    /// falta la diferencia, así que este va directo contra `perform` en vez de reutilizarlo.
+    private func getIntake(path: String) async -> IntakeFetch {
+        guard let url = URL(string: baseURL + path),
+              let request = await HTTPClient.shared.makeRequest(url: url, method: "GET") else {
+            return .failed
+        }
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return .failed }
+            if http.statusCode == 404 { return .notFound }
+            guard (200...299).contains(http.statusCode) else {
+                Logger.shared.error("HealthService \(path) -> \(http.statusCode)", category: .network)
+                return .failed
+            }
+            guard let intake = try? decoder.decode(ClientIntake.self, from: data) else {
+                Logger.shared.error("HealthService decode \(path): cuerpo no decodificable", category: .network)
+                return .failed
+            }
+            return .loaded(intake)
+        } catch {
+            if (error as NSError).code == NSURLErrorCancelled { return .failed }
+            Logger.shared.error("HealthService \(path): \(error.localizedDescription)", category: .network)
+            return .failed
+        }
+    }
+
+    // MARK: - Respuesta al check-in (8.5)
+
+    /// Responde al check-in de un cliente. Sobrescribir está permitido por el servidor, así
+    /// que se puede llamar más de una vez sobre el mismo check-in. Devuelve el check-in
+    /// actualizado para que quien llama (la ficha del cliente, el panel) refresque su copia en
+    /// memoria; `HealthService` solo actualiza la suya si coincide con `latestCheckIn`.
+    @discardableResult
+    func replyToCheckIn(userId: Int, checkInId: Int, text: String) async -> WeeklyCheckIn? {
+        guard !isSaving else { return nil }
+        isSaving = true
+        saveErrorMessage = nil
+        defer { isSaving = false }
+
+        let trimmed = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(HealthService.maxReplyLength))
+        guard !trimmed.isEmpty else { return nil }
+
+        let body = CheckInReplyRequest(text: trimmed)
+        guard let data = await send(
+            "/health/clients/\(userId)/check-ins/\(checkInId)/reply",
+            method: "POST",
+            body: body
+        ) else {
+            return nil
+        }
+        guard let updated = try? decoder.decode(WeeklyCheckIn.self, from: data) else {
+            Logger.shared.error("HealthService: respuesta a check-in con cuerpo no decodificable", category: .network)
+            return nil
+        }
+        if latestCheckIn?.id == updated.id { latestCheckIn = updated }
+        return updated
+    }
+
+    static let maxReplyLength = 500
+
     @discardableResult
     func updateGoalProgress(goalId: Int, currentValue: Double) async -> Bool {
         guard !isSaving else { return false }
@@ -394,6 +529,10 @@ final class HealthService: ObservableObject {
         latestMeasurement = nil
         latestCheckIn = nil
         checkInState = .idle
+        myIntake = nil
+        intakeState = .idle
+        clientIntake = nil
+        clientIntakeState = .idle
         weightHistory = .empty
         goals = []
         weightState = .idle

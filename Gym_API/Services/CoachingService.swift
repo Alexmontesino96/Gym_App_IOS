@@ -378,6 +378,18 @@ final class CoachingService: ObservableObject {
         checkInsState = .loaded
     }
 
+    /// Sustituye, en memoria, el check-in de un cliente por la versión que acaba de volver de
+    /// `HealthService.replyToCheckIn` (plan §8.5). `recentCheckIns` es de `CoachingService`, no
+    /// de `HealthService`, así que la respuesta no se propaga sola: quien la escribe la trae.
+    func applyCheckInReply(_ updated: WeeklyCheckIn, clientId: Int) {
+        guard let index = recentCheckIns.firstIndex(where: {
+            $0.client.id == clientId && $0.checkIn.id == updated.id
+        }) else {
+            return
+        }
+        recentCheckIns[index] = ClientCheckIn(client: recentCheckIns[index].client, checkIn: updated)
+    }
+
     private func participants(sessionId: Int) async -> [SessionParticipantRow] {
         guard let data = await get("/schedule/participation/participants/\(sessionId)") else { return [] }
         return (try? decoder.decode([SessionParticipantRow].self, from: data)) ?? []

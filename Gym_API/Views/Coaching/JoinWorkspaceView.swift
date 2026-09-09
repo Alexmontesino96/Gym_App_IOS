@@ -26,6 +26,9 @@ struct JoinWorkspaceView: View {
 
     @State private var code: String = ""
     @State private var didResolvePrefill = false
+    /// Tras canjear el código se enseña el intake (8.4) antes de cerrar esta pantalla: es la
+    /// única vez que se puede pedir sin sentirse un formulario perdido en un menú.
+    @State private var showIntake = false
 
     private var theme: ThemeManager.AppTheme { themeManager.currentTheme }
 
@@ -67,6 +70,15 @@ struct JoinWorkspaceView: View {
                 await invitationService.loadPreview(token: prefilledToken)
             }
             .onDisappear { invitationService.preview = nil }
+            .sheet(isPresented: $showIntake, onDismiss: {
+                // El intake es opcional de rellenar aquí mismo: si lo cierra sin enviar, sigue
+                // pudiendo hacerlo luego desde la tarjeta de CoachHomeView.
+                onJoined?()
+                dismiss()
+            }) {
+                IntakeFlowView()
+                    .environmentObject(themeManager)
+            }
         }
     }
 
@@ -221,8 +233,7 @@ struct JoinWorkspaceView: View {
             Task {
                 if await invitationService.accept(token: code) != nil {
                     HapticManager.shared.goalCompleted()
-                    onJoined?()
-                    dismiss()
+                    showIntake = true
                 }
             }
         } label: {
