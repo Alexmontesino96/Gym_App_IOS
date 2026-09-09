@@ -611,12 +611,24 @@ struct EventParticipationWithEvent: Codable, Identifiable {
     var paymentStatus: PaymentStatus? = nil
 
     var isConfirmed: Bool {
-        ["REGISTERED", "ATTENDED"].contains(status.uppercased())
-            && (paymentStatus == nil || paymentStatus == .paid)
+        guard ["REGISTERED", "ATTENDED"].contains(status.uppercased()) else { return false }
+        if event.isPaid == true { return paymentStatus == .paid }
+        if event.isPaid == false { return true }
+        return paymentStatus == nil || paymentStatus == .paid
+    }
+
+    var isWaitlisted: Bool {
+        ["WAITLIST", "WAITING_LIST"].contains(status.uppercased())
+    }
+
+    var needsPayment: Bool {
+        guard event.isPaid == true else { return false }
+        return status.uppercased() == "PENDING_PAYMENT"
+            || (status.uppercased() == "REGISTERED" && paymentStatus != .paid)
     }
 
     var hasActiveBooking: Bool {
-        ["REGISTERED", "ATTENDED", "WAITLIST", "PENDING_PAYMENT"].contains(status.uppercased())
+        isWaitlisted || ["REGISTERED", "ATTENDED", "PENDING_PAYMENT"].contains(status.uppercased())
     }
     
     enum CodingKeys: String, CodingKey {
@@ -638,12 +650,14 @@ struct EventInParticipation: Codable {
     let location: String
     let maxParticipants: Int
     let status: EventStatus
+    var isPaid: Bool? = nil
     
     enum CodingKeys: String, CodingKey {
         case title, description, location, status
         case startTime = "start_time"
         case endTime = "end_time"
         case maxParticipants = "max_participants"
+        case isPaid = "is_paid"
     }
     
     // Computed properties

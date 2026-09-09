@@ -13,7 +13,7 @@ struct CoachingEventDetailView: View {
     @State private var showingCancellation = false
     @State private var paymentIntent: PaymentIntent?
     @State private var participationId: Int?
-    @State private var chatRoom: ChatRoom?
+    @State private var chatRoom: ChatRoomSchema?
     @State private var error: String?
     @State private var isWorking = false
     @State private var loaded = false
@@ -25,9 +25,9 @@ struct CoachingEventDetailView: View {
         service.myEventParticipations.first { $0.eventId == event.id }
     }
     private var booked: Bool { service.isUserRegistered(eventId: event.id) }
-    private var waiting: Bool { participation?.status.uppercased() == "WAITLIST" }
+    private var waiting: Bool { participation?.isWaitlisted == true }
     private var pendingPayment: Bool {
-        participation?.status.uppercased() == "PENDING_PAYMENT" || participation?.paymentStatus == .pending
+        current.isPaid == true && participation?.needsPayment == true
     }
     private var ended: Bool { current.endTime <= Date() || current.status == .completed || current.status == .cancelled }
     private var full: Bool { current.maxParticipants > 0 && current.participantsCount >= current.maxParticipants }
@@ -300,8 +300,8 @@ struct CoachingEventDetailView: View {
         guard !isWorking else { return }
         isWorking = true; error = nil
         defer { isWorking = false }
-        await ChatService.shared.getMyRooms()
-        chatRoom = ChatService.shared.chatRooms.first { $0.eventId == event.id }
+        chatRoom = await ChatService.shared.getEventChatRoom(eventId: event.id)
+        if chatRoom != nil { await ChatService.shared.getMyRooms() }
         if chatRoom == nil { error = "The event conversation isn't available yet. Please try again." }
     }
 }

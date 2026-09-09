@@ -41,6 +41,29 @@ enum PTEventsContractChecks {
             precondition(decoded.isConfirmed == confirmed, "Confirmation: \(status)")
             precondition(decoded.hasActiveBooking == active, "Booking: \(status)")
         }
-        print("PT Events: 18 ticket amounts, workspace contract and 8 booking states passed.")
+
+        let freeEvent = EventInParticipation(title: "Free workshop", description: "Open session",
+                                             startTime: Date(), endTime: Date(), location: "Studio",
+                                             maxParticipants: 12, status: .scheduled, isPaid: false)
+        let legacyFreeBooking = EventParticipationWithEvent(
+            id: 2, eventId: 3, memberId: 4, status: "REGISTERED", attended: false,
+            registeredAt: Date(), updatedAt: Date(), event: freeEvent, paymentStatus: .pending
+        )
+        precondition(legacyFreeBooking.isConfirmed && !legacyFreeBooking.needsPayment)
+
+        let paidEvent = EventInParticipation(title: "Paid workshop", description: "Ticketed session",
+                                             startTime: Date(), endTime: Date(), location: "Studio",
+                                             maxParticipants: 12, status: .scheduled, isPaid: true)
+        let unpaidBooking = EventParticipationWithEvent(
+            id: 3, eventId: 4, memberId: 5, status: "REGISTERED", attended: false,
+            registeredAt: Date(), updatedAt: Date(), event: paidEvent, paymentStatus: nil
+        )
+        precondition(!unpaidBooking.isConfirmed && unpaidBooking.needsPayment)
+        let waiting = try JSONDecoder().decode(
+            EventParticipationStatus.self,
+            from: Data("\"WAITING_LIST\"".utf8)
+        )
+        precondition(waiting == .waitlist)
+        print("PT Events: amounts, workspace, payment gating and waitlist decoding passed.")
     }
 }

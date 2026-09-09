@@ -109,6 +109,15 @@ enum EventParticipationStatus: String, Codable, CaseIterable {
     case attended = "ATTENDED"
     case noShow = "NO_SHOW"
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self).uppercased()
+        guard let value = Self(rawValue: raw == "WAITING_LIST" ? "WAITLIST" : raw) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown participation status: \(raw)")
+        }
+        self = value
+    }
+
     var displayName: String {
         switch self {
         case .registered: return "Registrado"
